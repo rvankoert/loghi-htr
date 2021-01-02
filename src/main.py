@@ -31,7 +31,7 @@ def main():
     batchSize = 64
     imgSize = (1024, 64, 1)
     maxTextLen = 128
-    epochs = 5
+    epochs = 1
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
 

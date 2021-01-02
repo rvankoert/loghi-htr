@@ -55,7 +55,7 @@ class Model():
         # First conv block
         x = layers.Conv2D(
             32,
-            (3, 3),
+            (5, 5),
             activation="relu",
             kernel_initializer="he_normal",
             padding="same",
@@ -66,7 +66,7 @@ class Model():
         # Second conv block
         x = layers.Conv2D(
             64,
-            (3, 3),
+            (5, 5),
             activation="relu",
             kernel_initializer="he_normal",
             padding="same",
@@ -87,8 +87,8 @@ class Model():
 
         # Second conv block
         x = layers.Conv2D(
-            256,
-            (2, 2),
+            192,
+            (3, 3),
             activation="relu",
             kernel_initializer="he_normal",
             padding="same",
@@ -96,25 +96,38 @@ class Model():
         )(x)
         # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
 
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     256,
-        #     (3, 3),
-        #     activation="relu",
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv5",
-        # )(x)
-        # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
+        # Second conv block
+        x = layers.Conv2D(
+            256,
+            (3, 3),
+            activation="relu",
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv5",
+        )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            384,
+            (3, 3),
+            activation="relu",
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv6",
+        )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 256)
+        new_shape = ((width // 4), (height // 4) * 384)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(64, activation="relu", name="dense1")(x)
+        x = layers.Dense(256, activation="relu", name="dense1")(x)
+        x = layers.Dropout(0.2)(x)
+        x = layers.Dense(256, activation="relu", name="dense2")(x)
         x = layers.Dropout(0.2)(x)
 
         # RNNs
@@ -122,7 +135,7 @@ class Model():
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
 
         # Output layer
-        x = layers.Dense(number_characters+1, activation="softmax", name="dense2")(x)
+        x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
 
         # Add CTC layer for calculating CTC loss at each step
         output = CTCLayer(name="ctc_loss")(labels, x)
