@@ -44,7 +44,7 @@ class CTCLayer(tf.keras.layers.Layer):
         return y_pred
 
 class Model():
-    def build_model(self, imgSize, number_characters):
+    def build_model(self, imgSize, number_characters, learning_rate):
         (width, height, channels) =imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         input_img = layers.Input(
@@ -55,8 +55,8 @@ class Model():
         # First conv block
         x = layers.Conv2D(
             32,
-            (5, 5),
-            activation="relu",
+            (3, 3),
+            activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv1",
@@ -66,73 +66,73 @@ class Model():
         # Second conv block
         x = layers.Conv2D(
             64,
-            (5, 5),
-            activation="relu",
+            (3, 3),
+            activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv2",
         )(x)
         x = layers.MaxPooling2D((2, 2), name="pool2")(x)
 
-        # Second conv block
-        x = layers.Conv2D(
-            128,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv3",
-        )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
-
-        # Second conv block
-        x = layers.Conv2D(
-            192,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv4",
-        )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
-
-        # Second conv block
-        x = layers.Conv2D(
-            256,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv5",
-        )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
-
-        # Second conv block
-        x = layers.Conv2D(
-            384,
-            (3, 3),
-            activation="relu",
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv6",
-        )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     128,
+        #     (3, 3),
+#        activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv3",
+        # )(x)
+        # # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
+        #
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     192,
+        #     (3, 3),
+        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv4",
+        # )(x)
+        # # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
+        #
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     256,
+        #     (3, 3),
+        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv5",
+        # )(x)
+        # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
+        #
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     384,
+        #     (3, 3),
+        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv6",
+        # )(x)
+        # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 384)
+        new_shape = ((width // 4), (height // 4) * 64)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(256, activation="relu", name="dense1")(x)
         x = layers.Dropout(0.2)(x)
-        x = layers.Dense(256, activation="relu", name="dense2")(x)
-        x = layers.Dropout(0.2)(x)
+        # x = layers.Dense(256, activation="relu", name="dense2")(x)
+        # x = layers.Dropout(0.2)(x)
 
         # RNNs
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
 
         # Output layer
         x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
@@ -145,7 +145,7 @@ class Model():
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = keras.optimizers.Adam(learning_rate=0.001)
+        opt = keras.optimizers.Adam(learning_rate=learning_rate)
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
@@ -244,25 +244,22 @@ class Model():
 #         .batch(batch_size)
 #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 # )
-#
-#
-# # Get the model
-# model = Model().build_model()
-# model.summary()
-#
-# epochs = 100
-# early_stopping_patience = 10
-# # Add early stopping
-# early_stopping = keras.callbacks.EarlyStopping(
-#     monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
-# )
+
 #
 # # Train the model
     def train_batch(self, model, train_dataset, validation_dataset, epochs):
+        early_stopping_patience = 10
+        # # Add early stopping
+        early_stopping = keras.callbacks.EarlyStopping(
+            monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
+        )
+
         history = model.fit(
             train_dataset,
-            # validation_dataset,
-            epochs=epochs
+            validation_data=validation_dataset,
+            epochs=epochs,
+            callbacks=[early_stopping],
+
         )
 #
 # # Get the prediction model by extracting layers till the output layer

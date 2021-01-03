@@ -31,7 +31,8 @@ def main():
     batchSize = 64
     imgSize = (1024, 64, 1)
     maxTextLen = 128
-    epochs = 1
+    epochs = 20
+    learning_rate = 0.001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
 
@@ -42,19 +43,23 @@ def main():
     modelClass = Model()
     print(len(loader.charList))
     # model = keras.models.load_model('../models/model.pth')
-    model = modelClass.build_model(imgSize, len(loader.charList))  # (loader.charList, keep_prob=0.8)
+    model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
     model.summary()
-    # while loader.hasNext():
+
     batch = loader.getTrainDataSet()
     validation_dataset = loader.getValidationDataSet()
+    print("batch")
     print(batch)
+    print("batch")
+    print(validation_dataset)
+
     loss = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
     model.save('../models/model-full-epoch' + str(epochs))
     print('Loss:', loss)
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
-        model.get_layer(name="image").input, model.get_layer(name="dense2").output
+        model.get_layer(name="image").input, model.get_layer(name="dense3").output
     )
     prediction_model.summary()
 

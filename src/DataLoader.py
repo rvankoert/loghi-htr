@@ -154,7 +154,9 @@ class DataLoader:
 			.batch(self.batchSize)
 			.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 		)
+
 		validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+		print (validation_dataset)
 		self.validation_dataset = (
 			validation_dataset.map(
 				self.encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
