@@ -74,27 +74,27 @@ class Model():
         )(x)
         x = layers.MaxPooling2D((2, 2), name="pool2")(x)
 
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     128,
-        #     (3, 3),
-#        activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv3",
-        # )(x)
-        # # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
+        # Second conv block
+        x = layers.Conv2D(
+            128,
+            (3, 3),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv3",
+        )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
         #
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     192,
-        #     (3, 3),
-        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv4",
-        # )(x)
-        # # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
+        # Second conv block
+        x = layers.Conv2D(
+            192,
+            (3, 3),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv4",
+        )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
         #
         # # Second conv block
         # x = layers.Conv2D(
@@ -123,10 +123,10 @@ class Model():
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 64)
+        new_shape = ((width // 4), (height // 4) * 192)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(256, activation="relu", name="dense1")(x)
-        x = layers.Dropout(0.2)(x)
+        x = layers.Dense(512, activation="relu", name="dense1")(x)
+        x = layers.Dropout(0.5)(x)
         # x = layers.Dense(256, activation="relu", name="dense2")(x)
         # x = layers.Dropout(0.2)(x)
 
@@ -145,7 +145,7 @@ class Model():
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = keras.optimizers.Adam(learning_rate=learning_rate)
+        opt = keras.optimizers.Adam()
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
