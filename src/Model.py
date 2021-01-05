@@ -1,4 +1,6 @@
 import os
+from random import shuffle
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -33,12 +35,12 @@ class CTCLayer(tf.keras.layers.Layer):
 
         loss = self.loss_fn(y_true, y_pred, input_length, label_length)
         self.add_loss(loss)
-        print("CTC lambda inputs / shape")
-        print("y_pred:", y_pred.shape)  # (?, 778, 30)
-        print("labels:", y_true.shape)  # (?, 80)
-        print("input_length:", input_length.shape)  # (?, 1)
-        print("label_length:", label_length.shape)  # (?, 1)
-        print("loss:", loss)  # (?, 1)
+        # print("CTC lambda inputs / shape")
+        # print("y_pred:", y_pred.shape)  # (?, 778, 30)
+        # print("labels:", y_true.shape)  # (?, 80)
+        # print("input_length:", input_length.shape)  # (?, 1)
+        # print("label_length:", label_length.shape)  # (?, 1)
+        # print("loss:", loss)  # (?, 1)
 
         # At test time, just return the computed predictions
         return y_pred
@@ -77,7 +79,7 @@ class Model():
         # Second conv block
         x = layers.Conv2D(
             128,
-            (3, 3),
+            (1, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
@@ -88,7 +90,7 @@ class Model():
         # Second conv block
         x = layers.Conv2D(
             192,
-            (3, 3),
+            (3, 1),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
@@ -97,25 +99,25 @@ class Model():
         # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
         #
         # # Second conv block
-        # x = layers.Conv2D(
-        #     256,
-        #     (3, 3),
-        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv5",
-        # )(x)
+        x = layers.Conv2D(
+            256,
+            (1, 3),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv5",
+        )(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
         #
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     384,
-        #     (3, 3),
-        # activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv6",
-        # )(x)
+        # Second conv block
+        x = layers.Conv2D(
+            384,
+            (3, 1),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv6",
+        )(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
@@ -123,7 +125,7 @@ class Model():
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 192)
+        new_shape = ((width // 4), (height // 4) * 384)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(512, activation="relu", name="dense1")(x)
         x = layers.Dropout(0.5)(x)
@@ -145,7 +147,7 @@ class Model():
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = keras.optimizers.Adam()
+        opt = keras.optimizers.Adam(learning_rate=learning_rate)
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
@@ -247,20 +249,25 @@ class Model():
 
 #
 # # Train the model
-    def train_batch(self, model, train_dataset, validation_dataset, epochs):
+    def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath):
         early_stopping_patience = 10
         # # Add early stopping
         early_stopping = keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
         )
+        from keras.callbacks import History
+        from keras.callbacks import ModelCheckpoint
+        history = History()
+        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
 
         history = model.fit(
             train_dataset,
             validation_data=validation_dataset,
             epochs=epochs,
-            callbacks=[early_stopping],
-
+            callbacks=[early_stopping, history, checkpoint],
+            shuffle= True
         )
+        return history
 #
 # # Get the prediction model by extracting layers till the output layer
 # prediction_model = keras.models.Model(

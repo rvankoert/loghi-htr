@@ -1,2 +1,2 @@
-models/
-data/
+models/*
+data/*

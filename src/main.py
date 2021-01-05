@@ -31,7 +31,7 @@ def main():
     batchSize = 64
     imgSize = (1024, 64, 1)
     maxTextLen = 128
-    epochs = 20
+    epochs = 100
     learning_rate = 0.001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
@@ -44,6 +44,7 @@ def main():
     print(len(loader.charList))
     # model = keras.models.load_model('../models/model.pth')
     model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
+    model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
     model.summary()
 
     batch = loader.getTrainDataSet()
@@ -53,9 +54,26 @@ def main():
     print("batch")
     print(validation_dataset)
 
-    loss = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
-    model.save('../models/model-full-epoch' + str(epochs))
-    print('Loss:', loss)
+    best_loss = 999999
+    best_val_loss = 999999
+
+    # for epoch in range(0, epochs):
+    #     # history = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
+    #     print("starting epoch "+str(epoch)+"/"+str(epochs))
+    history = Model().train_batch(model, batch, validation_dataset, epochs=epochs, filepath='../models/model-val-best')
+    #     model.save('../models/model-full-epoch' + str(epoch))
+    #     val_loss = history.history.get('val_loss')[0]
+    #     loss = history.history.get('loss')[0]
+    #     print('Loss:', loss)
+    #     print('val_loss:', val_loss)
+    #     if loss < best_loss:
+    #         best_loss = loss
+    #         model.save('../models/best-train-model-' + str(loss))
+    #         print('new best trainModel:', loss)
+    #     if val_loss < best_val_loss:
+    #         best_val_loss = val_loss
+    #         model.save('../models/best-val-model-' + str(val_loss))
+    #         print('new best valModel:', val_loss)
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
