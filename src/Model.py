@@ -57,67 +57,72 @@ class Model():
         # First conv block
         x = layers.Conv2D(
             32,
-            (3, 3),
+            (5, 5),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv1",
         )(input_img)
         x = layers.MaxPooling2D((2, 2), name="pool1")(x)
-
+        x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
             64,
-            (3, 3),
+            (5, 5),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv2",
         )(x)
         x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+        x = layers.Dropout(0.2)(x)
 
         # Second conv block
         x = layers.Conv2D(
             128,
-            (1, 3),
+            (3, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv3",
         )(x)
+        x = layers.Dropout(0.2)(x)
         # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
         #
         # Second conv block
         x = layers.Conv2D(
-            192,
-            (3, 1),
+            128,
+            (3, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv4",
         )(x)
+        x = layers.Dropout(0.2)(x)
         # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
         #
         # # Second conv block
         x = layers.Conv2D(
             256,
-            (1, 3),
+            (3, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv5",
         )(x)
+        x = layers.Dropout(0.2)(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
         #
         # Second conv block
         x = layers.Conv2D(
             384,
-            (3, 1),
+            (3, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv6",
         )(x)
+        x = layers.Dropout(0.2)(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
@@ -133,8 +138,8 @@ class Model():
         # x = layers.Dropout(0.2)(x)
 
         # RNNs
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=0.25))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
 
         # Output layer
         x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
@@ -147,7 +152,8 @@ class Model():
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-        opt = keras.optimizers.Adam(learning_rate=learning_rate)
+#        opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=0.01)
+        opt = keras.optimizers.RMSprop(learning_rate=learning_rate)
         # Compile the model and return
         model.compile(optimizer=opt)
         return model
@@ -250,7 +256,7 @@ class Model():
 #
 # # Train the model
     def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath):
-        early_stopping_patience = 10
+        early_stopping_patience = 50
         # # Add early stopping
         early_stopping = keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True

@@ -31,8 +31,8 @@ def main():
     batchSize = 64
     imgSize = (1024, 64, 1)
     maxTextLen = 128
-    epochs = 100
-    learning_rate = 0.001
+    epochs = 1000
+    learning_rate = 0.0001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
 
@@ -42,9 +42,9 @@ def main():
 
     modelClass = Model()
     print(len(loader.charList))
-    # model = keras.models.load_model('../models/model.pth')
+#    model = keras.models.load_model('../models/model-val-best-52.96145')
     model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
-    model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+#    model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
     model.summary()
 
     batch = loader.getTrainDataSet()
