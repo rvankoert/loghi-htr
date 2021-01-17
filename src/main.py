@@ -13,6 +13,7 @@ import numpy as np
 import tensorflow.keras as keras
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import random
 
 
 class FilePaths:
@@ -25,6 +26,12 @@ class FilePaths:
 
 
 def main():
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    SEED = 43
+    random.seed(SEED)
+    np.random.seed(SEED)
+    tf.random.set_seed(SEED)
+
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     "main function"
 
