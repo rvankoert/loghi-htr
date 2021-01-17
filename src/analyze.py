@@ -9,8 +9,7 @@ import copy
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from DataLoader import Batch
-from Model import Model, DecoderType
+from Model import Model
 from SamplePreprocessor import preprocess
 
 

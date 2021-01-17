@@ -57,7 +57,7 @@ class Model():
         # First conv block
         x = layers.Conv2D(
             32,
-            (5, 5),
+            (3, 3),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
@@ -68,7 +68,7 @@ class Model():
         # Second conv block
         x = layers.Conv2D(
             64,
-            (5, 5),
+            (3, 3),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
@@ -123,6 +123,24 @@ class Model():
             name="Conv6",
         )(x)
         x = layers.Dropout(0.2)(x)
+        x = layers.Conv2D(
+            512,
+            (3, 3),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv7",
+        )(x)
+        x = layers.Dropout(0.2)(x)
+        x = layers.Conv2D(
+            768,
+            (3, 3),
+            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+            kernel_initializer="he_normal",
+            padding="same",
+            name="Conv8",
+        )(x)
+        x = layers.Dropout(0.2)(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
@@ -130,7 +148,7 @@ class Model():
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 384)
+        new_shape = ((width // 4), (height // 4) * 768)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(512, activation="relu", name="dense1")(x)
         x = layers.Dropout(0.5)(x)
@@ -138,8 +156,9 @@ class Model():
         # x = layers.Dropout(0.2)(x)
 
         # RNNs
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=0.25))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
 
         # Output layer
         x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
@@ -153,7 +172,7 @@ class Model():
         )
         # Optimizer
 #        opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=0.01)
-        opt = keras.optimizers.RMSprop(learning_rate=learning_rate)
+        opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.99, momentum=0.1)
         # Compile the model and return
         model.compile(optimizer=opt)
         return model

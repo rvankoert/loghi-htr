@@ -28,11 +28,11 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     "main function"
 
-    batchSize = 64
-    imgSize = (1024, 64, 1)
+    batchSize = 32
+    imgSize = (1024, 48, 4)
     maxTextLen = 128
     epochs = 1000
-    learning_rate = 0.0001
+    learning_rate = 0.001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
 
