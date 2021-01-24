@@ -4,7 +4,14 @@ import matplotlib.pyplot as plt
 import tensorflow_addons as tfa
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+print(tf.keras.backend.floatx())
+# print(tf.keras.backend.set_floatx('float32'))
+# print(tf.keras.backend.floatx())
+
+print(tf.keras.backend.set_floatx('float16'))
+# tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
+print(tf.keras.backend.floatx())
 
 img_path = tf.keras.utils.get_file('tf_logo.png', 'https://tensorflow.org/images/tf_logo.png')
 img_raw = tf.io.read_file(img_path)
@@ -68,9 +75,9 @@ MAX_SHEAR_LEVEL_VERTICAL = 0.0
 #
 transform =  tfa.image.transform(img, [1.0, MAX_SHEAR_LEVEL_HORIZONTAL * tf.random.uniform(shape=[],minval=-1,maxval=1), 0.0, MAX_SHEAR_LEVEL_VERTICAL * tf.random.uniform(shape=[],minval=-1,maxval=1), 1.0, 0.0, 0.0, 0.0])
 
-transform = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
-                                VSHIFT * tf.random.uniform(shape=[], minval=-1,
-                                                           maxval=1)])  # [dx dy] shift/translation
+# transform = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
+#                                 VSHIFT * tf.random.uniform(shape=[], minval=-1,
+#                                                            maxval=1)])  # [dx dy] shift/translation
 
 _ = plt.imshow(transform)
 

@@ -14,7 +14,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import random
-
+import keras.backend as K
 
 class FilePaths:
     "filenames and paths to data"
@@ -34,11 +34,22 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     "main function"
+    # print(tf.keras.backend.floatx())
+    # print(tf.keras.backend.set_floatx('DataLoader.DTYPE'))
+    # print(tf.keras.backend.floatx())
+    #
+    # tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
+    # print(tf.keras.backend.floatx())
+    # # K.set_epsilon(1e-4)  # default is 1e-7
+    # print(tf.keras.backend.set_floatx(DataLoader.DTYPE))
+    # K.set_epsilon(1e-4)  # default is 1e-7
+    # tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
+    # print(tf.keras.backend.floatx())
 
-    batchSize = 32
+    batchSize = 192
     imgSize = (1024, 48, 4)
     maxTextLen = 128
-    epochs = 1000
+    epochs = 10
     learning_rate = 0.001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
@@ -49,9 +60,11 @@ def main():
 
     modelClass = Model()
     print(len(loader.charList))
-#    model = keras.models.load_model('../models/model-val-best-52.96145')
-    model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
-#    model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+    model = keras.models.load_model('../models/model-val-best')
+    # model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
+    # model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+    # model.compile(keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.99, momentum=0.1))
+
     model.summary()
 
     batch = loader.getTrainDataSet()
@@ -92,6 +105,7 @@ def main():
     def decode_batch_predictions(pred):
         input_len = np.ones(pred.shape[0]) * pred.shape[1]
         # Use greedy search. For complex tasks, you can use beam search
+        pred = tf.dtypes.cast(pred, tf.float32)
         results = keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
                   :, :maxTextLen
                   ]

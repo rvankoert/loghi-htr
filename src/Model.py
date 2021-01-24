@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 from pathlib import Path
 from collections import Counter
+import DataLoader as dataLoader
 
 import tensorflow as tf
 from tensorflow import keras
@@ -50,13 +51,21 @@ class Model():
         (width, height, channels) =imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         input_img = layers.Input(
-            shape=(width, height, channels), name="image", dtype="float32"
+            shape=(width, height, channels), name="image"
         )
-        labels = layers.Input(name="label", shape=(None,), dtype="float32")
+        labels = layers.Input(name="label", shape=(None,))
 
         # First conv block
+        # x = layers.Conv2D(
+        #     1,
+        #     (1, 1),
+        #     activation=tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv0",
+        # )(input_img)
         x = layers.Conv2D(
-            32,
+            16,
             (3, 3),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
@@ -64,10 +73,10 @@ class Model():
             name="Conv1",
         )(input_img)
         x = layers.MaxPooling2D((2, 2), name="pool1")(x)
-        x = layers.Dropout(0.2)(x)
+        # x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
-            64,
+            32,
             (3, 3),
             activation=tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
@@ -75,21 +84,21 @@ class Model():
             name="Conv2",
         )(x)
         x = layers.MaxPooling2D((2, 2), name="pool2")(x)
-        x = layers.Dropout(0.2)(x)
+        # x = layers.Dropout(0.2)(x)
 
         # Second conv block
         x = layers.Conv2D(
-            128,
+            64,
             (3, 3),
             activation = tf.keras.layers.LeakyReLU(alpha=0.3),
             kernel_initializer="he_normal",
             padding="same",
             name="Conv3",
         )(x)
-        x = layers.Dropout(0.2)(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool3")(x)
-        #
-        # Second conv block
+        x = layers.MaxPooling2D((2, 2), name="pool3")(x)
+        # x = layers.Dropout(0.2)(x)
+        # #
+        # # Second conv block
         x = layers.Conv2D(
             128,
             (3, 3),
@@ -98,8 +107,8 @@ class Model():
             padding="same",
             name="Conv4",
         )(x)
-        x = layers.Dropout(0.2)(x)
         # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
+        # x = layers.Dropout(0.2)(x)
         #
         # # Second conv block
         x = layers.Conv2D(
@@ -110,37 +119,39 @@ class Model():
             padding="same",
             name="Conv5",
         )(x)
-        x = layers.Dropout(0.2)(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
-        #
-        # Second conv block
-        x = layers.Conv2D(
-            384,
-            (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv6",
-        )(x)
-        x = layers.Dropout(0.2)(x)
-        x = layers.Conv2D(
-            512,
-            (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv7",
-        )(x)
-        x = layers.Dropout(0.2)(x)
-        x = layers.Conv2D(
-            768,
-            (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv8",
-        )(x)
-        x = layers.Dropout(0.2)(x)
+        # x = layers.Dropout(0.2)(x)
+        # # #
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     512,
+        #     (3, 3),
+        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv6",
+        # )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool6")(x)
+        # # x = layers.Dropout(0.2)(x)
+        # x = layers.Conv2D(
+        #     512,
+        #     (3, 3),
+        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv7",
+        # )(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool7")(x)
+        # # x = layers.Dropout(0.2)(x)
+        # x = layers.Conv2D(
+        #     768,
+        #     (3, 3),
+        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
+        #     kernel_initializer="he_normal",
+        #     padding="same",
+        #     name="Conv8",
+        # )(x)
+        # x = layers.Dropout(0.2)(x)
         # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
@@ -148,21 +159,28 @@ class Model():
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width // 4), (height // 4) * 768)
+        new_shape = ((width //4), 768)
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(512, activation="relu", name="dense1")(x)
-        x = layers.Dropout(0.5)(x)
-        # x = layers.Dense(256, activation="relu", name="dense2")(x)
+        x = layers.Dense(256, activation="relu", name="dense1")(x)
+        # x = layers.Dropout(0.5)(x)
+        x = layers.Dense(256, activation="relu", name="dense2")(x)
         # x = layers.Dropout(0.2)(x)
 
         # RNNs
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        # x = tf.dtypes.cast(x, tf.float32)
+        x = layers.Activation('linear', dtype=tf.float32)(x)
+
+        # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
+        # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        # x = layers.Activation('linear', dtype=tf.float32)(x)
 
         # Output layer
         x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
 
+        x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
         output = CTCLayer(name="ctc_loss")(labels, x)
 
@@ -171,8 +189,8 @@ class Model():
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
         # Optimizer
-#        opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=0.01)
-        opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.99, momentum=0.1)
+        # opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1.0)
+        opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.9, momentum=0.1)
         # Compile the model and return
         model.compile(optimizer=opt)
         return model

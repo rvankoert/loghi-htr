@@ -12,6 +12,8 @@ import tensorflow_addons as tfa
 
 
 class DataLoader:
+    DTYPE = 'float32'
+
     dataAugmentation = False
     currIdx = 0
     charList = []
@@ -29,7 +31,7 @@ class DataLoader:
         self.imgSize = imgSize
         self.samples = []
 
-        f = open('/scratch/train_data/linestripsnew/all.txt')
+        f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         chars = set()
         bad_samples = []
         for line in f:
@@ -107,19 +109,25 @@ class DataLoader:
         # 2. Decode and convert to grayscale
         img = tf.io.decode_png(img, channels=4)
         # 3. Convert to float32 in [0, 1] range
-        img = tf.image.convert_image_dtype(img, tf.float32)
+        img = tf.image.convert_image_dtype(img, DataLoader.DTYPE)
         # 4. Resize to the desired size
         img = tf.image.resize_with_pad(img, 48, 1024)
-        if augment:
-            # img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=tf.float32))  # rotation
-            img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
-                                            VSHIFT * tf.random.uniform(shape=[], minval=-1,
-                                                                       maxval=1)])  # [dx dy] shift/translation
-            img = tfa.image.transform(img,
-                                      [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
-                                       MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
-                                       0.0,
-                                       0.0])
+        # if augment:
+        #     # img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
+        #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
+        #                                     VSHIFT * tf.random.uniform(shape=[], minval=-1,
+        #                                                                maxval=1)])  # [dx dy] shift/translation
+        #     img = tfa.image.transform(img,
+        #                               [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
+        #                                MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
+        #                                0.0,
+        #                                0.0])
+        #     # img = tf.image.random_hue(img, 0.08)
+        #     # img = tf.image.random_saturation(img, 0.6, 1.6)
+        #     img = tf.image.random_brightness(img, 0.05)
+        #     img = tf.image.random_contrast(img, 0.7, 1.3)
+
+
 
         # 5. Transpose the image because we want the time
         # dimension to correspond to the width of the image.
