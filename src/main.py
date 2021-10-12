@@ -14,7 +14,7 @@ import tensorflow.keras as keras
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import random
-import keras.backend as K
+
 
 class FilePaths:
     "filenames and paths to data"
@@ -34,23 +34,12 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     "main function"
-    # print(tf.keras.backend.floatx())
-    # print(tf.keras.backend.set_floatx('DataLoader.DTYPE'))
-    # print(tf.keras.backend.floatx())
-    #
-    # tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
-    # print(tf.keras.backend.floatx())
-    # # K.set_epsilon(1e-4)  # default is 1e-7
-    # print(tf.keras.backend.set_floatx(DataLoader.DTYPE))
-    # K.set_epsilon(1e-4)  # default is 1e-7
-    # tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
-    # print(tf.keras.backend.floatx())
 
-    batchSize = 192
-    imgSize = (1024, 48, 4)
+    batchSize = 1
+    imgSize = (1024, 32, 1)
     maxTextLen = 128
-    epochs = 10
-    learning_rate = 0.001
+    epochs = 2
+    learning_rate = 0.0001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
 
@@ -60,10 +49,9 @@ def main():
 
     modelClass = Model()
     print(len(loader.charList))
-    model = keras.models.load_model('../models/model-val-best')
-    # model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
-    # model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
-    # model.compile(keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.99, momentum=0.1))
+    # model = keras.models.load_model('../models/model-val-best')
+    model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
+    model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
 
@@ -76,24 +64,24 @@ def main():
 
     best_loss = 999999
     best_val_loss = 999999
-
-    # for epoch in range(0, epochs):
-    #     # history = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
-    #     print("starting epoch "+str(epoch)+"/"+str(epochs))
+    #
+    # # for epoch in range(0, epochs):
+    # #     # history = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
+    # #     print("starting epoch "+str(epoch)+"/"+str(epochs))
     history = Model().train_batch(model, batch, validation_dataset, epochs=epochs, filepath='../models/model-val-best')
-    #     model.save('../models/model-full-epoch' + str(epoch))
-    #     val_loss = history.history.get('val_loss')[0]
-    #     loss = history.history.get('loss')[0]
-    #     print('Loss:', loss)
-    #     print('val_loss:', val_loss)
-    #     if loss < best_loss:
-    #         best_loss = loss
-    #         model.save('../models/best-train-model-' + str(loss))
-    #         print('new best trainModel:', loss)
-    #     if val_loss < best_val_loss:
-    #         best_val_loss = val_loss
-    #         model.save('../models/best-val-model-' + str(val_loss))
-    #         print('new best valModel:', val_loss)
+    # #     model.save('../models/model-full-epoch' + str(epoch))
+    # #     val_loss = history.history.get('val_loss')[0]
+    # #     loss = history.history.get('loss')[0]
+    # #     print('Loss:', loss)
+    # #     print('val_loss:', val_loss)
+    # #     if loss < best_loss:
+    # #         best_loss = loss
+    # #         model.save('../models/best-train-model-' + str(loss))
+    # #         print('new best trainModel:', loss)
+    # #     if val_loss < best_val_loss:
+    # #         best_val_loss = val_loss
+    # #         model.save('../models/best-val-model-' + str(val_loss))
+    # #         print('new best valModel:', val_loss)
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
@@ -117,7 +105,7 @@ def main():
         return output_text
 
     #  Let's check results on some validation samples
-    for batch in validation_dataset.take(1):
+    for batch in validation_dataset.take(20):
         batch_images = batch["image"]
         batch_labels = batch["label"]
 

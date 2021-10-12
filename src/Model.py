@@ -50,129 +50,64 @@ class Model():
     def build_model(self, imgSize, number_characters, learning_rate):
         (width, height, channels) =imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
+        width = None
         input_img = layers.Input(
             shape=(width, height, channels), name="image"
         )
         labels = layers.Input(name="label", shape=(None,))
 
         # First conv block
-        # x = layers.Conv2D(
-        #     1,
-        #     (1, 1),
-        #     activation=tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv0",
-        # )(input_img)
         x = layers.Conv2D(
             16,
             (3, 3),
-            activation=tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
+            activation = 'elu',
             padding="same",
             name="Conv1",
         )(input_img)
-        x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool1")(x)
         # x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
             32,
             (3, 3),
-            activation=tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
+            activation = 'elu',
             padding="same",
             name="Conv2",
         )(x)
-        x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool2")(x)
         # x = layers.Dropout(0.2)(x)
 
         # Second conv block
         x = layers.Conv2D(
             64,
             (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
+            activation = 'elu',
             padding="same",
             name="Conv3",
         )(x)
-        x = layers.MaxPooling2D((2, 2), name="pool3")(x)
-        # x = layers.Dropout(0.2)(x)
-        # #
-        # # Second conv block
-        x = layers.Conv2D(
-            128,
-            (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv4",
-        )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool4")(x)
-        # x = layers.Dropout(0.2)(x)
-        #
-        # # Second conv block
-        x = layers.Conv2D(
-            256,
-            (3, 3),
-            activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-            kernel_initializer="he_normal",
-            padding="same",
-            name="Conv5",
-        )(x)
-        # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
-        # x = layers.Dropout(0.2)(x)
-        # # #
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     512,
-        #     (3, 3),
-        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv6",
-        # )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool6")(x)
-        # # x = layers.Dropout(0.2)(x)
-        # x = layers.Conv2D(
-        #     512,
-        #     (3, 3),
-        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv7",
-        # )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool7")(x)
-        # # x = layers.Dropout(0.2)(x)
-        # x = layers.Conv2D(
-        #     768,
-        #     (3, 3),
-        #     activation = tf.keras.layers.LeakyReLU(alpha=0.3),
-        #     kernel_initializer="he_normal",
-        #     padding="same",
-        #     name="Conv8",
-        # )(x)
-        # x = layers.Dropout(0.2)(x)
-        # # x = layers.MaxPooling2D((2, 2), name="pool5")(x)
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
         # filters in the last layer is 64. Reshape accordingly before
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
-        new_shape = ((width //4), 768)
-        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(256, activation="relu", name="dense1")(x)
-        # x = layers.Dropout(0.5)(x)
-        x = layers.Dense(256, activation="relu", name="dense2")(x)
-        # x = layers.Dropout(0.2)(x)
 
+        # new_shape = (-1, (height // 4) * 64)
+        new_shape = (-1, (height ) * 64)
+        # x = tf.reshape(input, shape=[73, (height // 4) * 64])
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        x = layers.Dense(1024, activation="relu", name="dense1")(x)
+        # x = layers.Dropout(0.5)(x)
+        x = layers.Dense(1024, activation="relu", name="dense2")(x)
+        # x = layers.Dropout(0.2)(x)
+        # x= tf.squeeze(x, [1])
         # RNNs
         # x = tf.dtypes.cast(x, tf.float32)
-        x = layers.Activation('linear', dtype=tf.float32)(x)
+        # x = layers.Activation('linear', dtype=tf.float32)(x)
 
         # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
         # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         # x = layers.Activation('linear', dtype=tf.float32)(x)
@@ -188,11 +123,11 @@ class Model():
         model = keras.models.Model(
             inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
         )
-        # Optimizer
-        # opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1.0)
-        opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.9, momentum=0.1)
-        # Compile the model and return
-        model.compile(optimizer=opt)
+        # # Optimizer
+        # # opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1.0)
+        # opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.9, momentum=0.1)
+        # # Compile the model and return
+        # model.compile(optimizer=opt)
         return model
 #
 # data_dir = Path("./captcha_images_v2/")
@@ -308,7 +243,9 @@ class Model():
             validation_data=validation_dataset,
             epochs=epochs,
             callbacks=[early_stopping, history, checkpoint],
-            shuffle= True
+            shuffle= True,
+            workers=16,
+            max_queue_size=256
         )
         return history
 #

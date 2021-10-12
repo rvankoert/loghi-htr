@@ -31,21 +31,27 @@ class DataLoader:
         self.imgSize = imgSize
         self.samples = []
 
-        f = open('/scratch/train_data_htr/linestripsnew/all.txt')
+        # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
+        f = open('/home/rutger/training_all2.txt')
         chars = set()
         bad_samples = []
         for line in f:
             # ignore comment line
             if not line or line[0] == '#':
                 continue
-
-            lineSplit = line.strip().split(' ')
-            assert len(lineSplit) >= 9
+            # print(line)
+            lineSplit = line.strip().split('\t')
+            assert len(lineSplit) >= 1
 
             fileName = lineSplit[0]
 
             # GT text are columns starting at 9
-            gtText = self.truncateLabel(' '.join(lineSplit[8:]), maxTextLen).replace("|", " ")
+            gtText = self.truncateLabel(' '.join(lineSplit[1:]), maxTextLen).replace("|", " ")
+            if not gtText:
+                continue
+            gtText = gtText.strip()
+            if not gtText:
+                continue
             # chars = chars.union(set(list(gtText)))
             chars = chars.union(set(char for label in gtText for char in label))
             # check if image is not empty
@@ -71,11 +77,11 @@ class DataLoader:
         self.charList = sorted(list(chars))
 
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), mask_token=None, invert=True
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
         )
 
     def truncateLabel(self, text, maxTextLen):
@@ -104,14 +110,18 @@ class DataLoader:
         HSHIFT, VSHIFT = 5., 5.  # max. number of pixels to shift(translation) horizontally and vertically
         MAX_ROT_ANGLE = np.pi * MAX_ROT_ANGLE / 180  # in radians
 
-        print (img_path+ ' : '+ label)
+        print(img_path + ' : ' + label)
         img = tf.io.read_file(img_path)
         # 2. Decode and convert to grayscale
-        img = tf.io.decode_png(img, channels=4)
+        img = tf.io.decode_png(img, channels=1)
         # 3. Convert to float32 in [0, 1] range
         img = tf.image.convert_image_dtype(img, DataLoader.DTYPE)
         # 4. Resize to the desired size
-        img = tf.image.resize_with_pad(img, 48, 1024)
+        # height =32/img.shape
+        print("img.shape[1]")
+        print(img)
+        # img = tf.image.resize_with_pad(img, 32, 1024)
+        img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
         # if augment:
         #     # img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
         #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
@@ -126,8 +136,6 @@ class DataLoader:
         #     # img = tf.image.random_saturation(img, 0.6, 1.6)
         #     img = tf.image.random_brightness(img, 0.05)
         #     img = tf.image.random_contrast(img, 0.7, 1.3)
-
-
 
         # 5. Transpose the image because we want the time
         # dimension to correspond to the width of the image.
@@ -162,7 +170,7 @@ class DataLoader:
         # gtTexts = [char_to_num(tf.strings.unicode_split(self.samples[i].gtText, input_encoding="UTF-8")) for i in batchRange]
         #		gtTexts = [char_to_num(tf.strings.unicode_split(self.samples[i].gtText, input_encoding="UTF-8")) for i in batchRange]
         # gtTexts = [char_to_num(tf.strings.unicode_split("test", input_encoding="UTF-8")) for i in batchRange]
-        gtTexts = [self.samples[i][0].ljust(128, ' ') for i in range(len(self.samples))]
+        gtTexts = [self.samples[i][0] for i in range(len(self.samples))]
         # gtTexts = ["test test " for i in range(len(self.samples))]
 
         max_length = max([len(label) for label in gtTexts])
