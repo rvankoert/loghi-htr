@@ -17,8 +17,6 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 
-
-
 class CTCLayer(tf.keras.layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
@@ -46,9 +44,83 @@ class CTCLayer(tf.keras.layers.Layer):
         # At test time, just return the computed predictions
         return y_pred
 
+
+class CERMetric(tf.keras.metrics.Metric):
+    """
+    A custom Keras metric to compute the Character Error Rate
+    """
+
+    def __init__(self, name='CER_metric', **kwargs):
+        super(CERMetric, self).__init__(name=name, **kwargs)
+        self.cer_accumulator = self.add_weight(name="total_cer", initializer="zeros")
+        self.counter = self.add_weight(name="cer_count", initializer="zeros")
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        input_shape = K.shape(y_pred)
+        input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
+
+        decode, log = K.ctc_decode(y_pred,
+                                   input_length,
+                                   greedy=True)
+
+        decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
+        y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
+
+        decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+        distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
+
+        self.cer_accumulator.assign_add(tf.reduce_sum(distance))
+        self.counter.assign_add(len(y_true))
+
+    def result(self):
+        return tf.math.divide_no_nan(self.cer_accumulator, self.counter)
+
+    def reset_states(self):
+        self.cer_accumulator.assign(0.0)
+        self.counter.assign(0.0)
+
+
+class WERMetric(tf.keras.metrics.Metric):
+    """
+    A custom Keras metric to compute the Word Error Rate
+    """
+
+    def __init__(self, name='WER_metric', **kwargs):
+        super(WERMetric, self).__init__(name=name, **kwargs)
+        self.wer_accumulator = self.add_weight(name="total_wer", initializer="zeros")
+        self.counter = self.add_weight(name="wer_count", initializer="zeros")
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        input_shape = K.shape(y_pred)
+        input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
+
+        decode, log = K.ctc_decode(y_pred,
+                                   input_length,
+                                   greedy=True)
+
+        decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
+        y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
+
+        decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+        distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
+
+        correct_words_amount = tf.reduce_sum(tf.cast(tf.not_equal(distance, 0), tf.float32))
+
+        self.wer_accumulator.assign_add(correct_words_amount)
+        self.counter.assign_add(len(y_true))
+
+    def result(self):
+        return tf.math.divide_no_nan(self.wer_accumulator, self.counter)
+
+    def reset_states(self):
+        self.wer_accumulator.assign(0.0)
+        self.counter.assign(0.0)
+
+
 class Model():
+
     def build_model(self, imgSize, number_characters, learning_rate):
-        (width, height, channels) =imgSize[0], imgSize[1], imgSize[2]
+        (width, height, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         width = None
         input_img = layers.Input(
@@ -60,7 +132,7 @@ class Model():
         x = layers.Conv2D(
             16,
             (3, 3),
-            activation = 'elu',
+            activation='elu',
             padding="same",
             name="Conv1",
         )(input_img)
@@ -70,7 +142,7 @@ class Model():
         x = layers.Conv2D(
             32,
             (3, 3),
-            activation = 'elu',
+            activation='elu',
             padding="same",
             name="Conv2",
         )(x)
@@ -81,7 +153,7 @@ class Model():
         x = layers.Conv2D(
             64,
             (3, 3),
-            activation = 'elu',
+            activation='elu',
             padding="same",
             name="Conv3",
         )(x)
@@ -93,27 +165,21 @@ class Model():
         # new_shape = ((width // 4), (height // 4) * 64)
 
         # new_shape = (-1, (height // 4) * 64)
-        new_shape = (-1, (height ) * 64)
+        new_shape = (-1, (height) * 64)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(1024, activation="relu", name="dense1")(x)
         # x = layers.Dropout(0.5)(x)
         x = layers.Dense(1024, activation="relu", name="dense2")(x)
         # x = layers.Dropout(0.2)(x)
-        # x= tf.squeeze(x, [1])
-        # RNNs
-        # x = tf.dtypes.cast(x, tf.float32)
-        # x = layers.Activation('linear', dtype=tf.float32)(x)
 
         # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
         # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
-        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
-        # x = layers.Activation('linear', dtype=tf.float32)(x)
 
         # Output layer
-        x = layers.Dense(number_characters+1, activation="softmax", name="dense3")(x)
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
 
         x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
@@ -129,104 +195,105 @@ class Model():
         # # Compile the model and return
         # model.compile(optimizer=opt)
         return model
-#
-# data_dir = Path("./captcha_images_v2/")
-#
-# # Get list of all the images
-# images = sorted(list(map(str, list(data_dir.glob("*.png")))))
-# labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
-# characters = set(char for label in labels for char in label)
-#
-# print("Number of images found: ", len(images))
-# print("Number of labels found: ", len(labels))
-# print("Number of unique characters: ", len(characters))
-# print("Characters present: ", characters)
-#
-# # Batch size for training and validation
-# batch_size = 16
-#
-# # Desired image dimensions
-# img_width = 200
-# img_height = 50
-#
-# # Factor by which the image is going to be downsampled
-# # by the convolutional blocks. We will be using two
-# # convolution blocks and each block will have
-# # a pooling layer which downsample the features by a factor of 2.
-# # Hence total downsampling factor would be 4.
-# downsample_factor = 4
-#
-# # Maximum length of any captcha in the dataset
-# max_length = max([len(label) for label in labels])
-#
-# # Mapping characters to integers
-# char_to_num = layers.experimental.preprocessing.StringLookup(
-#     vocabulary=list(characters), num_oov_indices=0, mask_token=None
-# )
-#
-# # Mapping integers back to original characters
-# num_to_char = layers.experimental.preprocessing.StringLookup(
-#     vocabulary=char_to_num.get_vocabulary(), mask_token=None, invert=True
-# )
-#
-#
-# def split_data(images, labels, train_size=0.9, shuffle=True):
-#     # 1. Get the total size of the dataset
-#     size = len(images)
-#     # 2. Make an indices array and shuffle it, if required
-#     indices = np.arange(size)
-#     if shuffle:
-#         np.random.shuffle(indices)
-#     # 3. Get the size of training samples
-#     train_samples = int(size * train_size)
-#     # 4. Split data into training and validation sets
-#     x_train, y_train = images[indices[:train_samples]], labels[indices[:train_samples]]
-#     x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
-#     return x_train, x_valid, y_train, y_valid
-#
-#
-# # Splitting data into training and validation sets
-# x_train, x_valid, y_train, y_valid = split_data(np.array(images), np.array(labels))
-#
-#
-# def encode_single_sample(img_path, label):
-#     # 1. Read image
-#     img = tf.io.read_file(img_path)
-#     # 2. Decode and convert to grayscale
-#     img = tf.io.decode_png(img, channels=1)
-#     # 3. Convert to float32 in [0, 1] range
-#     img = tf.image.convert_image_dtype(img, tf.float32)
-#     # 4. Resize to the desired size
-#     img = tf.image.resize(img, [img_height, img_width])
-#     # 5. Transpose the image because we want the time
-#     # dimension to correspond to the width of the image.
-#     img = tf.transpose(img, perm=[1, 0, 2])
-#     # 6. Map the characters in label to numbers
-#     label = char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-#     # 7. Return a dict as our model is expecting two inputs
-#     return {"image": img, "label": label}
-#
-#
-# train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-# train_dataset = (
-#     train_dataset.map(
-#         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
-#     )
-#         .batch(batch_size)
-#         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-# )
-#
-# validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
-# validation_dataset = (
-#     validation_dataset.map(
-#         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
-#     )
-#         .batch(batch_size)
-#         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-# )
 
-#
-# # Train the model
+    #
+    # data_dir = Path("./captcha_images_v2/")
+    #
+    # # Get list of all the images
+    # images = sorted(list(map(str, list(data_dir.glob("*.png")))))
+    # labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
+    # characters = set(char for label in labels for char in label)
+    #
+    # print("Number of images found: ", len(images))
+    # print("Number of labels found: ", len(labels))
+    # print("Number of unique characters: ", len(characters))
+    # print("Characters present: ", characters)
+    #
+    # # Batch size for training and validation
+    # batch_size = 16
+    #
+    # # Desired image dimensions
+    # img_width = 200
+    # img_height = 50
+    #
+    # # Factor by which the image is going to be downsampled
+    # # by the convolutional blocks. We will be using two
+    # # convolution blocks and each block will have
+    # # a pooling layer which downsample the features by a factor of 2.
+    # # Hence total downsampling factor would be 4.
+    # downsample_factor = 4
+    #
+    # # Maximum length of any captcha in the dataset
+    # max_length = max([len(label) for label in labels])
+    #
+    # # Mapping characters to integers
+    # char_to_num = layers.experimental.preprocessing.StringLookup(
+    #     vocabulary=list(characters), num_oov_indices=0, mask_token=None
+    # )
+    #
+    # # Mapping integers back to original characters
+    # num_to_char = layers.experimental.preprocessing.StringLookup(
+    #     vocabulary=char_to_num.get_vocabulary(), mask_token=None, invert=True
+    # )
+    #
+    #
+    # def split_data(images, labels, train_size=0.9, shuffle=True):
+    #     # 1. Get the total size of the dataset
+    #     size = len(images)
+    #     # 2. Make an indices array and shuffle it, if required
+    #     indices = np.arange(size)
+    #     if shuffle:
+    #         np.random.shuffle(indices)
+    #     # 3. Get the size of training samples
+    #     train_samples = int(size * train_size)
+    #     # 4. Split data into training and validation sets
+    #     x_train, y_train = images[indices[:train_samples]], labels[indices[:train_samples]]
+    #     x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
+    #     return x_train, x_valid, y_train, y_valid
+    #
+    #
+    # # Splitting data into training and validation sets
+    # x_train, x_valid, y_train, y_valid = split_data(np.array(images), np.array(labels))
+    #
+    #
+    # def encode_single_sample(img_path, label):
+    #     # 1. Read image
+    #     img = tf.io.read_file(img_path)
+    #     # 2. Decode and convert to grayscale
+    #     img = tf.io.decode_png(img, channels=1)
+    #     # 3. Convert to float32 in [0, 1] range
+    #     img = tf.image.convert_image_dtype(img, tf.float32)
+    #     # 4. Resize to the desired size
+    #     img = tf.image.resize(img, [img_height, img_width])
+    #     # 5. Transpose the image because we want the time
+    #     # dimension to correspond to the width of the image.
+    #     img = tf.transpose(img, perm=[1, 0, 2])
+    #     # 6. Map the characters in label to numbers
+    #     label = char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+    #     # 7. Return a dict as our model is expecting two inputs
+    #     return {"image": img, "label": label}
+    #
+    #
+    # train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
+    # train_dataset = (
+    #     train_dataset.map(
+    #         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
+    #     )
+    #         .batch(batch_size)
+    #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # )
+    #
+    # validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
+    # validation_dataset = (
+    #     validation_dataset.map(
+    #         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
+    #     )
+    #         .batch(batch_size)
+    #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    # )
+
+    #
+    # # Train the model
     def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath):
         early_stopping_patience = 50
         # # Add early stopping
@@ -243,7 +310,7 @@ class Model():
             validation_data=validation_dataset,
             epochs=epochs,
             callbacks=[early_stopping, history, checkpoint],
-            shuffle= True,
+            shuffle=True,
             workers=16,
             max_queue_size=256
         )

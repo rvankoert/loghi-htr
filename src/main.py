@@ -6,7 +6,7 @@ import sys
 import argparse
 import cv2
 import editdistance
-from Model import Model
+from Model import Model, CERMetric, WERMetric
 from DataLoader import DataLoader
 from SamplePreprocessor import preprocess
 import numpy as np
@@ -38,7 +38,7 @@ def main():
     batchSize = 1
     imgSize = (1024, 32, 1)
     maxTextLen = 128
-    epochs = 2
+    epochs = 1
     learning_rate = 0.0001
     # load training data, create TF model
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
@@ -53,13 +53,14 @@ def main():
     model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
     model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
+
     model.summary()
 
     batch = loader.getTrainDataSet()
     validation_dataset = loader.getValidationDataSet()
     print("batch")
     print(batch)
-    print("batch")
+    print("validation_dataset batch")
     print(validation_dataset)
 
     best_loss = 999999
@@ -105,7 +106,7 @@ def main():
         return output_text
 
     #  Let's check results on some validation samples
-    for batch in validation_dataset.take(20):
+    for batch in validation_dataset.take(100):
         batch_images = batch["image"]
         batch_labels = batch["label"]
 

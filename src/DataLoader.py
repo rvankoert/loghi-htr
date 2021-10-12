@@ -110,7 +110,6 @@ class DataLoader:
         HSHIFT, VSHIFT = 5., 5.  # max. number of pixels to shift(translation) horizontally and vertically
         MAX_ROT_ANGLE = np.pi * MAX_ROT_ANGLE / 180  # in radians
 
-        print(img_path + ' : ' + label)
         img = tf.io.read_file(img_path)
         # 2. Decode and convert to grayscale
         img = tf.io.decode_png(img, channels=1)
@@ -187,8 +186,8 @@ class DataLoader:
             train_dataset.map(
                 self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
-                .batch(self.batchSize)
-                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+            .batch(self.batchSize)
+            .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         )
 
         validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
@@ -197,8 +196,8 @@ class DataLoader:
             validation_dataset.map(
                 self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
-                .batch(self.batchSize)
-                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+            .batch(self.batchSize)
+            .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         )
 
         return train_dataset
