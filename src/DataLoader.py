@@ -32,9 +32,12 @@ class DataLoader:
         self.samples = []
 
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
-        f = open('/home/rutger/training_all2.txt')
+        # f = open('/home/rutger/training_all2.txt')
+        f = open('/home/rutger/training_all_ijsberg.txt')
+
         chars = set()
         bad_samples = []
+        i=0
         for line in f:
             # ignore comment line
             if not line or line[0] == '#':
@@ -55,16 +58,31 @@ class DataLoader:
             # chars = chars.union(set(list(gtText)))
             chars = chars.union(set(char for label in gtText for char in label))
             # check if image is not empty
+            if not os.path.exists(fileName):
+                # print(fileName)
+                continue
+
             if not os.path.getsize(fileName):
                 bad_samples.append(lineSplit[0] + '.png')
+                print("bad sample: "+ lineSplit[0])
+                continue
+            img = cv2.imread(fileName)
+            height, width, channels = img.shape
+            # print (width *(height/ 32))
+            if height < 32 or width < 32 or width /(height / 32) < len(gtText):
+                print(fileName)
+                # os.remove(fileName)
                 continue
 
             # put sample into list
             self.samples.append((gtText, fileName))
-
+            i = i+1
+            if i%1000==0:
+                print(i)
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
             print("Warning, damaged images found:", bad_samples)
+        print("load textlines")
 
         # split into training and validation set: 95% - 5%
         random.seed(42)
@@ -144,7 +162,7 @@ class DataLoader:
         # 7. Return a dict as our model is expecting two inputs
         return {"image": img, "label": label}
 
-    def split_data(self, images, labels, train_size=0.9, shuffle=True):
+    def split_data(self, images, labels, train_size=0.99, shuffle=True):
         # 1. Get the total size of the dataset
         size = len(images)
         # 2. Make an indices array and shuffle it, if required

@@ -24,6 +24,12 @@ class FilePaths:
     fnInfer = '../data/test.png'
     fnCorpus = '../data/corpus.txt'
 
+    fnCharList = '../model/charList2.txt'
+    fnAccuracy = '../model/accuracy2.txt'
+    fnTrain = '../data2/'
+    fnInfer = '../data2/test.png'
+    fnCorpus = '../data2/corpus.txt'
+
 
 def main():
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -32,7 +38,7 @@ def main():
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     "main function"
 
     batchSize = 1
@@ -49,8 +55,8 @@ def main():
 
     modelClass = Model()
     print(len(loader.charList))
-    # model = keras.models.load_model('../models/model-val-best')
-    model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
+    model = keras.models.load_model('../models/model-val-best')
+    # model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
     model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
 
