@@ -69,7 +69,7 @@ class DataLoader:
             img = cv2.imread(fileName)
             height, width, channels = img.shape
             # print (width *(height/ 32))
-            if height < 32 or width < 32 or width /(height / 32) < len(gtText):
+            if height < 32 or width < 32 or width /(height / 32) < 2*len(gtText):
                 print(fileName)
                 # os.remove(fileName)
                 continue
@@ -77,8 +77,9 @@ class DataLoader:
             # put sample into list
             self.samples.append((gtText, fileName))
             i = i+1
-            if i%1000==0:
+            if i % 1000 == 0:
                 print(i)
+                # break
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
             print("Warning, damaged images found:", bad_samples)

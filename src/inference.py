@@ -47,48 +47,16 @@ def main():
     epochs = 10
     learning_rate = 0.0001
     # load training data, create TF model
+    charlist = open(FilePaths.fnCharList).read()
+    print (charlist)
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
-
-    # save characters of model for inference mode
-    open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
-    # print(loader.charList)
-
-    modelClass = Model()
-    print(len(loader.charList))
+    print ("loading model")
     model = keras.models.load_model('../models/model-val-best')
-    # model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
-    # model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
 
     model.summary()
 
-    batch = loader.getTrainDataSet()
     validation_dataset = loader.getValidationDataSet()
-    print("batch")
-    print(batch)
-    print("validation_dataset batch")
-    print(validation_dataset)
-
-    best_loss = 999999
-    best_val_loss = 999999
-    #
-    # # for epoch in range(0, epochs):
-    # #     # history = Model().train_batch(model, batch, validation_dataset, epochs=epochs)
-    # #     print("starting epoch "+str(epoch)+"/"+str(epochs))
-    # history = Model().train_batch(model, batch, validation_dataset, epochs=epochs, filepath='../models/model-val-best')
-    # #     model.save('../models/model-full-epoch' + str(epoch))
-    # #     val_loss = history.history.get('val_loss')[0]
-    # #     loss = history.history.get('loss')[0]
-    # #     print('Loss:', loss)
-    # #     print('val_loss:', val_loss)
-    # #     if loss < best_loss:
-    # #         best_loss = loss
-    # #         model.save('../models/best-train-model-' + str(loss))
-    # #         print('new best trainModel:', loss)
-    # #     if val_loss < best_val_loss:
-    # #         best_val_loss = val_loss
-    # #         model.save('../models/best-val-model-' + str(val_loss))
-    # #         print('new best valModel:', val_loss)
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
@@ -112,7 +80,7 @@ def main():
         return output_text
 
     #  Let's check results on some validation samples
-    for batch in validation_dataset:
+    for batch in validation_dataset.take(100):
         batch_images = batch["image"]
         batch_labels = batch["label"]
 
