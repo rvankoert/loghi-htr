@@ -19,21 +19,23 @@ class DataLoader:
     charList = []
     samples = []
     validation_dataset = [];
+    train_size =0.99
 
-    def __init__(self, filePath, batchSize, imgSize, maxTextLen):
+    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size):
         "loader for dataset at given location, preprocess images and text according to parameters"
 
-        assert filePath[-1] == '/'
+        # assert filePath[-1] == '/'
 
         self.dataAugmentation = False
         self.currIdx = 0
         self.batchSize = batchSize
         self.imgSize = imgSize
         self.samples = []
+        self.train_size = train_size
 
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
-        f = open('/home/rutger/training_all_ijsberg.txt')
+        f = open(filePath)
 
         chars = set()
         bad_samples = []
@@ -69,7 +71,7 @@ class DataLoader:
             img = cv2.imread(fileName)
             height, width, channels = img.shape
             # print (width *(height/ 32))
-            if height < 32 or width < 32 or width /(height / 32) < 2*len(gtText):
+            if height < 32 or width < 32 or width /(height / 32) < 2* len(gtText):
                 print(fileName)
                 # os.remove(fileName)
                 continue
@@ -79,7 +81,7 @@ class DataLoader:
             i = i+1
             if i % 1000 == 0:
                 print(i)
-                # break
+                #break
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
             print("Warning, damaged images found:", bad_samples)
@@ -102,6 +104,17 @@ class DataLoader:
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
             vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
         )
+
+    def set_charlist(self, chars):
+        self.charList = sorted(list(chars))
+        self.char_to_num = layers.experimental.preprocessing.StringLookup(
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+        )
+        # Mapping integers back to original characters
+        self.num_to_char = layers.experimental.preprocessing.StringLookup(
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+        )
+
 
     def truncateLabel(self, text, maxTextLen):
         # ctc_loss can't compute loss if it cannot find a mapping between text label and input
@@ -198,7 +211,7 @@ class DataLoader:
         #		imgs = [preprocess(cv2.imread(self.samples[i].filePath, cv2.IMREAD_UNCHANGED), self.imgSize, self.dataAugmentation) for i in batchRange]
         imgs = [self.samples[i][1] for i in range(len(self.samples))]
 
-        x_train, x_valid, y_train, y_valid = self.split_data(np.array(imgs), np.array(gtTexts))
+        x_train, x_valid, y_train, y_valid = self.split_data(np.array(imgs), np.array(gtTexts),self.train_size)
         train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
         train_dataset = (

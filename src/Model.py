@@ -158,6 +158,15 @@ class Model():
             name="Conv3",
         )(x)
 
+        # Second conv block
+        x = layers.Conv2D(
+            128,
+            (3, 3),
+            activation='elu',
+            padding="same",
+            name="Conv4",
+        )(x)
+
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
         # filters in the last layer is 64. Reshape accordingly before
@@ -165,18 +174,18 @@ class Model():
         # new_shape = ((width // 4), (height // 4) * 64)
 
         # new_shape = (-1, (height // 4) * 64)
-        new_shape = (-1, (height) * 64)
+        new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(1024, activation="relu", name="dense1")(x)
-        # x = layers.Dropout(0.5)(x)
+        x = layers.Dropout(0.1)(x)
         x = layers.Dense(1024, activation="relu", name="dense2")(x)
-        # x = layers.Dropout(0.2)(x)
+        x = layers.Dropout(0.1)(x)
 
-        # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
-        # x = layers.Bidirectional(layers.LSTM(inputs=128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
+        #x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        #x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
 
         # Output layer
         x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
