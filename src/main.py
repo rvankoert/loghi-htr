@@ -116,7 +116,7 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
-    loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, args.train_size)
+    loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, args.train_size, args.channels)
     # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
 
     # print(loader.charList)

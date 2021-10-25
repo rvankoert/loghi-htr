@@ -21,7 +21,7 @@ class DataLoader:
     validation_dataset = [];
     train_size =0.99
 
-    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size):
+    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size, channels):
         "loader for dataset at given location, preprocess images and text according to parameters"
 
         # assert filePath[-1] == '/'
@@ -32,6 +32,7 @@ class DataLoader:
         self.imgSize = imgSize
         self.samples = []
         self.train_size = train_size
+        self.channels = channels
 
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
@@ -81,7 +82,7 @@ class DataLoader:
             i = i+1
             if i % 1000 == 0:
                 print(i)
-                #break
+                break
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
             print("Warning, damaged images found:", bad_samples)
@@ -144,7 +145,7 @@ class DataLoader:
 
         img = tf.io.read_file(img_path)
         # 2. Decode and convert to grayscale
-        img = tf.io.decode_png(img, channels=1)
+        img = tf.io.decode_png(img, channels=self.channels)
         # 3. Convert to float32 in [0, 1] range
         img = tf.image.convert_image_dtype(img, DataLoader.DTYPE)
         # 4. Resize to the desired size
