@@ -130,13 +130,13 @@ class Model():
 
         # First conv block
         x = layers.Conv2D(
-            16,
+            96,
             (3, 3),
             activation='elu',
             padding="same",
             name="Conv1",
         )(input_img)
-        # x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+        x = layers.MaxPooling2D((2, 2), name="pool1")(x)
         # x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
@@ -146,7 +146,7 @@ class Model():
             padding="same",
             name="Conv2",
         )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+        x = layers.MaxPooling2D((2, 2), name="pool2")(x)
         # x = layers.Dropout(0.2)(x)
 
         # Second conv block
@@ -173,22 +173,23 @@ class Model():
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
 
-        # new_shape = (-1, (height // 4) * 64)
-        new_shape = (-1, (height) * 128)
+        new_shape = (-1, (height // 4) * 64)
+        # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(1024, activation="relu", name="dense1")(x)
-        x = layers.Dropout(0.1)(x)
+        # x = layers.Dropout(0.1)(x)
         x = layers.Dense(1024, activation="relu", name="dense2")(x)
-        x = layers.Dropout(0.1)(x)
+        # x = layers.Dropout(0.1)(x)
 
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
-        #x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
-        #x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
+        # x = tf.keras.layers.Masking(mask_value=0)(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
 
         # Output layer
-        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
+        x = layers.Dense(number_characters +3, activation="softmax", name="dense3")(x)
 
         x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
@@ -204,102 +205,6 @@ class Model():
         # # Compile the model and return
         # model.compile(optimizer=opt)
         return model
-
-    #
-    # data_dir = Path("./captcha_images_v2/")
-    #
-    # # Get list of all the images
-    # images = sorted(list(map(str, list(data_dir.glob("*.png")))))
-    # labels = [img.split(os.path.sep)[-1].split(".png")[0] for img in images]
-    # characters = set(char for label in labels for char in label)
-    #
-    # print("Number of images found: ", len(images))
-    # print("Number of labels found: ", len(labels))
-    # print("Number of unique characters: ", len(characters))
-    # print("Characters present: ", characters)
-    #
-    # # Batch size for training and validation
-    # batch_size = 16
-    #
-    # # Desired image dimensions
-    # img_width = 200
-    # img_height = 50
-    #
-    # # Factor by which the image is going to be downsampled
-    # # by the convolutional blocks. We will be using two
-    # # convolution blocks and each block will have
-    # # a pooling layer which downsample the features by a factor of 2.
-    # # Hence total downsampling factor would be 4.
-    # downsample_factor = 4
-    #
-    # # Maximum length of any captcha in the dataset
-    # max_length = max([len(label) for label in labels])
-    #
-    # # Mapping characters to integers
-    # char_to_num = layers.experimental.preprocessing.StringLookup(
-    #     vocabulary=list(characters), num_oov_indices=0, mask_token=None
-    # )
-    #
-    # # Mapping integers back to original characters
-    # num_to_char = layers.experimental.preprocessing.StringLookup(
-    #     vocabulary=char_to_num.get_vocabulary(), mask_token=None, invert=True
-    # )
-    #
-    #
-    # def split_data(images, labels, train_size=0.9, shuffle=True):
-    #     # 1. Get the total size of the dataset
-    #     size = len(images)
-    #     # 2. Make an indices array and shuffle it, if required
-    #     indices = np.arange(size)
-    #     if shuffle:
-    #         np.random.shuffle(indices)
-    #     # 3. Get the size of training samples
-    #     train_samples = int(size * train_size)
-    #     # 4. Split data into training and validation sets
-    #     x_train, y_train = images[indices[:train_samples]], labels[indices[:train_samples]]
-    #     x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
-    #     return x_train, x_valid, y_train, y_valid
-    #
-    #
-    # # Splitting data into training and validation sets
-    # x_train, x_valid, y_train, y_valid = split_data(np.array(images), np.array(labels))
-    #
-    #
-    # def encode_single_sample(img_path, label):
-    #     # 1. Read image
-    #     img = tf.io.read_file(img_path)
-    #     # 2. Decode and convert to grayscale
-    #     img = tf.io.decode_png(img, channels=1)
-    #     # 3. Convert to float32 in [0, 1] range
-    #     img = tf.image.convert_image_dtype(img, tf.float32)
-    #     # 4. Resize to the desired size
-    #     img = tf.image.resize(img, [img_height, img_width])
-    #     # 5. Transpose the image because we want the time
-    #     # dimension to correspond to the width of the image.
-    #     img = tf.transpose(img, perm=[1, 0, 2])
-    #     # 6. Map the characters in label to numbers
-    #     label = char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-    #     # 7. Return a dict as our model is expecting two inputs
-    #     return {"image": img, "label": label}
-    #
-    #
-    # train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-    # train_dataset = (
-    #     train_dataset.map(
-    #         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
-    #     )
-    #         .batch(batch_size)
-    #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # )
-    #
-    # validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
-    # validation_dataset = (
-    #     validation_dataset.map(
-    #         encode_single_sample, num_parallel_calls=tf.data.experimental.AUTOTUNE
-    #     )
-    #         .batch(batch_size)
-    #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-    # )
 
     #
     # # Train the model

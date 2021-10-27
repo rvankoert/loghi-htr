@@ -37,6 +37,7 @@ class DataLoader:
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
         f = open(filePath)
+        text_file = open("sample.txt", "w")
 
         chars = set()
         bad_samples = []
@@ -62,7 +63,7 @@ class DataLoader:
             chars = chars.union(set(char for label in gtText for char in label))
             # check if image is not empty
             if not os.path.exists(fileName):
-                # print(fileName)
+                print(fileName)
                 continue
 
             if not os.path.getsize(fileName):
@@ -76,13 +77,16 @@ class DataLoader:
                 print(fileName)
                 # os.remove(fileName)
                 continue
+            # n = text_file.write(line)
 
             # put sample into list
+            # gtText = gtText.ljust(maxTextLen, '€')
             self.samples.append((gtText, fileName))
             i = i+1
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 print(i)
-                break
+                # break
+        # text_file.close()
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
             print("Warning, damaged images found:", bad_samples)
@@ -92,28 +96,27 @@ class DataLoader:
         random.seed(42)
         # random.shuffle(self.samples)
 
-        # number of randomly chosen samples per epoch for training
-        self.numTrainSamplesPerEpoch = 64
-
         # list of all chars in dataset
         self.charList = sorted(list(chars))
 
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=1, mask_token='', oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+            vocabulary=self.char_to_num.get_vocabulary(),  num_oov_indices=0, mask_token='', oov_token='', invert=True
         )
+        print("self.char_to_num(['€'])")
+        print(self.char_to_num(['€'])[0])
 
     def set_charlist(self, chars):
         self.charList = sorted(list(chars))
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=1, mask_token='€', oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+            vocabulary=self.char_to_num.get_vocabulary(),  num_oov_indices=1, mask_token='€', oov_token='[UNK]', invert=True
         )
 
 
@@ -148,26 +151,30 @@ class DataLoader:
         img = tf.io.decode_png(img, channels=self.channels)
         # 3. Convert to float32 in [0, 1] range
         img = tf.image.convert_image_dtype(img, DataLoader.DTYPE)
+
         # 4. Resize to the desired size
         # height =32/img.shape
         print("img.shape[1]")
         print(img)
-        # img = tf.image.resize_with_pad(img, 32, 1024)
-        img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
-        # if augment:
-        #     # img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
-        #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
-        #                                     VSHIFT * tf.random.uniform(shape=[], minval=-1,
-        #                                                                maxval=1)])  # [dx dy] shift/translation
-        #     img = tfa.image.transform(img,
-        #                               [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
-        #                                MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
-        #                                0.0,
-        #                                0.0])
-        #     # img = tf.image.random_hue(img, 0.08)
-        #     # img = tf.image.random_saturation(img, 0.6, 1.6)
-        #     img = tf.image.random_brightness(img, 0.05)
-        #     img = tf.image.random_contrast(img, 0.7, 1.3)
+        if augment:
+            img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
+            img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
+                                            VSHIFT * tf.random.uniform(shape=[], minval=-1,
+                                                                       maxval=1)])  # [dx dy] shift/translation
+            img = tfa.image.transform(img,
+                                      [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
+                                       MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
+                                       0.0,
+                                       0.0])
+        #     img = tf.image.random_hue(img, 0.08)
+        #     img = tf.image.random_saturation(img, 0.6, 1.6)
+            img = tf.image.random_brightness(img, 0.05)
+            img = tf.image.random_contrast(img, 0.7, 1.3)
+
+        # img = tf.image.resize(img, [64, 4096], preserve_aspect_ratio=True)
+        # img = tf.image.resize_with_pad(img, 64, 4096)
+        # img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
+        img = tf.image.resize_with_pad(img, 32, 2048)
 
         # 5. Transpose the image because we want the time
         # dimension to correspond to the width of the image.
@@ -212,7 +219,10 @@ class DataLoader:
         #		imgs = [preprocess(cv2.imread(self.samples[i].filePath, cv2.IMREAD_UNCHANGED), self.imgSize, self.dataAugmentation) for i in batchRange]
         imgs = [self.samples[i][1] for i in range(len(self.samples))]
 
-        x_train, x_valid, y_train, y_valid = self.split_data(np.array(imgs), np.array(gtTexts),self.train_size)
+        x_train, x_valid, y_train, y_valid = self.split_data(np.array(imgs), np.array(gtTexts), self.train_size)
+        # y_train = tf.keras.preprocessing.sequence.pad_sequences(y_train, padding="post")
+        # y_valid = tf.keras.preprocessing.sequence.pad_sequences(y_valid, padding="post")
+
         train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
         train_dataset = (

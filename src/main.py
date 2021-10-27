@@ -125,7 +125,9 @@ def main():
     print(len(loader.charList))
     if not args.existing_model:
         # save characters of model for inference mode
-        open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
+        chars_file = open(FilePaths.fnCharList, 'w')
+        chars_file.write(str().join(loader.charList))
+        chars_file.close()
         print("creating new model")
         model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
@@ -171,7 +173,7 @@ def main():
      #       _, ax = plt.subplots(1,1, figsize=(1024,32 ))
             for i in range(len(pred_texts)):
                 # for i in range(16):
-                original_text = orig_texts[i].strip()
+                original_text = orig_texts[i].strip().replace('€', '')
                 predicted_text = pred_texts[i].strip()
                 print(original_text)
                 print(predicted_text)
@@ -217,8 +219,8 @@ def main():
                 orig_texts.append(label.strip())
 
             for i in range(len(pred_texts)):
-                original_text = orig_texts[i].strip()
-                predicted_text = pred_texts[i].strip()
+                original_text = orig_texts[i].strip().replace('€', '')
+                predicted_text = pred_texts[i].strip().replace('€', '')
                 print(original_text)
                 print(predicted_text)
 
