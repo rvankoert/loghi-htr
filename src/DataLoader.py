@@ -83,7 +83,7 @@ class DataLoader:
             # gtText = gtText.ljust(maxTextLen, '€')
             self.samples.append((gtText, fileName))
             i = i+1
-            if i % 10000 == 0:
+            if i % 1000 == 0:
                 print(i)
                 # break
         # text_file.close()
@@ -100,25 +100,22 @@ class DataLoader:
         self.charList = sorted(list(chars))
 
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=1, mask_token='', oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(),  num_oov_indices=0, mask_token='', oov_token='', invert=True
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
         )
-        print("self.char_to_num(['€'])")
-        print(self.char_to_num(['€'])[0])
 
     def set_charlist(self, chars):
         self.charList = sorted(list(chars))
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=1, mask_token='€', oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(),  num_oov_indices=1, mask_token='€', oov_token='[UNK]', invert=True
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
         )
-
 
     def truncateLabel(self, text, maxTextLen):
         # ctc_loss can't compute loss if it cannot find a mapping between text label and input
