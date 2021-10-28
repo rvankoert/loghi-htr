@@ -50,7 +50,7 @@ class DataLoader:
             lineSplit = line.strip().split('\t')
             assert len(lineSplit) >= 1
 
-            fileName = lineSplit[0]
+            fileName = '/data/iamdb/linescleaned/' + lineSplit[0]
 
             # GT text are columns starting at 9
             gtText = self.truncateLabel(' '.join(lineSplit[1:]), maxTextLen).replace("|", " ")
@@ -156,20 +156,20 @@ class DataLoader:
         # height =32/img.shape
         print("img.shape[1]")
         print(img)
-        if augment:
-            img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
-            img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
-                                            VSHIFT * tf.random.uniform(shape=[], minval=-1,
-                                                                       maxval=1)])  # [dx dy] shift/translation
-            img = tfa.image.transform(img,
-                                      [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
-                                       MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
-                                       0.0,
-                                       0.0])
-        #     img = tf.image.random_hue(img, 0.08)
-        #     img = tf.image.random_saturation(img, 0.6, 1.6)
-            img = tf.image.random_brightness(img, 0.05)
-            img = tf.image.random_contrast(img, 0.7, 1.3)
+        # if augment:
+        #     img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
+        #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
+        #                                     VSHIFT * tf.random.uniform(shape=[], minval=-1,
+        #                                                                maxval=1)])  # [dx dy] shift/translation
+        #     img = tfa.image.transform(img,
+        #                               [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
+        #                                MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
+        #                                0.0,
+        #                                0.0])
+        # #     img = tf.image.random_hue(img, 0.08)
+        # #     img = tf.image.random_saturation(img, 0.6, 1.6)
+        #     img = tf.image.random_brightness(img, 0.05)
+        #     img = tf.image.random_contrast(img, 0.7, 1.3)
 
         # img = tf.image.resize(img, [64, 4096], preserve_aspect_ratio=True)
         # img = tf.image.resize_with_pad(img, 64, 4096)
