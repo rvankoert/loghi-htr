@@ -50,7 +50,7 @@ class DataLoader:
             lineSplit = line.strip().split('\t')
             assert len(lineSplit) >= 1
 
-            fileName = lineSplit[0]
+            fileName = '/data/iamdb/linescleaned/' + lineSplit[0]
 
             # GT text are columns starting at 9
             gtText = self.truncateLabel(' '.join(lineSplit[1:]), maxTextLen).replace("|", " ")
@@ -167,12 +167,11 @@ class DataLoader:
         # #     img = tf.image.random_saturation(img, 0.6, 1.6)
         #     img = tf.image.random_brightness(img, 0.05)
         #     img = tf.image.random_contrast(img, 0.7, 1.3)
-        img = 1.0 - img
         # img = tf.image.resize(img, [64, 4096], preserve_aspect_ratio=True)
         # img = tf.image.resize_with_pad(img, 64, 4096)
         # img = tf.image.resize(img, [128, 8192], preserve_aspect_ratio=True)
-        # img = tf.image.resize(img, [16, 1024], preserve_aspect_ratio=True)
-        img = tf.image.resize_with_pad(img, 32, 2048)
+        img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
+        # img = tf.image.resize_with_pad(img, 32, 2048)
         img = 1.0 - img
 
         # 5. Transpose the image because we want the time

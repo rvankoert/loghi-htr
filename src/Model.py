@@ -173,7 +173,7 @@ class Model():
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
 
-        new_shape = (-1, (height // 4) * 64)
+        new_shape = (-1, (height // 4) * 128)
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)

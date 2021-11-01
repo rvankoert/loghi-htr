@@ -20,13 +20,11 @@ class FilePaths:
     "filenames and paths to data"
     fnCharList = '../model/charList.txt'
     fnAccuracy = '../model/accuracy.txt'
-    # fnTrain = '/home/rutger/training_all_ijsberg.txt'
     fnInfer = '../data/test.png'
     fnCorpus = '../data/corpus.txt'
 
     fnCharList = '../model/charList2.txt'
     fnAccuracy = '../model/accuracy2.txt'
-    # fnTrain = '/home/rutger/training_all_ijsberg.txt'
     fnInfer = '../data2/test.png'
     fnCorpus = '../data2/corpus.txt'
 
