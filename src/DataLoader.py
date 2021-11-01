@@ -83,9 +83,9 @@ class DataLoader:
             # gtText = gtText.ljust(maxTextLen, '€')
             self.samples.append((gtText, fileName))
             i = i+1
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 print(i)
-                # break
+                break
         # text_file.close()
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
@@ -110,11 +110,11 @@ class DataLoader:
     def set_charlist(self, chars):
         self.charList = sorted(list(chars))
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token='€', oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='€', invert=True
         )
 
     def truncateLabel(self, text, maxTextLen):
@@ -153,31 +153,34 @@ class DataLoader:
         # height =32/img.shape
         print("img.shape[1]")
         print(img)
-        if augment:
-            img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
-            img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
-                                            VSHIFT * tf.random.uniform(shape=[], minval=-1,
-                                                                       maxval=1)])  # [dx dy] shift/translation
-            img = tfa.image.transform(img,
-                                      [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
-                                       MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
-                                       0.0,
-                                       0.0])
-        #     img = tf.image.random_hue(img, 0.08)
-        #     img = tf.image.random_saturation(img, 0.6, 1.6)
-            img = tf.image.random_brightness(img, 0.05)
-            img = tf.image.random_contrast(img, 0.7, 1.3)
-
+        # if augment:
+        #     img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
+        #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
+        #                                     VSHIFT * tf.random.uniform(shape=[], minval=-1,
+        #                                                                maxval=1)])  # [dx dy] shift/translation
+        #     img = tfa.image.transform(img,
+        #                               [1.0, MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 0.0,
+        #                                MAX_SHEAR_LEVEL * tf.random.uniform(shape=[], minval=-1, maxval=1), 1.0, 0.0,
+        #                                0.0,
+        #                                0.0])
+        # #     img = tf.image.random_hue(img, 0.08)
+        # #     img = tf.image.random_saturation(img, 0.6, 1.6)
+        #     img = tf.image.random_brightness(img, 0.05)
+        #     img = tf.image.random_contrast(img, 0.7, 1.3)
+        img = 1.0 - img
         # img = tf.image.resize(img, [64, 4096], preserve_aspect_ratio=True)
         # img = tf.image.resize_with_pad(img, 64, 4096)
-        # img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
+        # img = tf.image.resize(img, [128, 8192], preserve_aspect_ratio=True)
+        # img = tf.image.resize(img, [16, 1024], preserve_aspect_ratio=True)
         img = tf.image.resize_with_pad(img, 32, 2048)
+        img = 1.0 - img
 
         # 5. Transpose the image because we want the time
         # dimension to correspond to the width of the image.
         img = tf.transpose(img, perm=[1, 0, 2])
         # 6. Map the characters in label to numbers
         label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        # label = label, 128)
         # 7. Return a dict as our model is expecting two inputs
         return {"image": img, "label": label}
 
@@ -212,7 +215,6 @@ class DataLoader:
         max_length = max([len(label) for label in gtTexts])
         print("max_length: " + str(max_length))
         # gtTexts = [(str(i)+"a123456").ljust(10,'\0') for i in batchRange]
-
         #		imgs = [preprocess(cv2.imread(self.samples[i].filePath, cv2.IMREAD_UNCHANGED), self.imgSize, self.dataAugmentation) for i in batchRange]
         imgs = [self.samples[i][1] for i in range(len(self.samples))]
 
@@ -222,13 +224,24 @@ class DataLoader:
 
         train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
 
+        # train_dataset = (
+        #     train_dataset.map(
+        #         self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        #     )
+        #     .batch(self.batchSize)
+        #     .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # )
         train_dataset = (
             train_dataset.map(
                 self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
-            .batch(self.batchSize)
+            .padded_batch(self.batchSize, padded_shapes={
+                'image': [None,None,None],
+                'label': [None]
+            })
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         )
+        # gtTexts = tf.keras.preprocessing.sequence.pad_sequences(gtTexts, max_length)
 
         validation_dataset = tf.data.Dataset.from_tensor_slices((x_valid, y_valid))
         print(validation_dataset)
@@ -236,7 +249,10 @@ class DataLoader:
             validation_dataset.map(
                 self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
-            .batch(self.batchSize)
+            .padded_batch(self.batchSize, padded_shapes={
+                'image': [None,None,None],
+                'label': [None]
+            })
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         )
 

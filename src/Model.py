@@ -137,7 +137,7 @@ class Model():
             name="Conv1",
         )(input_img)
         x = layers.MaxPooling2D((2, 2), name="pool1")(x)
-        # x = layers.Dropout(0.2)(x)
+        x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
             32,
@@ -147,7 +147,7 @@ class Model():
             name="Conv2",
         )(x)
         x = layers.MaxPooling2D((2, 2), name="pool2")(x)
-        # x = layers.Dropout(0.2)(x)
+        x = layers.Dropout(0.2)(x)
 
         # Second conv block
         x = layers.Conv2D(
@@ -178,15 +178,16 @@ class Model():
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(1024, activation="relu", name="dense1")(x)
-        # x = layers.Dropout(0.1)(x)
+        x = layers.Dropout(0.5)(x)
         x = layers.Dense(1024, activation="relu", name="dense2")(x)
-        # x = layers.Dropout(0.1)(x)
+        x = layers.Dropout(0.5)(x)
 
-        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
-        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.1))(x)
+        x = tf.keras.layers.Masking(mask_value=0)(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
 
         # Output layer
         x = layers.Dense(number_characters +3, activation="softmax", name="dense3")(x)
