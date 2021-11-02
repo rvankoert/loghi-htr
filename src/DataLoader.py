@@ -9,6 +9,7 @@ from SamplePreprocessor import preprocess
 from tensorflow.keras import layers
 import tensorflow as tf
 import tensorflow_addons as tfa
+from tensorflow.python.ops.numpy_ops import np_config
 
 
 class DataLoader:
@@ -21,7 +22,8 @@ class DataLoader:
     validation_dataset = [];
     train_size =0.99
 
-    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size, channels):
+    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size):
+        np_config.enable_numpy_behavior()
         "loader for dataset at given location, preprocess images and text according to parameters"
 
         # assert filePath[-1] == '/'
@@ -32,8 +34,9 @@ class DataLoader:
         self.imgSize = imgSize
         self.samples = []
         self.train_size = train_size
-        self.channels = channels
-
+        self.height = imgSize[0]
+        self.width = imgSize[1]
+        self.channels = imgSize[2]
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
         f = open(filePath)
@@ -70,22 +73,22 @@ class DataLoader:
                 bad_samples.append(lineSplit[0] + '.png')
                 print("bad sample: "+ lineSplit[0])
                 continue
-            img = cv2.imread(fileName)
-            height, width, channels = img.shape
-            # print (width *(height/ 32))
-            if height < 32 or width < 32 or width /(height / 32) < 2* len(gtText):
-                print(fileName)
-                # os.remove(fileName)
-                continue
-            # n = text_file.write(line)
+            # img = cv2.imread(fileName)
+            # height, width, channels = img.shape
+            # # print (width *(height/ 32))
+            # if height < 32 or width < 32 or width /(height / 32) < 2* len(gtText):
+            #     print(fileName)
+            #     # os.remove(fileName)
+            #     continue
+            # # n = text_file.write(line)
 
             # put sample into list
             # gtText = gtText.ljust(maxTextLen, '€')
             self.samples.append((gtText, fileName))
             i = i+1
-            if i % 10000 == 0:
+            if i % 2000 == 0:
                 print(i)
-                break
+                # break
         # text_file.close()
         # some images in the IAM dataset are known to be damaged, don't show warning for them
         if len(bad_samples) > 0:
@@ -110,11 +113,11 @@ class DataLoader:
     def set_charlist(self, chars):
         self.charList = sorted(list(chars))
         self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token='€', oov_token='[UNK]'
+            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
         )
         # Mapping integers back to original characters
         self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='€', invert=True
+            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
         )
 
     def truncateLabel(self, text, maxTextLen):
@@ -151,8 +154,8 @@ class DataLoader:
 
         # 4. Resize to the desired size
         # height =32/img.shape
-        print("img.shape[1]")
-        print(img)
+        print("img.shape[0]")
+        print(tf.shape(img)[0])
         # if augment:
         #     img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
         #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),
@@ -167,19 +170,32 @@ class DataLoader:
         # #     img = tf.image.random_saturation(img, 0.6, 1.6)
         #     img = tf.image.random_brightness(img, 0.05)
         #     img = tf.image.random_contrast(img, 0.7, 1.3)
-        # img = tf.image.resize(img, [64, 4096], preserve_aspect_ratio=True)
+        img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
         # img = tf.image.resize_with_pad(img, 64, 4096)
         # img = tf.image.resize(img, [128, 8192], preserve_aspect_ratio=True)
-        img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
+        # img = tf.image.resize(img, [32, 2048], preserve_aspect_ratio=True)
         # img = tf.image.resize_with_pad(img, 32, 2048)
-        # img = 1.0 - img
+        img = 1.0 - img
+        # 6. Map the characters in label to numbers
+        # print("img.shape")
+        # print(tf.shape(img))
+        # print('imageWidth')
+        imageWidth = tf.shape(img)[1]
+        # print(imageWidth)
+        label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        # print('str(label.shape[0])')
+        labelWidth = tf.shape(label)[0]
+        # print(labelWidth.numpy())
+        # label = label, 128)
+        # print('str(img.shape[1])')
+        # print(tf.shape(img))
+        # tf.shape(img)
+        if imageWidth < labelWidth*4:
+            img = tf.image.resize_with_pad(img, self.height, labelWidth*4)
 
         # 5. Transpose the image because we want the time
         # dimension to correspond to the width of the image.
         img = tf.transpose(img, perm=[1, 0, 2])
-        # 6. Map the characters in label to numbers
-        label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-        # label = label, 128)
         # 7. Return a dict as our model is expecting two inputs
         return {"image": img, "label": label}
 
@@ -235,7 +251,7 @@ class DataLoader:
                 self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
             .padded_batch(self.batchSize, padded_shapes={
-                'image': [None,None,None],
+                'image': [None, None, None],
                 'label': [None]
             })
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
@@ -249,7 +265,7 @@ class DataLoader:
                 self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
             )
             .padded_batch(self.batchSize, padded_shapes={
-                'image': [None,None,None],
+                'image': [None, None, None],
                 'label': [None]
             })
             .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)

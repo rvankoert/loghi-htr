@@ -120,7 +120,7 @@ class WERMetric(tf.keras.metrics.Metric):
 class Model():
 
     def build_model(self, imgSize, number_characters, learning_rate):
-        (width, height, channels) = imgSize[0], imgSize[1], imgSize[2]
+        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         width = None
         input_img = layers.Input(
@@ -130,13 +130,13 @@ class Model():
 
         # First conv block
         x = layers.Conv2D(
-            96,
+            16,
             (3, 3),
             activation='elu',
             padding="same",
             name="Conv1",
         )(input_img)
-        x = layers.MaxPooling2D((2, 2), name="pool1")(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool1")(x)
         x = layers.Dropout(0.2)(x)
         # Second conv block
         x = layers.Conv2D(
@@ -146,8 +146,8 @@ class Model():
             padding="same",
             name="Conv2",
         )(x)
-        x = layers.MaxPooling2D((2, 2), name="pool2")(x)
-        x = layers.Dropout(0.2)(x)
+        # x = layers.MaxPooling2D((2, 2), name="pool2")(x)
+        # x = layers.Dropout(0.2)(x)
 
         # Second conv block
         x = layers.Conv2D(
@@ -158,14 +158,14 @@ class Model():
             name="Conv3",
         )(x)
 
-        # Second conv block
-        x = layers.Conv2D(
-            128,
-            (3, 3),
-            activation='elu',
-            padding="same",
-            name="Conv4",
-        )(x)
+        # # Second conv block
+        # x = layers.Conv2D(
+        #     128,
+        #     (3, 3),
+        #     activation='elu',
+        #     padding="same",
+        #     name="Conv4",
+        # )(x)
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -173,16 +173,16 @@ class Model():
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
 
-        new_shape = (-1, (height // 4) * 128)
+        new_shape = (-1, (height // 2) * 64)
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(1024, activation="relu", name="dense1")(x)
+        x = layers.Dense(1024, activation="elu", name="dense1")(x)
         x = layers.Dropout(0.5)(x)
-        x = layers.Dense(1024, activation="relu", name="dense2")(x)
+        x = layers.Dense(1024, activation="elu", name="dense2")(x)
         x = layers.Dropout(0.5)(x)
 
-        x = tf.keras.layers.Masking(mask_value=0)(x)
+        # x = tf.keras.layers.Masking(mask_value=0)(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
@@ -190,7 +190,7 @@ class Model():
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
 
         # Output layer
-        x = layers.Dense(number_characters +3, activation="softmax", name="dense3")(x)
+        x = layers.Dense(number_characters +2, activation="softmax", name="dense3")(x)
 
         x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step

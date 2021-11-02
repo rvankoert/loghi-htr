@@ -62,9 +62,9 @@ def main():
                         help='epochs to be used')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
                         help='batch_size to be used, when using variable sized input this must be 1')
-    parser.add_argument('--height', metavar='height', type=int, default=32,
+    parser.add_argument('--height', metavar='height', type=int, default=64,
                         help='height to be used')
-    parser.add_argument('--width', metavar='width', type=int, default=2048,
+    parser.add_argument('--width', metavar='width', type=int, default=65536,
                         help='width to be used')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='channels to be used')
@@ -84,7 +84,7 @@ def main():
                         help='spec')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
                         help='existing_model')
-    parser.add_argument('--model_name', metavar='model_name ', type=str, default='difornet10',
+    parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                         help='model_name')
     parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
                         help='contrastive_loss, binary_crossentropy, mse')
@@ -105,7 +105,7 @@ def main():
     tf.random.set_seed(SEED)
 
     batchSize = args.batch_size
-    imgSize = (args.width, args.height, args.channels)
+    imgSize = (args.height, args.width, args.channels)
     maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
@@ -114,8 +114,11 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
-    loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, args.train_size, args.channels)
+    loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, args.train_size)
     # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
+
+    if args.model_name:
+        FilePaths.modelOutput = '../models/'+args.model_name
 
     # print(loader.charList)
 
@@ -193,7 +196,7 @@ def main():
 
     if (args.do_inference):
 
-        loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, 1)
+        loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen)
         charlist = set(char for char in open(FilePaths.fnCharList).read())
         model = keras.models.load_model(args.existing_model)
         loader.set_charlist(charlist)
