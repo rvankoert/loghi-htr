@@ -227,8 +227,7 @@ class Model():
             callbacks=[early_stopping, history, checkpoint],
             shuffle=True,
             workers=16,
-            max_queue_size=256,
-            batch_size=32
+            max_queue_size=256
         )
         return history
 #
