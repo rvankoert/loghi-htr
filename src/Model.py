@@ -182,7 +182,7 @@ class Model():
         x = layers.Dense(1024, activation="elu", name="dense2")(x)
         x = layers.Dropout(0.5)(x)
 
-        # x = tf.keras.layers.Masking(mask_value=0)(x)
+        x = tf.keras.layers.Masking(mask_value=0)(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
