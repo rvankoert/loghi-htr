@@ -211,6 +211,18 @@ class DataLoader:
         # 4. Split data into training and validation sets
         x_train, y_train = images[indices[:train_samples]], labels[indices[:train_samples]]
         x_valid, y_valid = images[indices[train_samples:]], labels[indices[train_samples:]]
+        # text_file = open("ijsbergtrain.txt", "w")
+        # for i in range(len(x_train)):
+        #     line = x_train[i]+ "\t" + y_train[i]+"\n"
+        #     n = text_file.write(line)
+        # text_file.close()
+        #
+        # text_file = open("ijsbergvalidation.txt", "w")
+        # for i in range(len(x_valid)):
+        #     line = x_valid[i]+ "\t" + y_valid[i]+"\n"
+        #     n = text_file.write(line)
+        # text_file.close()
+
         return x_train, x_valid, y_train, y_valid
 
     def getValidationDataSet(self):

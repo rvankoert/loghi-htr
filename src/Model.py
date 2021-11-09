@@ -224,6 +224,7 @@ class Model():
             train_dataset,
             validation_data=validation_dataset,
             epochs=epochs,
+            # batch_size=1,
             callbacks=[early_stopping, history, checkpoint],
             shuffle=True,
             workers=16,

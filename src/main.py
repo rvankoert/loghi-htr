@@ -15,6 +15,8 @@ import random
 import argparse
 import editdistance
 
+from DataLoaderNew import DataLoaderNew
+
 
 class FilePaths:
     "filenames and paths to data"
@@ -31,6 +33,7 @@ class FilePaths:
     modelOutput = '../models/model-val-best'
 
 def main():
+    # tf.compat.v1.disable_eager_execution()
 
     # A utility function to decode the output of the network
     def decode_batch_predictions(pred):
@@ -43,7 +46,7 @@ def main():
         # Iterate over the results and get back the text
         output_text = []
         for res in results:
-            res = tf.strings.reduce_join(loader.num_to_char(res)).numpy().decode("utf-8")
+            res = tf.strings.reduce_join(validation_generator.num_to_char(res)).numpy().decode("utf-8")
             output_text.append(res)
         return output_text
 
@@ -58,11 +61,11 @@ def main():
                         help='percent_validation to be used')
     parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.0001,
                         help='learning_rate to be used')
-    parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
+    parser.add_argument('--epochs', metavar='epochs', type=int, default=1,
                         help='epochs to be used')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
                         help='batch_size to be used, when using variable sized input this must be 1')
-    parser.add_argument('--height', metavar='height', type=int, default=64,
+    parser.add_argument('--height', metavar='height', type=int, default=32,
                         help='height to be used')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
                         help='width to be used')
@@ -114,7 +117,7 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
-    loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen, args.train_size)
+    loader = DataLoaderNew(args.trainset, batchSize, imgSize, maxTextLen, args.train_size)
     # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
 
     if args.model_name:
@@ -135,16 +138,17 @@ def main():
     else:
         charlist = set(char for char in open(FilePaths.fnCharList).read())
         model = keras.models.load_model(args.existing_model)
-        loader.set_charlist(charlist)
 
     model.summary()
 
-    batch = loader.getTrainDataSet()
-    validation_dataset = loader.getValidationDataSet()
+    training_generator, validation_generator, test_generator = loader.generators()
+
+    training_generator = training_generator.getGenerator()
+    validation_dataset = validation_generator.getGenerator()
+    test_generator = test_generator.getGenerator()
 
     if (args.do_train):
-        history = Model().train_batch(model, batch, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput)
-
+        history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput)
 
     if (args.do_validate):
 
@@ -168,7 +172,7 @@ def main():
             counter += 1
             orig_texts = []
             for label in batch_labels:
-                label = tf.strings.reduce_join(loader.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
      #       _, ax = plt.subplots(1,1, figsize=(1024,32 ))
@@ -216,7 +220,7 @@ def main():
 
             orig_texts = []
             for label in batch_labels:
-                label = tf.strings.reduce_join(loader.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(test_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
             for i in range(len(pred_texts)):
