@@ -29,8 +29,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         # img = tf.image.resize_with_pad(img, 51, 1024)
         imageWidth = tf.shape(img)[1]
         labelWidth = tf.shape(label)[0]
-        if imageWidth < labelWidth*4:
-            img = tf.image.resize_with_pad(img, self.height, labelWidth*4)
+        if imageWidth < labelWidth*16:
+            img = tf.image.resize_with_pad(img, self.height, labelWidth*16)
+
+        imageWidth = tf.shape(img)[1]
+        # pad 50 pixels left and right
+        img = tf.image.resize_with_pad(img, self.height, imageWidth+100)
 
         img = tf.transpose(img, perm=[1, 0, 2])
         return {"image": img, "label": label}
@@ -48,7 +52,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
         self.charList = charList
         self.set_charlist(self.charList)
-        self.dataset = tf.data.Dataset.from_tensor_slices((self.list_IDs,self.labels))
+        self.dataset = tf.data.Dataset.from_tensor_slices((self.list_IDs, self.labels))
 
     def getGenerator(self):
 
@@ -64,7 +68,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 'image': [None, None, None],
                 'label': [None]
             })
-            # .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+            .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         )
         return train_dataset
 

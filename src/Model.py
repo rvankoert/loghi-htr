@@ -1,13 +1,3 @@
-import os
-from random import shuffle
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-from pathlib import Path
-from collections import Counter
-import DataLoader as dataLoader
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -20,7 +10,7 @@ for gpu in gpus:
 class CTCLayer(tf.keras.layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = tf.keras.backend.ctc_batch_cost
+        self.loss_fn = keras.backend.ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
@@ -45,76 +35,76 @@ class CTCLayer(tf.keras.layers.Layer):
         return y_pred
 
 
-class CERMetric(tf.keras.metrics.Metric):
-    """
-    A custom Keras metric to compute the Character Error Rate
-    """
-
-    def __init__(self, name='CER_metric', **kwargs):
-        super(CERMetric, self).__init__(name=name, **kwargs)
-        self.cer_accumulator = self.add_weight(name="total_cer", initializer="zeros")
-        self.counter = self.add_weight(name="cer_count", initializer="zeros")
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        input_shape = K.shape(y_pred)
-        input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
-
-        decode, log = K.ctc_decode(y_pred,
-                                   input_length,
-                                   greedy=True)
-
-        decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
-        y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
-
-        decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
-        distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
-
-        self.cer_accumulator.assign_add(tf.reduce_sum(distance))
-        self.counter.assign_add(len(y_true))
-
-    def result(self):
-        return tf.math.divide_no_nan(self.cer_accumulator, self.counter)
-
-    def reset_states(self):
-        self.cer_accumulator.assign(0.0)
-        self.counter.assign(0.0)
-
-
-class WERMetric(tf.keras.metrics.Metric):
-    """
-    A custom Keras metric to compute the Word Error Rate
-    """
-
-    def __init__(self, name='WER_metric', **kwargs):
-        super(WERMetric, self).__init__(name=name, **kwargs)
-        self.wer_accumulator = self.add_weight(name="total_wer", initializer="zeros")
-        self.counter = self.add_weight(name="wer_count", initializer="zeros")
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        input_shape = K.shape(y_pred)
-        input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
-
-        decode, log = K.ctc_decode(y_pred,
-                                   input_length,
-                                   greedy=True)
-
-        decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
-        y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
-
-        decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
-        distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
-
-        correct_words_amount = tf.reduce_sum(tf.cast(tf.not_equal(distance, 0), tf.float32))
-
-        self.wer_accumulator.assign_add(correct_words_amount)
-        self.counter.assign_add(len(y_true))
-
-    def result(self):
-        return tf.math.divide_no_nan(self.wer_accumulator, self.counter)
-
-    def reset_states(self):
-        self.wer_accumulator.assign(0.0)
-        self.counter.assign(0.0)
+# class CERMetric(tf.keras.metrics.Metric):
+#     """
+#     A custom Keras metric to compute the Character Error Rate
+#     """
+#
+#     def __init__(self, name='CER_metric', **kwargs):
+#         super(CERMetric, self).__init__(name=name, **kwargs)
+#         self.cer_accumulator = self.add_weight(name="total_cer", initializer="zeros")
+#         self.counter = self.add_weight(name="cer_count", initializer="zeros")
+#
+#     def update_state(self, y_true, y_pred, sample_weight=None):
+#         input_shape = K.shape(y_pred)
+#         input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
+#
+#         decode, log = K.ctc_decode(y_pred,
+#                                    input_length,
+#                                    greedy=True)
+#
+#         decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
+#         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
+#
+#         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+#         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
+#
+#         self.cer_accumulator.assign_add(tf.reduce_sum(distance))
+#         self.counter.assign_add(len(y_true))
+#
+#     def result(self):
+#         return tf.math.divide_no_nan(self.cer_accumulator, self.counter)
+#
+#     def reset_states(self):
+#         self.cer_accumulator.assign(0.0)
+#         self.counter.assign(0.0)
+#
+#
+# class WERMetric(tf.keras.metrics.Metric):
+#     """
+#     A custom Keras metric to compute the Word Error Rate
+#     """
+#
+#     def __init__(self, name='WER_metric', **kwargs):
+#         super(WERMetric, self).__init__(name=name, **kwargs)
+#         self.wer_accumulator = self.add_weight(name="total_wer", initializer="zeros")
+#         self.counter = self.add_weight(name="wer_count", initializer="zeros")
+#
+#     def update_state(self, y_true, y_pred, sample_weight=None):
+#         input_shape = K.shape(y_pred)
+#         input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
+#
+#         decode, log = K.ctc_decode(y_pred,
+#                                    input_length,
+#                                    greedy=True)
+#
+#         decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
+#         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
+#
+#         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+#         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
+#
+#         correct_words_amount = tf.reduce_sum(tf.cast(tf.not_equal(distance, 0), tf.float32))
+#
+#         self.wer_accumulator.assign_add(correct_words_amount)
+#         self.counter.assign_add(len(y_true))
+#
+#     def result(self):
+#         return tf.math.divide_no_nan(self.wer_accumulator, self.counter)
+#
+#     def reset_states(self):
+#         self.wer_accumulator.assign(0.0)
+#         self.counter.assign(0.0)
 
 
 class Model():
@@ -122,6 +112,10 @@ class Model():
     def build_model(self, imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
+        dropout = 0
+        dropoutdense = 0
+        dropoutconv = 0
+        padding = "same"
         width = None
         input_img = layers.Input(
             shape=(width, height, channels), name="image"
@@ -133,39 +127,51 @@ class Model():
             16,
             (3, 3),
             activation='elu',
-            padding="same",
+            padding=padding,
             name="Conv1",
         )(input_img)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool1")(x)
-        x = layers.Dropout(0.2)(x)
+        x = layers.Dropout(dropoutconv)(x)
         # Second conv block
         x = layers.Conv2D(
             32,
             (3, 3),
             activation='elu',
-            padding="same",
+            padding=padding,
             name="Conv2",
         )(x)
-        # x = layers.MaxPooling2D((2, 2), name="pool2")(x)
-        # x = layers.Dropout(0.2)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool2")(x)
+        x = layers.Dropout(dropoutconv)(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            48,
+            (3, 3),
+            activation='elu',
+            padding=padding,
+            name="Conv3",
+        )(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool3")(x)
+        x = layers.Dropout(dropoutconv)(x)
 
         # Second conv block
         x = layers.Conv2D(
             64,
             (3, 3),
             activation='elu',
-            padding="same",
-            name="Conv3",
+            padding=padding,
+            name="Conv4",
         )(x)
+        x = layers.Dropout(dropoutconv)(x)
 
-        # # Second conv block
-        # x = layers.Conv2D(
-        #     128,
-        #     (3, 3),
-        #     activation='elu',
-        #     padding="same",
-        #     name="Conv4",
-        # )(x)
+        x = layers.Conv2D(
+            80,
+            (3, 3),
+            activation='elu',
+            padding=padding,
+            name="Conv5",
+        )(x)
+        x = layers.Dropout(dropoutconv)(x)
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -173,24 +179,37 @@ class Model():
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
 
-        new_shape = (-1, (height // 2) * 64)
+        new_shape = (-1, (height // 8) * 80)
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
         x = layers.Dense(1024, activation="elu", name="dense1")(x)
-        x = layers.Dropout(0.5)(x)
+        x = layers.Dropout(dropoutdense)(x)
         x = layers.Dense(1024, activation="elu", name="dense2")(x)
-        x = layers.Dropout(0.5)(x)
+        x = layers.Dropout(dropoutdense)(x)
 
         x = tf.keras.layers.Masking(mask_value=0)(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=0.25))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(64, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(64, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
         # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
 
         # Output layer
-        x = layers.Dense(number_characters +2, activation="softmax", name="dense3")(x)
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
 
         x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
