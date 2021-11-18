@@ -4,6 +4,8 @@ from __future__ import print_function
 import numpy as np
 from tensorflow.keras import layers
 import tensorflow as tf
+import tensorflow_addons as tfa
+import random
 
 
 class DataGenerator(tf.keras.utils.Sequence):
@@ -21,20 +23,29 @@ class DataGenerator(tf.keras.utils.Sequence):
         img = tf.io.decode_png(img, channels=self.channels)
         img = tf.image.convert_image_dtype(img, self.DTYPE)
 
-        print("img.shape[0]")
-        print(tf.shape(img)[0])
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
         img = 1.0 - img
         label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-        # img = tf.image.resize_with_pad(img, 51, 1024)
-        imageWidth = tf.shape(img)[1]
-        labelWidth = tf.shape(label)[0]
-        if imageWidth < labelWidth*16:
-            img = tf.image.resize_with_pad(img, self.height, labelWidth*16)
 
-        imageWidth = tf.shape(img)[1]
+        image_height = tf.shape(img)[0]
+        image_width = tf.shape(img)[1]
+        label_width = tf.shape(label)[0]
+        # if augment:
+        #     randomShear = random.normalvariate(0, 0.5)
+        #     img = tfa.image.shear_x(img, randomShear, replace=0)
+        # #     img = tf.image.resize_with_pad(img, image_height, image_width)
+        #     gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
+        #     tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        #     print("img.shape[0]")
+        #     print(tf.shape(img)[0])
+
+        # img = tf.image.resize_with_pad(img, 51, 1024)
+        if image_width < label_width*16:
+            img = tf.image.resize_with_pad(img, self.height, label_width*16)
+
+        image_width = tf.shape(img)[1]
         # pad 50 pixels left and right
-        img = tf.image.resize_with_pad(img, self.height, imageWidth+100)
+        img = tf.image.resize_with_pad(img, self.height, image_width+100)
 
         img = tf.transpose(img, perm=[1, 0, 2])
         return {"image": img, "label": label}
@@ -58,18 +69,31 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         train_dataset = self.dataset
         if self.shuffle:
-             train_dataset = train_dataset.shuffle(len(self.dataset))
-        train_dataset = (
-            train_dataset
-            .map(
-                self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
+            train_dataset = train_dataset.shuffle(len(self.dataset))
+            train_dataset = (
+                train_dataset
+                .map(
+                    self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
+                )
+                .padded_batch(self.batch_size, padded_shapes={
+                    'image': [None, None, None],
+                    'label': [None]
+                })
+                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
-            .padded_batch(self.batch_size, padded_shapes={
-                'image': [None, None, None],
-                'label': [None]
-            })
-            .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        )
+        else:
+            train_dataset = (
+                train_dataset
+                .map(
+                    self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
+                )
+                .padded_batch(self.batch_size, padded_shapes={
+                    'image': [None, None, None],
+                    'label': [None]
+                })
+                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+            )
+
         return train_dataset
 
 

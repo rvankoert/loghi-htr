@@ -146,7 +146,7 @@ def main():
                         help='gpu to be used')
     parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
                         help='percent_validation to be used')
-    parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.0001,
+    parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.001,
                         help='learning_rate to be used')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=1,
                         help='epochs to be used')
@@ -187,7 +187,7 @@ def main():
 
     args = parser.parse_args()
 
-    print (args.existing_model)
+    print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     SEED = args.seed
     random.seed(SEED)
@@ -225,6 +225,7 @@ def main():
     else:
         charlist = set(char for char in open(FilePaths.fnCharList).read())
         model = keras.models.load_model(args.existing_model)
+        model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
 

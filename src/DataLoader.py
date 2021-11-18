@@ -154,8 +154,8 @@ class DataLoader:
 
         # 4. Resize to the desired size
         # height =32/img.shape
-        print("img.shape[0]")
-        print(tf.shape(img)[0])
+        # print("img.shape[0]")
+        # print(tf.shape(img)[0])
         # if augment:
         #     img = tfa.image.rotate(img, MAX_ROT_ANGLE * tf.random.uniform([], dtype=DataLoader.DTYPE))  # rotation
         #     img = tfa.image.translate(img, [HSHIFT * tf.random.uniform(shape=[], minval=-1, maxval=1),

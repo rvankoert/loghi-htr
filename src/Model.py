@@ -112,9 +112,8 @@ class Model():
     def build_model(self, imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropout = 0
-        dropoutdense = 0
-        dropoutconv = 0
+        dropoutdense = 0.5
+        dropoutconv = 0.1
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -126,6 +125,7 @@ class Model():
         x = layers.Conv2D(
             16,
             (3, 3),
+            strides=(1,1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -136,6 +136,7 @@ class Model():
         x = layers.Conv2D(
             32,
             (3, 3),
+            strides=(1,1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -147,6 +148,7 @@ class Model():
         x = layers.Conv2D(
             48,
             (3, 3),
+            strides=(1,1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -158,6 +160,7 @@ class Model():
         x = layers.Conv2D(
             64,
             (3, 3),
+            strides=(1,1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -167,6 +170,7 @@ class Model():
         x = layers.Conv2D(
             80,
             (3, 3),
+            strides=(1,1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -188,7 +192,7 @@ class Model():
         x = layers.Dense(1024, activation="elu", name="dense2")(x)
         x = layers.Dropout(dropoutdense)(x)
 
-        x = tf.keras.layers.Masking(mask_value=0)(x)
+        # x = tf.keras.layers.Masking(mask_value=0)(x)
         # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropout))(x)
         # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
         # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
@@ -201,8 +205,12 @@ class Model():
         # x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
         # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=0.5))(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=0.5))(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
         # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
