@@ -1,4 +1,5 @@
 import tensorflow as tf
+from keras.callbacks import ReduceLROnPlateau
 from tensorflow import keras
 from tensorflow.keras import layers
 
@@ -110,6 +111,147 @@ class CTCLayer(tf.keras.layers.Layer):
 class Model():
 
     def build_model(self, imgSize, number_characters, learning_rate):
+        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
+        # Inputs to the model
+        dropoutdense = 0.5
+        dropoutconv = 0.1
+        dropoutlstm = 0.5
+        dropoutdense = 0.0
+        dropoutconv = 0.0
+        dropoutlstm = 0.0
+        padding = "same"
+        width = None
+        input_img = layers.Input(
+            shape=(width, height, channels), name="image"
+        )
+        labels = layers.Input(name="label", shape=(None,))
+
+        # First conv block
+        x = layers.Conv2D(
+            16,
+            (3, 3),
+            strides=(1,1),
+            activation='elu',
+            padding=padding,
+            name="Conv1",
+        )(input_img)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool1")(x)
+        x = layers.Dropout(dropoutconv)(x)
+        # Second conv block
+        x = layers.Conv2D(
+            32,
+            (3, 3),
+            strides=(1,1),
+            activation='elu',
+            padding=padding,
+            name="Conv2",
+        )(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool2")(x)
+        x = layers.Dropout(dropoutconv)(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            48,
+            (3, 3),
+            strides=(1,1),
+            activation='elu',
+            padding=padding,
+            name="Conv3",
+        )(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool3")(x)
+        x = layers.Dropout(dropoutconv)(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            64,
+            (3, 3),
+            strides=(1,1),
+            activation='elu',
+            padding=padding,
+            name="Conv4",
+        )(x)
+        x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            80,
+            (3, 3),
+            strides=(1,1),
+            activation='elu',
+            padding=padding,
+            name="Conv5",
+        )(x)
+        x = layers.Dropout(dropoutconv)(x)
+        #
+        # x = layers.Conv2D(
+        #     128,
+        #     (3, 3),
+        #     strides=(1,1),
+        #     activation='elu',
+        #     padding=padding,
+        #     name="Conv6",
+        # )(x)
+        # x = layers.Dropout(dropoutconv)(x)
+
+
+        # We have used two max pool with pool size and strides 2.
+        # Hence, downsampled feature maps are 4x smaller. The number of
+        # filters in the last layer is 64. Reshape accordingly before
+        # passing the output to the RNN part of the model
+        # new_shape = ((width // 4), (height // 4) * 64)
+
+        new_shape = (-1, (height // 8) * 80)
+        # new_shape = (-1, (height) * 128)
+        # x = tf.reshape(input, shape=[73, (height // 4) * 64])
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        # x = layers.Dense(1024, activation="elu", name="dense1")(x)
+        # x = layers.Dropout(dropoutdense)(x)
+        # x = layers.Dense(1024, activation="elu", name="dense2")(x)
+        # x = layers.Dropout(dropoutdense)(x)
+
+        # x = tf.keras.layers.Masking(mask_value=0)(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(64, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.GRU(64, return_sequences=True, dropout=dropout))(x)
+        # x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
+        # x = tf.keras.layers.Masking(mask_value=0)(x)
+        # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=dropoutlstm))(x)
+        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=dropoutlstm))(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+        # x = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(x)
+
+        # Output layer
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
+
+        x = layers.Activation('linear', dtype=tf.float32)(x)
+        # Add CTC layer for calculating CTC loss at each step
+        output = CTCLayer(name="ctc_loss")(labels, x)
+
+        # Define the model
+        model = keras.models.Model(
+            inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
+        )
+        # # Optimizer
+        # # opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1.0)
+        # opt = keras.optimizers.RMSprop(learning_rate=learning_rate, rho=0.9, momentum=0.1)
+        # # Compile the model and return
+        # model.compile(optimizer=opt)
+        return model
+
+    def build_model_old1(self, imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutdense = 0.5
@@ -236,7 +378,7 @@ class Model():
 
     #
     # # Train the model
-    def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath):
+    def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath, MODEL_NAME):
         early_stopping_patience = 50
         # # Add early stopping
         early_stopping = keras.callbacks.EarlyStopping(
@@ -245,14 +387,20 @@ class Model():
         from keras.callbacks import History
         from keras.callbacks import ModelCheckpoint
         history = History()
-        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+        mcp_save = ModelCheckpoint(filepath + '/checkpoints/best_val/', save_best_only=True, monitor='val_loss',
+                                   mode='min', verbose=1)
+        # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
+        reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
+                                           verbose=1, min_delta=1e-4, mode='min')
+        filepath = "checkpoints/" + MODEL_NAME + "-saved-model-{epoch:02d}-{val_loss:.4f}.hdf5"
+        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='max')
 
         history = model.fit(
             train_dataset,
             validation_data=validation_dataset,
             epochs=epochs,
             # batch_size=1,
-            callbacks=[early_stopping, history, checkpoint],
+            callbacks=[early_stopping, history, checkpoint,mcp_save, reduce_lr_loss],
             shuffle=True,
             workers=16,
             max_queue_size=256

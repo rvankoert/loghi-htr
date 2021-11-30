@@ -4,3 +4,4 @@ keras==2.6.0
 tensorflow-addons==0.14.0
 matplotlib==3.3.2
 opencv_python==4.4.0.46
+scipy

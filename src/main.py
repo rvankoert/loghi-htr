@@ -121,21 +121,27 @@ def main():
 
         # Use greedy search. For complex tasks, you can use beam search
         pred = tf.dtypes.cast(pred, tf.float32)
-        results = ctc_decode(pred, input_length=input_len, greedy=True, beam_width=100, top_paths=1)[0][0][
-                  :, :maxTextLen
-                  ]
-        # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
-        #                   :, :maxTextLen
-        #                   ]
-        #
+        beam_width = 3
+        top_paths = 1
+        output_texts = []
+        ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=False, beam_width=beam_width, top_paths=top_paths)
+        for top_path in range(0, top_paths):
+            results = ctc_decoded[0][top_path][:, :maxTextLen]
+            log_prob = ctc_decoded[1][0][top_path]
+            print(np.exp(log_prob))
+            # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
+            #                   :, :maxTextLen
+            #                   ]
+            #
 
-        # Iterate over the results and get back the text
-        output_text = []
-        for res in results:
-            chars = validation_generator.num_to_char(res)
-            res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
-            output_text.append(res)
-        return output_text
+            # Iterate over the results and get back the text
+            output_text = []
+            for res in results:
+                chars = validation_generator.num_to_char(res)
+                res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
+                output_text.append(res)
+            output_texts.append(output_text)
+        return output_texts
 
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
@@ -236,7 +242,7 @@ def main():
     test_generator = test_generator.getGenerator()
 
     if (args.do_train):
-        history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput)
+        history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
 
     if (args.do_validate):
 
@@ -263,18 +269,19 @@ def main():
                 label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
-     #       _, ax = plt.subplots(1,1, figsize=(1024,32 ))
-            for i in range(len(pred_texts)):
-                # for i in range(16):
-                original_text = orig_texts[i].strip().replace('€', '')
-                predicted_text = pred_texts[i].strip()
-                print(original_text)
-                print(predicted_text)
-                cer = editdistance.eval(original_text, predicted_text)/float(len(original_text))
-                totaleditdistance += editdistance.eval(original_text, predicted_text)
-                totallength += len(original_text)
-                totalcer += cer
-                print(cer)
+            for pred_text in pred_texts:
+                for i in range(len(pred_text)):
+                    # for i in range(16):
+                    original_text = orig_texts[i].strip().replace('€', '')
+                    predicted_text = pred_text[i].strip()
+                    print(original_text)
+                    print(predicted_text)
+                    current_editdistance = editdistance.eval(original_text, predicted_text)
+                    cer = current_editdistance/float(len(original_text))
+                    totaleditdistance += current_editdistance
+                    totallength += len(original_text)
+                    print(cer)
+                    print(totaleditdistance/float(totallength))
         totalcer = totaleditdistance/float(totallength)
         print('totalcer: ' + str(totalcer))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)

@@ -185,15 +185,18 @@ class DataLoaderNew:
 
         trainParams = {'shuffle': True,
                        'batch_size': self.batchSize,
-                       'height': self.height
+                       'height': self.height,
+                       'channels': self.channels
                        }
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,
-                            'height': self.height
+                            'height': self.height,
+                       'channels': self.channels
                             }
         testParams = {'shuffle': False,
                       'batch_size': self.batchSize,
-                      'height': self.height
+                      'height': self.height,
+                       'channels': self.channels
                       }
         training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
         validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams, charList=self.charList)

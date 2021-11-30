@@ -6,10 +6,56 @@ from tensorflow.keras import layers
 import tensorflow as tf
 import tensorflow_addons as tfa
 import random
+from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage.interpolation import map_coordinates
+from keras.preprocessing.image import img_to_array
 
 
 class DataGenerator(tf.keras.utils.Sequence):
-    DTYPE = np.float32
+    DTYPE = tf.float32
+
+    @staticmethod
+    @tf.function
+    def elastic_transform(original, alpha_range, sigma, random_state=None):
+        """Elastic deformation of images as described in [Simard2003]_.
+        .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
+           Convolutional Neural Networks applied to Visual Document Analysis", in
+           Proc. of the International Conference on Document Analysis and
+           Recognition, 2003.
+
+       # Arguments
+           image: Numpy array with shape (height, width, channels).
+           alpha_range: Float for fixed value or [lower, upper] for random value from uniform distribution.
+               Controls intensity of deformation.
+           sigma: Float, sigma of gaussian filter that smooths the displacement fields.
+           random_state: `numpy.random.RandomState` object for generating displacement fields.
+        """
+
+        if random_state is None:
+            random_state = np.random.RandomState(None)
+
+        if np.isscalar(alpha_range):
+            alpha = alpha_range
+        else:
+            alpha = np.random.uniform(low=alpha_range[0], high=alpha_range[1])
+
+        shape = tf.shape(original)
+        randomx = random_state.rand(shape)
+        randomy = random_state.rand(shape)
+        dx = gaussian_filter((randomx * 2 - 1), sigma) * alpha
+        dy = gaussian_filter((randomy * 2 - 1), sigma) * alpha
+
+        x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]), indexing='ij')
+        indices = np.reshape(x + dx, (-1, 1)), np.reshape(y + dy, (-1, 1)), np.reshape(z, (-1, 1))
+        original = map_coordinates(original, indices, order=3, mode='reflect').reshape(shape)
+
+        # x, y, z = np.meshgrid(np.arange(gtShape[0]), np.arange(gtShape[1]), np.arange(gtShape[2]), indexing='ij')
+        # indices = np.reshape(x + dx, (-1, 1)), np.reshape(y + dy, (-1, 1)), np.reshape(z, (-1, 1))
+        # gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(gtImage,dtype=tf.uint8))
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # imageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(original,dtype=tf.uint8))
+        # tf.io.write_file("/tmp/testb.png", imageEncoded)
+        return original
 
     def encode_single_sample_augmented(self, img_path, label):
         return self.encode_single_sample(img_path, label, True)
@@ -19,9 +65,32 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def encode_single_sample(self, img_path, label, augment):
         MAX_ROT_ANGLE = 10.0
+        alpha_range = 500
+        sigma = 20
         img = tf.io.read_file(img_path)
         img = tf.io.decode_png(img, channels=self.channels)
         img = tf.image.convert_image_dtype(img, self.DTYPE)
+        img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
+
+        if augment and self.channels < 4:
+            randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
+            img = tfa.image.shear_x(img, randomShear, replace=1.0)
+        if augment and self.channels == 4:
+            #crappy workaround for bug in shear_x where alpha causes errors
+            channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
+            randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
+            alpha = tf.concat([channel1, channel2, alpha], axis=2) # add two dummy channels
+            alpha = tfa.image.shear_x(alpha, randomShear, replace=0)
+            img = tf.concat([channel1, channel2, channel3], axis=2)
+            channel1, channel2, alpha = tf.split(alpha, 3, axis=2)
+            img = tfa.image.shear_x(img, randomShear, replace=0)
+            channel1, channel2, channel3 = tf.split(img, 3, axis=2)
+            img = tf.concat([channel1, channel2, channel3, alpha], axis=2)
+            # gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
+            # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+
+        # if augment:
+        #     img = self.elastic_transform(img, alpha_range, sigma)
 
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
         img = 1.0 - img
@@ -30,12 +99,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         image_height = tf.shape(img)[0]
         image_width = tf.shape(img)[1]
         label_width = tf.shape(label)[0]
-        # if augment:
-        #     randomShear = random.normalvariate(0, 0.5)
-        #     img = tfa.image.shear_x(img, randomShear, replace=0)
-        # #     img = tf.image.resize_with_pad(img, image_height, image_width)
-        #     gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
-        #     tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # # #     img = tf.image.resize_with_pad(img, image_height, image_width)
         #     print("img.shape[0]")
         #     print(tf.shape(img)[0])
 
@@ -45,7 +109,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         image_width = tf.shape(img)[1]
         # pad 50 pixels left and right
-        img = tf.image.resize_with_pad(img, self.height, image_width+100)
+        # img = tf.image.resize_with_pad(img, self.height, image_width+100)
 
         img = tf.transpose(img, perm=[1, 0, 2])
         return {"image": img, "label": label}
