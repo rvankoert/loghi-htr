@@ -173,7 +173,7 @@ class Model():
         x = layers.Dropout(dropoutconv)(x)
 
         x = layers.Conv2D(
-            80,
+            128,
             (3, 3),
             strides=(1,1),
             activation='elu',
@@ -199,7 +199,7 @@ class Model():
         # passing the output to the RNN part of the model
         # new_shape = ((width // 4), (height // 4) * 64)
 
-        new_shape = (-1, (height // 8) * 80)
+        new_shape = (-1, (height // 8) * 128)
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
@@ -222,8 +222,8 @@ class Model():
         # x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=0)(x)
         # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=dropoutlstm))(x)
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True, dropout=dropoutlstm))(x)
+        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
+        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
