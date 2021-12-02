@@ -167,6 +167,8 @@ def main():
     parser.add_argument('--do_train', help='train', action='store_true')
     parser.add_argument('--do_validate', help='validate', action='store_true')
     parser.add_argument('--do_inference', help='inference', action='store_true')
+    parser.add_argument('--inference_list', metavar='inference_list', type=str, default='/data/cvl-database-1-1/test.txt',
+                        help='inference_list')
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
@@ -190,6 +192,10 @@ def main():
                         help='memory_limit for gpu. Default 4096')
     parser.add_argument('--train_size', metavar='    train_size', type=float, default=0.99,
                         help='learning_rate to be used')
+    parser.add_argument('--use_mask', help='use_mask', action='store_true')
+    parser.add_argument('--use_gru', help='use_gru', action='store_true')
+    parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
+                        help='results_file')
 
     args = parser.parse_args()
 
@@ -240,6 +246,7 @@ def main():
     training_generator = training_generator.getGenerator()
     validation_dataset = validation_generator.getGenerator()
     test_generator = test_generator.getGenerator()
+    # inference_generator = test_generator.getGenerator()
 
     if (args.do_train):
         history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
@@ -272,8 +279,8 @@ def main():
             for pred_text in pred_texts:
                 for i in range(len(pred_text)):
                     # for i in range(16):
-                    original_text = orig_texts[i].strip().replace('€', '')
-                    predicted_text = pred_text[i].strip()
+                    original_text = orig_texts[i].strip().replace('', '')
+                    predicted_text = pred_text[i].strip().replace('', '')
                     print(original_text)
                     print(predicted_text)
                     current_editdistance = editdistance.eval(original_text, predicted_text)
@@ -293,20 +300,24 @@ def main():
     #            plt.show()
 
 
-    if (args.do_inference):
+    if args.do_inference:
 
-        loader = DataLoader(args.trainset, batchSize, imgSize, maxTextLen)
         charlist = set(char for char in open(FilePaths.fnCharList).read())
-        model = keras.models.load_model(args.existing_model)
-        loader.set_charlist(charlist)
-
+        charlist = sorted(list(charlist))
+        print(charlist)
+        loader = DataLoaderNew(args.inference_list, batchSize, imgSize, maxTextLen, args.train_size, charlist)
+        training_generator, validation_generator, test_generator = loader.generators()
+        validation_generator.set_charlist(charlist)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
         prediction_model.summary()
-        inference_dataset = loader.getTrainDataSet()
+
         #  Let's check results on some validation samples
-        for batch in inference_dataset:
+        batch_counter = 0
+        text_file = open(args.results_file, "w")
+
+        for batch in validation_dataset:
             batch_images = batch["image"]
             batch_labels = batch["label"]
 
@@ -315,15 +326,26 @@ def main():
 
             orig_texts = []
             for label in batch_labels:
-                label = tf.strings.reduce_join(test_generator.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
+            for pred_text in pred_texts:
+                item_counter = 0
+                for i in range(len(pred_text)):
+                    # for i in range(16):
+                    filename = loader.get_item((batch_counter * batchSize) + item_counter)
+                    original_text = orig_texts[i].strip().replace('', '')
+                    predicted_text = pred_text[i].strip().replace('', '')
+                    print(original_text)
+                    print(filename + "\t" + predicted_text)
+                    text_file.write(filename + "\t" + predicted_text + "\n")
 
-            for i in range(len(pred_texts)):
-                original_text = orig_texts[i].strip().replace('€', '')
-                predicted_text = pred_texts[i].strip().replace('€', '')
-                print(original_text)
-                print(predicted_text)
-
+                    # for i in range(len(pred_texts)):
+            #     filename = loader.get_item(batch_counter * batchSize + item_counter)
+            #     original_text = orig_texts[i].strip().replace('', '')
+            #     predicted_text = pred_texts[i].strip().replace('', '')
+                    item_counter += 1
+                batch_counter += 1
+        text_file.close()
 
 if __name__ == '__main__':
     main()

@@ -17,8 +17,8 @@ class DataLoaderNew:
     validation_dataset = [];
     train_size =0.99
 
-    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size):
-        "loader for dataset at given location, preprocess images and text according to parameters"
+    def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size, charlist=None):
+        """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
 
@@ -31,6 +31,7 @@ class DataLoaderNew:
         self.height = imgSize[0]
         self.width = imgSize[1]
         self.channels = imgSize[2]
+        self.partition = []
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
         f = open(filePath)
@@ -64,7 +65,7 @@ class DataLoaderNew:
 
             if not os.path.getsize(fileName):
                 bad_samples.append(lineSplit[0] + '.png')
-                print("bad sample: "+ lineSplit[0])
+                print("bad sample: " + lineSplit[0])
                 continue
             # img = cv2.imread(fileName)
             # height, width, channels = img.shape
@@ -93,7 +94,11 @@ class DataLoaderNew:
         # random.shuffle(self.samples)
 
         # list of all chars in dataset
-        self.charList = sorted(list(chars))
+        if charlist is None:
+            self.charList = sorted(list(chars))
+        else:
+            self.charList = charlist
+
 
     def generators(self):
         partition = {'train': [], 'validation': [], 'test': []}
@@ -191,16 +196,18 @@ class DataLoaderNew:
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,
                             'height': self.height,
-                       'channels': self.channels
+                            'channels': self.channels
                             }
         testParams = {'shuffle': False,
                       'batch_size': self.batchSize,
                       'height': self.height,
-                       'channels': self.channels
+                      'channels': self.channels
                       }
         training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
-        validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams, charList=self.charList)
+        validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams,
+                                             charList=self.charList)
         test_generator = DataGenerator(partition['test'], labels['test'], **testParams, charList=self.charList)
+        self.partition = partition
 
         return training_generator, validation_generator, test_generator
 
@@ -218,3 +225,7 @@ class DataLoaderNew:
             if cost > maxTextLen:
                 return text[:i]
         return text
+
+    def get_item(self, item_id):
+        # print(self.partition)
+        return self.partition['validation'][item_id]

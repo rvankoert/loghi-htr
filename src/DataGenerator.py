@@ -79,7 +79,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             #crappy workaround for bug in shear_x where alpha causes errors
             channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
-            alpha = tf.concat([channel1, channel2, alpha], axis=2) # add two dummy channels
+            alpha = tf.concat([channel1, channel2, alpha], axis=2)  # add two dummy channels
             alpha = tfa.image.shear_x(alpha, randomShear, replace=0)
             img = tf.concat([channel1, channel2, channel3], axis=2)
             channel1, channel2, alpha = tf.split(alpha, 3, axis=2)
@@ -161,12 +161,22 @@ class DataGenerator(tf.keras.utils.Sequence):
         return train_dataset
 
 
-    def set_charlist(self, chars):
+    def set_charlist(self, chars, use_mask = False):
         self.charList = chars
-        self.char_to_num = layers.experimental.preprocessing.StringLookup(
-            vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
-        )
-        # Mapping integers back to original characters
-        self.num_to_char = layers.experimental.preprocessing.StringLookup(
-            vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
-        )
+        if use_mask:
+            self.char_to_num = layers.experimental.preprocessing.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=0, mask_token='', oov_token='[UNK]'
+            )
+            # Mapping integers back to original characters
+            self.num_to_char = layers.experimental.preprocessing.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='', invert=True
+            )
+        else:
+            self.char_to_num = layers.experimental.preprocessing.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+            )
+            # Mapping integers back to original characters
+            self.num_to_char = layers.experimental.preprocessing.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+            )
+

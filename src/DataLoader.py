@@ -229,7 +229,7 @@ class DataLoader:
         return self.validation_dataset
 
     def getTrainDataSet(self):
-        "iterator"
+        """iterator"""
 
         #		label = char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
