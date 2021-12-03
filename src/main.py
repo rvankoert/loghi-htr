@@ -112,7 +112,7 @@ def main():
         return (decoded_dense, log_prob)
 
     # A utility function to decode the output of the network
-    def decode_batch_predictions(pred):
+    def decode_batch_predictions(pred, greedy=True, beam_width=1):
         input_len = np.ones(pred.shape[0]) * pred.shape[1]
         # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
         # sequence_length = tf.constant(np.array([None], dtype=np.int32))
@@ -121,7 +121,6 @@ def main():
 
         # Use greedy search. For complex tasks, you can use beam search
         pred = tf.dtypes.cast(pred, tf.float32)
-        beam_width = 3
         top_paths = 1
         output_texts = []
         ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=False, beam_width=beam_width, top_paths=top_paths)
@@ -235,18 +234,18 @@ def main():
         model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
     else:
-        charlist = set(char for char in open(FilePaths.fnCharList).read())
+        char_list = set(char for char in open(FilePaths.fnCharList).read())
         model = keras.models.load_model(args.existing_model)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
 
-    training_generator, validation_generator, test_generator = loader.generators()
+    training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
     training_generator = training_generator.getGenerator()
     validation_dataset = validation_generator.getGenerator()
     test_generator = test_generator.getGenerator()
-    # inference_generator = test_generator.getGenerator()
+    inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
         history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
@@ -269,7 +268,7 @@ def main():
             batch_labels = batch["label"]
 
             preds = prediction_model.predict(batch_images)
-            pred_texts = decode_batch_predictions(preds)
+            pred_texts = decode_batch_predictions(preds, True, 1)
             counter += 1
             orig_texts = []
             for label in batch_labels:
@@ -302,31 +301,32 @@ def main():
 
     if args.do_inference:
 
-        charlist = set(char for char in open(FilePaths.fnCharList).read())
-        charlist = sorted(list(charlist))
-        print(charlist)
-        loader = DataLoaderNew(args.inference_list, batchSize, imgSize, maxTextLen, args.train_size, charlist)
-        training_generator, validation_generator, test_generator = loader.generators()
-        validation_generator.set_charlist(charlist)
+        char_list = set(char for char in open(FilePaths.fnCharList).read())
+        char_list = sorted(list(char_list))
+        print(char_list)
+        loader = DataLoaderNew(args.inference_list, batchSize, imgSize, maxTextLen, args.train_size, char_list)
+        training_generator, validation_generator, test_generator, inference_generator = loader.generators()
+        inference_generator.set_charlist(char_list)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
         prediction_model.summary()
+        inference_dataset = inference_generator.getGenerator()
 
         #  Let's check results on some validation samples
         batch_counter = 0
         text_file = open(args.results_file, "w")
 
-        for batch in validation_dataset:
+        for batch in inference_dataset:
             batch_images = batch["image"]
             batch_labels = batch["label"]
-
-            preds = prediction_model.predict(batch_images)
-            pred_texts = decode_batch_predictions(preds)
+            prediction_model.reset_states()
+            preds = prediction_model.predict_on_batch(batch_images)
+            pred_texts = decode_batch_predictions(preds, True, 1)
 
             orig_texts = []
             for label in batch_labels:
-                label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
             for pred_text in pred_texts:
                 item_counter = 0
@@ -345,6 +345,7 @@ def main():
             #     predicted_text = pred_texts[i].strip().replace('', '')
                     item_counter += 1
                 batch_counter += 1
+            # keras.backend.clear_session()
         text_file.close()
 
 if __name__ == '__main__':

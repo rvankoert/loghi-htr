@@ -32,6 +32,7 @@ class DataLoaderNew:
         self.width = imgSize[1]
         self.channels = imgSize[2]
         self.partition = []
+        self.filePath = filePath
         # f = open('/scratch/train_data_htr/linestripsnew/all.txt')
         # f = open('/home/rutger/training_all2.txt')
         f = open(filePath)
@@ -101,11 +102,12 @@ class DataLoaderNew:
 
 
     def generators(self):
-        partition = {'train': [], 'validation': [], 'test': []}
-        labels = {'train': [], 'validation': [], 'test': []}
+        partition = {'train': [], 'validation': [], 'test': [], 'inference' : []}
+        labels = {'train': [], 'validation': [], 'test': [], 'inference' : []}
         trainLabels = {}
         valLabels = {}
         testLabels = {}
+        inference_labels = {}
         f = open("ijsbergtrain.txt")
         counter = 0
         for line in f:
@@ -188,6 +190,38 @@ class DataLoaderNew:
             labels['test'].append(label)
             testLabels[fileName] = label
 
+        f = open(self.filePath)
+        for line in f:
+            # ignore comment line
+            if not line or line[0] == '#':
+                continue
+
+            lineSplit = line.strip().split('\t')
+            assert len(lineSplit) >= 1
+
+            # filename
+            fileName = lineSplit[0]
+            if not os.path.exists(fileName):
+                # print(fileName)
+                continue
+            # img = cv2.imread(fileName)
+            # height, width, channels = img.shape
+            # if height < 20 or width < 100 or width / height < 4:
+            #     print(fileName)
+            #     os.remove(fileName)
+            #     continue
+            label = 'to be determined'
+
+            counter = counter + 1
+            # if (counter > 100):
+            #     break
+
+            # put sample into list
+            partition['inference'].append(fileName)
+            labels['inference'].append(label)
+            inference_labels[fileName] = label
+
+
         trainParams = {'shuffle': True,
                        'batch_size': self.batchSize,
                        'height': self.height,
@@ -203,13 +237,19 @@ class DataLoaderNew:
                       'height': self.height,
                       'channels': self.channels
                       }
+        inference_params = {'shuffle': False,
+                      'batch_size': self.batchSize,
+                      'height': self.height,
+                      'channels': self.channels
+                      }
         training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
         validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams,
                                              charList=self.charList)
         test_generator = DataGenerator(partition['test'], labels['test'], **testParams, charList=self.charList)
+        inference_generator = DataGenerator(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
         self.partition = partition
 
-        return training_generator, validation_generator, test_generator
+        return training_generator, validation_generator, test_generator, inference_generator
 
 
     def truncateLabel(self, text, maxTextLen):
@@ -228,4 +268,4 @@ class DataLoaderNew:
 
     def get_item(self, item_id):
         # print(self.partition)
-        return self.partition['validation'][item_id]
+        return self.partition['inference'][item_id]
