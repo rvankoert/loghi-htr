@@ -108,15 +108,17 @@ class DataLoaderNew:
         valLabels = {}
         testLabels = {}
         inference_labels = {}
-        f = open("ijsbergtrain.txt")
+        print(self.filePath)
+        f = open(self.filePath)
         counter = 0
         for line in f:
             # ignore comment line
             if not line or line[0] == '#':
                 continue
-
+            # print(line)
             lineSplit = line.strip().split('\t')
-            assert len(lineSplit) >= 2
+            if len(lineSplit) == 1:
+                continue
 
             # filename
             fileName = lineSplit[0]

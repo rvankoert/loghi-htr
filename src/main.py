@@ -171,7 +171,7 @@ def main():
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
-    parser.add_argument('--trainset', metavar='trainset', type=str, default='/home/rutger/training_all_ijsberg.txt',
+    parser.add_argument('--trainset', metavar='trainset', type=str, default='ijsberg_train.txt',
                         help='trainset to be used')
     parser.add_argument('--testset', metavar='testset', type=str, default='/data/cvl-database-1-1/test.txt',
                         help='testset to be used')
