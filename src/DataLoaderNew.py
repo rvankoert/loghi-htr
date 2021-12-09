@@ -39,7 +39,7 @@ class DataLoaderNew:
 
         chars = set()
         bad_samples = []
-        i=0
+        i = 0
         for line in f:
             # ignore comment line
             if not line or line[0] == '#':
@@ -51,7 +51,7 @@ class DataLoaderNew:
             fileName = lineSplit[0]
 
             # GT text are columns starting at 9
-            gtText = self.truncateLabel(' '.join(lineSplit[1:]), maxTextLen).replace("|", " ")
+            gtText = self.truncateLabel(' '.join(lineSplit[1:]), maxTextLen)
             if not gtText:
                 continue
             gtText = gtText.strip()
@@ -133,7 +133,7 @@ class DataLoaderNew:
             # if (counter > 1000):
             #     break
 
-        f = open("ijsbergvalidation.txt")
+        f = open("training_all_republic_val.txt")
         counter = 0
         for line in f:
             # ignore comment line
@@ -141,7 +141,8 @@ class DataLoaderNew:
                 continue
 
             lineSplit = line.strip().split('\t')
-            assert len(lineSplit) >= 2
+            if len(lineSplit) == 1:
+                continue
 
             # filename
             fileName = lineSplit[0]
@@ -161,14 +162,15 @@ class DataLoaderNew:
 
         counter = 0
 
-        f = open("ijsbergvalidation.txt")
+        f = open("training_all_republic_test.txt")
         for line in f:
             # ignore comment line
             if not line or line[0] == '#':
                 continue
 
             lineSplit = line.strip().split('\t')
-            assert len(lineSplit) >= 2
+            if len(lineSplit) == 1:
+                continue
 
             # filename
             fileName = lineSplit[0]

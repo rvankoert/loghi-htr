@@ -125,6 +125,7 @@ class Model():
             shape=(width, height, channels), name="image"
         )
         labels = layers.Input(name="label", shape=(None,))
+        initializer = tf.keras.initializers.GlorotNormal()
 
         # First conv block
         x = layers.Conv2D(
@@ -134,6 +135,7 @@ class Model():
             activation='elu',
             padding=padding,
             name="Conv1",
+            kernel_initializer=initializer
         )(input_img)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool1")(x)
         x = layers.Dropout(dropoutconv)(x)
@@ -145,6 +147,7 @@ class Model():
             activation='elu',
             padding=padding,
             name="Conv2",
+            kernel_initializer=initializer
         )(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool2")(x)
         x = layers.Dropout(dropoutconv)(x)
@@ -157,6 +160,7 @@ class Model():
             activation='elu',
             padding=padding,
             name="Conv3",
+            kernel_initializer=initializer
         )(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='valid', name="pool3")(x)
         x = layers.Dropout(dropoutconv)(x)
@@ -169,6 +173,7 @@ class Model():
             activation='elu',
             padding=padding,
             name="Conv4",
+            kernel_initializer=initializer
         )(x)
         x = layers.Dropout(dropoutconv)(x)
 
@@ -179,6 +184,7 @@ class Model():
             activation='elu',
             padding=padding,
             name="Conv5",
+            kernel_initializer=initializer
         )(x)
         x = layers.Dropout(dropoutconv)(x)
         #
@@ -212,17 +218,23 @@ class Model():
             x = tf.keras.layers.Masking(mask_value=0)(x)
 
         if use_gru:
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm))(x)
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm))(x)
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+                                                kernel_initializer=initializer))(x)
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+                                                kernel_initializer=initializer))(x)
         else:
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+                                                 kernel_initializer=initializer))(x)
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+                                                 kernel_initializer=initializer))(x)
 
         # Output layer
         if use_mask:
-            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3")(x)
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
         else:
-            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3")(x)
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
         x = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
         output = CTCLayer(name="ctc_loss")(labels, x)

@@ -225,13 +225,19 @@ def main():
 
     modelClass = Model()
     print(len(loader.charList))
+    use_gru = False
+    use_mask = False
+    if args.use_gru:
+        use_gru = True
+    if args.use_mask:
+        use_mask = True
     if not args.existing_model:
         # save characters of model for inference mode
         chars_file = open(FilePaths.fnCharList, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
         print("creating new model")
-        model = modelClass.build_model(imgSize, len(loader.charList), learning_rate)  # (loader.charList, keep_prob=0.8)
+        model = modelClass.build_model(imgSize, len(loader.charList), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
     else:
         char_list = set(char for char in open(FilePaths.fnCharList).read())
@@ -306,7 +312,7 @@ def main():
         print(char_list)
         loader = DataLoaderNew(args.inference_list, batchSize, imgSize, maxTextLen, args.train_size, char_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
-        inference_generator.set_charlist(char_list)
+        inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
