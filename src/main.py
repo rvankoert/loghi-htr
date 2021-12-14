@@ -256,15 +256,16 @@ def main():
 
 
     training_generator = training_generator.getGenerator()
-    validation_dataset = validation_generator.getGenerator()
+
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
+        validation_dataset = validation_generator.getGenerator()
         history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
 
     if (args.do_validate):
-
+        validation_dataset = validation_generator.getGenerator()
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
@@ -317,7 +318,7 @@ def main():
         char_list = set(char for char in open(FilePaths.fnCharList).read())
         char_list = sorted(list(char_list))
         print(char_list)
-        loader = DataLoaderNew(args.inference_list, batchSize, imgSize, maxTextLen, args.train_size, char_list)
+        loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(
