@@ -114,7 +114,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         img = tf.transpose(img, perm=[1, 0, 2])
         return {"image": img, "label": label}
 
-    def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32, width=99999, charList=[]):
+    def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
+                 width=99999, charList=[]):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels

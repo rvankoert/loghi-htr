@@ -166,15 +166,17 @@ def main():
     parser.add_argument('--do_train', help='train', action='store_true')
     parser.add_argument('--do_validate', help='validate', action='store_true')
     parser.add_argument('--do_inference', help='inference', action='store_true')
-    parser.add_argument('--inference_list', metavar='inference_list', type=str, default='/data/cvl-database-1-1/test.txt',
-                        help='inference_list')
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
-    parser.add_argument('--trainset', metavar='trainset', type=str, default='ijsberg_train.txt',
-                        help='trainset to be used')
-    parser.add_argument('--testset', metavar='testset', type=str, default='/data/cvl-database-1-1/test.txt',
-                        help='testset to be used')
+    parser.add_argument('--train_list', metavar='train_list', type=str, default='ijsberg_train.txt',
+                        help='train_list to be used')
+    parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
+                        help='validation_list to be used')
+    parser.add_argument('--test_list', metavar='test_list', type=str, default=None,
+                        help='test_list to be used')
+    parser.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
+                        help='inference_list to be used')
     parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
                         help='testset to be used')
     parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
@@ -215,13 +217,19 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
-    loader = DataLoaderNew(args.trainset, batchSize, imgSize, maxTextLen, args.train_size)
+    loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size,
+                           train_list=args.train_list,
+                           validation_list=args.validation_list,
+                           test_list=args.test_list,
+                           inference_list=args.inference_list
+                           )
     # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
 
     if args.model_name:
         FilePaths.modelOutput = '../models/'+args.model_name
 
     # print(loader.charList)
+    training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
     modelClass = Model()
     print(len(loader.charList))
@@ -231,7 +239,11 @@ def main():
         use_gru = True
     if args.use_mask:
         use_mask = True
-    if not args.existing_model:
+    if args.existing_model:
+        char_list = set(char for char in open(FilePaths.fnCharList).read())
+        model = keras.models.load_model(args.existing_model)
+        model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+    else:
         # save characters of model for inference mode
         chars_file = open(FilePaths.fnCharList, 'w')
         chars_file.write(str().join(loader.charList))
@@ -239,19 +251,14 @@ def main():
         print("creating new model")
         model = modelClass.build_model(imgSize, len(loader.charList), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
-    else:
-        char_list = set(char for char in open(FilePaths.fnCharList).read())
-        model = keras.models.load_model(args.existing_model)
-        model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
 
-    training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
     training_generator = training_generator.getGenerator()
     validation_dataset = validation_generator.getGenerator()
-    test_generator = test_generator.getGenerator()
-    inference_dataset = inference_generator.getGenerator()
+    # test_generator = test_generator.getGenerator()
+    # inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
         history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
@@ -306,7 +313,7 @@ def main():
 
 
     if args.do_inference:
-
+        print('inferencing')
         char_list = set(char for char in open(FilePaths.fnCharList).read())
         char_list = sorted(list(char_list))
         print(char_list)
@@ -328,7 +335,7 @@ def main():
             batch_labels = batch["label"]
             prediction_model.reset_states()
             preds = prediction_model.predict_on_batch(batch_images)
-            pred_texts = decode_batch_predictions(preds, True, 1)
+            pred_texts = decode_batch_predictions(preds, False, 10)
 
             orig_texts = []
             for label in batch_labels:
