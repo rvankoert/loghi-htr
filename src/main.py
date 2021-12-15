@@ -124,7 +124,7 @@ def main():
         pred = tf.dtypes.cast(pred, tf.float32)
         top_paths = 1
         output_texts = []
-        ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=False, beam_width=beam_width, top_paths=top_paths)
+        ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=greedy, beam_width=beam_width, top_paths=top_paths)
         for top_path in range(0, top_paths):
             results = ctc_decoded[0][top_path][:, :maxTextLen]
             log_prob = ctc_decoded[1][0][top_path]
@@ -198,6 +198,9 @@ def main():
     parser.add_argument('--use_gru', help='use_gru', action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
                         help='results_file')
+    parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
+    parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
+                        help='beam_width. default 10')
 
     args = parser.parse_args()
 
@@ -289,7 +292,7 @@ def main():
             batch_labels = batch["label"]
 
             preds = prediction_model.predict(batch_images)
-            pred_texts = decode_batch_predictions(preds, True, 1)
+            pred_texts = decode_batch_predictions(preds, args.greedy, args.beam_width)
             counter += 1
             orig_texts = []
             for label in batch_labels:
@@ -343,7 +346,7 @@ def main():
             batch_labels = batch["label"]
             prediction_model.reset_states()
             preds = prediction_model.predict_on_batch(batch_images)
-            pred_texts = decode_batch_predictions(preds, False, 10)
+            pred_texts = decode_batch_predictions(preds, args.greedy, args.beam_width)
 
             orig_texts = []
             for label in batch_labels:
