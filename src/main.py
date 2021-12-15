@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import random
 import argparse
 import editdistance
+# import warpctc_tensorflow
 
 from DataLoaderNew import DataLoaderNew
 
@@ -169,7 +170,7 @@ def main():
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
-    parser.add_argument('--train_list', metavar='train_list', type=str, default='ijsberg_train.txt',
+    parser.add_argument('--train_list', metavar='train_list', type=str, default=None,
                         help='train_list to be used')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
                         help='validation_list to be used')
@@ -241,6 +242,8 @@ def main():
         use_mask = True
     if args.existing_model:
         char_list = set(char for char in open(FilePaths.fnCharList).read())
+        char_list = sorted(list(char_list))
+
         model = keras.models.load_model(args.existing_model)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
     else:
@@ -248,23 +251,27 @@ def main():
         chars_file = open(FilePaths.fnCharList, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
+        char_list = loader.charList
         print("creating new model")
-        model = modelClass.build_model(imgSize, len(loader.charList), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
 
 
-    training_generator = training_generator.getGenerator()
 
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
+        validation_generator.set_charlist(char_list)
         validation_dataset = validation_generator.getGenerator()
-        history = Model().train_batch(model, training_generator, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
+        training_generator.set_charlist(char_list)
+        training_dataset = training_generator.getGenerator()
+        history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
 
     if (args.do_validate):
+        validation_generator.set_charlist(char_list)
         validation_dataset = validation_generator.getGenerator()
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -314,10 +321,10 @@ def main():
 
 
     if args.do_inference:
-        print('inferencing')
-        char_list = set(char for char in open(FilePaths.fnCharList).read())
-        char_list = sorted(list(char_list))
-        print(char_list)
+        # print('inferencing')
+        # char_list = set(char for char in open(FilePaths.fnCharList).read())
+        # char_list = sorted(list(char_list))
+        # print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask)
