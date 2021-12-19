@@ -6,9 +6,8 @@ import os
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import array_ops, math_ops, sparse_ops
 from tensorflow_addons import layers
-from tensorflow.python.ops import ctc_ops as ctc
 
-from Model import Model
+from Model import Model, CERMetric, WERMetric
 from DataLoader import DataLoader
 import numpy as np
 import tensorflow.keras as keras
@@ -18,8 +17,10 @@ import random
 import argparse
 import editdistance
 # import warpctc_tensorflow
+# from word_beam_search import WordBeamSearch
 
 from DataLoaderNew import DataLoaderNew
+from utils import decode_batch_predictions
 
 
 class FilePaths:
@@ -38,110 +39,11 @@ class FilePaths:
 
 def main():
     # tf.compat.v1.disable_eager_execution()
-    def shape(x):
-        """Returns the symbolic shape of a tensor or variable.
 
-        Args:
-            x: A tensor or variable.
 
-        Returns:
-            A symbolic shape (which is itself a tensor).
-
-        Examples:
-
-        >>> val = np.array([[1, 2], [3, 4]])
-        >>> kvar = tf.keras.backend.variable(value=val)
-        >>> tf.keras.backend.shape(kvar)
-        <tf.Tensor: shape=(2,), dtype=int32, numpy=array([2, 2], dtype=int32)>
-        >>> input = tf.keras.backend.placeholder(shape=(2, 4, 5))
-        >>> tf.keras.backend.shape(input)
-        <KerasTensor: shape=(3,) dtype=int32 inferred_value=[2, 4, 5] ...>
-
-        """
-        return array_ops.shape(x)
-
-    def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
-        """Decodes the output of a softmax.
-
-        Can use either greedy search (also known as best path)
-        or a constrained dictionary search.
-
-        Args:
-            y_pred: tensor `(samples, time_steps, num_categories)`
-                containing the prediction, or output of the softmax.
-            input_length: tensor `(samples, )` containing the sequence length for
-                each batch item in `y_pred`.
-            greedy: perform much faster best-path search if `true`.
-                This does not use a dictionary.
-            beam_width: if `greedy` is `false`: a beam search decoder will be used
-                with a beam of this width.
-            top_paths: if `greedy` is `false`,
-                how many of the most probable paths will be returned.
-
-        Returns:
-            Tuple:
-                List: if `greedy` is `true`, returns a list of one element that
-                    contains the decoded sequence.
-                    If `false`, returns the `top_paths` most probable
-                    decoded sequences.
-                    Each decoded sequence has shape (samples, time_steps).
-                    Important: blank labels are returned as `-1`.
-                Tensor `(top_paths, )` that contains
-                    the log probability of each decoded sequence.
-        """
-        input_shape = shape(y_pred)
-        num_samples, num_steps = input_shape[0], input_shape[1]
-        y_pred = math_ops.log(array_ops.transpose(y_pred, perm=[1, 0, 2]) + keras.backend.epsilon())
-        input_length = math_ops.cast(input_length, dtypes.int32)
-
-        if greedy:
-            (decoded, log_prob) = ctc.ctc_greedy_decoder(
-                inputs=y_pred, sequence_length=input_length)
-        else:
-            (decoded, log_prob) = ctc.ctc_beam_search_decoder(
-                inputs=y_pred,
-                sequence_length=input_length,
-                beam_width=beam_width,
-                top_paths=top_paths,
-                merge_repeated=False)
-        decoded_dense = []
-        for st in decoded:
-            st = sparse_tensor.SparseTensor(
-                st.indices, st.values, (num_samples, num_steps))
-            decoded_dense.append(
-                sparse_ops.sparse_tensor_to_dense(sp_input=st, default_value=-1))
-        return (decoded_dense, log_prob)
 
     # A utility function to decode the output of the network
-    def decode_batch_predictions(pred, greedy=True, beam_width=1):
-        input_len = np.ones(pred.shape[0]) * pred.shape[1]
-        # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
-        # sequence_length = tf.constant(np.array([None], dtype=np.int32))
-        # sequence_lengths = tf.cast(tf.fill(538,maxTextLen ),tf.int32)
-        sequence_lengths = tf.fill(tf.shape(pred)[1], tf.shape(pred)[0])
 
-        # Use greedy search. For complex tasks, you can use beam search
-        pred = tf.dtypes.cast(pred, tf.float32)
-        top_paths = 1
-        output_texts = []
-        ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=greedy, beam_width=beam_width, top_paths=top_paths)
-        for top_path in range(0, top_paths):
-            results = ctc_decoded[0][top_path][:, :maxTextLen]
-            log_prob = ctc_decoded[1][0][top_path]
-            print(np.exp(log_prob))
-            # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
-            #                   :, :maxTextLen
-            #                   ]
-            #
-
-            # Iterate over the results and get back the text
-            output_text = []
-            for res in results:
-                chars = validation_generator.num_to_char(res)
-                res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
-                output_text.append(res)
-            output_texts.append(output_text)
-        return output_texts
 
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
@@ -201,6 +103,10 @@ def main():
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width. default 10')
+    parser.add_argument('--decay_steps', metavar='decay_steps ', type=int, default=10000,
+                        help='decay_steps. default 10000')
+    parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
+                        help='steps_per_epoch. default None')
 
     args = parser.parse_args()
 
@@ -221,11 +127,19 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
+
+    char_list = set(char for char in open(FilePaths.fnCharList).read())
+    char_list = sorted(list(char_list))
+    print("using charlist")
+    print("length charlist: " + str(len(char_list)))
+    print(char_list)
+    char_list = None
     loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
                            test_list=args.test_list,
-                           inference_list=args.inference_list
+                           inference_list=args.inference_list,
+                           char_list=char_list
                            )
     # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
 
@@ -233,6 +147,7 @@ def main():
         FilePaths.modelOutput = '../models/'+args.model_name
 
     # print(loader.charList)
+    print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
     modelClass = Model()
@@ -246,9 +161,16 @@ def main():
     if args.existing_model:
         char_list = set(char for char in open(FilePaths.fnCharList).read())
         char_list = sorted(list(char_list))
-
+        print("using charlist")
+        print("length charlist: " + str(len(char_list)))
+        print(char_list)
         model = keras.models.load_model(args.existing_model)
-        model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=args.decay_steps,
+            decay_rate=0.90)
+        # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
+        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
     else:
         # save characters of model for inference mode
         chars_file = open(FilePaths.fnCharList, 'w')
@@ -257,6 +179,13 @@ def main():
         char_list = loader.charList
         print("creating new model")
         model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # model = modelClass.build_model_new1(
+        #     imgSize,
+        #     input_dim=maxTextLen + 1,
+        #     output_dim=len(char_list),
+        #     rnn_units=512,
+        # )
+
         model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
 
     model.summary()
@@ -271,9 +200,10 @@ def main():
         validation_dataset = validation_generator.getGenerator()
         training_generator.set_charlist(char_list)
         training_dataset = training_generator.getGenerator()
-        history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12')
+        history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12', steps_per_epoch=args.steps_per_epoch)
 
     if (args.do_validate):
+        print("do_validate")
         validation_generator.set_charlist(char_list)
         validation_dataset = validation_generator.getGenerator()
         # Get the prediction model by extracting layers till the output layer
@@ -292,7 +222,18 @@ def main():
             batch_labels = batch["label"]
 
             preds = prediction_model.predict(batch_images)
-            pred_texts = decode_batch_predictions(preds, args.greedy, args.beam_width)
+            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
+
+            # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
+            # chars = 'ab '  # the characters that can be recognized (in this order)
+            # word_chars = 'ab'  # characters that form words
+            #
+            # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf-8'),
+            #                      word_chars.encode('utf8'))
+            #
+            # # compute label string
+            # label_str = wbs.compute(pred_texts[0])
+
             counter += 1
             orig_texts = []
             for label in batch_labels:
@@ -324,10 +265,10 @@ def main():
 
 
     if args.do_inference:
-        # print('inferencing')
-        # char_list = set(char for char in open(FilePaths.fnCharList).read())
-        # char_list = sorted(list(char_list))
-        # print(char_list)
+        print('inferencing')
+        char_list = set(char for char in open(FilePaths.fnCharList).read())
+        char_list = sorted(list(char_list))
+        print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask)
@@ -346,7 +287,7 @@ def main():
             batch_labels = batch["label"]
             prediction_model.reset_states()
             preds = prediction_model.predict_on_batch(batch_images)
-            pred_texts = decode_batch_predictions(preds, args.greedy, args.beam_width)
+            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
 
             orig_texts = []
             for label in batch_labels:

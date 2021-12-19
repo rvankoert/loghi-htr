@@ -1,6 +1,8 @@
 from __future__ import division
 from __future__ import print_function
 
+import math
+
 import numpy as np
 from tensorflow.keras import layers
 import tensorflow as tf
@@ -89,7 +91,18 @@ class DataGenerator(tf.keras.utils.Sequence):
             # gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
 
-        # if augment:
+        if augment:
+            random_brightness = tf.random.uniform(shape=[1], minval=-0.5, maxval=0.5)[0]
+            img = tf.image.adjust_brightness(img, delta=random_brightness)
+            random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
+            img = tf.image.adjust_contrast(img, random_contrast)
+            image_width = tf.shape(img)[1]
+            image_height = tf.shape(img)[0]
+            random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
+            random_width *= float(image_width)
+            random_width = int(random_width)
+            img = tf.image.resize(img, [image_height, random_width])
+
         #     img = self.elastic_transform(img, alpha_range, sigma)
 
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
@@ -133,6 +146,31 @@ class DataGenerator(tf.keras.utils.Sequence):
     def getGenerator(self):
 
         train_dataset = self.dataset
+        # if self.shuffle:
+        #     train_dataset = train_dataset.shuffle(len(self.dataset))
+        #     train_dataset = (
+        #         train_dataset
+        #         .map(
+        #             self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        #         )
+        #         .padded_batch(self.batch_size, padded_shapes={
+        #             'image': [None, None, None],
+        #             'label': [None]
+        #         })
+        #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        #     )
+        # else:
+        #     train_dataset = (
+        #         train_dataset
+        #         .map(
+        #             self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        #         )
+        #         .padded_batch(self.batch_size, padded_shapes={
+        #             'image': [None, None, None],
+        #             'label': [None]
+        #         })
+        #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        #     )
         if self.shuffle:
             train_dataset = train_dataset.shuffle(len(self.dataset))
             train_dataset = (
@@ -158,7 +196,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                 })
                 .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
-
         return train_dataset
 
 
