@@ -3,11 +3,12 @@ from __future__ import print_function
 
 import os
 
+from keras.utils.generic_utils import get_custom_objects
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import array_ops, math_ops, sparse_ops
 from tensorflow_addons import layers
 
-from Model import Model, CERMetric, WERMetric
+from Model import Model, CERMetric, WERMetric, CTCLoss
 from DataLoader import DataLoader
 import numpy as np
 import tensorflow.keras as keras
@@ -164,13 +165,18 @@ def main():
         print("using charlist")
         print("length charlist: " + str(len(char_list)))
         print(char_list)
+        get_custom_objects().update({"CERMetric": CERMetric})
+        get_custom_objects().update({"WERMetric": WERMetric})
+        get_custom_objects().update({"CTCLoss": CTCLoss})
+
         model = keras.models.load_model(args.existing_model)
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=args.decay_steps,
             decay_rate=0.90)
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
-        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
+        # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
+        model.compile(keras.optimizers.Adam(learning_rate=learning_rate), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
         chars_file = open(FilePaths.fnCharList, 'w')
@@ -186,7 +192,7 @@ def main():
         #     rnn_units=512,
         # )
 
-        model.compile(keras.optimizers.Adam(learning_rate=learning_rate))
+        model.compile(keras.optimizers.Adam(learning_rate=learning_rate), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
     model.summary()
 
@@ -218,10 +224,10 @@ def main():
         counter = 0
         #  Let's check results on some validation samples
         for batch in validation_dataset:
-            batch_images = batch["image"]
-            batch_labels = batch["label"]
+            # batch_images = batch["image"]
+            # batch_labels = batch["label"]
 
-            preds = prediction_model.predict(batch_images)
+            preds = prediction_model.predict(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
 
             # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
@@ -236,7 +242,7 @@ def main():
 
             counter += 1
             orig_texts = []
-            for label in batch_labels:
+            for label in batch[1]:
                 label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
@@ -283,14 +289,14 @@ def main():
         text_file = open(args.results_file, "w")
 
         for batch in inference_dataset:
-            batch_images = batch["image"]
-            batch_labels = batch["label"]
-            prediction_model.reset_states()
-            preds = prediction_model.predict_on_batch(batch_images)
+            # batch_images = batch["image"]
+            # batch_labels = batch["label"]
+            prediction_model.reset_state()
+            preds = prediction_model.predict_on_batch(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
 
             orig_texts = []
-            for label in batch_labels:
+            for label in batch[1]:
                 label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
             for pred_text in pred_texts:

@@ -125,7 +125,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         # img = tf.image.resize_with_pad(img, self.height, image_width+100)
 
         img = tf.transpose(img, perm=[1, 0, 2])
-        return {"image": img, "label": label}
+        # return {"image": img, "label": label}
+        return img, label
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
                  width=99999, charList=[]):
@@ -178,10 +179,10 @@ class DataGenerator(tf.keras.utils.Sequence):
                 .map(
                     self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
                 )
-                .padded_batch(self.batch_size, padded_shapes={
-                    'image': [None, None, None],
-                    'label': [None]
-                })
+                .padded_batch(self.batch_size, padded_shapes=(
+                    [None, None, None],
+                    [None]
+                ))
                 .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
         else:
@@ -190,10 +191,10 @@ class DataGenerator(tf.keras.utils.Sequence):
                 .map(
                     self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
                 )
-                .padded_batch(self.batch_size, padded_shapes={
-                    'image': [None, None, None],
-                    'label': [None]
-                })
+                .padded_batch(self.batch_size, padded_shapes=(
+                    [None, None, None],
+                    [None]
+                ))
                 .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
         return train_dataset

@@ -64,12 +64,13 @@ class CERMetric(tf.keras.metrics.Metric):
         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
 
         self.cer_accumulator.assign_add(tf.reduce_sum(distance))
-        self.counter.assign_add(len(y_true))
+        # self.counter.assign_add(10)
+        self.counter.assign_add(K.cast(len(y_true), 'float32'))
 
     def result(self):
         return tf.math.divide_no_nan(self.cer_accumulator, self.counter)
 
-    def reset_states(self):
+    def reset_state(self):
         self.cer_accumulator.assign(0.0)
         self.counter.assign(0.0)
 
@@ -101,12 +102,13 @@ class WERMetric(tf.keras.metrics.Metric):
         correct_words_amount = tf.reduce_sum(tf.cast(tf.not_equal(distance, 0), tf.float32))
 
         self.wer_accumulator.assign_add(correct_words_amount)
-        self.counter.assign_add(len(y_true))
+        self.counter.assign_add(K.cast(len(y_true), 'float32'))
+        # self.counter.assign_add(10)
 
     def result(self):
         return tf.math.divide_no_nan(self.wer_accumulator, self.counter)
 
-    def reset_states(self):
+    def reset_state(self):
         self.wer_accumulator.assign(0.0)
         self.counter.assign(0.0)
 
@@ -196,19 +198,19 @@ class Model():
     def build_model(self, imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0.5
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
-        dropoutdense = 0.5
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropoutdense = 0
+        dropoutconv = 0
+        dropoutlstm = 0
+        # dropoutdense = 0.5
+        # dropoutconv = 0.1
+        # dropoutlstm = 0.5
         padding = "same"
         width = None
         input_img = layers.Input(
             shape=(width, height, channels), name="image"
         )
 
-        labels = layers.Input(name="label", shape=(None,))
+        # labels = layers.Input(name="label", shape=(None,))
         initializer = tf.keras.initializers.GlorotNormal()
         x = layers.BatchNormalization(name="conv_2_bn")(input_img)
 
@@ -294,10 +296,10 @@ class Model():
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
-        x = layers.Dense(1024, activation="elu", name="dense1")(x)
-        x = layers.Dropout(dropoutdense)(x)
-        x = layers.Dense(1024, activation="elu", name="dense2")(x)
-        x = layers.Dropout(dropoutdense)(x)
+        # x = layers.Dense(1024, activation="elu", name="dense1")(x)
+        # x = layers.Dropout(dropoutdense)(x)
+        # x = layers.Dense(1024, activation="elu", name="dense2")(x)
+        # x = layers.Dropout(dropoutdense)(x)
 
         if use_mask:
             x = tf.keras.layers.Masking(mask_value=0)(x)
@@ -332,13 +334,13 @@ class Model():
         else:
             x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
                              kernel_initializer=initializer)(x)
-        x = layers.Activation('linear', dtype=tf.float32)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
         # Add CTC layer for calculating CTC loss at each step
-        output = CTCLayer(name="ctc_loss")(labels, x)
+        # output = CTCLayer(name="ctc_loss")(x)
 
         # Define the model
         model = keras.models.Model(
-            inputs=[input_img, labels], outputs=output, name="ocr_model_v1"
+            inputs=[input_img], outputs=output, name="ocr_model_v1"
         )
         # # Optimizer
         # # opt = keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.9, beta_2=0.999, epsilon=1.0)
