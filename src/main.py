@@ -95,7 +95,7 @@ def main():
                         help='optimizer: adam, adadelta, rmsprop, sgd')
     parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=4096,
                         help='memory_limit for gpu. Default 4096')
-    parser.add_argument('--train_size', metavar='    train_size', type=float, default=0.99,
+    parser.add_argument('--train_size', metavar='train_size', type=float, default=0.99,
                         help='learning_rate to be used')
     parser.add_argument('--use_mask', help='use_mask', action='store_true')
     parser.add_argument('--use_gru', help='use_gru', action='store_true')
@@ -108,6 +108,8 @@ def main():
                         help='decay_steps. default 10000')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
+    parser.add_argument('--model', metavar='model ', type=str, default=None,
+                        help='Model to use')
 
     args = parser.parse_args()
 
@@ -159,6 +161,12 @@ def main():
         use_gru = True
     if args.use_mask:
         use_mask = True
+
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=learning_rate,
+        decay_steps=args.decay_steps,
+        decay_rate=0.90)
+
     if args.existing_model:
         char_list = set(char for char in open(FilePaths.fnCharList).read())
         char_list = sorted(list(char_list))
@@ -170,13 +178,9 @@ def main():
         get_custom_objects().update({"CTCLoss": CTCLoss})
 
         model = keras.models.load_model(args.existing_model)
-        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=learning_rate,
-            decay_steps=args.decay_steps,
-            decay_rate=0.90)
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
-        model.compile(keras.optimizers.Adam(learning_rate=learning_rate), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
         chars_file = open(FilePaths.fnCharList, 'w')
@@ -184,7 +188,35 @@ def main():
         chars_file.close()
         char_list = loader.charList
         print("creating new model")
-        model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        if 'new2' == args.model:
+            model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        elif 'new3' == args.model:
+            model = modelClass.build_model_new3(imgSize, len(char_list))  # (loader.charList, keep_prob=0.8)
+        elif 'new4' == args.model:
+            model = modelClass.build_model_new4(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru, rnn_units=512)  # (loader.charList, keep_prob=0.8)
+        elif 'old6' == args.model:
+            model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
+                                                use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        elif 'old5' == args.model:
+            model = modelClass.build_model_old5(imgSize, len(char_list), use_mask=use_mask,
+                                                use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # Old models that require specific loader
+        # elif 'old4' == args.model:
+        #     model = modelClass.build_model_old4(imgSize, len(char_list), use_mask=use_mask,
+        #                                         use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # elif 'old3' == args.model:
+        #     model = modelClass.build_model_old3(imgSize, len(char_list), use_mask=use_mask,
+        #                                         use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+        # elif 'old2' == args.model:
+        #     model = modelClass.build_model_old2(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
+        # elif 'old1' == args.model:
+        #     model = modelClass.build_model_old1(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
+        else:
+            print('using default model ... Are you sure this is correct?')
+            model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask,
+                                                use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
         # model = modelClass.build_model_new1(
         #     imgSize,
         #     input_dim=maxTextLen + 1,
@@ -192,9 +224,10 @@ def main():
         #     rnn_units=512,
         # )
 
-        model.compile(keras.optimizers.Adam(learning_rate=learning_rate), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
-    model.summary()
+    model.summary(line_length=110)
+
 
 
 

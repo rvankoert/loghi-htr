@@ -106,7 +106,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         #     img = self.elastic_transform(img, alpha_range, sigma)
 
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
-        img = 1.0 - img
         label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
         image_height = tf.shape(img)[0]
@@ -117,12 +116,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         #     print(tf.shape(img)[0])
 
         # img = tf.image.resize_with_pad(img, 51, 1024)
-        if image_width < label_width*16:
-            img = tf.image.resize_with_pad(img, self.height, label_width*16)
+        if image_width < label_width*32:
+            img = tf.image.resize_with_pad(img, self.height, label_width*32)
 
         image_width = tf.shape(img)[1]
         # pad 50 pixels left and right
-        # img = tf.image.resize_with_pad(img, self.height, image_width+100)
+        img = tf.image.resize_with_pad(img, self.height, image_width+100)
+        img = 1.0 - img * 0.99
 
         img = tf.transpose(img, perm=[1, 0, 2])
         # return {"image": img, "label": label}
