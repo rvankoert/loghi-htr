@@ -9,7 +9,7 @@ from tensorflow.python.ops import array_ops, math_ops, sparse_ops
 from tensorflow_addons import layers
 
 from Model import Model, CERMetric, WERMetric, CTCLoss
-from DataLoader import DataLoader
+# from DataLoader import DataLoader
 import numpy as np
 import tensorflow.keras as keras
 import tensorflow as tf
@@ -110,6 +110,13 @@ def main():
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
                         help='Model to use')
+    parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
+    parser.add_argument('--charlist', metavar='charlist ', type=str, default='../model/charList2.txt',
+                        help='Charlist to use')
+    parser.add_argument('--use_dropout', help='dropout', action='store_true')
+    parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
+                        help='rnn_layers. default 2')
+
 
     args = parser.parse_args()
 
@@ -131,7 +138,7 @@ def main():
     # print (imgSize)
     # print (maxTextLen)
 
-    char_list = set(char for char in open(FilePaths.fnCharList).read())
+    char_list = set(char for char in open(args.charlist).read())
     char_list = sorted(list(char_list))
     print("using charlist")
     print("length charlist: " + str(len(char_list)))
@@ -144,12 +151,10 @@ def main():
                            inference_list=args.inference_list,
                            char_list=char_list
                            )
-    # open(FilePaths.fnCharList, 'w').write(str().join(loader.charList))
 
     if args.model_name:
         FilePaths.modelOutput = '../models/'+args.model_name
 
-    # print(loader.charList)
     print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
@@ -157,10 +162,13 @@ def main():
     print(len(loader.charList))
     use_gru = False
     use_mask = False
+    batch_normalization = False
     if args.use_gru:
         use_gru = True
     if args.use_mask:
         use_mask = True
+    if args.batch_normalization:
+        batch_normalization = True
 
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=learning_rate,
@@ -168,8 +176,8 @@ def main():
         decay_rate=0.90)
 
     if args.existing_model:
-        char_list = set(char for char in open(FilePaths.fnCharList).read())
-        char_list = sorted(list(char_list))
+        char_list = list(char for char in open(args.charlist).read())
+        # char_list = sorted(list(char_list))
         print("using charlist")
         print("length charlist: " + str(len(char_list)))
         print(char_list)
@@ -181,9 +189,10 @@ def main():
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
         model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        # model.compile(keras.optimizers.SGD(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
-        chars_file = open(FilePaths.fnCharList, 'w')
+        chars_file = open(args.charlist, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
         char_list = loader.charList
@@ -195,7 +204,21 @@ def main():
         elif 'new3' == args.model:
             model = modelClass.build_model_new3(imgSize, len(char_list))  # (loader.charList, keep_prob=0.8)
         elif 'new4' == args.model:
-            model = modelClass.build_model_new4(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru, rnn_units=512)  # (loader.charList, keep_prob=0.8)
+            model = modelClass.build_model_new4(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=512,
+                                                batch_normalization=batch_normalization)
+        elif 'new5' == args.model:
+            model = modelClass.build_model_new5(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=512, rnn_layers=5,
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout)
+        elif 'new6' == args.model:
+            model = modelClass.build_model_new6(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=512, rnn_layers=2,
+                                                batch_normalization=batch_normalization)
+        elif 'new7' == args.model:
+            model = modelClass.build_model_new7(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=512, rnn_layers=args.rnn_layers,
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
                                                 use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
@@ -225,6 +248,7 @@ def main():
         # )
 
         model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        # model.compile(keras.optimizers.RMSprop(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
     model.summary(line_length=110)
 
@@ -235,15 +259,15 @@ def main():
     # inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
-        validation_generator.set_charlist(char_list)
+        validation_generator.set_charlist(char_list, use_mask)
         validation_dataset = validation_generator.getGenerator()
-        training_generator.set_charlist(char_list)
+        training_generator.set_charlist(char_list, use_mask)
         training_dataset = training_generator.getGenerator()
         history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12', steps_per_epoch=args.steps_per_epoch)
 
     if (args.do_validate):
         print("do_validate")
-        validation_generator.set_charlist(char_list)
+        validation_generator.set_charlist(char_list, use_mask)
         validation_dataset = validation_generator.getGenerator()
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -305,7 +329,7 @@ def main():
 
     if args.do_inference:
         print('inferencing')
-        char_list = set(char for char in open(FilePaths.fnCharList).read())
+        char_list = set(char for char in open(args.charlist).read())
         char_list = sorted(list(char_list))
         print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)

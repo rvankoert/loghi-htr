@@ -7,6 +7,7 @@
 # )
 import tensorflow as tf
 import numpy as np
+from keras.models import Model
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
@@ -116,3 +117,36 @@ def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True
             output_text.append(res)
         output_texts.append(output_text)
     return output_texts
+
+def deprocess_image(img):
+    # Normalize array: center on 0., ensure variance is 0.15
+    img -= img.mean()
+    img /= img.std() + 1e-5
+    img *= 0.15
+
+    # Center crop
+    img = img[25:-25, 25:-25, :]
+
+    # Clip to [0, 1]
+    img += 0.5
+    img = np.clip(img, 0, 1)
+
+    # Convert to RGB array
+    img *= 255
+    img = np.clip(img, 0, 255).astype("uint8")
+    return img
+
+def initialize_image(channels):
+    # We start from a gray image with some random noise
+    img = tf.random.uniform((1, 128, 128, channels))
+    # ResNet50V2 expects inputs in the range [-1, +1].
+    # Here we scale our random inputs to [-0.125, +0.125]
+    return (img - 0.5) * 0.25
+
+def get_feature_maps(model, layer_id, input_image):
+    model_ = Model(inputs=[model.input]
+                   , outputs=[model.layers[layer_id].output])
+    print(model.layers[layer_id].name)
+    # img = tf.transpose(img, perm=[1, 0, 2])
+
+    return model_.predict(np.expand_dims(input_image, axis=0))[0, :, :, :].transpose((2, 1, 0))

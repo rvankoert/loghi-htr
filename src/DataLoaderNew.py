@@ -78,6 +78,7 @@ class DataLoaderNew:
                 chars = chars.union(set(char for label in gtText for char in label))
                 # if (counter > 1000):
                 #     break
+            f.close()
 
         if self.validation_list:
             f = open(self.validation_list)
@@ -107,6 +108,7 @@ class DataLoaderNew:
                 labels['validation'].append(gtText)
                 valLabels[fileName] = gtText
                 chars = chars.union(set(char for label in gtText for char in label))
+            f.close()
 
         counter = 0
 
@@ -229,3 +231,7 @@ class DataLoaderNew:
     def get_item(self, item_id):
         # print(self.partition)
         return self.partition['inference'][item_id]
+
+    def get_item(self, partition, item_id):
+        # print(self.partition)
+        return self.partition[partition][item_id]

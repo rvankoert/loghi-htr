@@ -74,6 +74,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         img = tf.image.convert_image_dtype(img, self.DTYPE)
         img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
 
+        # augment=False
+
         if augment and self.channels < 4:
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
             img = tfa.image.shear_x(img, randomShear, replace=1.0)
@@ -122,7 +124,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         image_width = tf.shape(img)[1]
         # pad 50 pixels left and right
         img = tf.image.resize_with_pad(img, self.height, image_width+100)
-        img = 1.0 - img * 0.99
+        img = 0.5 - img
 
         img = tf.transpose(img, perm=[1, 0, 2])
         # return {"image": img, "label": label}
@@ -182,7 +184,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                 .padded_batch(self.batch_size, padded_shapes=(
                     [None, None, None],
                     [None]
-                ))
+                ), padding_values=(-10.0, tf.cast(0, tf.int64))
+                )
                 .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
         else:
@@ -194,7 +197,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                 .padded_batch(self.batch_size, padded_shapes=(
                     [None, None, None],
                     [None]
-                ))
+                ), padding_values=(-10.0,  tf.cast(0, tf.int64))
+                )
                 .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
             )
         return train_dataset
@@ -208,7 +212,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             )
             # Mapping integers back to original characters
             self.num_to_char = layers.experimental.preprocessing.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='', invert=True
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='',
+                invert=True
             )
         else:
             self.char_to_num = layers.experimental.preprocessing.StringLookup(
@@ -216,6 +221,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             )
             # Mapping integers back to original characters
             self.num_to_char = layers.experimental.preprocessing.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None,
+                invert=True
             )
 
