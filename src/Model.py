@@ -344,6 +344,13 @@ class Model():
             shape=(width, height, channels), name="image"
         )
         x = base_model(input_img, training=False)
+        x = layers.Conv2D(
+            256,
+            (1, 1),
+            strides=(1, 1),
+            padding=padding,
+            name="Conv4",
+        )(x)
 
         # # dropout1 = Dropout(0.5)(flat1)
         # flat2 = Dense(1024, name="fc_dense1", activation="elu")(flat1)
@@ -2429,8 +2436,8 @@ class Model():
         # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
-        filepath = "checkpoints/" + MODEL_NAME + "-saved-model-{epoch:02d}-{val_loss:.4f}"
-        checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=False, mode='max')
+        filepath = "checkpoints/" + MODEL_NAME + "-saved-model-{epoch:02d}-{loss:.4f}"
+        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
 
         # cer_metric = CERMetric()
 
@@ -2439,7 +2446,7 @@ class Model():
             validation_data=validation_dataset,
             epochs=epochs,
             # batch_size=1,
-            callbacks=[history, mcp_save], #checkpoint, reduce_lr_loss, early_stopping
+            callbacks=[history, mcp_save, checkpoint], #checkpoint, reduce_lr_loss, early_stopping
             shuffle=True,
             workers=16,
             max_queue_size=256,

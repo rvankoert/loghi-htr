@@ -66,9 +66,9 @@ class DataLoaderNew:
 
                 # filename
                 fileName = lineSplit[0]
-                if not os.path.exists(fileName):
-                    print(fileName)
-                    continue
+                # if not os.path.exists(fileName):
+                #     print(fileName)
+                #     continue
                 gtText = lineSplit[1]
 
                 counter = counter + 1
@@ -76,8 +76,8 @@ class DataLoaderNew:
                 labels['train'].append(gtText)
                 trainLabels[fileName] = gtText
                 chars = chars.union(set(char for label in gtText for char in label))
-                # if (counter > 1000):
-                #     break
+                if (counter > 100000):
+                    break
             f.close()
 
         if self.validation_list:
@@ -94,14 +94,14 @@ class DataLoaderNew:
 
                 # filename
                 fileName = lineSplit[0]
-                if not os.path.exists(fileName):
-                    # print(fileName)
-                    continue
+                # if not os.path.exists(fileName):
+                #     print(fileName)
+                #     continue
                 gtText = lineSplit[1]
 
                 counter = counter + 1
-                # if (counter > 1000):
-                #     break
+                if (counter > 1000):
+                    break
 
                 # put sample into list
                 partition['validation'].append(fileName)
@@ -228,9 +228,9 @@ class DataLoaderNew:
                 return text[:i]
         return text
 
-    def get_item(self, item_id):
-        # print(self.partition)
-        return self.partition['inference'][item_id]
+    # def get_item(self, item_id):
+    #     # print(self.partition)
+    #     return self.partition['inference'][item_id]
 
     def get_item(self, partition, item_id):
         # print(self.partition)

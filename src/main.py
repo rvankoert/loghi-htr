@@ -186,6 +186,13 @@ def main():
         get_custom_objects().update({"CTCLoss": CTCLoss})
 
         model = keras.models.load_model(args.existing_model)
+
+        if True:
+            for layer in model.layers:
+                print(layer.name)
+                layer.trainable = True
+
+
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
         model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
@@ -259,8 +266,10 @@ def main():
     # inference_dataset = inference_generator.getGenerator()
 
     if (args.do_train):
-        validation_generator.set_charlist(char_list, use_mask)
-        validation_dataset = validation_generator.getGenerator()
+        validation_dataset = None
+        if args.do_validate:
+            validation_generator.set_charlist(char_list, use_mask)
+            validation_dataset = validation_generator.getGenerator()
         training_generator.set_charlist(char_list, use_mask)
         training_dataset = training_generator.getGenerator()
         history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12', steps_per_epoch=args.steps_per_epoch)
@@ -329,11 +338,13 @@ def main():
 
     if args.do_inference:
         print('inferencing')
-        char_list = set(char for char in open(args.charlist).read())
-        char_list = sorted(list(char_list))
+        # char_list = set(char for char in open(args.charlist).read())
+        # char_list = sorted(list(char_list))
+        #
         print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
+        validation_generator.set_charlist(char_list, use_mask)
         inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
@@ -348,7 +359,7 @@ def main():
         for batch in inference_dataset:
             # batch_images = batch["image"]
             # batch_labels = batch["label"]
-            prediction_model.reset_state()
+            # prediction_model.reset_state()
             preds = prediction_model.predict_on_batch(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
 
@@ -360,7 +371,7 @@ def main():
                 item_counter = 0
                 for i in range(len(pred_text)):
                     # for i in range(16):
-                    filename = loader.get_item((batch_counter * batchSize) + item_counter)
+                    filename = loader.get_item('inference', (batch_counter * batchSize) + item_counter)
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = pred_text[i].strip().replace('', '')
                     print(original_text)

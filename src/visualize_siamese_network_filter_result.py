@@ -75,6 +75,7 @@ config.BASE_OUTPUT = args.output
 MODEL_PATH = "../models/model-val-best/checkpoints/best_val/"
 MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
 MODEL_PATH = "../model-all-val_loss-22.38509"
+MODEL_PATH = "../model-new7-128-batch32"
 
 if args.existing_model:
     MODEL_PATH = args.existing_model
@@ -182,6 +183,7 @@ for layerId in range(len(submodel.layers)):
 
     while i < 10:
         item = loader.get_item('validation', i)
+        print(item)
         item = validation_generator.encode_single_sample_clean(item, "none")
         # item = tf.expand_dims(
         #     item, 0
