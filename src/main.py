@@ -317,10 +317,11 @@ def main():
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = pred_text[i].strip().replace('', '')
-                    print(original_text)
-                    print(predicted_text)
                     current_editdistance = editdistance.eval(original_text, predicted_text)
                     cer = current_editdistance/float(len(original_text))
+                    if cer > 0.0:
+                        print(original_text)
+                        print(predicted_text)
                     totaleditdistance += current_editdistance
                     totallength += len(original_text)
                     print(cer)

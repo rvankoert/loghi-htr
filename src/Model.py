@@ -2448,7 +2448,7 @@ class Model():
             # batch_size=1,
             callbacks=[history, mcp_save, checkpoint], #checkpoint, reduce_lr_loss, early_stopping
             shuffle=True,
-            workers=16,
+            workers=32,
             max_queue_size=256,
             # workers=1,
             # max_queue_size=1,
