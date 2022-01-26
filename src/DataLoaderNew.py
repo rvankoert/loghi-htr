@@ -76,8 +76,8 @@ class DataLoaderNew:
                 labels['train'].append(gtText)
                 trainLabels[fileName] = gtText
                 chars = chars.union(set(char for label in gtText for char in label))
-                if (counter > 100000):
-                    break
+                # if (counter > 100000):
+                #     break
             f.close()
 
         if self.validation_list:
@@ -100,7 +100,7 @@ class DataLoaderNew:
                 gtText = lineSplit[1]
 
                 counter = counter + 1
-                if (counter > 1000):
+                if (counter > 10000):
                     break
 
                 # put sample into list
