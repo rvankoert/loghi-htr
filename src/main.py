@@ -312,11 +312,13 @@ def main():
                 label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
-            for pred_text in pred_texts:
-                for i in range(len(pred_text)):
+            for pred in pred_texts:
+                for i in range(len(pred)):
+                    confidence = pred[i][0]
+                    pred_text = pred[i][1]
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
-                    predicted_text = pred_text[i].strip().replace('', '')
+                    predicted_text = pred_text.strip().replace('', '')
                     current_editdistance = editdistance.eval(original_text, predicted_text)
                     cer = current_editdistance/float(len(original_text))
                     if cer > 0.0:
@@ -368,22 +370,22 @@ def main():
             for label in batch[1]:
                 label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
-            for pred_text in pred_texts:
-                item_counter = 0
-                for i in range(len(pred_text)):
+            for pred in pred_texts:
+                for i in range(len(pred)):
+                    confidence = pred[i][0]
+                    pred_text = pred[i][1]
                     # for i in range(16):
-                    filename = loader.get_item('inference', (batch_counter * batchSize) + item_counter)
+                    filename = loader.get_item('inference', (batch_counter * batchSize) + i)
                     original_text = orig_texts[i].strip().replace('', '')
-                    predicted_text = pred_text[i].strip().replace('', '')
+                    predicted_text = pred_text.strip().replace('', '')
                     print(original_text)
-                    print(filename + "\t" + predicted_text)
-                    text_file.write(filename + "\t" + predicted_text + "\n")
+                    print(filename + "\t" + str(confidence) + "\t" + predicted_text)
+                    text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
 
                     # for i in range(len(pred_texts)):
             #     filename = loader.get_item(batch_counter * batchSize + item_counter)
             #     original_text = orig_texts[i].strip().replace('', '')
             #     predicted_text = pred_texts[i].strip().replace('', '')
-                    item_counter += 1
                 batch_counter += 1
             # keras.backend.clear_session()
         text_file.close()
