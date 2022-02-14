@@ -351,7 +351,6 @@ def main():
         print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
-        validation_generator.set_charlist(char_list, use_mask)
         inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
@@ -368,7 +367,7 @@ def main():
             # batch_labels = batch["label"]
             # prediction_model.reset_state()
             preds = prediction_model.predict_on_batch(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
+            pred_texts = decode_batch_predictions(preds, maxTextLen, inference_generator, args.greedy, args.beam_width)
 
             orig_texts = []
             for label in batch[1]:
