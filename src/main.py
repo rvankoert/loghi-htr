@@ -105,7 +105,7 @@ def main():
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width. default 10')
     parser.add_argument('--decay_steps', metavar='decay_steps ', type=int, default=10000,
-                        help='decay_steps. default 10000')
+                        help='decay_steps. default 10000. After this number of iterations the learning rate will decrease.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
