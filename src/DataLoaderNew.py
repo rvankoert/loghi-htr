@@ -206,11 +206,20 @@ class DataLoaderNew:
                       'height': self.height,
                       'channels': self.channels
                       }
-        training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
-        validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams,
+        training_generator = None
+        validation_generator = None
+        test_generator = None
+        inference_generator = None
+        if self.train_list:
+            training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
+        if self.validation_list:
+            validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams,
                                              charList=self.charList)
-        test_generator = DataGenerator(partition['test'], labels['test'], **testParams, charList=self.charList)
-        inference_generator = DataGenerator(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
+        if self.test_list:
+            test_generator = DataGenerator(partition['test'], labels['test'], **testParams, charList=self.charList)
+        if self.inference_list:
+            inference_generator = DataGenerator(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
+
         self.partition = partition
 
         return training_generator, validation_generator, test_generator, inference_generator

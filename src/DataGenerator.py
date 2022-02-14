@@ -206,6 +206,8 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def set_charlist(self, chars, use_mask = False):
         self.charList = chars
+        if not self.charList:
+            return
         if use_mask:
             self.char_to_num = layers.experimental.preprocessing.StringLookup(
                 vocabulary=list(self.charList), num_oov_indices=0, mask_token='', oov_token='[UNK]'
