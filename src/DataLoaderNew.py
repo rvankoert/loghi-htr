@@ -158,9 +158,9 @@ class DataLoaderNew:
 
                 # filename
                 fileName = lineSplit[0]
-                if not os.path.exists(fileName):
-                    # print(fileName)
-                    continue
+                # if not os.path.exists(fileName):
+                #     # print(fileName)
+                #     continue
                 # img = cv2.imread(fileName)
                 # height, width, channels = img.shape
                 # if height < 20 or width < 100 or width / height < 4:
@@ -172,6 +172,8 @@ class DataLoaderNew:
                 counter = counter + 1
                 # if (counter > 100):
                 #     break
+                # if counter % 10000 == 0:
+                #     print(counter)
 
                 # put sample into list
                 partition['inference'].append(fileName)

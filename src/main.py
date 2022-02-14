@@ -286,6 +286,7 @@ def main():
 
         totalcer = 0.
         totaleditdistance = 0
+        totaleditdistance_lower = 0
         totallength = 0
         counter = 0
         #  Let's check results on some validation samples
@@ -320,14 +321,17 @@ def main():
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = pred_text.strip().replace('', '')
                     current_editdistance = editdistance.eval(original_text, predicted_text)
+                    current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
                     cer = current_editdistance/float(len(original_text))
                     if cer > 0.0:
                         print(original_text)
                         print(predicted_text)
                     totaleditdistance += current_editdistance
+                    totaleditdistance_lower += current_editdistance_lower
                     totallength += len(original_text)
                     print(cer)
                     print(totaleditdistance/float(totallength))
+                    print(totaleditdistance_lower / float(totallength))
         totalcer = totaleditdistance/float(totallength)
         print('totalcer: ' + str(totalcer))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
