@@ -113,7 +113,7 @@ class DataLoaderNew:
         counter = 0
 
         if self.test_list:
-            f = open("training_all_republic_test.txt")
+            f = open(self.test_list)
             for line in f:
                 # ignore comment line
                 if not line or line[0] == '#':
