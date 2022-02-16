@@ -4,6 +4,7 @@ from keras.callbacks import ReduceLROnPlateau
 from keras.layers import Lambda
 from tensorflow import keras
 from tensorflow.keras import layers
+import numpy as np
 
 from utils import decode_batch_predictions
 import keras.backend as K
@@ -62,6 +63,7 @@ class CERMetric(tf.keras.metrics.Metric):
         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
 
         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+        y_true_sparse = tf.sparse.retain(y_true_sparse, tf.not_equal(y_true_sparse.values, 0))
         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
 
         self.cer_accumulator.assign_add(tf.reduce_sum(distance))
@@ -97,6 +99,7 @@ class WERMetric(tf.keras.metrics.Metric):
         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
 
         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+        y_true_sparse = tf.sparse.retain(y_true_sparse, tf.not_equal(y_true_sparse.values, 0))
         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
 
         correct_words_amount = tf.reduce_sum(tf.cast(tf.not_equal(distance, 0), tf.float32))

@@ -57,7 +57,7 @@ def main():
                         help='percent_validation to be used')
     parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.001,
                         help='learning_rate to be used')
-    parser.add_argument('--epochs', metavar='epochs', type=int, default=1,
+    parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
                         help='epochs to be used')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
                         help='batch_size to be used, when using variable sized input this must be 1')
@@ -74,13 +74,13 @@ def main():
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
     parser.add_argument('--train_list', metavar='train_list', type=str, default=None,
-                        help='train_list to be used')
+                        help='train_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
-                        help='validation_list to be used')
+                        help='validation_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
     parser.add_argument('--test_list', metavar='test_list', type=str, default=None,
-                        help='test_list to be used')
+                        help='test_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
     parser.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
-                        help='inference_list to be used')
+                        help='inference_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
     parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
                         help='testset to be used')
     parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
