@@ -53,133 +53,138 @@ class DataLoaderNew:
         print(self.train_list)
 
         if self.train_list:
-            f = open(self.train_list)
-            counter = 0
-            for line in f:
-                # ignore comment line
-                if not line or line[0] == '#':
-                    continue
-                # print(line)
-                lineSplit = line.strip().split('\t')
-                if len(lineSplit) == 1:
-                    continue
+            for sublist in self.train_list.split():
+                f = open(sublist)
+                counter = 0
+                for line in f:
+                    # ignore comment line
+                    if not line or line[0] == '#':
+                        continue
+                    # print(line)
+                    lineSplit = line.strip().split('\t')
+                    if len(lineSplit) == 1:
+                        continue
 
-                # filename
-                fileName = lineSplit[0]
-                # if not os.path.exists(fileName):
-                #     print(fileName)
-                #     continue
-                gtText = lineSplit[1]
+                    # filename
+                    fileName = lineSplit[0]
+                    # if not os.path.exists(fileName):
+                    #     print(fileName)
+                    #     continue
+                    gtText = lineSplit[1]
 
-                counter = counter + 1
-                partition['train'].append(fileName)
-                labels['train'].append(gtText)
-                trainLabels[fileName] = gtText
-                chars = chars.union(set(char for label in gtText for char in label))
-                # if (counter > 100000):
-                #     break
-            f.close()
+                    counter = counter + 1
+                    partition['train'].append(fileName)
+                    labels['train'].append(gtText)
+                    trainLabels[fileName] = gtText
+                    chars = chars.union(set(char for label in gtText for char in label))
+                    # if (counter > 100000):
+                    #     break
+                f.close()
 
         if self.validation_list:
-            f = open(self.validation_list)
-            counter = 0
-            for line in f:
-                # ignore comment line
-                if not line or line[0] == '#':
-                    continue
-
-                lineSplit = line.strip().split('\t')
-                if len(lineSplit) == 1:
-                    continue
-
-                # filename
-                fileName = lineSplit[0]
-                # if not os.path.exists(fileName):
-                #     print(fileName)
-                #     continue
-                gtText = lineSplit[1]
-
-                counter = counter + 1
-                if (counter > 10000):
-                    break
-
-                # put sample into list
-                partition['validation'].append(fileName)
-                labels['validation'].append(gtText)
-                valLabels[fileName] = gtText
-                chars = chars.union(set(char for label in gtText for char in label))
-            f.close()
+            for sublist in self.validation_list.split():
+                f = open(sublist)
+                counter = 0
+                for line in f:
+                    # ignore comment line
+                    if not line or line[0] == '#':
+                        continue
+    
+                    lineSplit = line.strip().split('\t')
+                    if len(lineSplit) == 1:
+                        continue
+    
+                    # filename
+                    fileName = lineSplit[0]
+                    # if not os.path.exists(fileName):
+                    #     print(fileName)
+                    #     continue
+                    gtText = lineSplit[1]
+    
+                    counter = counter + 1
+                    if (counter > 10000):
+                        break
+    
+                    # put sample into list
+                    partition['validation'].append(fileName)
+                    labels['validation'].append(gtText)
+                    valLabels[fileName] = gtText
+                    chars = chars.union(set(char for label in gtText for char in label))
+                f.close()
 
         counter = 0
 
         if self.test_list:
-            f = open(self.test_list)
-            for line in f:
-                # ignore comment line
-                if not line or line[0] == '#':
-                    continue
-
-                lineSplit = line.strip().split('\t')
-                if len(lineSplit) == 1:
-                    continue
-
-                # filename
-                fileName = lineSplit[0]
-                if not os.path.exists(fileName):
-                    # print(fileName)
-                    continue
-                # img = cv2.imread(fileName)
-                # height, width, channels = img.shape
-                # if height < 20 or width < 100 or width / height < 4:
-                #     print(fileName)
-                #     os.remove(fileName)
-                #     continue
-                gtText = lineSplit[1]
-
-                counter = counter + 1
-                # if (counter > 100):
-                #     break
-
-                # put sample into list
-                partition['test'].append(fileName)
-                labels['test'].append(gtText)
-                testLabels[fileName] = gtText
-                chars = chars.union(set(char for label in gtText for char in label))
-
+            for sublist in self.test_list.split():
+                f = open(sublist)
+                for line in f:
+                    # ignore comment line
+                    if not line or line[0] == '#':
+                        continue
+    
+                    lineSplit = line.strip().split('\t')
+                    if len(lineSplit) == 1:
+                        continue
+    
+                    # filename
+                    fileName = lineSplit[0]
+                    if not os.path.exists(fileName):
+                        # print(fileName)
+                        continue
+                    # img = cv2.imread(fileName)
+                    # height, width, channels = img.shape
+                    # if height < 20 or width < 100 or width / height < 4:
+                    #     print(fileName)
+                    #     os.remove(fileName)
+                    #     continue
+                    gtText = lineSplit[1]
+    
+                    counter = counter + 1
+                    # if (counter > 100):
+                    #     break
+    
+                    # put sample into list
+                    partition['test'].append(fileName)
+                    labels['test'].append(gtText)
+                    testLabels[fileName] = gtText
+                    chars = chars.union(set(char for label in gtText for char in label))
+                f.close()
+                
         if self.inference_list:
-            f = open(self.inference_list)
-            for line in f:
-                # ignore comment line
-                if not line or line[0] == '#':
-                    continue
+            for sublist in self.inference_list.split():
+                f = open(sublist)
+                for line in f:
+                    # ignore comment line
+                    if not line or line[0] == '#':
+                        continue
 
-                lineSplit = line.strip().split('\t')
-                assert len(lineSplit) >= 1
+                    lineSplit = line.strip().split('\t')
+                    assert len(lineSplit) >= 1
 
-                # filename
-                fileName = lineSplit[0]
-                # if not os.path.exists(fileName):
-                #     # print(fileName)
-                #     continue
-                # img = cv2.imread(fileName)
-                # height, width, channels = img.shape
-                # if height < 20 or width < 100 or width / height < 4:
-                #     print(fileName)
-                #     os.remove(fileName)
-                #     continue
-                label = 'to be determined'
+                    # filename
+                    fileName = lineSplit[0]
+                    # if not os.path.exists(fileName):
+                    #     # print(fileName)
+                    #     continue
+                    # img = cv2.imread(fileName)
+                    # height, width, channels = img.shape
+                    # if height < 20 or width < 100 or width / height < 4:
+                    #     print(fileName)
+                    #     os.remove(fileName)
+                    #     continue
+                    label = 'to be determined'
 
-                counter = counter + 1
-                # if (counter > 100):
-                #     break
-                # if counter % 10000 == 0:
-                #     print(counter)
+                    counter = counter + 1
+                    # if (counter > 100):
+                    #     break
+                    # if counter % 10000 == 0:
+                    #     print(counter)
 
-                # put sample into list
-                partition['inference'].append(fileName)
-                labels['inference'].append(label)
-                inference_labels[fileName] = label
-
+                    # put sample into list
+                    partition['inference'].append(fileName)
+                    labels['inference'].append(label)
+                    inference_labels[fileName] = label
+                f.close()
         # list of all chars in dataset
         if self.injected_charlist:
             self.charList = self.injected_charlist
