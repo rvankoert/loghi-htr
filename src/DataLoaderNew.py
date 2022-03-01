@@ -17,11 +17,21 @@ class DataLoaderNew:
     validation_dataset = [];
     train_size =0.99
 
+    def normalize(self, input):
+        input = input.replace(',,', '„')\
+            .replace(' ,', ',')\
+            .replace(',', ', ')\
+            .replace('  ', ' ')\
+            .strip()
+        return input
     def __init__(self, batchSize, imgSize, maxTextLen, train_size, char_list=None,
                  train_list='',
                  validation_list='',
                  test_list='',
-                 inference_list=''):
+                 inference_list='',
+                 do_binarize_sauvola=False,
+                 do_binarize_otsu=False,
+                 normalize_text=True):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -41,6 +51,9 @@ class DataLoaderNew:
         self.validation_list = validation_list
         self.test_list = test_list
         self.inference_list = inference_list
+        self.do_binarize_sauvola = do_binarize_sauvola
+        self.do_binarize_otsu = do_binarize_otsu
+        self.normalize_text = normalize_text
 
     def generators(self):
         chars = set()
@@ -70,7 +83,10 @@ class DataLoaderNew:
                     # if not os.path.exists(fileName):
                     #     print(fileName)
                     #     continue
-                    gtText = lineSplit[1]
+                    if self.normalize_text:
+                        gtText = self.normalize(lineSplit[1])
+                    else:
+                        gtText = lineSplit[1]
 
                     counter = counter + 1
                     partition['train'].append(fileName)
@@ -99,7 +115,10 @@ class DataLoaderNew:
                     # if not os.path.exists(fileName):
                     #     print(fileName)
                     #     continue
-                    gtText = lineSplit[1]
+                    if self.normalize_text:
+                        gtText = self.normalize(lineSplit[1])
+                    else:
+                        gtText = lineSplit[1]
     
                     counter = counter + 1
                     if (counter > 10000):
@@ -137,7 +156,10 @@ class DataLoaderNew:
                     #     print(fileName)
                     #     os.remove(fileName)
                     #     continue
-                    gtText = lineSplit[1]
+                    if self.normalize_text:
+                        gtText = self.normalize(lineSplit[1])
+                    else:
+                        gtText = lineSplit[1]
     
                     counter = counter + 1
                     # if (counter > 100):
@@ -185,6 +207,9 @@ class DataLoaderNew:
                     labels['inference'].append(label)
                     inference_labels[fileName] = label
                 f.close()
+                if len(partition['inference'])==0:
+                    print("no data to inference. Check your input-file")
+                    exit(1)
         # list of all chars in dataset
         if self.injected_charlist:
             self.charList = self.injected_charlist
@@ -194,7 +219,9 @@ class DataLoaderNew:
         trainParams = {'shuffle': True,
                        'batch_size': self.batchSize,
                        'height': self.height,
-                       'channels': self.channels
+                       'channels': self.channels,
+                       'do_binarize_sauvola': self.do_binarize_sauvola,
+                       'do_binarize_otsu': self.do_binarize_otsu,
                        }
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,

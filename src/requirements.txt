@@ -1,10 +1,11 @@
 numpy
 editdistance==0.6.0
-tensorflow==2.8.0
+tensorflow==2.6.0
 scipy==1.6.2
-tensorflow_addons==0.15.0
+tensorflow_addons==0.16.1
 matplotlib==3.1.2
 opencv_python==4.5.4.58
-keras==2.8.0
+keras==2.6.0
 metrics==0.3.3
 tf_keras_vis==0.8.1
+scikit-image==0.18.3

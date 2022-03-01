@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import math
 
+import keras.backend
 import numpy as np
 from tensorflow.keras import layers
 import tensorflow as tf
@@ -11,6 +12,8 @@ import random
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
 from keras.preprocessing.image import img_to_array
+from skimage.filters import (threshold_otsu, threshold_niblack,
+                             threshold_sauvola)
 
 
 class DataGenerator(tf.keras.utils.Sequence):
@@ -65,6 +68,102 @@ class DataGenerator(tf.keras.utils.Sequence):
     def encode_single_sample_clean(self, img_path, label):
         return self.encode_single_sample(img_path, label, False)
 
+    def sauvola(self, image):
+
+        window_size = 51
+        thresh_sauvola = threshold_sauvola(image, window_size=window_size, k=0.1)
+        binary_sauvola = np.invert(image > thresh_sauvola)*1
+
+        return tf.convert_to_tensor(binary_sauvola)
+
+    # https://colab.research.google.com/drive/1CdVfa2NlkQBga1E9dBwHved36Tk7Bg61#scrollTo=Jw-NU1wbHnWA
+    def otsu_thresholding(self, image):
+        image = tf.convert_to_tensor(image, name="image")
+        # image = tf.squeeze(image)
+        rank = image.shape.rank
+        if rank != 2 and rank != 3:
+            raise ValueError("Image should be either 2 or 3-dimensional.")
+        # print (image.shape)
+
+        if image.dtype != tf.int32:
+            image = tf.cast(image, tf.int32)
+
+        r, c, detected_channels = image.shape
+        hist = tf.math.bincount(image, dtype=tf.int32)
+
+        if len(hist) < 256:
+            hist = tf.concat([hist, [0] * (256 - len(hist))], 0)
+
+        current_max, threshold = 0, 0
+        total = r * c
+
+        spre = [0] * 256
+        sw = [0] * 256
+        spre[0] = int(hist[0])
+
+        for i in range(1, 256):
+            spre[i] = spre[i - 1] + int(hist[i])
+            sw[i] = sw[i - 1] + (i * int(hist[i]))
+
+        for i in range(256):
+            if total - spre[i] == 0:
+                break
+
+            meanB = 0 if int(spre[i]) == 0 else sw[i] / spre[i]
+            meanF = (sw[255] - sw[i]) / (total - spre[i])
+            varBetween = (total - spre[i]) * spre[i] * ((meanB - meanF) ** 2)
+
+            if varBetween > current_max:
+                current_max = varBetween
+                threshold = i
+
+        final = tf.where(image > threshold, 0, 1)
+        # final = tf.expand_dims(final, -1)
+        return final
+
+    # https://colab.research.google.com/drive/1CdVfa2NlkQBga1E9dBwHved36Tk7Bg61#scrollTo=Jw-NU1wbHnWA
+    def adaptive_thresholding(self, image):
+        image = tf.convert_to_tensor(image, name="image")
+        window = 40
+        rank = image.shape.rank
+        if rank != 2 and rank != 3:
+            raise ValueError("Image should be either 2 or 3-dimensional.")
+
+        if not isinstance(window, int):
+            raise ValueError("Window size value must be an integer.")
+        # print(image.shape)
+        r, c, channels = image.shape
+        if window > min(r, c):
+            raise ValueError("Window size should be lesser than the size of the image.")
+
+        if rank == 3:
+            image = tf.image.rgb_to_grayscale(image)
+            image = tf.squeeze(image, 2)
+
+        image = tf.image.convert_image_dtype(image, tf.dtypes.float32)
+
+        i = 0
+        final = tf.zeros((r, c))
+        while i < r:
+            j = 0
+            r1 = min(i + window, r)
+            while j < c:
+                c1 = min(j + window, c)
+                cur = image[i:r1, j:c1]
+                thresh = tf.reduce_mean(cur)
+                new = tf.where(cur > thresh, 255.0, 0.0)
+
+                s1 = [x for x in range(i, r1)]
+                s2 = [x for x in range(j, c1)]
+                X, Y = tf.meshgrid(s2, s1)
+                ind = tf.stack([tf.reshape(Y, [-1]), tf.reshape(X, [-1])], axis=1)
+
+                final = tf.tensor_scatter_nd_update(final, ind, tf.reshape(new, [-1]))
+                j += window
+            i += window
+        final = tf.expand_dims(final, -1)
+        return final
+
     def encode_single_sample(self, img_path, label, augment):
         MAX_ROT_ANGLE = 10.0
         alpha_range = 500
@@ -72,6 +171,20 @@ class DataGenerator(tf.keras.utils.Sequence):
         img = tf.io.read_file(img_path)
         img = tf.io.decode_png(img, channels=self.channels)
         img = tf.image.convert_image_dtype(img, self.DTYPE)
+
+        if self.do_binarize_otsu:
+            if img.shape[2] > 1:
+                img = tf.image.rgb_to_grayscale(img)
+            img = img * 255
+            img = self.otsu_thresholding(img)
+
+        if self.do_binarize_sauvola:
+            if img.shape[2] > 1:
+                img = tf.image.rgb_to_grayscale(img)
+            sess = keras.backend.get_session()
+            with sess.as_default():
+                img = self.sauvola(img.eval().numpy())
+
         img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
 
         # augment=False
@@ -93,13 +206,14 @@ class DataGenerator(tf.keras.utils.Sequence):
             # gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
 
+
         if augment:
             random_brightness = tf.random.uniform(shape=[1], minval=-0.5, maxval=0.5)[0]
             img = tf.image.adjust_brightness(img, delta=random_brightness)
             random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
             img = tf.image.adjust_contrast(img, random_contrast)
-            randomseed = random.randint(0, 100000), random.randint(0, 1000000)
 
+            randomseed = random.randint(0, 100000), random.randint(0, 1000000)
             random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
             original_height = tf.cast(tf.shape(img)[0], tf.float32)
             original_width = float(tf.shape(img)[1])
@@ -116,7 +230,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             random_width = int(random_width)
             img = tf.image.resize(img, [image_height, random_width])
 
-        #     img = self.elastic_transform(img, alpha_range, sigma)
+            # img = self.elastic_transform(img, alpha_range, sigma)
 
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
         label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
@@ -142,7 +256,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         return img, label
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
-                 width=99999, charList=[]):
+                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels
@@ -155,6 +269,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.on_epoch_end()
         self.charList = charList
         self.set_charlist(self.charList)
+        self.do_binarize_otsu = do_binarize_otsu
+        self.do_binarize_sauvola = do_binarize_sauvola
         self.dataset = tf.data.Dataset.from_tensor_slices((self.list_IDs, self.labels))
 
     def getGenerator(self):

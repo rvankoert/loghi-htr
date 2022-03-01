@@ -22,7 +22,7 @@ import editdistance
 
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
-
+import re, string
 
 class FilePaths:
     "filenames and paths to data"
@@ -40,7 +40,7 @@ class FilePaths:
 
 def main():
     # tf.compat.v1.disable_eager_execution()
-
+    # tf.compat.v1.enable_eager_execution()
 
 
     # A utility function to decode the output of the network
@@ -116,7 +116,12 @@ def main():
     parser.add_argument('--use_dropout', help='dropout', action='store_true')
     parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
                         help='rnn_layers. default 2')
-
+    parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=512,
+                        help='rnn_units. default 256')
+    parser.add_argument('--do_binarize_otsu', action='store_true',
+                        help='prefix to use for testing')
+    parser.add_argument('--do_binarize_sauvola', action='store_true',
+                        help='do_binarize_sauvola')
 
     args = parser.parse_args()
 
@@ -137,7 +142,12 @@ def main():
     # print (batchSize)
     # print (imgSize)
     # print (maxTextLen)
-
+    do_binarize_sauvola = False
+    if args.do_binarize_sauvola:
+        do_binarize_sauvola = True
+    do_binarize_otsu = False
+    if args.do_binarize_otsu:
+        do_binarize_otsu=True
     char_list = set(char for char in open(args.charlist).read())
     char_list = sorted(list(char_list))
     print("using charlist")
@@ -149,7 +159,9 @@ def main():
                            validation_list=args.validation_list,
                            test_list=args.test_list,
                            inference_list=args.inference_list,
-                           char_list=char_list
+                           char_list=char_list,
+                           do_binarize_sauvola=do_binarize_sauvola,
+                           do_binarize_otsu=do_binarize_otsu
                            )
 
     if args.model_name:
@@ -195,7 +207,8 @@ def main():
 
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
-        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        model.compile(
+            keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.SGD(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
@@ -212,19 +225,23 @@ def main():
             model = modelClass.build_model_new3(imgSize, len(char_list))  # (loader.charList, keep_prob=0.8)
         elif 'new4' == args.model:
             model = modelClass.build_model_new4(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                rnn_units=512,
+                                                rnn_units=args.rnn_units,
                                                 batch_normalization=batch_normalization)
         elif 'new5' == args.model:
             model = modelClass.build_model_new5(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                rnn_units=512, rnn_layers=5,
+                                                rnn_units=args.rnn_units, rnn_layers=5,
                                                 batch_normalization=batch_normalization, dropout=args.use_dropout)
         elif 'new6' == args.model:
             model = modelClass.build_model_new6(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                rnn_units=512, rnn_layers=2,
+                                                rnn_units=args.rnn_units, rnn_layers=2,
                                                 batch_normalization=batch_normalization)
         elif 'new7' == args.model:
             model = modelClass.build_model_new7(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                rnn_units=512, rnn_layers=args.rnn_layers,
+                                                rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout)
+        elif 'new8' == args.model:
+            model = modelClass.build_model_new8(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                 batch_normalization=batch_normalization, dropout=args.use_dropout)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
@@ -254,7 +271,8 @@ def main():
         #     rnn_units=512,
         # )
 
-        model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        model.compile(
+            keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
         # model.compile(keras.optimizers.RMSprop(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
     model.summary(line_length=110)
@@ -287,8 +305,40 @@ def main():
         totalcer = 0.
         totaleditdistance = 0
         totaleditdistance_lower = 0
+        totaleditdistance_simple = 0
+        # totaleditdistance_wbs_simple = 0
+        # totaleditdistance_wbs = 0
+        # totaleditdistance_wbs_lower = 0
         totallength = 0
+        totallength_simple = 0
         counter = 0
+
+        # corpus_file = "training_all_ijsberg_train_corpus.txt"
+        # f = open(corpus_file)
+        # # corpus = f.read()
+        # corpus = ''
+        # # chars = set()
+        # for line in f:
+        #     # chars = chars.union(set(char for label in line for char in label))
+        #     corpus += line
+        # print (corpus)
+        # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
+        # chars = 'ab '  # the characters that can be recognized (in this order)
+        # word_chars = corpus.splitlines()[0]  # characters that form words
+        word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
+        #
+        chars = '' + ''.join(sorted(list(char_list)))
+        # chars = '' + ''.join(char_list)
+        # print (word_chars)
+
+        print(len(chars))
+        # NGramsForecast
+        # Words
+        # NGrams
+        # NGramsForecastAndSample
+        # wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.9, corpus, chars,
+        #                      word_chars)
+
         #  Let's check results on some validation samples
         for batch in validation_dataset:
             # batch_images = batch["image"]
@@ -296,16 +346,54 @@ def main():
 
             preds = prediction_model.predict(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
+            predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
-            # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
-            # chars = 'ab '  # the characters that can be recognized (in this order)
-            # word_chars = 'ab'  # characters that form words
+            # print(tf.shape(predsbeam))
+            # mat = np.array([[[0.9, 0.1, 0.0, 0.0]], [[0.0, 0.0, 0.0, 1.0]],
+            #                 [[0.6, 0.4, 0.0, 0.0]]])
             #
-            # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf-8'),
+            # print (tf.shape(mat))
+            # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
+            # chars = 'ab '  # the first three characters which occur in the matrix (in this ordering)
+            # word_chars = 'ab'  # whitespace not included which serves as word-separating character
+            # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
             #                      word_chars.encode('utf8'))
+            # label_str = wbs.compute(mat)
+            #
+            # # result is string of labels terminated by blank
+            # char_str = []
+            # for curr_label_str in label_str:
+            #     s = ''
+            #     for label in curr_label_str:
+            #         s += chars[label]  # map label to char
+            #     char_str.append(s)
+            # print(label_str[0])
+            # print(char_str[0])
+            # return label_str[0], char_str[0]
+
+
+            # if True:
+            #     exit(1)
+            # label_str = wbs.compute(predsbeam)
+            # print('end label_str')
+
+            # print(label_str)
             #
             # # compute label string
-            # label_str = wbs.compute(pred_texts[0])
+
+            # label_str = validation_generator.num_to_char(label_str)
+            # char_str = []  # decoded texts for batch
+            # print(len(label_str))
+            # print(label_str)
+            # for curr_label_str in label_str:
+            #     # print(len(curr_label_str))
+            #     s = ''.join([chars[label] for label in curr_label_str])
+            #     char_str.append(s)
+            #     # print(s)
+
+            # print('start char_str')
+            # print(char_str)
+            # print('end char_str')
 
             counter += 1
             orig_texts = []
@@ -322,18 +410,50 @@ def main():
                     predicted_text = pred_text.strip().replace('', '')
                     current_editdistance = editdistance.eval(original_text, predicted_text)
                     current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
+
+                    pattern = re.compile('[\W_]+')
+                    ground_truth_simple = pattern.sub('', original_text).lower()
+                    predicted_simple = pattern.sub('', predicted_text).lower()
+                    # predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
+                    current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
+                    # current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
+                    # current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                    # current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
-                    if cer > 0.0:
+                    if cer >= 0.0:
+                        print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
+                        # print(char_str[i])
+
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
+                    totaleditdistance_simple += current_editdistance_simple
+                    # totaleditdistance_wbs_simple += current_editdistance_wbs_simple
+                    # totaleditdistance_wbs += current_editdistance_wbs
+                    # totaleditdistance_wbs_lower += current_editdistance_wbslower
                     totallength += len(original_text)
+                    totallength_simple += len(ground_truth_simple)
+
                     print(cer)
                     print(totaleditdistance/float(totallength))
                     print(totaleditdistance_lower / float(totallength))
+                    print(totaleditdistance_simple/ float(totallength_simple))
+                    # print(totaleditdistance_wbs_simple/ float(totallength_simple))
+                    # print(totaleditdistance_wbs / float(totallength))
+                    # print(totaleditdistance_wbs_lower / float(totallength))
         totalcer = totaleditdistance/float(totallength)
+        totalcerlower = totaleditdistance_lower/float(totallength)
+        totalcersimple = totaleditdistance_simple / float(totallength_simple)
+        # totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
+        # totalcerwbs = totaleditdistance_wbs/float(totallength)
+        # totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
         print('totalcer: ' + str(totalcer))
+        print('totalcerlower: ' + str(totalcerlower))
+        print('totalcersimple: ' + str(totalcersimple))
+        # print('totalcerwbssimple: ' + str(totalcerwbssimple))
+        # print('totalcerwbs: ' + str(totalcerwbs))
+        # print('totalcerwbslower: ' + str(totalcerwbslower))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
     #            img = img.T
     #            title = f"Prediction: {pred_texts[i].strip()}"

@@ -115,7 +115,7 @@ def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True
             log_prob = ctc_decoded[1][i][top_path]
             confidence = np.exp(log_prob)
             i = i + 1
-            print(confidence)
+            # print(confidence)
             chars = validation_generator.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
