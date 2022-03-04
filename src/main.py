@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import os
 
+from keras.layers import Dense
 from keras.utils.generic_utils import get_custom_objects
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import array_ops, math_ops, sparse_ops
@@ -52,43 +53,43 @@ def main():
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
                         help='random seed to be used')
     parser.add_argument('--gpu', metavar='gpu', type=int, default=-1,
-                        help='gpu to be used')
+                        help='gpu to be used, use -1 for CPU')
     parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
                         help='percent_validation to be used')
     parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.001,
-                        help='learning_rate to be used')
+                        help='learning_rate to be used, default 0.001')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
-                        help='epochs to be used')
+                        help='epochs to be used, default 40')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
-                        help='batch_size to be used, when using variable sized input this must be 1')
+                        help='batch_size to be used, when using variable sized input this must be 1, default 1')
     parser.add_argument('--height', metavar='height', type=int, default=32,
-                        help='height to be used')
+                        help='rescale everything to this height before training')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
                         help='width to be used')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
-                        help='channels to be used')
-    parser.add_argument('--do_train', help='train', action='store_true')
-    parser.add_argument('--do_validate', help='validate', action='store_true')
+                        help='number of channels to use. 1 for grey-scale/binary images, three for color images, 4 for png\'s with transparency')
+    parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.', action='store_true')
+    parser.add_argument('--do_validate', help='if enabled a separate validation run will be done', action='store_true')
     parser.add_argument('--do_inference', help='inference', action='store_true')
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
     parser.add_argument('--train_list', metavar='train_list', type=str, default=None,
-                        help='train_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
+                        help='use this file containing textline location+transcription for training. You can use multiple input files quoted and space separated "training_file1.txt training_file2.txt"to combine training sets.')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
-                        help='validation_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
+                        help='use this file containing textline location+transcription for validation. You can use multiple input files quoted and space separated "validation_file1.txt validation_file2.txt"to combine validation sets.')
     parser.add_argument('--test_list', metavar='test_list', type=str, default=None,
-                        help='test_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
+                        help='use this file containing textline location+transcription for testing. You can use multiple input files quoted and space separated "test_file1.txt test_file2.txt"to combine testing sets.')
     parser.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
-                        help='inference_list to be used. Use quoted "list1.txt list2.txt" for multiple lists')
+                        help='use this file containing textline location+transcription for inferencing. You can use multiple input files quoted and space separated "inference_file1.txt inference_file2.txt"to combine inferencing sets.')
     parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
                         help='testset to be used')
     parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
                         help='spec')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
-                        help='existing_model')
+                        help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
-                        help='model_name')
+                        help='use model_name in the output')
     parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
                         help='contrastive_loss, binary_crossentropy, mse')
     parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
@@ -97,15 +98,19 @@ def main():
                         help='memory_limit for gpu. Default 4096')
     parser.add_argument('--train_size', metavar='train_size', type=float, default=0.99,
                         help='learning_rate to be used')
-    parser.add_argument('--use_mask', help='use_mask', action='store_true')
-    parser.add_argument('--use_gru', help='use_gru', action='store_true')
+    parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
+    parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers', action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
                         help='results_file')
+    parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default='output/config.txt',
+                        help='config_file_output')
+    parser.add_argument('--config_file', metavar='config_file', type=str, default='config.txt',
+                        help='config_file')
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
-                        help='beam_width. default 10')
+                        help='beam_width when validating/inferencing, higher beam_width gets better results, but run slower. Default 10')
     parser.add_argument('--decay_steps', metavar='decay_steps ', type=int, default=10000,
-                        help='decay_steps. default 10000. After this number of iterations the learning rate will decrease.')
+                        help='decay_steps. default 10000. After this number of iterations the learning rate will decrease with 10 percent.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
@@ -113,17 +118,22 @@ def main():
     parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
     parser.add_argument('--charlist', metavar='charlist ', type=str, default='../model/charList2.txt',
                         help='Charlist to use')
-    parser.add_argument('--use_dropout', help='dropout', action='store_true')
+    parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new model', action='store_true')
     parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
-                        help='rnn_layers. default 2')
+                        help='number of rnn layers to use in the recurrent part. default 2')
     parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=512,
-                        help='rnn_units. default 256')
+                        help='numbers of units in each rnn_layer. default 512')
     parser.add_argument('--do_binarize_otsu', action='store_true',
-                        help='prefix to use for testing')
+                        help='beta: do_binarize_otsu')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
-                        help='do_binarize_sauvola')
+                        help='beta: do_binarize_sauvola')
+    # parser.add_argument('--help', action='store_true',
+    #                     help='help')
 
     args = parser.parse_args()
+
+    # if args.help:
+    #     parser.print_usage()
 
     print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -302,6 +312,21 @@ def main():
         )
         prediction_model.summary()
 
+        weights = model.get_layer(name="dense3").get_weights()
+        prediction_model = keras.models.Model(
+            model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
+        )
+        # print(weights)
+        new_column = np.random.uniform(-0.5, 0.5, size=(512, 1))
+        weights[0] = np.append(weights[0], new_column, axis=1)
+        new_column = np.random.uniform(-0.5, 0.5, 1)[0]
+        weights[1] = np.append(weights[1], new_column)
+        dense3 = Dense(148, activation='softmax', weights=weights, name='dense3')(prediction_model.output)
+        # output = Dense(148, activation='softmax')(dense3)
+        prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
+        prediction_model.summary(line_length=120)
+
+
         totalcer = 0.
         totaleditdistance = 0
         totaleditdistance_lower = 0
@@ -343,7 +368,6 @@ def main():
         for batch in validation_dataset:
             # batch_images = batch["image"]
             # batch_labels = batch["label"]
-
             preds = prediction_model.predict(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
             predsbeam = tf.transpose(preds, perm=[1, 0, 2])
@@ -478,6 +502,11 @@ def main():
         prediction_model.summary()
         inference_dataset = inference_generator.getGenerator()
 
+        # write out used config:
+        config_output_file = open(args.config_file_output, "w")
+        config_output_file.write("model="+args.existing_model + "\n")
+        config_output_file.write("batch_size="+args.batch_size + "\n")
+        config_output_file.close()
         #  Let's check results on some validation samples
         batch_counter = 0
         text_file = open(args.results_file, "w")
