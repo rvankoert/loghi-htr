@@ -169,7 +169,7 @@ for layerId in range(len(submodel.layers)):
 
     char_list = None
     maxTextLen = 128
-    loader = DataLoaderNew(1, imgSize, maxTextLen, 1,
+    loader = DataLoaderNew(1, imgSize, 1,
                            train_list='training_all_prizepapers_val.txt',
                            validation_list='training_all_prizepapers_val.txt',
                            test_list=None,
