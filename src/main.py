@@ -164,7 +164,7 @@ def main():
     print("length charlist: " + str(len(char_list)))
     print(char_list)
     char_list = None
-    loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size,
+    loader = DataLoaderNew(batchSize, imgSize, args.train_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
                            test_list=args.test_list,
@@ -312,19 +312,19 @@ def main():
         )
         prediction_model.summary()
 
-        weights = model.get_layer(name="dense3").get_weights()
-        prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
-        )
-        # print(weights)
-        new_column = np.random.uniform(-0.5, 0.5, size=(512, 1))
-        weights[0] = np.append(weights[0], new_column, axis=1)
-        new_column = np.random.uniform(-0.5, 0.5, 1)[0]
-        weights[1] = np.append(weights[1], new_column)
-        dense3 = Dense(148, activation='softmax', weights=weights, name='dense3')(prediction_model.output)
-        # output = Dense(148, activation='softmax')(dense3)
-        prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
-        prediction_model.summary(line_length=120)
+        # weights = model.get_layer(name="dense3").get_weights()
+        # prediction_model = keras.models.Model(
+        #     model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
+        # )
+        # # print(weights)
+        # new_column = np.random.uniform(-0.5, 0.5, size=(512, 1))
+        # weights[0] = np.append(weights[0], new_column, axis=1)
+        # new_column = np.random.uniform(-0.5, 0.5, 1)[0]
+        # weights[1] = np.append(weights[1], new_column)
+        # dense3 = Dense(148, activation='softmax', weights=weights, name='dense3')(prediction_model.output)
+        # # output = Dense(148, activation='softmax')(dense3)
+        # prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
+        # prediction_model.summary(line_length=120)
 
 
         totalcer = 0.
@@ -493,7 +493,7 @@ def main():
         # char_list = sorted(list(char_list))
         #
         print(char_list)
-        loader = DataLoaderNew(batchSize, imgSize, maxTextLen, args.train_size, char_list, inference_list=args.inference_list)
+        loader = DataLoaderNew(batchSize, imgSize, args.train_size, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(

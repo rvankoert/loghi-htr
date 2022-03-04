@@ -24,7 +24,7 @@ class DataLoaderNew:
             .replace('  ', ' ')\
             .strip()
         return input
-    def __init__(self, batchSize, imgSize, maxTextLen, train_size, char_list=None,
+    def __init__(self, batchSize, imgSize, train_size, char_list=None,
                  train_list='',
                  validation_list='',
                  test_list='',

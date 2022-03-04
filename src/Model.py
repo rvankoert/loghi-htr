@@ -63,11 +63,12 @@ class CERMetric(tf.keras.metrics.Metric):
         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
 
         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+        decode = tf.sparse.retain(decode, tf.not_equal(decode.values, 0))
         y_true_sparse = tf.sparse.retain(y_true_sparse, tf.not_equal(y_true_sparse.values, 0))
-        distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
+        distance = tf.edit_distance(decode, y_true_sparse, normalize=False)
 
         self.cer_accumulator.assign_add(tf.reduce_sum(distance))
-        self.counter.assign_add(K.cast(len(y_true), 'float32'))
+        self.counter.assign_add(K.cast(tf.size(y_true_sparse.values), 'float32'))
 
     def result(self):
         return tf.math.divide_no_nan(self.cer_accumulator, self.counter)
@@ -325,7 +326,7 @@ class Model():
                              kernel_initializer=initializer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
         model = keras.models.Model(
-            inputs=[input_img], outputs=output, name="model_new7"
+            inputs=[input_img], outputs=output, name="model_new8"
         )
         return model
 
