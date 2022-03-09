@@ -14,7 +14,6 @@ class DataLoaderNew:
     charList = []
     samples = []
     validation_dataset = []
-    train_size =0.99
 
     def normalize(self, input):
         input = input.replace(',,', '„')\
@@ -24,7 +23,7 @@ class DataLoaderNew:
             .strip()
         return input
 
-    def __init__(self, batchSize, imgSize, train_size, char_list=None,
+    def __init__(self, batchSize, imgSize, char_list=None,
                  train_list='',
                  validation_list='',
                  test_list='',
@@ -42,7 +41,6 @@ class DataLoaderNew:
         self.batchSize = batchSize
         self.imgSize = imgSize
         self.samples = []
-        self.train_size = train_size
         self.height = imgSize[0]
         self.width = imgSize[1]
         self.channels = imgSize[2]

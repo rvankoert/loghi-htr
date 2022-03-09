@@ -20,7 +20,6 @@
 #     charList = []
 #     samples = []
 #     validation_dataset = [];
-#     train_size =0.99
 #
 #     def __init__(self, filePath, batchSize, imgSize, maxTextLen, train_size):
 #         np_config.enable_numpy_behavior()

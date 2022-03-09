@@ -19,7 +19,7 @@ import random
 import argparse
 import editdistance
 # import warpctc_tensorflow
-# from word_beam_search import WordBeamSearch
+from word_beam_search import WordBeamSearch
 
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
@@ -104,8 +104,6 @@ def main():
                         help='optimizer: adam, adadelta, rmsprop, sgd')
     parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=4096,
                         help='memory_limit for gpu. Default 4096')
-    parser.add_argument('--train_size', metavar='train_size', type=float, default=0.99,
-                        help='learning_rate to be used')
     parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers', action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
@@ -169,13 +167,16 @@ def main():
     do_binarize_otsu = False
     if args.do_binarize_otsu:
         do_binarize_otsu=True
+    augment = False
+    if args.augment:
+        augment = True
     # char_list = set(char for char in open(args.charlist).read())
     # char_list = sorted(list(char_list))
     # print("using charlist")
     # print("length charlist: " + str(len(char_list)))
     # print(char_list)
     char_list = None
-    loader = DataLoaderNew(batchSize, imgSize, args.train_size,
+    loader = DataLoaderNew(batchSize, imgSize,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
                            test_list=args.test_list,
@@ -184,7 +185,7 @@ def main():
                            do_binarize_sauvola=do_binarize_sauvola,
                            do_binarize_otsu=do_binarize_otsu,
                            multiply=args.multiply,
-                           augment=args.augment
+                           augment=augment
                            )
 
     if args.model_name:
@@ -357,21 +358,21 @@ def main():
         totaleditdistance = 0
         totaleditdistance_lower = 0
         totaleditdistance_simple = 0
-        # totaleditdistance_wbs_simple = 0
-        # totaleditdistance_wbs = 0
-        # totaleditdistance_wbs_lower = 0
+        totaleditdistance_wbs_simple = 0
+        totaleditdistance_wbs = 0
+        totaleditdistance_wbs_lower = 0
         totallength = 0
         totallength_simple = 0
         counter = 0
 
-        # corpus_file = "training_all_ijsberg_train_corpus.txt"
-        # f = open(corpus_file)
+        corpus_file = "training_all_ijsberg_train_corpus.txt"
+        f = open(corpus_file)
         # # corpus = f.read()
-        # corpus = ''
+        corpus = ''
         # # chars = set()
-        # for line in f:
-        #     # chars = chars.union(set(char for label in line for char in label))
-        #     corpus += line
+        for line in f:
+            # chars = chars.union(set(char for label in line for char in label))
+            corpus += line
         # print (corpus)
         # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
         # chars = 'ab '  # the characters that can be recognized (in this order)
@@ -387,8 +388,8 @@ def main():
         # Words
         # NGrams
         # NGramsForecastAndSample
-        # wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.9, corpus, chars,
-        #                      word_chars)
+        wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.9, corpus, chars,
+                             word_chars)
 
         #  Let's check results on some validation samples
         for batch in validation_dataset:
@@ -398,14 +399,6 @@ def main():
             pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
             predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
-            # print(tf.shape(predsbeam))
-            # mat = np.array([[[0.9, 0.1, 0.0, 0.0]], [[0.0, 0.0, 0.0, 1.0]],
-            #                 [[0.6, 0.4, 0.0, 0.0]]])
-            #
-            # print (tf.shape(mat))
-            # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
-            # chars = 'ab '  # the first three characters which occur in the matrix (in this ordering)
-            # word_chars = 'ab'  # whitespace not included which serves as word-separating character
             # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
             #                      word_chars.encode('utf8'))
             # label_str = wbs.compute(mat)
@@ -424,7 +417,7 @@ def main():
 
             # if True:
             #     exit(1)
-            # label_str = wbs.compute(predsbeam)
+            label_str = wbs.compute(predsbeam)
             # print('end label_str')
 
             # print(label_str)
@@ -432,18 +425,15 @@ def main():
             # # compute label string
 
             # label_str = validation_generator.num_to_char(label_str)
-            # char_str = []  # decoded texts for batch
+            char_str = []  # decoded texts for batch
             # print(len(label_str))
             # print(label_str)
-            # for curr_label_str in label_str:
-            #     # print(len(curr_label_str))
-            #     s = ''.join([chars[label] for label in curr_label_str])
-            #     char_str.append(s)
-            #     # print(s)
+            for curr_label_str in label_str:
+                # print(len(curr_label_str))
+                s = ''.join([chars[label] for label in curr_label_str])
+                char_str.append(s)
+                # print(s)
 
-            # print('start char_str')
-            # print(char_str)
-            # print('end char_str')
 
             counter += 1
             orig_texts = []
@@ -464,24 +454,24 @@ def main():
                     pattern = re.compile('[\W_]+')
                     ground_truth_simple = pattern.sub('', original_text).lower()
                     predicted_simple = pattern.sub('', predicted_text).lower()
-                    # predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
+                    predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
                     current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
-                    # current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
-                    # current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
-                    # current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
+                    current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
+                    current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                    current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
                     if cer >= 0.0:
                         print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
-                        # print(char_str[i])
+                        print(char_str[i])
 
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
                     totaleditdistance_simple += current_editdistance_simple
-                    # totaleditdistance_wbs_simple += current_editdistance_wbs_simple
-                    # totaleditdistance_wbs += current_editdistance_wbs
-                    # totaleditdistance_wbs_lower += current_editdistance_wbslower
+                    totaleditdistance_wbs_simple += current_editdistance_wbs_simple
+                    totaleditdistance_wbs += current_editdistance_wbs
+                    totaleditdistance_wbs_lower += current_editdistance_wbslower
                     totallength += len(original_text)
                     totallength_simple += len(ground_truth_simple)
 
@@ -489,21 +479,21 @@ def main():
                     print(totaleditdistance/float(totallength))
                     print(totaleditdistance_lower / float(totallength))
                     print(totaleditdistance_simple/ float(totallength_simple))
-                    # print(totaleditdistance_wbs_simple/ float(totallength_simple))
-                    # print(totaleditdistance_wbs / float(totallength))
-                    # print(totaleditdistance_wbs_lower / float(totallength))
+                    print(totaleditdistance_wbs_simple/ float(totallength_simple))
+                    print(totaleditdistance_wbs / float(totallength))
+                    print(totaleditdistance_wbs_lower / float(totallength))
         totalcer = totaleditdistance/float(totallength)
         totalcerlower = totaleditdistance_lower/float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
-        # totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
-        # totalcerwbs = totaleditdistance_wbs/float(totallength)
-        # totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
+        totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
+        totalcerwbs = totaleditdistance_wbs/float(totallength)
+        totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
         print('totalcer: ' + str(totalcer))
         print('totalcerlower: ' + str(totalcerlower))
         print('totalcersimple: ' + str(totalcersimple))
-        # print('totalcerwbssimple: ' + str(totalcerwbssimple))
-        # print('totalcerwbs: ' + str(totalcerwbs))
-        # print('totalcerwbslower: ' + str(totalcerwbslower))
+        print('totalcerwbssimple: ' + str(totalcerwbssimple))
+        print('totalcerwbs: ' + str(totalcerwbs))
+        print('totalcerwbslower: ' + str(totalcerwbslower))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
     #            img = img.T
     #            title = f"Prediction: {pred_texts[i].strip()}"
@@ -519,7 +509,7 @@ def main():
         # char_list = sorted(list(char_list))
         #
         print(char_list)
-        loader = DataLoaderNew(batchSize, imgSize, args.train_size, char_list, inference_list=args.inference_list)
+        loader = DataLoaderNew(batchSize, imgSize, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask)
         prediction_model = keras.models.Model(
@@ -530,8 +520,64 @@ def main():
 
         # write out used config:
         config_output_file = open(args.config_file_output, "w")
-        config_output_file.write("model="+args.existing_model + "\n")
-        config_output_file.write("batch_size="+args.batch_size + "\n")
+        config_output_file.write("seed="+str(args.seed) + "\n")
+        config_output_file.write("gpu="+str(args.gpu) + "\n")
+        config_output_file.write("percent_validation="+str(args.percent_validation) + "\n")
+        config_output_file.write("learning_rate="+str(args.learning_rate) + "\n")
+        config_output_file.write("epochs="+str(args.epochs) + "\n")
+        config_output_file.write("batch_size="+str(args.batch_size) + "\n")
+        config_output_file.write("height="+str(args.height) + "\n")
+        config_output_file.write("width="+str(args.width) + "\n")
+        config_output_file.write("channels="+str(args.channels) + "\n")
+        config_output_file.write("output="+args.output + "\n")
+        config_output_file.write("train_list="+args.train_list + "\n")
+        config_output_file.write("validation_list="+args.validation_list + "\n")
+        config_output_file.write("test_list="+args.test_list + "\n")
+        config_output_file.write("inference_list="+args.inference_list + "\n")
+        config_output_file.write("existing_model="+args.existing_model + "\n")
+        config_output_file.write("model_name="+args.model_name + "\n")
+        config_output_file.write("loss="+args.loss + "\n")
+        config_output_file.write("optimizer="+args.optimizer + "\n")
+        config_output_file.write("memory_limit="+str(args.memory_limit) + "\n")
+        config_output_file.write("results_file="+args.results_file + "\n")
+        config_output_file.write("config_file_output="+args.config_file_output + "\n")
+        config_output_file.write("config_file="+args.config_file + "\n")
+        config_output_file.write("beam_width="+str(args.beam_width) + "\n")
+        config_output_file.write("decay_steps="+str(args.decay_steps) + "\n")
+        config_output_file.write("steps_per_epoch="+str(args.steps_per_epoch) + "\n")
+        config_output_file.write("model="+args.model + "\n")
+        config_output_file.write("charlist="+args.charlist + "\n")
+        config_output_file.write("inference_list="+args.inference_list + "\n")
+        config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
+        config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
+        config_output_file.write("multiply="+str(args.multiply) + "\n")
+
+        # parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
+        #                     action='store_true')
+        # parser.add_argument('--do_validate', help='if enabled a separate validation run will be done',
+        #                     action='store_true')
+        # parser.add_argument('--do_inference', help='inference', action='store_true')
+
+        # parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
+        #                     help='testset to be used')
+        # parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
+        # parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
+        #                     action='store_true')
+        # parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
+        # parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
+        # parser.add_argument('--use_dropout',
+        #                     help='if enabled some dropout will be added to the model if creating a new model',
+        #                     action='store_true')
+        # parser.add_argument('--use_rnn_dropout',
+        #                     help='if enabled some dropout will be added to rnn layers of the model if creating a new model',
+        #                     action='store_true')
+        # parser.add_argument('--do_binarize_otsu', action='store_true',
+        #                     help='beta: do_binarize_otsu')
+        # parser.add_argument('--do_binarize_sauvola', action='store_true',
+        #                     help='beta: do_binarize_sauvola')
+        # parser.add_argument('--augment', action='store_true',
+        #                     help='beta: apply data augmentation to training set. In general this is a good idea')
+
         config_output_file.close()
         #  Let's check results on some validation samples
         batch_counter = 0
