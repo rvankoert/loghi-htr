@@ -4,7 +4,7 @@ Loghi HTR is a system to generate text from images. It's part of the Loghi frame
 
 Loghi HTR also works on machine printed text.
 
-To run Loghi you need segmented textlines and their ground truth. You can generate ground truth from existing PageXML using tool XXX from the Loghi preprocessing or use existing linestrips provided by another tool.
+To run Loghi you need segmented textlines and their ground truth. You can generate ground truth from existing PageXML using tool MinionCutFromImageBasedOnPageXMLNew (Will be called LoghiLineCutter in the future) from the Loghi preprocessing or use existing linestrips provided by another tool.
 
 
 Typical setup:
