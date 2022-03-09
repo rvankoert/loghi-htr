@@ -10,11 +10,10 @@ from DataGenerator import DataGenerator
 class DataLoaderNew:
     DTYPE = 'float32'
 
-    dataAugmentation = False
     currIdx = 0
     charList = []
     samples = []
-    validation_dataset = [];
+    validation_dataset = []
     train_size =0.99
 
     def normalize(self, input):
@@ -24,6 +23,7 @@ class DataLoaderNew:
             .replace('  ', ' ')\
             .strip()
         return input
+
     def __init__(self, batchSize, imgSize, train_size, char_list=None,
                  train_list='',
                  validation_list='',
@@ -31,12 +31,13 @@ class DataLoaderNew:
                  inference_list='',
                  do_binarize_sauvola=False,
                  do_binarize_otsu=False,
-                 normalize_text=True):
+                 normalize_text=True,
+                 multiply=1,
+                 augment=True):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
 
-        self.dataAugmentation = False
         self.currIdx = 0
         self.batchSize = batchSize
         self.imgSize = imgSize
@@ -54,6 +55,8 @@ class DataLoaderNew:
         self.do_binarize_sauvola = do_binarize_sauvola
         self.do_binarize_otsu = do_binarize_otsu
         self.normalize_text = normalize_text
+        self.multiply = multiply
+        self.dataAugmentation = augment
 
     def generators(self):
         chars = set()
@@ -89,9 +92,10 @@ class DataLoaderNew:
                         gtText = lineSplit[1]
 
                     counter = counter + 1
-                    partition['train'].append(fileName)
-                    labels['train'].append(gtText)
-                    trainLabels[fileName] = gtText
+                    for i in range(0, self.multiply):
+                        partition['train'].append(fileName)
+                        labels['train'].append(gtText)
+                        trainLabels[fileName] = gtText
                     chars = chars.union(set(char for label in gtText for char in label))
                     # if (counter > 100000):
                     #     break

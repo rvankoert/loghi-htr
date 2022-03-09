@@ -42,7 +42,7 @@ class FilePaths:
 def main():
     # tf.compat.v1.disable_eager_execution()
     # tf.compat.v1.enable_eager_execution()
-
+    # print(tf.executing_eagerly())
 
     # A utility function to decode the output of the network
 
@@ -67,25 +67,33 @@ def main():
     parser.add_argument('--width', metavar='width', type=int, default=65536,
                         help='width to be used')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
-                        help='number of channels to use. 1 for grey-scale/binary images, three for color images, 4 for png\'s with transparency')
-    parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.', action='store_true')
+                        help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
+                             '4 for png\'s with transparency')
+    parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
+                        action='store_true')
     parser.add_argument('--do_validate', help='if enabled a separate validation run will be done', action='store_true')
     parser.add_argument('--do_inference', help='inference', action='store_true')
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
     parser.add_argument('--train_list', metavar='train_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for training. You can use multiple input files quoted and space separated "training_file1.txt training_file2.txt"to combine training sets.')
+                        help='use this file containing textline location+transcription for training. You can use '
+                             'multiple input files quoted and space separated "training_file1.txt '
+                             'training_file2.txt"to combine training sets.')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for validation. You can use multiple input files quoted and space separated "validation_file1.txt validation_file2.txt"to combine validation sets.')
+                        help='use this file containing textline location+transcription for validation. You can use '
+                             'multiple input files quoted and space separated "validation_file1.txt '
+                             'validation_file2.txt"to combine validation sets.')
     parser.add_argument('--test_list', metavar='test_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for testing. You can use multiple input files quoted and space separated "test_file1.txt test_file2.txt"to combine testing sets.')
+                        help='use this file containing textline location+transcription for testing. You can use '
+                             'multiple input files quoted and space separated "test_file1.txt test_file2.txt"to '
+                             'combine testing sets.')
     parser.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for inferencing. You can use multiple input files quoted and space separated "inference_file1.txt inference_file2.txt"to combine inferencing sets.')
+                        help='use this file containing textline location+transcription for inferencing. You can use '
+                             'multiple input files quoted and space separated "inference_file1.txt '
+                             'inference_file2.txt"to combine inferencing sets.')
     parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
                         help='testset to be used')
-    parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
-                        help='spec')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
                         help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
@@ -119,6 +127,7 @@ def main():
     parser.add_argument('--charlist', metavar='charlist ', type=str, default='../model/charList2.txt',
                         help='Charlist to use')
     parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new model', action='store_true')
+    parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model if creating a new model', action='store_true')
     parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
                         help='number of rnn layers to use in the recurrent part. default 2')
     parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=512,
@@ -127,8 +136,10 @@ def main():
                         help='beta: do_binarize_otsu')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
                         help='beta: do_binarize_sauvola')
-    # parser.add_argument('--help', action='store_true',
-    #                     help='help')
+    parser.add_argument('--multiply', metavar='multiply ', type=int, default=1,
+                        help='multiply training data, default 1')
+    parser.add_argument('--augment', action='store_true',
+                        help='beta: apply data augmentation to training set. In general this is a good idea')
 
     args = parser.parse_args()
 
@@ -158,11 +169,11 @@ def main():
     do_binarize_otsu = False
     if args.do_binarize_otsu:
         do_binarize_otsu=True
-    char_list = set(char for char in open(args.charlist).read())
-    char_list = sorted(list(char_list))
-    print("using charlist")
-    print("length charlist: " + str(len(char_list)))
-    print(char_list)
+    # char_list = set(char for char in open(args.charlist).read())
+    # char_list = sorted(list(char_list))
+    # print("using charlist")
+    # print("length charlist: " + str(len(char_list)))
+    # print(char_list)
     char_list = None
     loader = DataLoaderNew(batchSize, imgSize, args.train_size,
                            train_list=args.train_list,
@@ -171,11 +182,13 @@ def main():
                            inference_list=args.inference_list,
                            char_list=char_list,
                            do_binarize_sauvola=do_binarize_sauvola,
-                           do_binarize_otsu=do_binarize_otsu
+                           do_binarize_otsu=do_binarize_otsu,
+                           multiply=args.multiply,
+                           augment=args.augment
                            )
 
     if args.model_name:
-        FilePaths.modelOutput = '../models/'+args.model_name
+        FilePaths.modelOutput = args.output + "/" + args.model_name
 
     print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator = loader.generators()
@@ -252,7 +265,13 @@ def main():
         elif 'new8' == args.model:
             model = modelClass.build_model_new8(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                batch_normalization=batch_normalization, dropout=args.use_dropout)
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                use_rnn_dropout=args.use_rnn_dropout)
+        elif 'new9' == args.model:
+            model = modelClass.build_model_new9(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                use_rnn_dropout=args.use_rnn_dropout)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
                                                 use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
@@ -300,7 +319,14 @@ def main():
             validation_dataset = validation_generator.getGenerator()
         training_generator.set_charlist(char_list, use_mask)
         training_dataset = training_generator.getGenerator()
-        history = Model().train_batch(model, training_dataset, validation_dataset, epochs=epochs, filepath=FilePaths.modelOutput, MODEL_NAME='encoder12', steps_per_epoch=args.steps_per_epoch)
+        history = Model().train_batch(
+            model,
+            training_dataset,
+            validation_dataset,
+            epochs=epochs,
+            output=args.output,
+            MODEL_NAME='encoder12',
+            steps_per_epoch=args.steps_per_epoch)
 
     if (args.do_validate):
         print("do_validate")

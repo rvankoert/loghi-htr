@@ -118,7 +118,12 @@ class WERMetric(tf.keras.metrics.Metric):
 
 
 def CTCLoss(y_true, y_pred):
-    # Compute the training-time loss value
+    # # Compute the training-time loss value
+    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true.values, -1))
+    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true.values, 0))
+    # y_pred = tf.sparse.retain(y_pred, tf.not_equal(y_pred.values, 0))
+    # total_length = tf.size(y_true.values)
+
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
     input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
     # input_length = tf.math.count_nonzero(y_pred, axis=-1, keepdims=True)
@@ -146,8 +151,192 @@ def CTCLoss(y_true, y_pred):
 
 class Model():
 
+    def build_model_new9(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                         batch_normalization=False, dropout=False, use_rnn_dropout=True):
+        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
+        # Inputs to the model
+        dropoutdense = 0
+        dropoutconv = 0
+        dropoutlstm = 0
+        dropoutdense = 0.5
+        dropoutconv = 0.5
+        dropoutlstm = 0.5
+        padding = "same"
+        activation = "relu"
+        width = None
+        input_img = layers.Input(
+            shape=(width, height, channels), name="image"
+        )
+
+        # labels = layers.Input(name="label", shape=(None,))
+        initializer = tf.keras.initializers.GlorotNormal()
+        channel_axis = -1
+
+        x = input_img
+
+        # if use_mask:
+        #     masked = x
+
+        # First conv block
+        x = layers.Conv2D(
+            filters=12,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv1",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+        # Second conv block
+        x = layers.Conv2D(
+            filters=24,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv2",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            48,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv3",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool3")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            48,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv4",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool4")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        # x = layers.Conv2D(
+        #     128,
+        #     (3, 3),
+        #     strides=(1, 1),
+        #     activation=activation,
+        #     padding=padding,
+        #     name="Conv5",
+        #     kernel_initializer=initializer
+        # )(x)
+        # if batch_normalization:
+        #     x = layers.BatchNormalization(axis=channel_axis)(x)
+        # # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(1, 2), padding='same', name="pool5")(x)
+        # if dropout:
+        #     x = layers.Dropout(dropoutconv)(x)
+        #
+        # x = layers.Conv2D(
+        #     256,
+        #     (3, 3),
+        #     strides=(1, 1),
+        #     activation=activation,
+        #     padding=padding,
+        #     name="Conv6",
+        #     kernel_initializer=initializer
+        # )(x)
+        # if batch_normalization:
+        #     x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(1, 2), padding='same', name="pool6")(x)
+        # if dropout:
+        #     x = layers.Dropout(dropoutconv)(x)
+
+        new_shape = (-1, x.shape[-2] * x.shape[-1])
+        # new_shape = (-1, (height) * 128)
+        # x = tf.reshape(input, shape=[73, (height // 4) * 64])
+        # if use_mask:
+        #     x = Lambda(lambda x: x, output_shape=lambda s: s)(x)
+
+        # if use_mask:
+        #
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        # if use_mask:
+        #     masked = layers.MaxPooling2D(pool_size=(3, 3), strides=(8, 8), padding='same', name="maskpool1")(masked)
+        #     new_shape = (-1, masked.shape[-2] * masked.shape[-1])
+        #     masked = layers.Reshape(target_shape=new_shape, name="reshape_mask")(masked)
+        #     x = layers.Multiply()([x, masked])
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        for i in range(1, rnn_layers + 1):
+            if use_gru:
+                recurrent = layers.GRU(
+                    units=rnn_units,
+                    # activation=activation,
+                    recurrent_activation="sigmoid",
+                    recurrent_dropout=0,
+                    unroll=False,
+                    use_bias=True,
+                    return_sequences=True,
+                    dropout=dropoutlstm,
+                    kernel_initializer=initializer,
+                    reset_after=True,
+                    name=f"gru_{i}",
+                )
+            else:
+                recurrent = layers.LSTM(rnn_units,
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        dropout=dropoutlstm,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
+
+            x = layers.Bidirectional(
+                recurrent, name=f"bidirectional_{i}", merge_mode="concat"
+            )(x)
+            if use_rnn_dropout:
+                if i < rnn_layers:
+                    x = layers.Dropout(rate=0.5)(x)
+        # Dense layer
+        # x = layers.Dense(units=rnn_units * 2, name="dense_1")(x)
+        # x = layers.ReLU(name="dense_1_relu")(x)
+        # if dropout:
+        #     x = layers.Dropout(rate=0.5)(x)
+
+        # Output layer
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=[input_img], outputs=output, name="model_new9"
+        )
+        return model
+
     def build_model_new8(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
-                         batch_normalization=False, dropout=False):
+                         batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutdense = 0
@@ -308,7 +497,7 @@ class Model():
             x = layers.Bidirectional(
                 recurrent, name=f"bidirectional_{i}", merge_mode="concat"
             )(x)
-            if dropout:
+            if use_rnn_dropout:
                 if i < rnn_layers:
                     x = layers.Dropout(rate=0.5)(x)
         # Dense layer
@@ -2611,7 +2800,7 @@ class Model():
 
     #
     # # Train the model
-    def train_batch(self, model, train_dataset, validation_dataset, epochs, filepath, MODEL_NAME, steps_per_epoch = None):
+    def train_batch(self, model, train_dataset, validation_dataset, epochs, output, MODEL_NAME, steps_per_epoch = None):
         early_stopping_patience = 50
         # # Add early stopping
         early_stopping = keras.callbacks.EarlyStopping(
@@ -2620,12 +2809,12 @@ class Model():
         from keras.callbacks import History
         from keras.callbacks import ModelCheckpoint
         history = History()
-        mcp_save = ModelCheckpoint(filepath + '/checkpoints/best_val/', save_best_only=True, monitor='val_CER_metric',
+        mcp_save = ModelCheckpoint(output + '/best_val/', save_best_only=True, monitor='val_CER_metric',
                                    mode='min', verbose=1)
         # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
-        filepath = "checkpoints/" + MODEL_NAME + "-saved-model-{epoch:02d}-{loss:.4f}"
+        filepath = output + '/checkpoints/' + MODEL_NAME + "-saved-model-{epoch:02d}-{loss:.4f}"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
 
         # cer_metric = CERMetric()
