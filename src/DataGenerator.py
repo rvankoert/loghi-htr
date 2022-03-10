@@ -240,7 +240,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         return img, label
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
-                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, dataAugmentation = True):
+                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, dataAugmentation = True,
+                 num_oov_indices=0):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels
@@ -252,7 +253,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.width = width
         self.on_epoch_end()
         self.charList = charList
-        self.set_charlist(self.charList)
+        self.set_charlist(self.charList, num_oov_indices=num_oov_indices)
         self.do_binarize_otsu = do_binarize_otsu
         self.do_binarize_sauvola = do_binarize_sauvola
         self.dataset = tf.data.Dataset.from_tensor_slices((self.list_IDs, self.labels))
@@ -316,13 +317,14 @@ class DataGenerator(tf.keras.utils.Sequence):
         return train_dataset
 
 
-    def set_charlist(self, chars, use_mask = False):
+    def set_charlist(self, chars, use_mask = False, num_oov_indices=0):
         self.charList = chars
+        # self.charList.append('[UNK]')
         if not self.charList:
             return
         if use_mask:
             self.char_to_num = layers.experimental.preprocessing.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=0, mask_token='', oov_token='[UNK]'
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]'
             )
             # Mapping integers back to original characters
             self.num_to_char = layers.experimental.preprocessing.StringLookup(
@@ -331,7 +333,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             )
         else:
             self.char_to_num = layers.experimental.preprocessing.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None, oov_token='[UNK]'
             )
             # Mapping integers back to original characters
             self.num_to_char = layers.experimental.preprocessing.StringLookup(

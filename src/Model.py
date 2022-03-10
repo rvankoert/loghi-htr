@@ -1,7 +1,7 @@
 import tensorflow as tf
 from keras.applications.xception import Xception
 from keras.callbacks import ReduceLROnPlateau
-from keras.layers import Lambda
+from keras.layers import Lambda, Dense
 from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
@@ -119,9 +119,11 @@ class WERMetric(tf.keras.metrics.Metric):
 
 def CTCLoss(y_true, y_pred):
     # # Compute the training-time loss value
-    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true.values, -1))
-    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true.values, 0))
+    # y_true = tf.where(tf.equal(y_true, 01), tf.ones_like(y_true), y_true)
+    # y_true = tf.replace(y_true, tf.not_equal(y_true, -1))
+    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true, 0))
     # y_pred = tf.sparse.retain(y_pred, tf.not_equal(y_pred.values, 0))
+    # y_pred = tf.where(tf.equal(y_pred, -1), tf.zeros_like(y_pred), y_pred)
     # total_length = tf.size(y_true.values)
 
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
@@ -150,6 +152,30 @@ def CTCLoss(y_true, y_pred):
 
 
 class Model():
+
+    def replace_final_layer(self, model, number_characters, use_mask=False):
+        initializer = tf.keras.initializers.GlorotNormal()
+        last_layer = ""
+        for layer in model.layers:
+            if layer.name == "dense3":
+                break
+            last_layer = layer.name
+
+        prediction_model = keras.models.Model(
+            model.get_layer(name="image").input, model.get_layer(name=last_layer).output
+        )
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(prediction_model.output)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(prediction_model.output)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=prediction_model.inputs, outputs=output, name="model_new8"
+        )
+
+        return model
 
     def build_model_new9(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):

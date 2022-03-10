@@ -138,11 +138,19 @@ def main():
                         help='multiply training data, default 1')
     parser.add_argument('--augment', action='store_true',
                         help='beta: apply data augmentation to training set. In general this is a good idea')
+    parser.add_argument('--replace_final_layer', action='store_true',
+                        help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
+                             'using an existing model')
+    parser.add_argument('--freeze_conv_layers', action='store_true',
+                        help='beta: freeze_conv_layers. Freezes conv layers, only usable with existing_model')
+    parser.add_argument('--freeze_recurrent_layers', action='store_true',
+                        help='beta: freeze_recurrent_layers. Freezes recurrent layers, only usable with existing_model')
+    parser.add_argument('--freeze_dense_layers', action='store_true',
+                        help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
+    parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
+                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist')
 
     args = parser.parse_args()
-
-    # if args.help:
-    #     parser.print_usage()
 
     print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -156,11 +164,6 @@ def main():
     maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
-    # load training data, create TF model
-    # print (args.trainset)
-    # print (batchSize)
-    # print (imgSize)
-    # print (maxTextLen)
     do_binarize_sauvola = False
     if args.do_binarize_sauvola:
         do_binarize_sauvola = True
@@ -170,11 +173,19 @@ def main():
     augment = False
     if args.augment:
         augment = True
-    # char_list = set(char for char in open(args.charlist).read())
-    # char_list = sorted(list(char_list))
-    # print("using charlist")
-    # print("length charlist: " + str(len(char_list)))
-    # print(char_list)
+    replace_final_layer = False
+    if args.replace_final_layer:
+        replace_final_layer = True
+    freeze_conv_layers = False
+    if args.freeze_conv_layers:
+        freeze_conv_layers = True
+    freeze_recurrent_layers = False
+    if args.freeze_recurrent_layers:
+        freeze_recurrent_layers = True
+    freeze_dense_layers = False
+    if args.freeze_dense_layers:
+        freeze_dense_layers = True
+
     char_list = None
     loader = DataLoaderNew(batchSize, imgSize,
                            train_list=args.train_list,
@@ -223,10 +234,36 @@ def main():
 
         model = keras.models.load_model(args.existing_model)
 
-        if True:
+        if replace_final_layer:
+            chars_file = open(args.charlist, 'w')
+            chars_file.write(str().join(loader.charList))
+            chars_file.close()
+            char_list = loader.charList
+
+            model = modelClass.replace_final_layer(model, len(char_list), use_mask=use_mask)
+
+        if freeze_conv_layers:
             for layer in model.layers:
-                print(layer.name)
-                layer.trainable = True
+                if layer.name.startswith("Conv"):
+                    print(layer.name)
+                    layer.trainable = False
+        if freeze_recurrent_layers:
+            for layer in model.layers:
+                if layer.name.startswith("bidirectional_"):
+                    print(layer.name)
+                    layer.trainable = False
+        if freeze_dense_layers:
+            for layer in model.layers:
+                if layer.name.startswith("dense"):
+                    print(layer.name)
+                    layer.trainable = False
+
+
+
+        # if True:
+        #     for layer in model.layers:
+        #         print(layer.name)
+        #         layer.trainable = True
 
 
         # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
@@ -316,9 +353,9 @@ def main():
     if (args.do_train):
         validation_dataset = None
         if args.do_validate:
-            validation_generator.set_charlist(char_list, use_mask)
+            validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
             validation_dataset = validation_generator.getGenerator()
-        training_generator.set_charlist(char_list, use_mask)
+        training_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         training_dataset = training_generator.getGenerator()
         history = Model().train_batch(
             model,
@@ -331,7 +368,7 @@ def main():
 
     if (args.do_validate):
         print("do_validate")
-        validation_generator.set_charlist(char_list, use_mask)
+        validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         validation_dataset = validation_generator.getGenerator()
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -396,7 +433,7 @@ def main():
             # batch_images = batch["image"]
             # batch_labels = batch["label"]
             preds = prediction_model.predict(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width)
+            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width, args.num_oov_indices)
             predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
             # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
@@ -511,7 +548,7 @@ def main():
         print(char_list)
         loader = DataLoaderNew(batchSize, imgSize, char_list, inference_list=args.inference_list)
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
-        inference_generator.set_charlist(char_list, use_mask=use_mask)
+        inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )

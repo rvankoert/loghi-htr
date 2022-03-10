@@ -88,7 +88,7 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     return (decoded_dense, log_prob)
 
 
-def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True, beam_width=1):
+def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True, beam_width=1, num_oov_indices=0):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
     # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
     # sequence_length = tf.constant(np.array([None], dtype=np.int32))
@@ -116,6 +116,7 @@ def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True
             confidence = np.exp(log_prob)
             i = i + 1
             # print(confidence)
+            res = res + num_oov_indices
             chars = validation_generator.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
