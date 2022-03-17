@@ -4,7 +4,7 @@ from __future__ import print_function
 import os
 import random
 
-from DataGenerator import DataGenerator
+from DataGeneratorNew import DataGeneratorNew
 
 
 class DataLoaderNew:
@@ -32,7 +32,8 @@ class DataLoaderNew:
                  do_binarize_otsu=False,
                  normalize_text=True,
                  multiply=1,
-                 augment=True):
+                 augment=True,
+                 elastic_transform=False):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -55,6 +56,7 @@ class DataLoaderNew:
         self.normalize_text = normalize_text
         self.multiply = multiply
         self.dataAugmentation = augment
+        self.elastic_transform = elastic_transform
 
     def generators(self):
         chars = set()
@@ -224,35 +226,43 @@ class DataLoaderNew:
                        'channels': self.channels,
                        'do_binarize_sauvola': self.do_binarize_sauvola,
                        'do_binarize_otsu': self.do_binarize_otsu,
+                       'augment': self.dataAugmentation,
+                       'elastic_transform': self.elastic_transform
                        }
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,
                             'height': self.height,
-                            'channels': self.channels
+                            'channels': self.channels,
+                            'do_binarize_sauvola': self.do_binarize_sauvola,
+                            'do_binarize_otsu': self.do_binarize_otsu,
                             }
         testParams = {'shuffle': False,
                       'batch_size': self.batchSize,
                       'height': self.height,
-                      'channels': self.channels
+                      'channels': self.channels,
+                      'do_binarize_sauvola': self.do_binarize_sauvola,
+                      'do_binarize_otsu': self.do_binarize_otsu,
                       }
         inference_params = {'shuffle': False,
                       'batch_size': self.batchSize,
                       'height': self.height,
-                      'channels': self.channels
+                      'channels': self.channels,
+                      'do_binarize_sauvola': self.do_binarize_sauvola,
+                      'do_binarize_otsu': self.do_binarize_otsu,
                       }
         training_generator = None
         validation_generator = None
         test_generator = None
         inference_generator = None
         if self.train_list:
-            training_generator = DataGenerator(partition['train'], labels['train'], **trainParams, charList=self.charList)
+            training_generator = DataGeneratorNew(partition['train'], labels['train'], **trainParams, charList=self.charList)
         if self.validation_list:
-            validation_generator = DataGenerator(partition['validation'], labels['validation'], **validationParams,
+            validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
                                              charList=self.charList)
         if self.test_list:
-            test_generator = DataGenerator(partition['test'], labels['test'], **testParams, charList=self.charList)
+            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList)
         if self.inference_list:
-            inference_generator = DataGenerator(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
+            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
 
         self.partition = partition
 
@@ -272,10 +282,6 @@ class DataLoaderNew:
             if cost > maxTextLen:
                 return text[:i]
         return text
-
-    # def get_item(self, item_id):
-    #     # print(self.partition)
-    #     return self.partition['inference'][item_id]
 
     def get_item(self, partition, item_id):
         # print(self.partition)

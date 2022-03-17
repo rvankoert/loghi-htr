@@ -4,6 +4,7 @@ from __future__ import print_function
 import math
 
 import cv2
+import elasticdeform
 import keras.backend
 import numpy as np
 from tensorflow.keras import layers
@@ -16,40 +17,30 @@ from keras.preprocessing.image import img_to_array
 from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
 # import elasticdeform.tf as etf
-# import numpy, imageio, elasticdeform
+import numpy, imageio, elasticdeform
 
-class DataGenerator(tf.keras.utils.Sequence):
+class DataGeneratorNew(tf.keras.utils.Sequence):
     DTYPE = tf.float32
 
-    # @staticmethod
     # @tf.function
-    # def elastic_transform(self, original, alpha_range, sigma, random_state=None):
-    #
-    #     displacement_val = np.random.randn(2, 3, 3) * 5
-    #     # X_val = np.array(original)
-    #     # print(X_val)
-    #
-    #     # construct TensorFlow input and top gradient
-    #     displacement = tf.Variable(displacement_val)
-    #     X = tf.Variable(original)
-    #
-    #     # the deform_grid function is similar to the plain Python equivalent,
-    #     # but it accepts and returns TensorFlow Tensors
-    #     X_deformed = etf.deform_grid(X, displacement, order=3)
-    #     print(tf.shape(X_deformed)[0])
-    #     return X_deformed
+    def elastic_transform(self, original):
+        displacement = np.random.randn(2, 3, 3) * 5
+        # X_deformed = elasticdeform.deform_random_grid(original)
+        X_deformed = elasticdeform.deform_grid(original, displacement, axis=(0, 1), cval=0)
+        return X_deformed
 
     def encode_single_sample_augmented(self, img_path, label):
-        return self.encode_single_sample(img_path, label, self.dataAugmentation)
+        return self.encode_single_sample(img_path, label, self.augment, self.do_elastic_transform)
 
     def encode_single_sample_clean(self, img_path, label):
-        return self.encode_single_sample(img_path, label, False)
+        return self.encode_single_sample(img_path, label, False, False)
 
     def sauvola(self, image):
 
         window_size = 51
         thresh_sauvola = threshold_sauvola(image, window_size=window_size, k=0.1)
         binary_sauvola = np.invert(image > thresh_sauvola)*1
+        # binary_sauvola = (image > thresh_sauvola)*1
 
         return tf.convert_to_tensor(binary_sauvola)
 
@@ -60,7 +51,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         rank = image.shape.rank
         if rank != 2 and rank != 3:
             raise ValueError("Image should be either 2 or 3-dimensional.")
-        # print (image.shape)
 
         if image.dtype != tf.int32:
             image = tf.cast(image, tf.int32)
@@ -141,39 +131,61 @@ class DataGenerator(tf.keras.utils.Sequence):
         final = tf.expand_dims(final, -1)
         return final
 
-    def encode_single_sample(self, img_path, label, augment):
+    def encode_single_sample(self, img_path, label, augment, elastic_transform):
         MAX_ROT_ANGLE = 10.0
-        img = tf.io.read_file(img_path)
-        img = tf.io.decode_png(img, channels=self.channels)
-        img = tf.image.convert_image_dtype(img, self.DTYPE)
-        # img = cv2.imread('/scratch/train_data_ocr/linestripsclean/08/49/0849aafc-c320-4053-85ad-39b67f6e3e22.png')
-        # img = elasticdeform.deform_random_grid(img, sigma=25, points=3)
-        # if augment:
-        #     alpha_range = random.uniform(0, 750)
-        #     sigma = random.uniform(0, 30)
-        #     img = self.elastic_transform(self, img, alpha_range, sigma)
+        # img = tf.io.read_file(img_path)
+        # img = tf.io.decode_png(img, channels=self.channels)
+        # img = tf.image.convert_image_dtype(img, self.DTYPE)
+        if self.channels == 1:
+            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            img = np.expand_dims(img, -1)
+        elif self.channels == 3:
+            img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # img *= 255
+        if elastic_transform:
+            alpha_range = random.uniform(0, 750)
+            sigma = random.uniform(0, 30)
+            img = self.elastic_transform(img)
+        # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
+        # print (img)
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
+
         # print(img)
 
         # img = tf.convert_to_tensor(img)
 
         if self.do_binarize_otsu:
             if img.shape[2] > 1:
-                img = tf.image.rgb_to_grayscale(img)
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                # img = tf.image.rgb_to_grayscale(img)
             img = img * 255
             img = self.otsu_thresholding(img)
 
         if self.do_binarize_sauvola:
             if img.shape[2] > 1:
-                img = tf.image.rgb_to_grayscale(img)
-            # sess = keras.backend.get_session()
-            # with sess.as_default():
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            # if img.shape[2] > 1:
+            #     img = tf.image.rgb_to_grayscale(img)
+            # print (img.shape)
             img = self.sauvola(img)
+            img = np.array(img, dtype=np.float32)
+        # print(img)
+        # img *= 255
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
 
         img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
 
         # augment=False
 
-        if augment and self.channels < 4:
+        if augment and self.channels == 3:
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
             img = tfa.image.shear_x(img, randomShear, replace=1.0)
         if augment and self.channels == 4:
@@ -198,15 +210,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
             img = tf.image.adjust_contrast(img, random_contrast)
 
-            randomseed = random.randint(0, 100000), random.randint(0, 1000000)
-            random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
-            original_height = tf.cast(tf.shape(img)[0], tf.float32)
-            original_width = float(tf.shape(img)[1])
-            # print(random_crop)
-            # print(original_height)
-            crop_height = random_crop * original_height
-            crop_size = (crop_height, original_width, img.shape[2])
-            img = tf.image.stateless_random_crop(img, crop_size, randomseed)
+            # randomseed = random.randint(0, 100000), random.randint(0, 1000000)
+            # random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
+            # original_height = tf.cast(tf.shape(img)[0], tf.float32)
+            # original_width = float(tf.shape(img)[1])
+            # # print(random_crop)
+            # # print(original_height)
+            # crop_height = random_crop * original_height
+            # crop_size = (crop_height, original_width, img.shape[2])
+            # img = tf.image.stateless_random_crop(img, crop_size, randomseed)
 
             image_width = tf.shape(img)[1]
             image_height = tf.shape(img)[0]
@@ -240,8 +252,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         return img, label
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
-                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, dataAugmentation = True,
-                 num_oov_indices=0):
+                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
+                 elastic_transform=False, num_oov_indices=0):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels
@@ -256,70 +268,93 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.set_charlist(self.charList, num_oov_indices=num_oov_indices)
         self.do_binarize_otsu = do_binarize_otsu
         self.do_binarize_sauvola = do_binarize_sauvola
-        self.dataset = tf.data.Dataset.from_tensor_slices((self.list_IDs, self.labels))
-        self.dataAugmentation = dataAugmentation
+        self.augment = augment
+        self.do_elastic_transform = elastic_transform
 
-    def getGenerator(self):
+    def __len__(self):
+        """Denotes the number of batches per epoch"""
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
 
-        train_dataset = self.dataset
-        # if self.shuffle:
-        #     train_dataset = train_dataset.shuffle(len(self.dataset))
-        #     train_dataset = (
-        #         train_dataset
-        #         .map(
-        #             self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        #         )
-        #         .padded_batch(self.batch_size, padded_shapes={
-        #             'image': [None, None, None],
-        #             'label': [None]
-        #         })
-        #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        #     )
-        # else:
-        #     train_dataset = (
-        #         train_dataset
-        #         .map(
-        #             self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        #         )
-        #         .padded_batch(self.batch_size, padded_shapes={
-        #             'image': [None, None, None],
-        #             'label': [None]
-        #         })
-        #         .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        #     )
+    def on_epoch_end(self):
+        """Updates indexes after each epoch"""
+        self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle:
-            train_dataset = train_dataset.shuffle(len(self.dataset))
-            train_dataset = (
-                train_dataset
-                .map(
-                # .map(lambda x, y: tf.py_function(self.encode_single_sample_augmented, [x,y], [tf.float32,tf.int64]))
-                # .map(lambda x:
-                #     tf.py_function(func=self.encode_single_sample_augmented,
-                #                    inp=[x],
-                #                    Tout=tf.string)
-                self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
-                )
-                .padded_batch(self.batch_size, padded_shapes=(
-                    [None, None, None],
-                    [None]
-                ), padding_values=(-10.0, tf.cast(0, tf.int64))
-                )
-                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-            )
-        else:
-            train_dataset = (
-                train_dataset
-                .map(
-                    self.encode_single_sample_clean, num_parallel_calls=tf.data.experimental.AUTOTUNE
-                )
-                .padded_batch(self.batch_size, padded_shapes=(
-                    [None, None, None],
-                    [None]
-                ), padding_values=(-10.0,  tf.cast(0, tf.int64))
-                )
-                .prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-            )
-        return train_dataset
+            np.random.shuffle(self.indexes)
+
+    def __getitem__(self, index):
+        """Generate one batch of data"""
+        # Generate indexes of the batch
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, Y = self.__data_generation(indexes)
+        return X, Y
+
+
+    def dynamic_padding(self, inp, min_size):
+
+        pad_size = min_size - inp.shape[0]
+        # print('pad_size')
+        # print(pad_size)
+        # print(inp.shape[0])
+        paddings = [[0, pad_size], [0, 0], [0, 0]]
+        return tf.pad(inp, paddings, "CONSTANT", constant_values=-10)
+
+    def dynamic_padding2(self, inp, min_size):
+
+        pad_size = min_size - inp.shape[0]
+        # print('pad_size')
+        # print(pad_size)
+        # print(inp.shape[0])
+        paddings = [[0, pad_size]]
+        return tf.pad(inp, paddings, "CONSTANT")
+
+    def __data_generation(self, list_IDs_temp):
+
+        # print (list_IDs_temp[0])
+        """Generates data containing batch_size samples"""  # X : (n_samples, *dim, n_channels)
+        # Initialization
+        X = []
+        Y = []
+
+        # TODO: make this multithreading
+        # Generate data
+        # print(list_IDs_temp)
+        max_size_x= 0
+        max_size_y= 0
+        for i, ID in enumerate(list_IDs_temp):
+            # Store sample
+            # X[i,] = np.load('data/' + ID + '.npy')
+            label = self.labels[ID]
+            filename = self.list_IDs[ID]
+            # print(self.labels)
+            # print(ID)
+            # print(label)
+            # print(filename)
+            if self.shuffle:
+                # print(ID)
+                item = self.encode_single_sample_augmented(filename, label)
+            else:
+                item = self.encode_single_sample_clean(filename, label)
+            # item = self.get_baselines(ID)
+            X.append(item[0])
+            Y.append(item[1])
+            size_x = item[0].shape[0]
+            size_y = len(item[1])
+            if size_x>max_size_x:
+                max_size_x = size_x
+            if size_y>max_size_y:
+                max_size_y = size_y
+        for i, ID in enumerate(list_IDs_temp):
+            X[i] = self.dynamic_padding(X[i], max_size_x)
+            Y[i] = self.dynamic_padding2(Y[i], max_size_y)
+        X = tf.convert_to_tensor(X)
+        Y = tf.convert_to_tensor(Y)
+        return X, Y
+
 
 
     def set_charlist(self, chars, use_mask = False, num_oov_indices=0):

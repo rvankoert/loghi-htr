@@ -149,6 +149,10 @@ def main():
                         help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
                         help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist')
+    parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
+                        help='corpus_file to use')
+    parser.add_argument('--elastic_transform', action='store_true',
+                        help='beta: elastic_transform')
 
     args = parser.parse_args()
 
@@ -185,6 +189,12 @@ def main():
     freeze_dense_layers = False
     if args.freeze_dense_layers:
         freeze_dense_layers = True
+    elastic_transform = False
+    if args.elastic_transform:
+        elastic_transform = True
+
+
+
 
     char_list = None
     loader = DataLoaderNew(batchSize, imgSize,
@@ -196,7 +206,8 @@ def main():
                            do_binarize_sauvola=do_binarize_sauvola,
                            do_binarize_otsu=do_binarize_otsu,
                            multiply=args.multiply,
-                           augment=augment
+                           augment=augment,
+                           elastic_transform=elastic_transform
                            )
 
     if args.model_name:
@@ -223,6 +234,12 @@ def main():
         decay_rate=0.90)
 
     if args.existing_model:
+        if not os.path.exists(args.existing_model):
+            print('cannot find existing model on disk: ' + args.existing_model)
+            exit(1)
+        if not os.path.exists(args.charlist):
+            print('cannot find charlist on disk: ' + args.charlist)
+            exit(1)
         char_list = list(char for char in open(args.charlist).read())
         # char_list = sorted(list(char_list))
         print("using charlist")
@@ -310,6 +327,16 @@ def main():
                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                 batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                 use_rnn_dropout=args.use_rnn_dropout)
+        elif 'new10' == args.model:
+            model = modelClass.build_model_new10(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                use_rnn_dropout=args.use_rnn_dropout)
+        elif 'new11' == args.model:
+            model = modelClass.build_model_new11(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                 batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                 use_rnn_dropout=args.use_rnn_dropout)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
                                                 use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
@@ -354,22 +381,25 @@ def main():
         validation_dataset = None
         if args.do_validate:
             validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-            validation_dataset = validation_generator.getGenerator()
+            # validation_dataset = validation_generator.getGenerator()
+            validation_dataset = validation_generator
         training_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-        training_dataset = training_generator.getGenerator()
+        # training_dataset = training_generator.getGenerator()
+        training_dataset = training_generator
         history = Model().train_batch(
             model,
             training_dataset,
             validation_dataset,
             epochs=epochs,
             output=args.output,
-            MODEL_NAME='encoder12',
+            model_name='encoder12',
             steps_per_epoch=args.steps_per_epoch)
 
     if (args.do_validate):
         print("do_validate")
         validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-        validation_dataset = validation_generator.getGenerator()
+        # validation_dataset = validation_generator.getGenerator()
+        validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
@@ -402,31 +432,30 @@ def main():
         totallength_simple = 0
         counter = 0
 
-        corpus_file = "training_all_ijsberg_train_corpus.txt"
-        f = open(corpus_file)
-        # # corpus = f.read()
-        corpus = ''
-        # # chars = set()
-        for line in f:
-            # chars = chars.union(set(char for label in line for char in label))
-            corpus += line
-        # print (corpus)
-        # corpus = 'a ba'  # two words "a" and "ba", separated by whitespace
-        # chars = 'ab '  # the characters that can be recognized (in this order)
-        # word_chars = corpus.splitlines()[0]  # characters that form words
-        word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
-        #
-        chars = '' + ''.join(sorted(list(char_list)))
-        # chars = '' + ''.join(char_list)
-        # print (word_chars)
+        wbs = None
+        if args.corpus_file:
+            if not os.path.exists(args.corpus_file):
+                print('cannot find corpus_file on disk: ' + args.corpus_file)
+                exit(1)
 
-        print(len(chars))
-        # NGramsForecast
-        # Words
-        # NGrams
-        # NGramsForecastAndSample
-        wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.9, corpus, chars,
-                             word_chars)
+            f = open(args.corpus_file)
+            # # corpus = f.read()
+            corpus = ''
+            # # chars = set()
+            for line in f:
+                # chars = chars.union(set(char for label in line for char in label))
+                corpus += line
+            word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
+            #
+            chars = '' + ''.join(sorted(list(char_list)))
+
+            print(len(chars))
+            # NGramsForecast
+            # Words
+            # NGrams
+            # NGramsForecastAndSample
+            wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
+                                 word_chars.encode('utf8'))
 
         #  Let's check results on some validation samples
         for batch in validation_dataset:
@@ -454,22 +483,16 @@ def main():
 
             # if True:
             #     exit(1)
-            label_str = wbs.compute(predsbeam)
-            # print('end label_str')
-
-            # print(label_str)
-            #
-            # # compute label string
-
-            # label_str = validation_generator.num_to_char(label_str)
-            char_str = []  # decoded texts for batch
-            # print(len(label_str))
-            # print(label_str)
-            for curr_label_str in label_str:
-                # print(len(curr_label_str))
-                s = ''.join([chars[label] for label in curr_label_str])
-                char_str.append(s)
-                # print(s)
+            if wbs:
+                label_str = wbs.compute(predsbeam)
+                char_str = []  # decoded texts for batch
+                # print(len(label_str))
+                # print(label_str)
+                for curr_label_str in label_str:
+                    # print(len(curr_label_str))
+                    s = ''.join([chars[label] for label in curr_label_str])
+                    char_str.append(s)
+                    # print(s)
 
 
             counter += 1
@@ -491,24 +514,27 @@ def main():
                     pattern = re.compile('[\W_]+')
                     ground_truth_simple = pattern.sub('', original_text).lower()
                     predicted_simple = pattern.sub('', predicted_text).lower()
-                    predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
                     current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
-                    current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
-                    current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
-                    current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
+                    if wbs:
+                        predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
+                        current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
+                        current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                        current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
                     if cer >= 0.0:
-                        print(predicted_simple)
+                        # print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
-                        print(char_str[i])
+                        if wbs:
+                            print(char_str[i])
 
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
                     totaleditdistance_simple += current_editdistance_simple
-                    totaleditdistance_wbs_simple += current_editdistance_wbs_simple
-                    totaleditdistance_wbs += current_editdistance_wbs
-                    totaleditdistance_wbs_lower += current_editdistance_wbslower
+                    if wbs:
+                        totaleditdistance_wbs_simple += current_editdistance_wbs_simple
+                        totaleditdistance_wbs += current_editdistance_wbs
+                        totaleditdistance_wbs_lower += current_editdistance_wbslower
                     totallength += len(original_text)
                     totallength_simple += len(ground_truth_simple)
 
@@ -516,21 +542,24 @@ def main():
                     print(totaleditdistance/float(totallength))
                     print(totaleditdistance_lower / float(totallength))
                     print(totaleditdistance_simple/ float(totallength_simple))
-                    print(totaleditdistance_wbs_simple/ float(totallength_simple))
-                    print(totaleditdistance_wbs / float(totallength))
-                    print(totaleditdistance_wbs_lower / float(totallength))
+                    if wbs:
+                        print(totaleditdistance_wbs_simple/ float(totallength_simple))
+                        print(totaleditdistance_wbs / float(totallength))
+                        print(totaleditdistance_wbs_lower / float(totallength))
         totalcer = totaleditdistance/float(totallength)
         totalcerlower = totaleditdistance_lower/float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
-        totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
-        totalcerwbs = totaleditdistance_wbs/float(totallength)
-        totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
+        if wbs:
+            totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
+            totalcerwbs = totaleditdistance_wbs/float(totallength)
+            totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
         print('totalcer: ' + str(totalcer))
         print('totalcerlower: ' + str(totalcerlower))
         print('totalcersimple: ' + str(totalcersimple))
-        print('totalcerwbssimple: ' + str(totalcerwbssimple))
-        print('totalcerwbs: ' + str(totalcerwbs))
-        print('totalcerwbslower: ' + str(totalcerwbslower))
+        if wbs:
+            print('totalcerwbssimple: ' + str(totalcerwbssimple))
+            print('totalcerwbs: ' + str(totalcerwbs))
+            print('totalcerwbslower: ' + str(totalcerwbslower))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
     #            img = img.T
     #            title = f"Prediction: {pred_texts[i].strip()}"

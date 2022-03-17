@@ -177,6 +177,309 @@ class Model():
 
         return model
 
+    def build_model_new11(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
+        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
+        # Inputs to the model
+        dropoutdense = 0
+        dropoutconv = 0
+        dropoutlstm = 0
+        dropoutdense = 0.5
+        dropoutconv = 0.0
+        dropoutlstm = 0.5
+        padding = "same"
+        activation = "relu"
+        width = None
+        input_img = layers.Input(
+            shape=(width, height, channels), name="image"
+        )
+
+        # labels = layers.Input(name="label", shape=(None,))
+        initializer = tf.keras.initializers.GlorotNormal()
+        channel_axis = -1
+
+        x = input_img
+
+        # if use_mask:
+        #     masked = x
+
+        # First conv block
+        x = layers.Conv2D(
+            filters=24,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv1",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.AvgPool2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+        # Second conv block
+        x = layers.Conv2D(
+            filters=48,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv2",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.AvgPool2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            96,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv3",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool3")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            96,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv4",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.AvgPool2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool4")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        new_shape = (-1, x.shape[-2] * x.shape[-1])
+        # new_shape = (-1, (height) * 128)
+        # x = tf.reshape(input, shape=[73, (height // 4) * 64])
+        # if use_mask:
+        #     x = Lambda(lambda x: x, output_shape=lambda s: s)(x)
+
+        # if use_mask:
+        #
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        # if use_mask:
+        #     masked = layers.MaxPooling2D(pool_size=(3, 3), strides=(8, 8), padding='same', name="maskpool1")(masked)
+        #     new_shape = (-1, masked.shape[-2] * masked.shape[-1])
+        #     masked = layers.Reshape(target_shape=new_shape, name="reshape_mask")(masked)
+        #     x = layers.Multiply()([x, masked])
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        for i in range(1, rnn_layers + 1):
+            if use_gru:
+                recurrent = layers.GRU(
+                    units=rnn_units,
+                    # activation=activation,
+                    recurrent_activation="sigmoid",
+                    recurrent_dropout=0,
+                    unroll=False,
+                    use_bias=True,
+                    return_sequences=True,
+                    dropout=dropoutlstm,
+                    kernel_initializer=initializer,
+                    reset_after=True,
+                    name=f"gru_{i}",
+                )
+            else:
+                recurrent = layers.LSTM(rnn_units,
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        dropout=dropoutlstm,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
+
+            x = layers.Bidirectional(
+                recurrent, name=f"bidirectional_{i}", merge_mode="concat"
+            )(x)
+            if use_rnn_dropout:
+                if i < rnn_layers:
+                    x = layers.Dropout(rate=0.5)(x)
+
+        x = layers.Dense(1024, activation="elu",
+                         kernel_initializer=initializer)(x)
+        if dropout:
+            x = layers.Dropout(dropoutdense)(x)
+
+        # Output layer
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=[input_img], outputs=output, name="model_new11"
+        )
+        return model
+
+    def build_model_new10(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                         batch_normalization=False, dropout=False, use_rnn_dropout=True):
+        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
+        # Inputs to the model
+        dropoutdense = 0
+        dropoutconv = 0
+        dropoutlstm = 0
+        dropoutdense = 0.5
+        dropoutconv = 0.1
+        dropoutlstm = 0.5
+        padding = "same"
+        activation = "relu"
+        width = None
+        input_img = layers.Input(
+            shape=(width, height, channels), name="image"
+        )
+
+        # labels = layers.Input(name="label", shape=(None,))
+        initializer = tf.keras.initializers.GlorotNormal()
+        channel_axis = -1
+
+        x = input_img
+
+        # if use_mask:
+        #     masked = x
+
+        # First conv block
+        x = layers.Conv2D(
+            filters=24,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv1",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+        # Second conv block
+        x = layers.Conv2D(
+            filters=48,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv2",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            96,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv3",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool3")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        x = layers.Conv2D(
+            96,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv4",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool4")(x)
+        if dropout:
+            x = layers.Dropout(dropoutconv)(x)
+
+        new_shape = (-1, x.shape[-2] * x.shape[-1])
+        # new_shape = (-1, (height) * 128)
+        # x = tf.reshape(input, shape=[73, (height // 4) * 64])
+        # if use_mask:
+        #     x = Lambda(lambda x: x, output_shape=lambda s: s)(x)
+
+        # if use_mask:
+        #
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+        # if use_mask:
+        #     masked = layers.MaxPooling2D(pool_size=(3, 3), strides=(8, 8), padding='same', name="maskpool1")(masked)
+        #     new_shape = (-1, masked.shape[-2] * masked.shape[-1])
+        #     masked = layers.Reshape(target_shape=new_shape, name="reshape_mask")(masked)
+        #     x = layers.Multiply()([x, masked])
+        #     x = tf.keras.layers.Masking(mask_value=-10.0)(x)
+
+        for i in range(1, rnn_layers + 1):
+            if use_gru:
+                recurrent = layers.GRU(
+                    units=rnn_units,
+                    # activation=activation,
+                    recurrent_activation="sigmoid",
+                    recurrent_dropout=0,
+                    unroll=False,
+                    use_bias=True,
+                    return_sequences=True,
+                    dropout=dropoutlstm,
+                    kernel_initializer=initializer,
+                    reset_after=True,
+                    name=f"gru_{i}",
+                )
+            else:
+                recurrent = layers.LSTM(rnn_units,
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        dropout=dropoutlstm,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
+
+            x = layers.Bidirectional(
+                recurrent, name=f"bidirectional_{i}", merge_mode="concat"
+            )(x)
+            if use_rnn_dropout:
+                if i < rnn_layers:
+                    x = layers.Dropout(rate=0.5)(x)
+
+        # Output layer
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=[input_img], outputs=output, name="model_new10"
+        )
+        return model
+
     def build_model_new9(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
@@ -2826,12 +3129,15 @@ class Model():
 
     #
     # # Train the model
-    def train_batch(self, model, train_dataset, validation_dataset, epochs, output, MODEL_NAME, steps_per_epoch = None):
-        early_stopping_patience = 50
+    def train_batch(self, model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
+                    early_stopping_patience=20, num_workers=20, max_queue_size=256):
         # # Add early stopping
-        early_stopping = keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
-        )
+        callbacks = []
+        if early_stopping_patience > 0:
+            early_stopping = keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
+            )
+            callbacks.append(early_stopping)
         from keras.callbacks import History
         from keras.callbacks import ModelCheckpoint
         history = History()
@@ -2840,8 +3146,11 @@ class Model():
         # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
-        filepath = output + '/checkpoints/' + MODEL_NAME + "-saved-model-{epoch:02d}-{loss:.4f}"
+        filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
         checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
+        callbacks.append(history)
+        callbacks.append(mcp_save)
+        callbacks.append(checkpoint)
 
         # cer_metric = CERMetric()
 
@@ -2850,12 +3159,10 @@ class Model():
             validation_data=validation_dataset,
             epochs=epochs,
             # batch_size=1,
-            callbacks=[history, mcp_save, checkpoint], #checkpoint, reduce_lr_loss, early_stopping
+            callbacks=callbacks,
             shuffle=True,
-            workers=32,
-            max_queue_size=256,
-            # workers=1,
-            # max_queue_size=1,
+            workers=num_workers,
+            max_queue_size=max_queue_size,
             steps_per_epoch=steps_per_epoch
         )
         return history
