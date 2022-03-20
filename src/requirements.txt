@@ -9,3 +9,4 @@ keras==2.6.0
 metrics==0.3.3
 tf_keras_vis==0.8.1
 scikit-image==0.18.3
+elasticdeform

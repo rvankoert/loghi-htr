@@ -85,6 +85,7 @@ MODEL_PATH = "../models/model-val-best/checkpoints/best_val/"
 MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
 MODEL_PATH = "../model-all-val_loss-22.38509"
 MODEL_PATH = "../model-new7-128-batch32"
+MODEL_PATH = "../model-current"
 
 
 if args.existing_model:
@@ -113,7 +114,7 @@ get_custom_objects().update({"CTCLoss": CTCLoss})
 # model = keras.applications.ResNet50V2(weights="imagenet", include_top=False)
 model = keras.models.load_model(MODEL_PATH)
 model.summary()
-config.IMG_SHAPE = (128, 128, args.channels)
+config.IMG_SHAPE = (64, 64, args.channels)
 layer_name = "conv3_block4_out"
 # submodel=model
 submodel = model
@@ -138,10 +139,10 @@ for layer in submodel.layers:
     # our 8 x 8 filters of size 128 x 128, with a 5px margin in between
     margin = 5
     n = math.ceil(math.sqrt(numFilters))
-    cropped_width = config.IMG_SHAPE[0] - 25 * 2
-    cropped_height = config.IMG_SHAPE[1]- 25 * 2
-    width = n * cropped_width + (n - 1) * margin
-    height = n * cropped_height + (n - 1) * margin
+    cropped_width = config.IMG_SHAPE[0] #- 25 * 2
+    cropped_height = config.IMG_SHAPE[1] #- 25 * 2
+    width = n * cropped_width + (n - 1) * margin * 2
+    height = n * cropped_height + (n - 1) * margin * 2
     stitched_filters = np.zeros((width, height, args.channels))
 
     # Fill the picture with our saved filters

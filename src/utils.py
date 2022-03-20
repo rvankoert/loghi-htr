@@ -130,7 +130,7 @@ def deprocess_image(img):
     img *= 0.15
 
     # Center crop
-    img = img[25:-25, 25:-25, :]
+    # img = img[25:-25, 25:-25, :]
 
     # Clip to [0, 1]
     img += 0.5

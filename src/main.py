@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--freeze_dense_layers', action='store_true',
                         help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
-                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist')
+                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist. Use the when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
                         help='corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
@@ -457,6 +457,7 @@ def main():
             wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
                                  word_chars.encode('utf8'))
 
+        batch_no = 0
         #  Let's check results on some validation samples
         for batch in validation_dataset:
             # batch_images = batch["image"]
@@ -521,7 +522,9 @@ def main():
                         current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
                         current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
-                    if cer >= 0.0:
+                    if cer > 0.0:
+                        filename = validation_dataset.get_file(batch_no * batchSize + i)
+                        print(filename)
                         # print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
@@ -546,6 +549,8 @@ def main():
                         print(totaleditdistance_wbs_simple/ float(totallength_simple))
                         print(totaleditdistance_wbs / float(totallength))
                         print(totaleditdistance_wbs_lower / float(totallength))
+            batch_no += 1
+
         totalcer = totaleditdistance/float(totallength)
         totalcerlower = totaleditdistance_lower/float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
@@ -582,7 +587,7 @@ def main():
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
         prediction_model.summary()
-        inference_dataset = inference_generator.getGenerator()
+        inference_dataset = inference_generator
 
         # write out used config:
         config_output_file = open(args.config_file_output, "w")
@@ -596,12 +601,18 @@ def main():
         config_output_file.write("width="+str(args.width) + "\n")
         config_output_file.write("channels="+str(args.channels) + "\n")
         config_output_file.write("output="+args.output + "\n")
-        config_output_file.write("train_list="+args.train_list + "\n")
-        config_output_file.write("validation_list="+args.validation_list + "\n")
-        config_output_file.write("test_list="+args.test_list + "\n")
-        config_output_file.write("inference_list="+args.inference_list + "\n")
-        config_output_file.write("existing_model="+args.existing_model + "\n")
-        config_output_file.write("model_name="+args.model_name + "\n")
+        if args.train_list:
+            config_output_file.write("train_list="+args.train_list + "\n")
+        if args.validation_list:
+            config_output_file.write("validation_list="+args.validation_list + "\n")
+        if args.test_list:
+            config_output_file.write("test_list="+args.test_list + "\n")
+        if args.inference_list:
+            config_output_file.write("inference_list="+args.inference_list + "\n")
+        if args.existing_model:
+            config_output_file.write("existing_model="+args.existing_model + "\n")
+        if args.model_name:
+            config_output_file.write("model_name="+args.model_name + "\n")
         config_output_file.write("loss="+args.loss + "\n")
         config_output_file.write("optimizer="+args.optimizer + "\n")
         config_output_file.write("memory_limit="+str(args.memory_limit) + "\n")
@@ -611,9 +622,9 @@ def main():
         config_output_file.write("beam_width="+str(args.beam_width) + "\n")
         config_output_file.write("decay_steps="+str(args.decay_steps) + "\n")
         config_output_file.write("steps_per_epoch="+str(args.steps_per_epoch) + "\n")
-        config_output_file.write("model="+args.model + "\n")
+        if args.model:
+            config_output_file.write("model="+args.model + "\n")
         config_output_file.write("charlist="+args.charlist + "\n")
-        config_output_file.write("inference_list="+args.inference_list + "\n")
         config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
         config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
         config_output_file.write("multiply="+str(args.multiply) + "\n")
@@ -677,6 +688,7 @@ def main():
             #     original_text = orig_texts[i].strip().replace('', '')
             #     predicted_text = pred_texts[i].strip().replace('', '')
                 batch_counter += 1
+                text_file.flush()
             # keras.backend.clear_session()
         text_file.close()
 
