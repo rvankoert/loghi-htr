@@ -1,5 +1,17 @@
 # Loghi HTR
 
+
+# Install
+git clone https://github.com/githubharald/CTCWordBeamSearch
+cd CTCWordBeamSearch
+python3.8 -m pip install .
+
+git clone https://github.com/rvankoert/htr
+cd htr/src/
+python3.8 -m pip install -r requirements.txt
+
+
+# Usage
 Loghi HTR is a system to generate text from images. It's part of the Loghi framework, which consists of several tools for layout analysis and HTR (Handwritten Text Recogntion).
 
 Loghi HTR also works on machine printed text.
