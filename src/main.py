@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--freeze_dense_layers', action='store_true',
                         help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
-                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist. Use the when you get the error "consider setting `num_oov_indices=1`"')
+                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
                         help='corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
@@ -628,6 +628,12 @@ def main():
         config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
         config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
         config_output_file.write("multiply="+str(args.multiply) + "\n")
+        config_output_file.write("num_oov_indices="+str(args.num_oov_indices) + "\n")
+        if args.corpus_file:
+            config_output_file.write("corpus_file="+str(args.corpus_file) + "\n")
+
+        # parser.add_argument('--elastic_transform', action='store_true',
+        #                     help='beta: elastic_transform')
 
         # parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
         #                     action='store_true')

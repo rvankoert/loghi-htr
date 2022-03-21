@@ -72,7 +72,7 @@ class DataLoaderNew:
         if self.train_list:
             for sublist in self.train_list.split():
                 if not os.path.exists(sublist):
-                    print(fileName + "does not exist, enter a valid filename. exiting...")
+                    print(sublist + "does not exist, enter a valid filename. exiting...")
                     exit(1)
                 f = open(sublist)
                 counter = 0
@@ -108,7 +108,7 @@ class DataLoaderNew:
         if self.validation_list:
             for sublist in self.validation_list.split():
                 if not os.path.exists(sublist):
-                    print(fileName + "does not exist, enter a valid filename. exiting...")
+                    print(sublist + "does not exist, enter a valid filename. exiting...")
                     exit(1)
                 f = open(sublist)
                 counter = 0
@@ -147,7 +147,7 @@ class DataLoaderNew:
         if self.test_list:
             for sublist in self.test_list.split():
                 if not os.path.exists(sublist):
-                    print(fileName + "does not exist, enter a valid filename. exiting...")
+                    print(sublist + "does not exist, enter a valid filename. exiting...")
                     exit(1)
                 f = open(sublist)
                 for line in f:
@@ -189,7 +189,7 @@ class DataLoaderNew:
         if self.inference_list:
             for sublist in self.inference_list.split():
                 if not os.path.exists(sublist):
-                    print(fileName + "does not exist, enter a valid filename. exiting...")
+                    print(sublist + "does not exist, enter a valid filename. exiting...")
                     exit(1)
                 f = open(sublist)
                 for line in f:
