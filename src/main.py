@@ -154,7 +154,7 @@ def main():
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
                         help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
-                        help='corpus_file to use')
+                        help='beta: corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
                         help='beta: elastic_transform')
 
@@ -162,6 +162,13 @@ def main():
 
     print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    if args.gpu >= 0:
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if len(gpus) > 0:
+            print('setting memory_limit: ' + str(args.memory_limit))
+            tf.config.experimental.set_virtual_device_configuration(gpus[0], [
+                tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
+
     SEED = args.seed
     random.seed(SEED)
     np.random.seed(SEED)
