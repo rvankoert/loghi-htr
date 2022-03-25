@@ -153,6 +153,66 @@ def CTCLoss(y_true, y_pred):
 
 class Model():
 
+
+    def replace_recurrent_layer(self, model, number_characters, use_mask=False, use_gru=False,
+    rnn_layers=2, rnn_units=256):
+        use_rnn_dropout=True
+        dropoutlstm=0.5
+        initializer = tf.keras.initializers.GlorotNormal()
+        last_layer = ""
+        for layer in model.layers:
+            if layer.name.startswith('bidirectional_'):
+                break
+            last_layer = layer.name
+
+        prediction_model = keras.models.Model(
+            model.get_layer(name="image").input, model.get_layer(name=last_layer).output
+        )
+        x = prediction_model.output
+        for i in range(1, rnn_layers + 1):
+            if use_gru:
+                recurrent = layers.GRU(
+                    units=rnn_units,
+                    # activation=activation,
+                    recurrent_activation="sigmoid",
+                    recurrent_dropout=0,
+                    unroll=False,
+                    use_bias=True,
+                    return_sequences=True,
+                    # dropout=dropoutlstm,
+                    kernel_initializer=initializer,
+                    reset_after=True,
+                    name=f"gru_{i}",
+                )
+            else:
+                recurrent = layers.LSTM(rnn_units,
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        # dropout=dropoutlstm,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
+
+            x = layers.Bidirectional(
+                recurrent, name=f"bidirectional_{i}", merge_mode="concat"
+            )(x)
+            if use_rnn_dropout:
+                if i < rnn_layers:
+                    x = layers.Dropout(rate=dropoutlstm)(x)
+
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=prediction_model.inputs, outputs=output, name="model_new8"
+        )
+
+        return model
+
     def replace_final_layer(self, model, number_characters, use_mask=False):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""

@@ -47,8 +47,8 @@ def initialize_image():
 
 def visualize_filter(filter_index):
     # We run gradient ascent for 20 steps
-    iterations = 20
-    learning_rate = 20.0
+    iterations = 50
+    learning_rate = 1.0
     img = initialize_image()
     for iteration in range(iterations):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)

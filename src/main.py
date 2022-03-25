@@ -141,6 +141,10 @@ def main():
     parser.add_argument('--replace_final_layer', action='store_true',
                         help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
                              'using an existing model')
+    parser.add_argument('--replace_recurrent_layer', action='store_true',
+                        help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. Additionally replaces final layer as well.')
+    parser.add_argument('--thaw', action='store_true',
+                        help='beta: thaw. thaws conv layers, only usable with existing_model')
     parser.add_argument('--freeze_conv_layers', action='store_true',
                         help='beta: freeze_conv_layers. Freezes conv layers, only usable with existing_model')
     parser.add_argument('--freeze_recurrent_layers', action='store_true',
@@ -177,9 +181,17 @@ def main():
     augment = False
     if args.augment:
         augment = True
+
+    thaw = False
+    if args.thaw:
+        thaw = True
+
     replace_final_layer = False
     if args.replace_final_layer:
         replace_final_layer = True
+    replace_recurrent_layer = False
+    if args.replace_recurrent_layer:
+        replace_recurrent_layer = True
     freeze_conv_layers = False
     if args.freeze_conv_layers:
         freeze_conv_layers = True
@@ -251,6 +263,10 @@ def main():
 
         model = keras.models.load_model(args.existing_model)
 
+        if replace_recurrent_layer:
+            model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                   rnn_layers=args.rnn_layers, rnn_units=args.rnn_units)
+
         if replace_final_layer:
             chars_file = open(args.charlist, 'w')
             chars_file.write(str().join(loader.charList))
@@ -258,6 +274,9 @@ def main():
             char_list = loader.charList
 
             model = modelClass.replace_final_layer(model, len(char_list), use_mask=use_mask)
+        if thaw:
+            for layer in model.layers:
+                layer.trainable = True
 
         if freeze_conv_layers:
             for layer in model.layers:

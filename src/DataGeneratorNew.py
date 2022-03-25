@@ -144,6 +144,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+            # if not img:
+            #     print (img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
@@ -245,6 +247,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         image_width = tf.shape(img)[1]
         # pad 50 pixels left and right
         img = tf.image.resize_with_pad(img, self.height, image_width+100)
+        if image_width > 6000:
+            img = tf.image.resize_with_pad(img, self.height, 6000)
         img = 0.5 - img
 
         img = tf.transpose(img, perm=[1, 0, 2])
