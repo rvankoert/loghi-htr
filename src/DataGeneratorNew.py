@@ -367,7 +367,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
     def set_charlist(self, chars, use_mask = False, num_oov_indices=0):
         self.charList = chars
-        # self.charList.append('[UNK]')
+        if num_oov_indices>0:
+            self.charList.insert(1, '[UNK]')
         if not self.charList:
             return
         if use_mask:

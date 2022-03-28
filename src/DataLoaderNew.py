@@ -34,7 +34,8 @@ class DataLoaderNew:
                  normalize_text=True,
                  multiply=1,
                  augment=True,
-                 elastic_transform=False):
+                 elastic_transform=False,
+                 num_oov_indices=0):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -58,6 +59,7 @@ class DataLoaderNew:
         self.multiply = multiply
         self.dataAugmentation = augment
         self.elastic_transform = elastic_transform
+        self.num_oov_indices = num_oov_indices
 
     def generators(self):
         chars = set()
@@ -268,14 +270,14 @@ class DataLoaderNew:
         test_generator = None
         inference_generator = None
         if self.train_list:
-            training_generator = DataGeneratorNew(partition['train'], labels['train'], **trainParams, charList=self.charList)
+            training_generator = DataGeneratorNew(partition['train'], labels['train'], **trainParams, charList=self.charList, num_oov_indices=self.num_oov_indices)
         if self.validation_list:
             validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
-                                             charList=self.charList)
+                                             charList=self.charList, num_oov_indices=self.num_oov_indices)
         if self.test_list:
-            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList)
+            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList, num_oov_indices=self.num_oov_indices)
         if self.inference_list:
-            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params, charList=self.charList)
+            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params, charList=self.charList, num_oov_indices=self.num_oov_indices)
 
         self.partition = partition
 

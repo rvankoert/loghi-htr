@@ -157,6 +157,10 @@ def main():
                         help='beta: corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
                         help='beta: elastic_transform')
+    parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
+                        help='num_workers')
+    parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
+                        help='max_queue_size')
 
     args = parser.parse_args()
 
@@ -419,7 +423,10 @@ def main():
             epochs=epochs,
             output=args.output,
             model_name='encoder12',
-            steps_per_epoch=args.steps_per_epoch)
+            steps_per_epoch=args.steps_per_epoch,
+            num_workers=args.num_workers,
+            max_queue_size=args.max_queue_size
+        )
 
     if (args.do_validate):
         print("do_validate")
