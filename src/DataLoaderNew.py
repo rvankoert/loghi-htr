@@ -35,7 +35,9 @@ class DataLoaderNew:
                  multiply=1,
                  augment=True,
                  elastic_transform=False,
-                 num_oov_indices=0):
+                 num_oov_indices=0,
+                 random_crop=False,
+                 random_width=False):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -60,6 +62,8 @@ class DataLoaderNew:
         self.dataAugmentation = augment
         self.elastic_transform = elastic_transform
         self.num_oov_indices = num_oov_indices
+        self.random_crop = random_crop
+        self.random_width = random_width
 
     def generators(self):
         chars = set()
@@ -242,7 +246,9 @@ class DataLoaderNew:
                        'do_binarize_sauvola': self.do_binarize_sauvola,
                        'do_binarize_otsu': self.do_binarize_otsu,
                        'augment': self.dataAugmentation,
-                       'elastic_transform': self.elastic_transform
+                       'elastic_transform': self.elastic_transform,
+                       'random_crop': self.random_crop,
+                       'random_width': self.random_width
                        }
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,

@@ -101,7 +101,7 @@ def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True
     output_texts = []
     ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=greedy, beam_width=beam_width, top_paths=top_paths)
     for top_path in range(0, top_paths):
-        results = ctc_decoded[0][top_path][:, :maxTextLen]
+        results = ctc_decoded[0][top_path][:, :]
         # log_prob = ctc_decoded[1][0][top_path]
         # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
         #                   :, :maxTextLen

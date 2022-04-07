@@ -183,7 +183,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
 
-        img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
+        # img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
 
         # augment=False
 
@@ -212,16 +212,18 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
             img = tf.image.adjust_contrast(img, random_contrast)
 
-            # randomseed = random.randint(0, 100000), random.randint(0, 1000000)
-            # random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
-            # original_height = tf.cast(tf.shape(img)[0], tf.float32)
-            # original_width = float(tf.shape(img)[1])
-            # # print(random_crop)
-            # # print(original_height)
-            # crop_height = random_crop * original_height
-            # crop_size = (crop_height, original_width, img.shape[2])
-            # img = tf.image.stateless_random_crop(img, crop_size, randomseed)
+        if self.random_crop:
+            randomseed = random.randint(0, 100000), random.randint(0, 1000000)
+            random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
+            original_height = tf.cast(tf.shape(img)[0], tf.float32)
+            original_width = float(tf.shape(img)[1])
+            # print(random_crop)
+            # print(original_height)
+            crop_height = random_crop * original_height
+            crop_size = (crop_height, original_width, img.shape[2])
+            img = tf.image.stateless_random_crop(img, crop_size, randomseed)
 
+        if self.random_width:
             image_width = tf.shape(img)[1]
             image_height = tf.shape(img)[0]
             random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
@@ -241,12 +243,12 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         #     print(tf.shape(img)[0])
 
         # img = tf.image.resize_with_pad(img, 51, 1024)
-        if image_width < label_width*32:
-            img = tf.image.resize_with_pad(img, self.height, label_width*32)
+        if image_width < label_width*16:
+            img = tf.image.resize_with_pad(img, self.height, label_width*16)
 
         image_width = tf.shape(img)[1]
-        # pad 50 pixels left and right
-        img = tf.image.resize_with_pad(img, self.height, image_width+100)
+        # pad 25 pixels left and right
+        img = tf.image.resize_with_pad(img, self.height, image_width+50)
         if image_width > 6000:
             img = tf.image.resize_with_pad(img, self.height, 6000)
         img = 0.5 - img
@@ -257,7 +259,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
                  width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
-                 elastic_transform=False, num_oov_indices=0):
+                 elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels
@@ -274,6 +276,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.do_binarize_sauvola = do_binarize_sauvola
         self.augment = augment
         self.do_elastic_transform = elastic_transform
+        self.random_crop = random_crop
+        self.random_width = random_width
 
     def __len__(self):
         """Denotes the number of batches per epoch"""

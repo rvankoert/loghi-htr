@@ -161,6 +161,11 @@ def main():
                         help='num_workers')
     parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
                         help='max_queue_size')
+    parser.add_argument('--random_crop', action='store_true',
+                        help='beta: broken. random_crop')
+    parser.add_argument('--random_width', action='store_true',
+                        help='beta: random_width')
+
 
     args = parser.parse_args()
 
@@ -216,6 +221,12 @@ def main():
     if args.elastic_transform:
         elastic_transform = True
 
+    random_crop = False
+    if args.random_crop:
+        random_crop = True
+    random_width = False
+    if args.random_width:
+        random_width = True
 
 
 
@@ -230,7 +241,9 @@ def main():
                            do_binarize_otsu=do_binarize_otsu,
                            multiply=args.multiply,
                            augment=augment,
-                           elastic_transform=elastic_transform
+                           elastic_transform=elastic_transform,
+                           random_crop=random_crop,
+                           random_width=random_width
                            )
 
     if args.model_name:
@@ -496,7 +509,9 @@ def main():
             # batch_images = batch["image"]
             # batch_labels = batch["label"]
             preds = prediction_model.predict(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width, args.num_oov_indices)
+            # preds = prediction_model.predict_on_batch(batch[0])
+            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width,
+                                                  args.num_oov_indices)
             predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
             # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
@@ -704,6 +719,7 @@ def main():
             # batch_labels = batch["label"]
             # prediction_model.reset_state()
             preds = prediction_model.predict_on_batch(batch[0])
+            # preds = prediction_model.predict(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, inference_generator, args.greedy, args.beam_width)
 
             orig_texts = []
