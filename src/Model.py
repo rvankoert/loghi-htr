@@ -155,9 +155,7 @@ class Model():
 
 
     def replace_recurrent_layer(self, model, number_characters, use_mask=False, use_gru=False,
-    rnn_layers=2, rnn_units=256):
-        use_rnn_dropout=True
-        dropoutlstm=0.5
+                                rnn_layers=2, rnn_units=256, use_rnn_dropout=True, dropoutlstm=0.5):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
         for layer in model.layers:
@@ -236,6 +234,16 @@ class Model():
         )
 
         return model
+
+    def set_dropout(self, model, dropout=0.5):
+        initializer = tf.keras.initializers.GlorotNormal()
+        last_layer = ""
+        for layer in model.layers:
+            if layer.name.startswith('dropout'):
+                layer.rate = dropout
+
+        return model
+
 
     def build_model_new11(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                           batch_normalization=False, dropout=False, use_rnn_dropout=True):

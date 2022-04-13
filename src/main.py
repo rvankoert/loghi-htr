@@ -165,7 +165,14 @@ def main():
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
                         help='beta: random_width')
-
+    parser.add_argument('--use_dropout_lstm', action='store_true',
+                        help='beta: use_dropout_lstm')
+    parser.add_argument('--dropoutlstm', type=float, default=0.5,
+                        help='beta: dropoutlstm. Default 0.5. Only used when use_dropout_lstm is enabled')
+    parser.add_argument('--reset_dropout', action='store_true',
+                        help='beta: reset_dropout')
+    parser.add_argument('--set_dropout', type=float, default=0.5,
+                        help='beta: set_dropout')
 
     args = parser.parse_args()
 
@@ -217,6 +224,9 @@ def main():
     freeze_dense_layers = False
     if args.freeze_dense_layers:
         freeze_dense_layers = True
+    reset_dropout = False
+    if args.reset_dropout:
+        reset_dropout = True
     elastic_transform = False
     if args.elastic_transform:
         elastic_transform = True
@@ -264,6 +274,11 @@ def main():
     if args.batch_normalization:
         batch_normalization = True
 
+    use_dropout_lstm=False
+    if args.use_dropout_lstm:
+        use_dropout_lstm = True
+
+
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=learning_rate,
         decay_steps=args.decay_steps,
@@ -289,7 +304,8 @@ def main():
 
         if replace_recurrent_layer:
             model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                   rnn_layers=args.rnn_layers, rnn_units=args.rnn_units)
+                                                       rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
+                                                       use_rnn_dropout=use_dropout_lstm, dropoutlstm=args.dropoutlstm)
 
         if replace_final_layer:
             chars_file = open(args.charlist, 'w')
@@ -317,7 +333,8 @@ def main():
                 if layer.name.startswith("dense"):
                     print(layer.name)
                     layer.trainable = False
-
+        if reset_dropout:
+            modelClass.set_dropout(model, args.set_dropout)
 
 
         # if True:
