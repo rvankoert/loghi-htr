@@ -56,12 +56,12 @@ def main():
                         help='gpu to be used, use -1 for CPU')
     parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
                         help='percent_validation to be used')
-    parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.001,
-                        help='learning_rate to be used, default 0.001')
+    parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.0003,
+                        help='learning_rate to be used, default 0.0003')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
                         help='epochs to be used, default 40')
-    parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
-                        help='batch_size to be used, when using variable sized input this must be 1, default 1')
+    parser.add_argument('--batch_size', metavar='batch_size', type=int, default=4,
+                        help='batch_size to be used, default 4')
     parser.add_argument('--height', metavar='height', type=int, default=32,
                         help='rescale everything to this height before training')
     parser.add_argument('--width', metavar='width', type=int, default=65536,

@@ -1,5 +1,6 @@
-# Loghi HTR
+# Loghi-core HTR
 
+the source of this documentation is: https://github.com/rvankoert/htr
 
 # Install
 git clone https://github.com/githubharald/CTCWordBeamSearch
@@ -30,5 +31,29 @@ data -> lines.txt (contains image location + transcription, tab separated)
 for help run:
 python3.8 main.py --help
 
-to train use this line:
-CUDA_VISIBLE_DEVICES=0 python3.8 main.py --do_train --train_list "training_all_ijsberg_na_train.txt training_all_globalise_train.txt" --validation_list "training_all_globalise_val.txt" --learning_rate 0.0001 --channels 4 --batch_size 24 --epochs 100 --do_validate --gpu 0 --height 64 --memory_limit 11000 --seed 2 --model new8 --beam_width 1 --use_mask --rnn_layers 3 --decay_steps 50000 --rnn_units 256 --existing_model ../model-new8-ijsberg_republicrandom_prizepapers_64_val_loss_5.6246
+to train using GPU use this line:
+CUDA_VISIBLE_DEVICES=0 python3.8 main.py --do_train --train_list "training_all_ijsberg_na_train.txt training_all_globalise_train.txt" --validation_list "training_all_globalise_val.txt" --learning_rate 0.0001 --channels 4 --do_validate --gpu 0 --height 64 --use_mask 
+
+--do_train: enable training stage
+--train_list: list of files containing training data, must be of format: path_to_textline_image <TAB> transcription
+--validation_list: list of files containing validation data, must be of format: path_to_textline_image <TAB> transcription
+--learning_rate: learning rate to be used. Sane values range from 0.001 to 0.000001, 0.0003 being the default.
+--channels: number of image channels to be used. Use 3 for standard RGB-images. 4 can be used for images where the alpha channel contains the polygon-mask of the textline
+--do_validate: enable validation stage
+--gpu: use -1 for CPU, 0 for the first GPU, 1 for the second GPU
+--height: the height to scale the textline image to. All internal processing must be done on images of the same height. 64 is a sane value for handwriting
+--use_mask: enable this when using batch_size > 1
+
+on CPU:
+CUDA_VISIBLE_DEVICES=-1 python3.8 main.py --do_train --train_list "training_all_ijsberg_na_train.txt training_all_globalise_train.txt" --validation_list "training_all_globalise_val.txt" --learning_rate 0.0001 --channels 4 --do_validate --gpu -1 --height 64 --use_mask 
+
+
+to inference:
+CUDA_VISIBLE_DEVICES=0 python3.8 /src/src/main.py --do_inference --channels 4 --height 64 --existing_model path_to_existing_model --batch_size 10 --use_mask --inference_list file_containing_lines_to_inferece.txt --results_file results.txt --charlist path_to_existing_model.charlist --gpu 0 --config_file_output config.txt --beam_width 10
+
+During inferencing specific parameters must match those of the training phase: use_mask, height, channels
+
+
+Docker images containing trained models are available via (to be inserted). Make sure to install nvidia-docker:
+https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+
