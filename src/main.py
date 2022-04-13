@@ -311,6 +311,9 @@ def main():
             chars_file = open(args.charlist, 'w')
             chars_file.write(str().join(loader.charList))
             chars_file.close()
+            chars_file = open(FilePaths.modelOutput + '/' + args.charlist, 'w')
+            chars_file.write(str().join(loader.charList))
+            chars_file.close()
             char_list = loader.charList
 
             model = modelClass.replace_final_layer(model, len(char_list), use_mask=use_mask)
@@ -353,6 +356,10 @@ def main():
         chars_file = open(args.charlist, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
+        chars_file = open(FilePaths.modelOutput + '/' + args.charlist, 'w')
+        chars_file.write(str().join(loader.charList))
+        chars_file.close()
+
         char_list = loader.charList
         print("creating new model")
         # model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
