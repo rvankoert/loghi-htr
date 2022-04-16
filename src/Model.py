@@ -556,7 +556,7 @@ class Model():
         dropoutconv = 0
         dropoutlstm = 0
         dropoutdense = 0.5
-        dropoutconv = 0.5
+        dropoutconv = 0.0
         dropoutlstm = 0.5
         padding = "same"
         activation = "relu"

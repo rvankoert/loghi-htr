@@ -124,6 +124,8 @@ def main():
     parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
     parser.add_argument('--charlist', metavar='charlist ', type=str, default='../model/charList2.txt',
                         help='Charlist to use')
+    parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default='../model/charList2.txt',
+                        help='output_charlist to use')
     parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new model', action='store_true')
     parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model if creating a new model', action='store_true')
     parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
@@ -311,7 +313,7 @@ def main():
             chars_file = open(args.charlist, 'w')
             chars_file.write(str().join(loader.charList))
             chars_file.close()
-            chars_file = open(FilePaths.modelOutput + '/' + args.charlist, 'w')
+            chars_file = open(args.output_charlist, 'w')
             chars_file.write(str().join(loader.charList))
             chars_file.close()
             char_list = loader.charList
@@ -356,7 +358,7 @@ def main():
         chars_file = open(args.charlist, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
-        chars_file = open(FilePaths.modelOutput + '/' + args.charlist, 'w')
+        chars_file = open(args.output_charlist, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
 
