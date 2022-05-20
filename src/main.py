@@ -4,26 +4,21 @@ from __future__ import print_function
 import os
 
 from keras.layers import Dense
-from keras.utils.generic_utils import get_custom_objects
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import array_ops, math_ops, sparse_ops
 from tensorflow_addons import layers
+from word_beam_search import WordBeamSearch
+from DataLoaderNew import DataLoaderNew
+from utils import decode_batch_predictions
+import re, string
 
-from Model import Model, CERMetric, WERMetric, CTCLoss
 # from DataLoader import DataLoader
 import numpy as np
-import tensorflow.keras as keras
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import random
 import argparse
 import editdistance
 # import warpctc_tensorflow
-from word_beam_search import WordBeamSearch
-
-from DataLoaderNew import DataLoaderNew
-from utils import decode_batch_predictions
-import re, string
 
 class FilePaths:
     "filenames and paths to data"
@@ -180,6 +175,12 @@ def main():
 
     print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+
+    # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
+    from Model import Model, CERMetric, WERMetric, CTCLoss
+    from keras.utils.generic_utils import get_custom_objects
+    import tensorflow.keras as keras
+    import tensorflow as tf
     if args.gpu >= 0:
         gpus = tf.config.experimental.list_physical_devices('GPU')
         if len(gpus) > 0:
