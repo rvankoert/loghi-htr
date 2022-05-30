@@ -246,15 +246,16 @@ class Model():
 
 
     def build_model_new11(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
-                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
+                          batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
+                          dropoutputconv=0.0, dropoutlstm=0.5):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
-        dropoutconv = 0.0
-        dropoutlstm = 0.5
+        # dropoutdense = 0
+        # dropoutconv = 0
+        # dropoutlstm = 0
+        # dropoutdense = 0.5
+        # dropoutconv = 0.0
+        # dropoutlstm = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -360,7 +361,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    # dropout=dropoutlstm,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -369,7 +370,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        dropout=dropoutlstm,
+                                        # dropout=dropoutlstm,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -379,7 +380,7 @@ class Model():
             )(x)
             if use_rnn_dropout:
                 if i < rnn_layers:
-                    x = layers.Dropout(rate=0.5)(x)
+                    x = layers.Dropout(rate=dropoutlstm)(x)
 
         x = layers.Dense(1024, activation="elu",
                          kernel_initializer=initializer)(x)
