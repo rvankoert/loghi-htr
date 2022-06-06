@@ -49,8 +49,6 @@ def main():
                         help='random seed to be used')
     parser.add_argument('--gpu', metavar='gpu', type=int, default=-1,
                         help='gpu to be used, use -1 for CPU')
-    parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
-                        help='percent_validation to be used')
     parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.0003,
                         help='learning_rate to be used, default 0.0003')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
@@ -60,10 +58,11 @@ def main():
     parser.add_argument('--height', metavar='height', type=int, default=32,
                         help='rescale everything to this height before training')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
-                        help='width to be used')
+                        help='maximum width to be used. This should be a high number and generally does not need to be changed')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
                              '4 for png\'s with transparency')
+
     parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
                         action='store_true')
     parser.add_argument('--do_validate', help='if enabled a separate validation run will be done', action='store_true')
@@ -97,8 +96,8 @@ def main():
                         help='contrastive_loss, binary_crossentropy, mse')
     parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
                         help='optimizer: adam, adadelta, rmsprop, sgd')
-    parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=4096,
-                        help='memory_limit for gpu. Default 4096')
+    parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
+                        help='memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
     parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers', action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
@@ -110,7 +109,7 @@ def main():
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run slower. Default 10')
-    parser.add_argument('--decay_steps', metavar='decay_steps ', type=int, default=10000,
+    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=10000,
                         help='decay_steps. default 10000. After this number of iterations the learning rate will decrease with 10 percent.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
@@ -123,10 +122,10 @@ def main():
                         help='output_charlist to use')
     parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new model', action='store_true')
     parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model if creating a new model', action='store_true')
-    parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=2,
-                        help='number of rnn layers to use in the recurrent part. default 2')
-    parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=512,
-                        help='numbers of units in each rnn_layer. default 512')
+    parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=5,
+                        help='number of rnn layers to use in the recurrent part. default 5')
+    parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=256,
+                        help='numbers of units in each rnn_layer. default 256')
     parser.add_argument('--do_binarize_otsu', action='store_true',
                         help='beta: do_binarize_otsu')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
@@ -170,6 +169,9 @@ def main():
                         help='beta: reset_dropout')
     parser.add_argument('--set_dropout', type=float, default=0.5,
                         help='beta: set_dropout')
+    parser.add_argument('--dropoutconv', type=float, default=0.0,
+                        help='beta: set_dropout')
+
 
     args = parser.parse_args()
 
@@ -183,7 +185,7 @@ def main():
     import tensorflow as tf
     if args.gpu >= 0:
         gpus = tf.config.experimental.list_physical_devices('GPU')
-        if len(gpus) > 0:
+        if len(gpus) > 0 and args.memory_limit > 0:
             print('setting memory_limit: ' + str(args.memory_limit))
             tf.config.experimental.set_virtual_device_configuration(gpus[0], [
                 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
@@ -399,14 +401,27 @@ def main():
                                                 use_rnn_dropout=args.use_rnn_dropout)
         elif 'new10' == args.model:
             model = modelClass.build_model_new10(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
-                                                rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                batch_normalization=batch_normalization, dropout=args.use_dropout,
-                                                use_rnn_dropout=args.use_rnn_dropout)
+                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                 batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                 use_rnn_dropout=args.use_rnn_dropout)
         elif 'new11' == args.model:
             model = modelClass.build_model_new11(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                  rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                  batch_normalization=batch_normalization, dropout=args.use_dropout,
-                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm)
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 dropoutconv=args.dropoutconv)
+        elif 'new12' == args.model:
+            model = modelClass.build_model_new12(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                 batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 dropoutconv=args.dropoutconv)
+        elif 'new13' == args.model:
+            model = modelClass.build_model_new13(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                 rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                 batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 dropoutconv=args.dropoutconv)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
                                                 use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
@@ -668,7 +683,6 @@ def main():
         config_output_file = open(args.config_file_output, "w")
         config_output_file.write("seed="+str(args.seed) + "\n")
         config_output_file.write("gpu="+str(args.gpu) + "\n")
-        config_output_file.write("percent_validation="+str(args.percent_validation) + "\n")
         config_output_file.write("learning_rate="+str(args.learning_rate) + "\n")
         config_output_file.write("epochs="+str(args.epochs) + "\n")
         config_output_file.write("batch_size="+str(args.batch_size) + "\n")
