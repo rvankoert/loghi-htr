@@ -100,13 +100,23 @@ class DataLoaderNew:
                         gtText = self.normalize(lineSplit[1])
                     else:
                         gtText = lineSplit[1]
-
+                    ignoreLine = False
+                    if self.injected_charlist:
+                        for char in gtText:
+                            if char not in self.injected_charlist:
+                                # print(self.injected_charlist)
+                                print('ignoring line: ' + gtText)
+                                ignoreLine = True
+                                break
+                    if ignoreLine:
+                        continue
                     counter = counter + 1
                     for i in range(0, self.multiply):
                         partition['train'].append(fileName)
                         labels['train'].append(gtText)
                         trainLabels[fileName] = gtText
-                    chars = chars.union(set(char for label in gtText for char in label))
+                    if not self.injected_charlist:
+                        chars = chars.union(set(char for label in gtText for char in label))
                     # if (counter > 100000):
                     #     break
                 f.close()
@@ -136,7 +146,18 @@ class DataLoaderNew:
                         gtText = self.normalize(lineSplit[1])
                     else:
                         gtText = lineSplit[1]
-    
+
+                    ignoreLine = False
+                    if self.injected_charlist:
+                        for char in gtText:
+                            if char not in self.injected_charlist:
+                                # print(self.injected_charlist)
+                                print('ignoring line: ' + gtText)
+                                ignoreLine = True
+                                break
+                    if ignoreLine:
+                        continue
+
                     counter = counter + 1
                     if (counter > 10000):
                         break
@@ -145,7 +166,8 @@ class DataLoaderNew:
                     partition['validation'].append(fileName)
                     labels['validation'].append(gtText)
                     valLabels[fileName] = gtText
-                    chars = chars.union(set(char for label in gtText for char in label))
+                    if not self.injected_charlist:
+                        chars = chars.union(set(char for label in gtText for char in label))
                 f.close()
 
         counter = 0
@@ -189,7 +211,8 @@ class DataLoaderNew:
                     partition['test'].append(fileName)
                     labels['test'].append(gtText)
                     testLabels[fileName] = gtText
-                    chars = chars.union(set(char for label in gtText for char in label))
+                    if not self.injected_charlist:
+                        chars = chars.union(set(char for label in gtText for char in label))
                 f.close()
                 
         if self.inference_list:
@@ -230,11 +253,12 @@ class DataLoaderNew:
                     labels['inference'].append(label)
                     inference_labels[fileName] = label
                 f.close()
-                if len(partition['inference'])==0:
+                if len(partition['inference']) == 0:
                     print("no data to inference. Check your input-file")
                     exit(1)
         # list of all chars in dataset
         if self.injected_charlist:
+            print('using injected_charlist')
             self.charList = self.injected_charlist
         else:
             self.charList = sorted(list(chars))

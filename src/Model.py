@@ -484,27 +484,12 @@ class Model():
             strides=(1, 1),
             activation=activation,
             padding=padding,
-            name="Conv1a",
+            name="Conv1",
             kernel_initializer=initializer
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
         # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
-        if dropout:
-            x = layers.Dropout(dropoutconv)(x)
-
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 1],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            name="Conv1b",
-            kernel_initializer=initializer
-        )(x)
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
         if dropout:
             x = layers.Dropout(dropoutconv)(x)
 

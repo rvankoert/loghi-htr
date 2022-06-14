@@ -177,6 +177,8 @@ def main():
 
     print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+    # os.environ["TF_CPP_VMODULE"] = "gpu_process_state=10,gpu_cudamallocasync_allocator=10"
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
     from Model import Model, CERMetric, WERMetric, CTCLoss
@@ -185,6 +187,7 @@ def main():
     import tensorflow as tf
     if args.gpu >= 0:
         gpus = tf.config.experimental.list_physical_devices('GPU')
+
         if len(gpus) > 0 and args.memory_limit > 0:
             print('setting memory_limit: ' + str(args.memory_limit))
             tf.config.experimental.set_virtual_device_configuration(gpus[0], [
@@ -244,8 +247,10 @@ def main():
         random_width = True
 
 
-
     char_list = None
+    if args.existing_model:
+        char_list = list(char for char in open(args.charlist).read())
+        # char_list = args.charlist
     loader = DataLoaderNew(batchSize, imgSize,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
