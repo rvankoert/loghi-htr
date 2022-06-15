@@ -161,10 +161,8 @@ def main():
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
                         help='beta: random_width')
-    parser.add_argument('--use_dropout_lstm', action='store_true',
-                        help='beta: use_dropout_lstm')
-    parser.add_argument('--dropoutlstm', type=float, default=0.5,
-                        help='beta: dropoutlstm. Default 0.5. Only used when use_dropout_lstm is enabled')
+    parser.add_argument('--dropout_rnn', type=float, default=0.5,
+                        help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
     parser.add_argument('--reset_dropout', action='store_true',
                         help='beta: reset_dropout')
     parser.add_argument('--set_dropout', type=float, default=0.5,
@@ -284,9 +282,9 @@ def main():
     if args.batch_normalization:
         batch_normalization = True
 
-    use_dropout_lstm=False
-    if args.use_dropout_lstm:
-        use_dropout_lstm = True
+    use_rnn_dropout=False
+    if args.use_rnn_dropout:
+        use_rnn_dropout = True
 
 
     lr_schedule = keras.optimizers.schedules.ExponentialDecay(
@@ -315,7 +313,7 @@ def main():
         if replace_recurrent_layer:
             model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                        rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
-                                                       use_rnn_dropout=use_dropout_lstm, dropoutlstm=args.dropoutlstm)
+                                                       use_rnn_dropout=use_rnn_dropout, dropout_rnn=args.dropout_rnn)
 
         if replace_final_layer:
             chars_file = open(args.charlist, 'w')
@@ -413,19 +411,19 @@ def main():
             model = modelClass.build_model_new11(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                  rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                  batch_normalization=batch_normalization, dropout=args.use_dropout,
-                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                  dropoutconv=args.dropoutconv)
         elif 'new12' == args.model:
             model = modelClass.build_model_new12(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                  rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                  batch_normalization=batch_normalization, dropout=args.use_dropout,
-                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                  dropoutconv=args.dropoutconv)
         elif 'new13' == args.model:
             model = modelClass.build_model_new13(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                  rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                  batch_normalization=batch_normalization, dropout=args.use_dropout,
-                                                 use_rnn_dropout=args.use_rnn_dropout, dropoutlstm=args.dropoutlstm,
+                                                 use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                  dropoutconv=args.dropoutconv)
         elif 'old6' == args.model:
             model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,

@@ -155,7 +155,7 @@ class Model():
 
 
     def replace_recurrent_layer(self, model, number_characters, use_mask=False, use_gru=False,
-                                rnn_layers=2, rnn_units=256, use_rnn_dropout=True, dropoutlstm=0.5):
+                                rnn_layers=2, rnn_units=256, use_rnn_dropout=True, dropout_rnn=0.5):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
         for layer in model.layers:
@@ -177,7 +177,6 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    # dropout=dropoutlstm,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -186,7 +185,6 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        # dropout=dropoutlstm,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -196,7 +194,7 @@ class Model():
             )(x)
             if use_rnn_dropout:
                 if i < rnn_layers:
-                    x = layers.Dropout(rate=dropoutlstm)(x)
+                    x = layers.Dropout(rate=dropout_rnn)(x)
 
         if use_mask:
             x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
@@ -247,15 +245,13 @@ class Model():
     @staticmethod
     def build_model_new13(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                           batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
-                          dropoutconv=0.0, dropoutlstm=0.5):
+                          dropoutconv=0.0, dropout_rnn=0.5):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         # dropoutdense = 0
         # dropoutconv = 0
-        # dropoutlstm = 0
         # dropoutdense = 0.5
         # dropoutconv = 0.0
-        # dropoutlstm = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -410,7 +406,6 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    # dropout=dropoutlstm,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -419,7 +414,6 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        # dropout=dropoutlstm,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -429,7 +423,7 @@ class Model():
             )(x)
             if use_rnn_dropout:
                 if i < rnn_layers:
-                    x = layers.Dropout(rate=dropoutlstm)(x)
+                    x = layers.Dropout(rate=dropout_rnn)(x)
 
         # x = layers.Dense(1024, activation="elu",
         #                  kernel_initializer=initializer)(x)
@@ -452,15 +446,9 @@ class Model():
     @staticmethod
     def build_model_new12(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                           batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
-                          dropoutconv=0.0, dropoutlstm=0.5):
+                          dropoutconv=0.0, dropout_rnn=0.5):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        # dropoutdense = 0
-        # dropoutconv = 0
-        # dropoutlstm = 0
-        # dropoutdense = 0.5
-        # dropoutconv = 0.0
-        # dropoutlstm = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -582,7 +570,6 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    # dropout=dropoutlstm,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -591,7 +578,6 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        # dropout=dropoutlstm,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -601,7 +587,7 @@ class Model():
             )(x)
             if use_rnn_dropout:
                 if i < rnn_layers:
-                    x = layers.Dropout(rate=dropoutlstm)(x)
+                    x = layers.Dropout(rate=dropout_rnn)(x)
 
         # x = layers.Dense(1024, activation="elu",
         #                  kernel_initializer=initializer)(x)
@@ -623,15 +609,9 @@ class Model():
 
     def build_model_new11(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                           batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
-                          dropoutconv=0.0, dropoutlstm=0.5):
+                          dropoutconv=0.0, dropout_rnn=0.5):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        # dropoutdense = 0
-        # dropoutconv = 0
-        # dropoutlstm = 0
-        # dropoutdense = 0.5
-        # dropoutconv = 0.0
-        # dropoutlstm = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -752,7 +732,6 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    # dropout=dropoutlstm,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -761,7 +740,6 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        # dropout=dropoutlstm,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -771,7 +749,7 @@ class Model():
             )(x)
             if use_rnn_dropout:
                 if i < rnn_layers:
-                    x = layers.Dropout(rate=dropoutlstm)(x)
+                    x = layers.Dropout(rate=dropout_rnn)(x)
 
         x = layers.Dense(1024, activation="elu",
                          kernel_initializer=initializer)(x)
@@ -795,12 +773,8 @@ class Model():
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -906,7 +880,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -915,7 +889,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        dropout=dropoutlstm,
+                                        dropout=dropout_rnn,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -944,12 +918,9 @@ class Model():
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
+
         dropoutconv = 0.0
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -1085,7 +1056,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -1094,7 +1065,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        dropout=dropoutlstm,
+                                        dropout=dropout_rnn,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -1128,12 +1099,8 @@ class Model():
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -1269,7 +1236,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -1278,7 +1245,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        dropout=dropoutlstm,
+                                        dropout=dropout_rnn,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -1313,12 +1280,8 @@ class Model():
                          batch_normalization=False, dropout=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -1454,7 +1417,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -1463,7 +1426,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
-                                        dropout=dropoutlstm,
+                                        dropout=dropout_rnn,
                                         kernel_initializer=initializer,
                                         name=f"lstm_{i}"
                                         )
@@ -1496,12 +1459,7 @@ class Model():
     def build_model_new6(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128, batch_normalization = True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.0
-        dropoutconv = 0.0
-        dropoutlstm = 0.0
+        dropout_rnn = 0.0
         padding = "same"
         width = None
 
@@ -1554,7 +1512,7 @@ class Model():
                     unroll=False,
                     use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
@@ -1562,7 +1520,7 @@ class Model():
             else:
                 recurrent = layers.LSTM(rnn_units,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     name=f"lstm_{i}"
                 )
@@ -1604,12 +1562,8 @@ class Model():
                          batch_normalization=True, dropout=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         activation = "relu"
         width = None
@@ -1749,7 +1703,7 @@ class Model():
                     # unroll=False,
                     # use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     # reset_after=True,
                     name=f"gru_{i}"
@@ -1758,7 +1712,7 @@ class Model():
                 recurrent = layers.LSTM(rnn_units,
                     # activation=activation,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     name=f"lstm_{i}"
                 )
@@ -1801,12 +1755,8 @@ class Model():
                          batch_normalization=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
-        dropoutdense = 0.0
         dropoutconv = 0.0
-        dropoutlstm = 0.0
+        dropout_rnn = 0.0
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -1926,7 +1876,7 @@ class Model():
                     # unroll=False,
                     # use_bias=True,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     # reset_after=True,
                     name=f"gru_{i}",
@@ -1934,7 +1884,7 @@ class Model():
             else:
                 recurrent = layers.LSTM(rnn_units,
                     return_sequences=True,
-                    dropout=dropoutlstm,
+                    dropout=dropout_rnn,
                     kernel_initializer=initializer,
                     name=f"lstm_{i}"
                 )
@@ -2228,12 +2178,8 @@ class Model():
     def build_model_new2(self, imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0.5
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
-        dropoutdense = 0.0
         dropoutconv = 0.0
-        dropoutlstm = 0.0
+        dropout_rnn = 0.0
         padding = "same"
         width = None
         channel_axis = -1
@@ -2339,14 +2285,14 @@ class Model():
             x = tf.keras.layers.Masking(mask_value=-1.0)(x)
 
         if use_gru:
-            x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
         else:
-            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(128, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
 
         # Output layer
@@ -2636,27 +2582,27 @@ class Model():
         # x = layers.Reshape((-1, 6144))(x)
         x = layers.Reshape((-1, 256*3))(x)
 
-        dropoutlstm=0
+        dropout_rnn=0
         initializer = tf.keras.initializers.GlorotNormal()
         if use_mask:
             x = tf.keras.layers.Masking(mask_value=-1.0)(x)
-        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                             kernel_initializer=initializer))(x)
-        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                             kernel_initializer=initializer))(x)
         # x = layers.Bidirectional(layers.GRU(512,
         #                                         activation="tanh",
         #                                         recurrent_activation="sigmoid",
         #                                         use_bias=True,
         #                                         return_sequences=True,
-        #                                         dropout=dropoutlstm,
+        #                                         dropout=dropout_rnn,
         #                                         reset_after=True))(x)
         # x = layers.Bidirectional(layers.GRU(512,
         #                                         activation="tanh",
         #                                         recurrent_activation="sigmoid",
         #                                         use_bias=True,
         #                                         return_sequences=True,
-        #                                         dropout=dropoutlstm,
+        #                                         dropout=dropout_rnn,
         #                                         reset_after=True,
         #                                         ))(x)
 
@@ -2847,26 +2793,26 @@ class Model():
 
         x = layers.Reshape((-1, 2048))(x)
 
-        dropoutlstm=0.0
+        dropout_rnn=0.0
         initializer = tf.keras.initializers.GlorotNormal()
         # x = tf.keras.layers.Masking(mask_value=-1.0)(x)
-        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                             kernel_initializer=initializer))(x)
-        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+        x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                             kernel_initializer=initializer))(x)
         # x = layers.Bidirectional(layers.GRU(512,
         #                                         activation="tanh",
         #                                         recurrent_activation="sigmoid",
         #                                         use_bias=True,
         #                                         return_sequences=True,
-        #                                         dropout=dropoutlstm,
+        #                                         dropout=dropout_rnn,
         #                                         reset_after=True))(x)
         # x = layers.Bidirectional(layers.GRU(512,
         #                                         activation="tanh",
         #                                         recurrent_activation="sigmoid",
         #                                         use_bias=True,
         #                                         return_sequences=True,
-        #                                         dropout=dropoutlstm,
+        #                                         dropout=dropout_rnn,
         #                                         reset_after=True,
         #                                         ))(x)
 
@@ -2890,12 +2836,9 @@ class Model():
     def build_model_old5(self, imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0
-        dropoutconv = 0
-        dropoutlstm = 0
         dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -3003,7 +2946,7 @@ class Model():
                                                 use_bias=True,
                                                 return_sequences=True,
                                                 reset_after=True,
-                                                dropout=dropoutlstm,
+                                                dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
             x = layers.Bidirectional(layers.GRU(512,
                                                 activation="tanh",
@@ -3011,12 +2954,12 @@ class Model():
                                                 use_bias=True,
                                                 return_sequences=True,
                                                 reset_after=True,
-                                                dropout=dropoutlstm,
+                                                dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
         else:
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
 
         # Output layer
@@ -3044,12 +2987,8 @@ class Model():
     def build_model_old4(self, imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0.5
         dropoutconv = 0.1
-        dropoutlstm = 0.5
-        dropoutdense = 0.0
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
+        dropout_rnn = 0.5
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -3149,14 +3088,14 @@ class Model():
             x = tf.keras.layers.Masking(mask_value=-1.0)(x)
 
         if use_gru:
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
         else:
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
 
         # Output layer
@@ -3184,12 +3123,8 @@ class Model():
     def build_model_old3(self, imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0.5
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
-        dropoutdense = 0.0
         dropoutconv = 0.0
-        dropoutlstm = 0.0
+        dropout_rnn = 0.0
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -3289,14 +3224,14 @@ class Model():
             x = tf.keras.layers.Masking(mask_value=-1.0)(x)
 
         if use_gru:
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
                                                 kernel_initializer=initializer))(x)
         else:
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
-            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm,
+            x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn,
                                                  kernel_initializer=initializer))(x)
 
         # Output layer
@@ -3324,12 +3259,8 @@ class Model():
     def build_model_old2(self, imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
-        dropoutdense = 0.5
-        dropoutconv = 0.1
-        dropoutlstm = 0.5
-        dropoutdense = 0.0
         dropoutconv = 0.0
-        dropoutlstm = 0.0
+        dropout_rnn = 0.0
         padding = "same"
         width = None
         input_img = layers.Input(
@@ -3420,9 +3351,9 @@ class Model():
         # x = layers.Dropout(dropoutdense)(x)
 
         # x = tf.keras.layers.Masking(mask_value=-1.0)(x)
-        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
-        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
-        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropoutlstm))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropout_rnn))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropout_rnn))(x)
+        # x = layers.Bidirectional(layers.GRU(256, return_sequences=True, dropout=dropout_rnn))(x)
         # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
         # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
         # x = layers.Bidirectional(layers.GRU(128, return_sequences=True, dropout=dropout))(x)
@@ -3433,8 +3364,8 @@ class Model():
         # x = layers.Bidirectional(layers.LSTM(64, return_sequences=True, dropout=0.25))(x)
         # x = tf.keras.layers.Masking(mask_value=-1.0)(x)
         # x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
-        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropoutlstm))(x)
+        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn))(x)
+        x = layers.Bidirectional(layers.LSTM(512, return_sequences=True, dropout=dropout_rnn))(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
         # x = layers.LSTM(256, return_sequences=True, dropout=0.5)(x)
