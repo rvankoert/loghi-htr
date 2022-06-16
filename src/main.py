@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import json
 
 from keras.layers import Dense
 from tensorflow.python.framework import sparse_tensor, dtypes
@@ -19,6 +20,8 @@ import random
 import argparse
 import editdistance
 # import warpctc_tensorflow
+import subprocess
+
 
 class FilePaths:
     "filenames and paths to data"
@@ -33,6 +36,7 @@ class FilePaths:
     fnCorpus = '../data2/corpus.txt'
 
     modelOutput = '../models/model-val-best'
+
 
 def main():
     # tf.compat.v1.disable_eager_execution()
@@ -465,7 +469,7 @@ def main():
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
-    if (args.do_train):
+    if args.do_train:
         validation_dataset = None
         if args.do_validate:
             validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
@@ -473,6 +477,9 @@ def main():
             validation_dataset = validation_generator
         training_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         # training_dataset = training_generator.getGenerator()
+
+        store_info(args, model)
+
         training_dataset = training_generator
         history = Model().train_batch(
             model,
@@ -790,6 +797,25 @@ def main():
                 text_file.flush()
             # keras.backend.clear_session()
         text_file.close()
+
+
+def store_info(args, model):
+    bash_command= 'git log --format="%H" -n 1'
+    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+    output, errors = process.communicate()
+    model_layers=[]
+    model.summary(print_fn=lambda x: model_layers.append(x))
+
+    config = {
+        'git_hash': output.decode('utf8', errors='strict').strip().replace('"', ''),
+        'args': args.__dict__,
+        'model': model_layers,
+        'notes': ' '
+    }
+
+    with open(os.path.join(args.output, 'config.json'), 'w') as configuration_file:
+        json.dump(config, configuration_file)
+
 
 if __name__ == '__main__':
     main()
