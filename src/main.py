@@ -44,7 +44,7 @@ def main():
 
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
                         help='random seed to be used')
     parser.add_argument('--gpu', metavar='gpu', type=int, default=-1,
@@ -55,6 +55,10 @@ def main():
                         help='epochs to be used, default 40')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=4,
                         help='batch_size to be used, default 4')
+    parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
+                        help='num_workers')
+    parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
+                        help='max_queue_size')
     parser.add_argument('--height', metavar='height', type=int, default=32,
                         help='rescale everything to this height before training')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
@@ -62,6 +66,12 @@ def main():
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
                              '4 for png\'s with transparency')
+    parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
+                        help='contrastive_loss, binary_crossentropy, mse')
+    parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
+                        help='optimizer: adam, adadelta, rmsprop, sgd')
+    parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
+                        help='memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
 
     parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
                         action='store_true')
@@ -92,12 +102,6 @@ def main():
                         help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                         help='use model_name in the output')
-    parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
-                        help='contrastive_loss, binary_crossentropy, mse')
-    parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
-                        help='optimizer: adam, adadelta, rmsprop, sgd')
-    parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
-                        help='memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
     parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers', action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
@@ -109,7 +113,7 @@ def main():
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run slower. Default 10')
-    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=10000,
+    parser.add_argument('--decay_stProcess some integers.eps', metavar='decay_steps', type=int, default=10000,
                         help='decay_steps. default 10000. After this number of iterations the learning rate will decrease with 10 percent.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
@@ -153,10 +157,6 @@ def main():
                         help='beta: corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
                         help='beta: elastic_transform')
-    parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
-                        help='num_workers')
-    parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
-                        help='max_queue_size')
     parser.add_argument('--random_crop', action='store_true',
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
@@ -169,6 +169,8 @@ def main():
                         help='beta: set_dropout')
     parser.add_argument('--dropoutconv', type=float, default=0.0,
                         help='beta: set_dropout')
+    parser.add_argument('--ignore_lines_unknown character', action='store_true',
+                        help='beta: ignore_lines_unknown character. Ignores during training/validation lines that contain characters that are not in charlist.')
 
 
     args = parser.parse_args()
@@ -354,11 +356,8 @@ def main():
         #         layer.trainable = True
 
 
-        # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule), metrics=[CERMetric(), WERMetric()])
-        # model.compile(keras.optimizers.Adam(learning_rate=lr_schedule))
         model.compile(
             keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
-        # model.compile(keras.optimizers.SGD(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
         chars_file = open(args.charlist, 'w')
@@ -587,7 +586,6 @@ def main():
                     s = ''.join([chars[label] for label in curr_label_str])
                     char_str.append(s)
                     # print(s)
-
 
             counter += 1
             orig_texts = []
