@@ -671,7 +671,6 @@ def main():
     #            ax.axis("off")
     #            plt.show()
 
-
     if args.do_inference:
         print('inferencing')
         # char_list = set(char for char in open(args.charlist).read())
@@ -687,47 +686,50 @@ def main():
         prediction_model.summary()
         inference_dataset = inference_generator
 
+        store_info(args, model)
+
+
         # write out used config:
-        config_output_file = open(args.config_file_output, "w")
-        config_output_file.write("seed="+str(args.seed) + "\n")
-        config_output_file.write("gpu="+str(args.gpu) + "\n")
-        config_output_file.write("learning_rate="+str(args.learning_rate) + "\n")
-        config_output_file.write("epochs="+str(args.epochs) + "\n")
-        config_output_file.write("batch_size="+str(args.batch_size) + "\n")
-        config_output_file.write("height="+str(args.height) + "\n")
-        config_output_file.write("width="+str(args.width) + "\n")
-        config_output_file.write("channels="+str(args.channels) + "\n")
-        config_output_file.write("output="+args.output + "\n")
-        if args.train_list:
-            config_output_file.write("train_list="+args.train_list + "\n")
-        if args.validation_list:
-            config_output_file.write("validation_list="+args.validation_list + "\n")
-        if args.test_list:
-            config_output_file.write("test_list="+args.test_list + "\n")
-        if args.inference_list:
-            config_output_file.write("inference_list="+args.inference_list + "\n")
-        if args.existing_model:
-            config_output_file.write("existing_model="+args.existing_model + "\n")
-        if args.model_name:
-            config_output_file.write("model_name="+args.model_name + "\n")
-        config_output_file.write("loss="+args.loss + "\n")
-        config_output_file.write("optimizer="+args.optimizer + "\n")
-        config_output_file.write("memory_limit="+str(args.memory_limit) + "\n")
-        config_output_file.write("results_file="+args.results_file + "\n")
-        config_output_file.write("config_file_output="+args.config_file_output + "\n")
-        config_output_file.write("config_file="+args.config_file + "\n")
-        config_output_file.write("beam_width="+str(args.beam_width) + "\n")
-        config_output_file.write("decay_steps="+str(args.decay_steps) + "\n")
-        config_output_file.write("steps_per_epoch="+str(args.steps_per_epoch) + "\n")
-        if args.model:
-            config_output_file.write("model="+args.model + "\n")
-        config_output_file.write("charlist="+args.charlist + "\n")
-        config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
-        config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
-        config_output_file.write("multiply="+str(args.multiply) + "\n")
-        config_output_file.write("num_oov_indices="+str(args.num_oov_indices) + "\n")
-        if args.corpus_file:
-            config_output_file.write("corpus_file="+str(args.corpus_file) + "\n")
+        # config_output_file = open(args.config_file_output, "w")
+        # config_output_file.write("seed="+str(args.seed) + "\n")
+        # config_output_file.write("gpu="+str(args.gpu) + "\n")
+        # config_output_file.write("learning_rate="+str(args.learning_rate) + "\n")
+        # config_output_file.write("epochs="+str(args.epochs) + "\n")
+        # config_output_file.write("batch_size="+str(args.batch_size) + "\n")
+        # config_output_file.write("height="+str(args.height) + "\n")
+        # config_output_file.write("width="+str(args.width) + "\n")
+        # config_output_file.write("channels="+str(args.channels) + "\n")
+        # config_output_file.write("output="+args.output + "\n")
+        # if args.train_list:
+        #     config_output_file.write("train_list="+args.train_list + "\n")
+        # if args.validation_list:
+        #     config_output_file.write("validation_list="+args.validation_list + "\n")
+        # if args.test_list:
+        #     config_output_file.write("test_list="+args.test_list + "\n")
+        # if args.inference_list:
+        #     config_output_file.write("inference_list="+args.inference_list + "\n")
+        # if args.existing_model:
+        #     config_output_file.write("existing_model="+args.existing_model + "\n")
+        # if args.model_name:
+        #     config_output_file.write("model_name="+args.model_name + "\n")
+        # config_output_file.write("loss="+args.loss + "\n")
+        # config_output_file.write("optimizer="+args.optimizer + "\n")
+        # config_output_file.write("memory_limit="+str(args.memory_limit) + "\n")
+        # config_output_file.write("results_file="+args.results_file + "\n")
+        # config_output_file.write("config_file_output="+args.config_file_output + "\n")
+        # config_output_file.write("config_file="+args.config_file + "\n")
+        # config_output_file.write("beam_width="+str(args.beam_width) + "\n")
+        # config_output_file.write("decay_steps="+str(args.decay_steps) + "\n")
+        # config_output_file.write("steps_per_epoch="+str(args.steps_per_epoch) + "\n")
+        # if args.model:
+        #     config_output_file.write("model="+args.model + "\n")
+        # config_output_file.write("charlist="+args.charlist + "\n")
+        # config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
+        # config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
+        # config_output_file.write("multiply="+str(args.multiply) + "\n")
+        # config_output_file.write("num_oov_indices="+str(args.num_oov_indices) + "\n")
+        # if args.corpus_file:
+        #     config_output_file.write("corpus_file="+str(args.corpus_file) + "\n")
 
         # parser.add_argument('--elastic_transform', action='store_true',
         #                     help='beta: elastic_transform')
@@ -758,7 +760,7 @@ def main():
         # parser.add_argument('--augment', action='store_true',
         #                     help='beta: apply data augmentation to training set. In general this is a good idea')
 
-        config_output_file.close()
+        # config_output_file.close()
         #  Let's check results on some validation samples
         batch_counter = 0
         text_file = open(args.results_file, "w")
