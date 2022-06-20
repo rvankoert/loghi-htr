@@ -322,9 +322,9 @@ def main():
                                                        use_rnn_dropout=use_rnn_dropout, dropout_rnn=args.dropout_rnn)
 
         if replace_final_layer:
-            chars_file = open(args.charlist, 'w')
-            chars_file.write(str().join(loader.charList))
-            chars_file.close()
+            # chars_file = open(args.charlist, 'w')
+            # chars_file.write(str().join(loader.charList))
+            # chars_file.close()
             chars_file = open(args.output_charlist, 'w')
             chars_file.write(str().join(loader.charList))
             chars_file.close()
@@ -364,9 +364,9 @@ def main():
             keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
     else:
         # save characters of model for inference mode
-        chars_file = open(args.charlist, 'w')
-        chars_file.write(str().join(loader.charList))
-        chars_file.close()
+        # chars_file = open(args.charlist, 'w')
+        # chars_file.write(str().join(loader.charList))
+        # chars_file.close()
         chars_file = open(args.output_charlist, 'w')
         chars_file.write(str().join(loader.charList))
         chars_file.close()
