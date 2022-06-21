@@ -117,7 +117,7 @@ def main():
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run slower. Default 10')
-    parser.add_argument('--decay_stProcess some integers.eps', metavar='decay_steps', type=int, default=10000,
+    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=10000,
                         help='decay_steps. default 10000. After this number of iterations the learning rate will decrease with 10 percent.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
