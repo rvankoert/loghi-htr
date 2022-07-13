@@ -175,6 +175,8 @@ def main():
                         help='beta: set_dropout')
     parser.add_argument('--ignore_lines_unknown character', action='store_true',
                         help='beta: ignore_lines_unknown character. Ignores during training/validation lines that contain characters that are not in charlist.')
+    parser.add_argument('--check_missing_files', action='store_true',
+                        help='beta: check_missing_files')
 
 
     args = parser.parse_args()
@@ -267,7 +269,8 @@ def main():
                            augment=augment,
                            elastic_transform=elastic_transform,
                            random_crop=random_crop,
-                           random_width=random_width
+                           random_width=random_width,
+                           check_missing_files=args.check_missing_files
                            )
 
     if args.model_name:
@@ -677,7 +680,12 @@ def main():
         # char_list = sorted(list(char_list))
         #
         print(char_list)
-        loader = DataLoaderNew(batchSize, imgSize, char_list, inference_list=args.inference_list)
+        loader = DataLoaderNew(batchSize,
+                               imgSize,
+                               char_list,
+                               inference_list=args.inference_list,
+                               check_missing_files=args.check_missing_files
+                               )
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
         prediction_model = keras.models.Model(

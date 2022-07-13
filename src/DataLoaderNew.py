@@ -37,7 +37,9 @@ class DataLoaderNew:
                  elastic_transform=False,
                  num_oov_indices=0,
                  random_crop=False,
-                 random_width=False):
+                 random_width=False,
+                 check_missing_files=True
+            ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -64,6 +66,7 @@ class DataLoaderNew:
         self.num_oov_indices = num_oov_indices
         self.random_crop = random_crop
         self.random_width = random_width
+        self.check_missing_files = check_missing_files
 
     def generators(self):
         chars = set()
@@ -93,9 +96,9 @@ class DataLoaderNew:
 
                     # filename
                     fileName = lineSplit[0]
-                    # if not os.path.exists(fileName):
-                    #     print(fileName)
-                    #     continue
+                    if self.check_missing_files and not os.path.exists(fileName):
+                        print("missing: " + fileName)
+                        continue
                     if self.normalize_text:
                         gtText = self.normalize(lineSplit[1])
                     else:
@@ -139,9 +142,9 @@ class DataLoaderNew:
     
                     # filename
                     fileName = lineSplit[0]
-                    # if not os.path.exists(fileName):
-                    #     print(fileName)
-                    #     continue
+                    if self.check_missing_files and not os.path.exists(fileName):
+                        print("missing: " + fileName)
+                        continue
                     if self.normalize_text:
                         gtText = self.normalize(lineSplit[1])
                     else:
@@ -189,8 +192,8 @@ class DataLoaderNew:
     
                     # filename
                     fileName = lineSplit[0]
-                    if not os.path.exists(fileName):
-                        # print(fileName)
+                    if self.check_missing_files and not os.path.exists(fileName):
+                        print("missing: " + fileName)
                         continue
                     # img = cv2.imread(fileName)
                     # height, width, channels = img.shape
