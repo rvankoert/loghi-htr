@@ -15,7 +15,8 @@ class DataLoaderNew:
     samples = []
     validation_dataset = []
 
-    def normalize(self, input):
+    @staticmethod
+    def normalize(input):
         input = input.replace(',,', '„')\
             .replace(' ,', ',')\
             .replace(',', ', ')\
@@ -38,7 +39,8 @@ class DataLoaderNew:
                  num_oov_indices=0,
                  random_crop=False,
                  random_width=False,
-                 check_missing_files=True
+                 check_missing_files=True,
+                 distort_jpeg=False
             ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
@@ -67,6 +69,7 @@ class DataLoaderNew:
         self.random_crop = random_crop
         self.random_width = random_width
         self.check_missing_files = check_missing_files
+        self.distort_jpeg = distort_jpeg
 
     def generators(self):
         chars = set()
@@ -275,7 +278,8 @@ class DataLoaderNew:
                        'augment': self.dataAugmentation,
                        'elastic_transform': self.elastic_transform,
                        'random_crop': self.random_crop,
-                       'random_width': self.random_width
+                       'random_width': self.random_width,
+                       'distort_jpeg': self.distort_jpeg
                        }
         validationParams = {'shuffle': False,
                             'batch_size': self.batchSize,

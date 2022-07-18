@@ -177,11 +177,16 @@ def main():
                         help='beta: ignore_lines_unknown character. Ignores during training/validation lines that contain characters that are not in charlist.')
     parser.add_argument('--check_missing_files', action='store_true',
                         help='beta: check_missing_files')
+    parser.add_argument('--use_float32', action='store_true',
+                        help='beta: use_float32')
+    parser.add_argument('--early_stopping_patience', type=int, default=20,
+                        help='beta: early_stopping_patience')
+    parser.add_argument('--distort_jpeg', action='store_true',
+                        help='beta: distort_jpeg')
 
 
     args = parser.parse_args()
 
-    print(args.existing_model)
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
     # os.environ["TF_CPP_VMODULE"] = "gpu_process_state=10,gpu_cudamallocasync_allocator=10"
@@ -198,6 +203,9 @@ def main():
             print('setting memory_limit: ' + str(args.memory_limit))
             tf.config.experimental.set_virtual_device_configuration(gpus[0], [
                 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
+    if not args.use_float32:
+        print("using mixed_float16")
+        tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
 
     SEED = args.seed
     random.seed(SEED)
@@ -270,7 +278,8 @@ def main():
                            elastic_transform=elastic_transform,
                            random_crop=random_crop,
                            random_width=random_width,
-                           check_missing_files=args.check_missing_files
+                           check_missing_files=args.check_missing_files,
+                           distort_jpeg=args.distort_jpeg
                            )
 
     if args.model_name:
@@ -295,13 +304,16 @@ def main():
     if args.use_rnn_dropout:
         use_rnn_dropout = True
 
-
-    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-        initial_learning_rate=learning_rate,
-        decay_steps=args.decay_steps,
-        decay_rate=0.90)
+    if args.decay_steps > 0:
+        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=args.decay_steps,
+            decay_rate=0.90)
+    else:
+        lr_schedule=learning_rate
 
     if args.existing_model:
+        print('using existing model as base: ' + args.existing_model)
         if not os.path.exists(args.existing_model):
             print('cannot find existing model on disk: ' + args.existing_model)
             exit(1)
@@ -492,7 +504,8 @@ def main():
             model_name='encoder12',
             steps_per_epoch=args.steps_per_epoch,
             num_workers=args.num_workers,
-            max_queue_size=args.max_queue_size
+            max_queue_size=args.max_queue_size,
+            early_stopping_patience=args.early_stopping_patience
         )
 
     if (args.do_validate):
@@ -645,7 +658,7 @@ def main():
                     print(cer)
                     print(totaleditdistance/float(totallength))
                     print(totaleditdistance_lower / float(totallength))
-                    print(totaleditdistance_simple/ float(totallength_simple))
+                    print(totaleditdistance_simple / float(totallength_simple))
                     if wbs:
                         print(totaleditdistance_wbs_simple/ float(totallength_simple))
                         print(totaleditdistance_wbs / float(totallength))

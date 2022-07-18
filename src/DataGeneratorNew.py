@@ -30,10 +30,10 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         return X_deformed
 
     def encode_single_sample_augmented(self, img_path, label):
-        return self.encode_single_sample(img_path, label, self.augment, self.do_elastic_transform)
+        return self.encode_single_sample(img_path, label, self.augment, self.do_elastic_transform, self.distort_jpeg)
 
     def encode_single_sample_clean(self, img_path, label):
-        return self.encode_single_sample(img_path, label, False, False)
+        return self.encode_single_sample(img_path, label, False, False, False)
 
     def sauvola(self, image):
 
@@ -131,7 +131,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         final = tf.expand_dims(final, -1)
         return final
 
-    def encode_single_sample(self, img_path, label, augment, elastic_transform):
+    def encode_single_sample(self, img_path, label, augment, elastic_transform, distort_jpeg):
         MAX_ROT_ANGLE = 10.0
         # img = tf.io.read_file(img_path)
         # img = tf.io.decode_png(img, channels=self.channels)
@@ -139,6 +139,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         if self.channels == 1:
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
             img = np.expand_dims(img, -1)
+            # gtImageEncoded = tf.image.encode_png(img)
+            # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         elif self.channels == 3:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -150,14 +152,19 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         # img *= 255
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        if distort_jpeg:
+            img = tf.image.random_jpeg_quality(img, 50, 100)
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
+        # exit()
         if elastic_transform:
             alpha_range = random.uniform(0, 750)
             sigma = random.uniform(0, 30)
             img = self.elastic_transform(img)
         # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
         # print (img)
-        # gtImageEncoded = tf.image.encode_png(img)
-        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
 
         # print(img)
 
@@ -251,6 +258,9 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         img = tf.image.resize_with_pad(img, self.height, image_width+50)
         if image_width > 6000:
             img = tf.image.resize_with_pad(img, self.height, 6000)
+        # if self.channels == 1:
+        #     img = 0.5 - img/255.0
+        # else:
         img = 0.5 - img
 
         img = tf.transpose(img, perm=[1, 0, 2])
@@ -259,7 +269,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
                  width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
-                 elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False):
+                 elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False):
         'Initialization'
         self.batch_size = batch_size
         self.labels = labels
@@ -278,6 +288,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.do_elastic_transform = elastic_transform
         self.random_crop = random_crop
         self.random_width = random_width
+        self.distort_jpeg = distort_jpeg
 
     def __len__(self):
         """Denotes the number of batches per epoch"""
@@ -306,7 +317,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         return X, Y
 
 
-    def dynamic_padding(self, inp, min_size):
+    def dynamic_padding(self, inp, min_size, channels):
 
         pad_size = min_size - inp.shape[0]
         # print('pad_size')
@@ -356,13 +367,22 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             Y.append(item[1])
             size_x = item[0].shape[0]
             size_y = len(item[1])
-            if size_x>max_size_x:
+            if size_x > max_size_x:
                 max_size_x = size_x
-            if size_y>max_size_y:
+            if size_y > max_size_y:
                 max_size_y = size_y
         for i, ID in enumerate(list_IDs_temp):
-            X[i] = self.dynamic_padding(X[i], max_size_x)
+            # gtImageEncoded = tf.image.encode_png(tf.transpose(tf.cast(-X[i], dtype="uint8"), perm=[1, 0, 2]))
+            # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+            X[i] = self.dynamic_padding(X[i], max_size_x, self.channels)
+            # gtImageEncoded = tf.image.encode_png(tf.transpose(tf.cast(-X[i], dtype="uint8"), perm=[1, 0, 2]))
+            # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
+            # exit()
+
+            # print(Y[i])
             Y[i] = self.dynamic_padding2(Y[i], max_size_y)
+            # print(Y[i])
+            # exit()
         X = tf.convert_to_tensor(X)
         Y = tf.convert_to_tensor(Y)
         return X, Y

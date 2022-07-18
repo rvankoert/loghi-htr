@@ -3526,7 +3526,10 @@ class Model():
         callbacks = []
         if early_stopping_patience > 0:
             early_stopping = keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
+                monitor='val_loss',
+                patience=early_stopping_patience,
+                restore_best_weights=True,
+                mode='min'
             )
             callbacks.append(early_stopping)
         from keras.callbacks import History
