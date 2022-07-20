@@ -155,7 +155,15 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         if distort_jpeg:
-            img = tf.image.random_jpeg_quality(img, 50, 100)
+            if self.channels == 4:
+                # crappy workaround for bug in shear_x where alpha causes errors
+                channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
+                img = tf.concat([channel1, channel2, channel3], axis=2)
+                img = tf.image.random_jpeg_quality(img, 50, 100)
+                channel1, channel2, channel3 = tf.split(img, 3, axis=2)
+                img = tf.concat([channel1, channel2, channel3, alpha], axis=2)
+            else:
+                img = tf.image.random_jpeg_quality(img, 50, 100)
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
         # exit()

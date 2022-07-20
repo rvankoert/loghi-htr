@@ -40,7 +40,8 @@ class DataLoaderNew:
                  random_crop=False,
                  random_width=False,
                  check_missing_files=True,
-                 distort_jpeg=False
+                 distort_jpeg=False,
+                 replace_final_layer=False
             ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
@@ -70,6 +71,7 @@ class DataLoaderNew:
         self.random_width = random_width
         self.check_missing_files = check_missing_files
         self.distort_jpeg = distort_jpeg
+        self.replace_final_layer = replace_final_layer
 
     def generators(self):
         chars = set()
@@ -107,11 +109,11 @@ class DataLoaderNew:
                     else:
                         gtText = lineSplit[1]
                     ignoreLine = False
-                    if self.injected_charlist:
+                    if self.injected_charlist and not self.replace_final_layer:
                         for char in gtText:
                             if char not in self.injected_charlist:
                                 # print(self.injected_charlist)
-                                print('ignoring line: ' + gtText)
+                                print('a ignoring line: ' + gtText)
                                 ignoreLine = True
                                 break
                     if ignoreLine:
@@ -121,7 +123,7 @@ class DataLoaderNew:
                         partition['train'].append(fileName)
                         labels['train'].append(gtText)
                         trainLabels[fileName] = gtText
-                    if not self.injected_charlist:
+                    if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(set(char for label in gtText for char in label))
                     # if (counter > 100000):
                     #     break
@@ -154,11 +156,11 @@ class DataLoaderNew:
                         gtText = lineSplit[1]
 
                     ignoreLine = False
-                    if self.injected_charlist:
+                    if self.injected_charlist and not self.replace_final_layer:
                         for char in gtText:
                             if char not in self.injected_charlist:
                                 # print(self.injected_charlist)
-                                print('ignoring line: ' + gtText)
+                                print('b ignoring line: ' + gtText)
                                 ignoreLine = True
                                 break
                     if ignoreLine:
@@ -172,7 +174,7 @@ class DataLoaderNew:
                     partition['validation'].append(fileName)
                     labels['validation'].append(gtText)
                     valLabels[fileName] = gtText
-                    if not self.injected_charlist:
+                    if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(set(char for label in gtText for char in label))
                 f.close()
 
@@ -263,7 +265,7 @@ class DataLoaderNew:
                     print("no data to inference. Check your input-file")
                     exit(1)
         # list of all chars in dataset
-        if self.injected_charlist:
+        if self.injected_charlist and not self.replace_final_layer:
             print('using injected_charlist')
             self.charList = self.injected_charlist
         else:

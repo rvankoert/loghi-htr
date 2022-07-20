@@ -279,7 +279,8 @@ def main():
                            random_crop=random_crop,
                            random_width=random_width,
                            check_missing_files=args.check_missing_files,
-                           distort_jpeg=args.distort_jpeg
+                           distort_jpeg=args.distort_jpeg,
+                           replace_final_layer=args.replace_final_layer
                            )
 
     if args.model_name:
@@ -345,7 +346,7 @@ def main():
             chars_file.close()
             char_list = loader.charList
 
-            model = modelClass.replace_final_layer(model, len(char_list), use_mask=use_mask)
+            model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
         if thaw:
             for layer in model.layers:
                 layer.trainable = True

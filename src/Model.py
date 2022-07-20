@@ -166,6 +166,8 @@ class Model():
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name=last_layer).output
         )
+        if not use_rnn_dropout:
+            dropout_rnn=0
         x = prediction_model.output
         for i in range(1, rnn_layers + 1):
             if use_gru:
@@ -180,21 +182,23 @@ class Model():
                     kernel_initializer=initializer,
                     reset_after=True,
                     name=f"gru_{i}",
+                    dropout=dropout_rnn,
                 )
             else:
                 recurrent = layers.LSTM(rnn_units,
                                         # activation=activation,
                                         return_sequences=True,
                                         kernel_initializer=initializer,
-                                        name=f"lstm_{i}"
+                                        name=f"lstm_{i}",
+                                        dropout=dropout_rnn,
                                         )
 
             x = layers.Bidirectional(
                 recurrent, name=f"bidirectional_{i}", merge_mode="concat"
             )(x)
-            if use_rnn_dropout:
-                if i < rnn_layers:
-                    x = layers.Dropout(rate=dropout_rnn)(x)
+            # if use_rnn_dropout:
+            #     if i < rnn_layers:
+            #         x = layers.Dropout(rate=dropout_rnn)(x)
 
         if use_mask:
             x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
@@ -209,7 +213,7 @@ class Model():
 
         return model
 
-    def replace_final_layer(self, model, number_characters, use_mask=False):
+    def replace_final_layer(self, model, number_characters, model_name, use_mask=False ):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
         for layer in model.layers:
@@ -228,7 +232,7 @@ class Model():
                              kernel_initializer=initializer)(prediction_model.output)
         output = layers.Activation('linear', dtype=tf.float32)(x)
         model = keras.models.Model(
-            inputs=prediction_model.inputs, outputs=output, name="model_new8"
+            inputs=prediction_model.inputs, outputs=output, name=model_name
         )
 
         return model
