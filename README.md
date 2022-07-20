@@ -3,6 +3,7 @@
 the source of this documentation is: https://github.com/rvankoert/htr
 
 # Install
+sudo apt-get install python3.8-dev
 git clone https://github.com/githubharald/CTCWordBeamSearch
 cd CTCWordBeamSearch
 python3.8 -m pip install .
