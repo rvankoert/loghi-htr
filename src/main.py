@@ -210,48 +210,6 @@ def main():
     maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
-    do_binarize_sauvola = False
-    if args.do_binarize_sauvola:
-        do_binarize_sauvola = True
-    do_binarize_otsu = False
-    if args.do_binarize_otsu:
-        do_binarize_otsu=True
-    augment = False
-    if args.augment:
-        augment = True
-
-    thaw = False
-    if args.thaw:
-        thaw = True
-
-    replace_final_layer = False
-    if args.replace_final_layer:
-        replace_final_layer = True
-    replace_recurrent_layer = False
-    if args.replace_recurrent_layer:
-        replace_recurrent_layer = True
-    freeze_conv_layers = False
-    if args.freeze_conv_layers:
-        freeze_conv_layers = True
-    freeze_recurrent_layers = False
-    if args.freeze_recurrent_layers:
-        freeze_recurrent_layers = True
-    freeze_dense_layers = False
-    if args.freeze_dense_layers:
-        freeze_dense_layers = True
-    reset_dropout = False
-    if args.reset_dropout:
-        reset_dropout = True
-    elastic_transform = False
-    if args.elastic_transform:
-        elastic_transform = True
-
-    random_crop = False
-    if args.random_crop:
-        random_crop = True
-    random_width = False
-    if args.random_width:
-        random_width = True
 
     if args.output and not os.path.exists(args.output):
         try:
@@ -270,13 +228,13 @@ def main():
                            test_list=args.test_list,
                            inference_list=args.inference_list,
                            char_list=char_list,
-                           do_binarize_sauvola=do_binarize_sauvola,
-                           do_binarize_otsu=do_binarize_otsu,
+                           do_binarize_sauvola=args.do_binarize_sauvola,
+                           do_binarize_otsu=args.do_binarize_otsu,
                            multiply=args.multiply,
-                           augment=augment,
-                           elastic_transform=elastic_transform,
-                           random_crop=random_crop,
-                           random_width=random_width,
+                           augment=args.augment,
+                           elastic_transform=args.elastic_transform,
+                           random_crop=args.random_crop,
+                           random_width=args.random_width,
                            check_missing_files=args.check_missing_files,
                            distort_jpeg=args.distort_jpeg,
                            replace_final_layer=args.replace_final_layer
@@ -331,12 +289,12 @@ def main():
 
         model = keras.models.load_model(args.existing_model)
 
-        if replace_recurrent_layer:
+        if args.replace_recurrent_layer:
             model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                        rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
                                                        use_rnn_dropout=use_rnn_dropout, dropout_rnn=args.dropout_rnn)
 
-        if replace_final_layer:
+        if args.replace_final_layer:
             # chars_file = open(args.charlist, 'w')
             # chars_file.write(str().join(loader.charList))
             # chars_file.close()
@@ -346,28 +304,27 @@ def main():
             char_list = loader.charList
 
             model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
-        if thaw:
+        if args.thaw:
             for layer in model.layers:
                 layer.trainable = True
 
-        if freeze_conv_layers:
+        if args.freeze_conv_layers:
             for layer in model.layers:
                 if layer.name.startswith("Conv"):
                     print(layer.name)
                     layer.trainable = False
-        if freeze_recurrent_layers:
+        if args.freeze_recurrent_layers:
             for layer in model.layers:
                 if layer.name.startswith("bidirectional_"):
                     print(layer.name)
                     layer.trainable = False
-        if freeze_dense_layers:
+        if args.freeze_dense_layers:
             for layer in model.layers:
                 if layer.name.startswith("dense"):
                     print(layer.name)
                     layer.trainable = False
-        if reset_dropout:
+        if args.reset_dropout:
             modelClass.set_dropout(model, args.set_dropout)
-
 
         # if True:
         #     for layer in model.layers:
@@ -529,8 +486,11 @@ def main():
             early_stopping_patience=args.early_stopping_patience
         )
 
-    if (args.do_validate):
+    if args.do_validate:
         print("do_validate")
+        # if you just have trained: reload the best model
+        if args.do_train:
+            model = keras.models.load_model(args.output+'/best_val/')
         validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         # validation_dataset = validation_generator.getGenerator()
         validation_dataset = validation_generator
