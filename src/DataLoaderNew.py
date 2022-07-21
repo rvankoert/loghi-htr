@@ -17,13 +17,13 @@ class DataLoaderNew:
 
     @staticmethod
     def normalize(input):
-        input = input.replace(',,', '„')\
+        output = input.replace(',,', '„')\
             .replace(' ,', ',')\
             .replace(',', ', ')\
             .replace(' .', '. ')\
             .replace('  ', ' ')\
             .strip()
-        return input
+        return output
 
     def __init__(self, batchSize, imgSize, char_list=None,
                  train_list='',
@@ -42,7 +42,7 @@ class DataLoaderNew:
                  check_missing_files=True,
                  distort_jpeg=False,
                  replace_final_layer=False
-            ):
+                ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -75,8 +75,8 @@ class DataLoaderNew:
 
     def generators(self):
         chars = set()
-        partition = {'train': [], 'validation': [], 'test': [], 'inference' : []}
-        labels = {'train': [], 'validation': [], 'test': [], 'inference' : []}
+        partition = {'train': [], 'validation': [], 'test': [], 'inference': []}
+        labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
         trainLabels = {}
         valLabels = {}
         testLabels = {}
@@ -298,18 +298,24 @@ class DataLoaderNew:
                       'do_binarize_otsu': self.do_binarize_otsu,
                       }
         inference_params = {'shuffle': False,
-                      'batch_size': self.batchSize,
-                      'height': self.height,
-                      'channels': self.channels,
-                      'do_binarize_sauvola': self.do_binarize_sauvola,
-                      'do_binarize_otsu': self.do_binarize_otsu,
-                      }
+                            'batch_size': self.batchSize,
+                            'height': self.height,
+                            'channels': self.channels,
+                            'do_binarize_sauvola': self.do_binarize_sauvola,
+                            'do_binarize_otsu': self.do_binarize_otsu,
+                           }
         training_generator = None
         validation_generator = None
         test_generator = None
         inference_generator = None
         if self.train_list:
-            training_generator = DataGeneratorNew(partition['train'], labels['train'], **trainParams, charList=self.charList, num_oov_indices=self.num_oov_indices)
+            training_generator = DataGeneratorNew(
+                partition['train'],
+                labels['train'],
+                **trainParams,
+                charList=self.charList,
+                num_oov_indices=self.num_oov_indices
+            )
         if self.validation_list:
             validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
                                              charList=self.charList, num_oov_indices=self.num_oov_indices)
@@ -322,8 +328,8 @@ class DataLoaderNew:
 
         return training_generator, validation_generator, test_generator, inference_generator
 
-
-    def truncateLabel(self, text, maxTextLen):
+    @staticmethod
+    def truncateLabel(text, maxTextLen):
         # ctc_loss can't compute loss if it cannot find a mapping between text label and input
         # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
         # If a too-long label is provided, ctc_loss returns an infinite gradient

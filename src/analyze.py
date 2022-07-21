@@ -22,7 +22,7 @@ class Constants:
 	fnTranslationInvariance = '../data/translationInvariance.npy'
 	fnTranslationInvarianceTexts = '../data/translationInvarianceTexts.pickle'
 	gtText = 'are'
-	distribution = 'histogram' # 'histogram' or 'uniform'
+	distribution = 'histogram'  # 'histogram' or 'uniform'
 
 
 def odds(val):

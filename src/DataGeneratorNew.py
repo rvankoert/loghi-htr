@@ -17,13 +17,15 @@ from keras.preprocessing.image import img_to_array
 from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
 # import elasticdeform.tf as etf
-import numpy, imageio, elasticdeform
+import elasticdeform
+
 
 class DataGeneratorNew(tf.keras.utils.Sequence):
     DTYPE = tf.float32
 
     # @tf.function
-    def elastic_transform(self, original):
+    @staticmethod
+    def elastic_transform(original):
         displacement = np.random.randn(2, 3, 3) * 5
         # X_deformed = elasticdeform.deform_random_grid(original)
         X_deformed = elasticdeform.deform_grid(original, displacement, axis=(0, 1), cval=0)
@@ -35,7 +37,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
     def encode_single_sample_clean(self, img_path, label):
         return self.encode_single_sample(img_path, label, False, False, False)
 
-    def sauvola(self, image):
+    @staticmethod
+    def sauvola(image):
 
         window_size = 51
         thresh_sauvola = threshold_sauvola(image, window_size=window_size, k=0.1)
@@ -45,7 +48,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         return tf.convert_to_tensor(binary_sauvola)
 
     # https://colab.research.google.com/drive/1CdVfa2NlkQBga1E9dBwHved36Tk7Bg61#scrollTo=Jw-NU1wbHnWA
-    def otsu_thresholding(self, image):
+    @staticmethod
+    def otsu_thresholding(image):
         image = tf.convert_to_tensor(image, name="image")
         # image = tf.squeeze(image)
         rank = image.shape.rank
@@ -89,7 +93,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         return final
 
     # https://colab.research.google.com/drive/1CdVfa2NlkQBga1E9dBwHved36Tk7Bg61#scrollTo=Jw-NU1wbHnWA
-    def adaptive_thresholding(self, image):
+    @staticmethod
+    def adaptive_thresholding(image):
         image = tf.convert_to_tensor(image, name="image")
         window = 40
         rank = image.shape.rank
@@ -206,7 +211,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
             img = tfa.image.shear_x(img, randomShear, replace=1.0)
         if augment and self.channels == 4:
-            #crappy workaround for bug in shear_x where alpha causes errors
+            # crappy workaround for bug in shear_x where alpha causes errors
             channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
             alpha = tf.concat([channel1, channel2, alpha], axis=2)  # add two dummy channels
@@ -219,9 +224,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             # gtImageEncoded = tf.image.encode_png(tf.image.convert_image_dtype(img, dtype=tf.uint8))
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
 
-
         if augment:
-
             random_brightness = tf.random.uniform(shape=[1], minval=-0.5, maxval=0.5)[0]
             img = tf.image.adjust_brightness(img, delta=random_brightness)
             random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
@@ -245,7 +248,6 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             random_width *= float(image_width)
             random_width = int(random_width)
             img = tf.image.resize(img, [image_height, random_width])
-
 
         img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
         label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
@@ -276,9 +278,11 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         return img, label
 
     def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
-                 width=99999, charList=[], do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
+                 width=99999, charList=None, do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
                  elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False):
         'Initialization'
+        if charList is None:
+            charList = []
         self.batch_size = batch_size
         self.labels = labels
         self.list_IDs = list_IDs
@@ -324,9 +328,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         X, Y = self.__data_generation(indexes)
         return X, Y
 
-
-    def dynamic_padding(self, inp, min_size, channels):
-
+    @staticmethod
+    def dynamic_padding(inp, min_size, channels):
         pad_size = min_size - inp.shape[0]
         # print('pad_size')
         # print(pad_size)
@@ -334,7 +337,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         paddings = [[0, pad_size], [0, 0], [0, 0]]
         return tf.pad(inp, paddings, "CONSTANT", constant_values=-10)
 
-    def dynamic_padding2(self, inp, min_size):
+    @staticmethod
+    def dynamic_padding2(inp, min_size):
 
         pad_size = min_size - inp.shape[0]
         # print('pad_size')
@@ -354,8 +358,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # TODO: make this multithreading
         # Generate data
         # print(list_IDs_temp)
-        max_size_x= 0
-        max_size_y= 0
+        max_size_x = 0
+        max_size_y = 0
         for i, ID in enumerate(list_IDs_temp):
             # Store sample
             # X[i,] = np.load('data/' + ID + '.npy')
@@ -395,11 +399,9 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         Y = tf.convert_to_tensor(Y)
         return X, Y
 
-
-
-    def set_charlist(self, chars, use_mask = False, num_oov_indices=0):
+    def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
         self.charList = chars
-        if num_oov_indices>0:
+        if num_oov_indices > 0:
             self.charList.insert(1, '[UNK]')
         if not self.charList:
             return

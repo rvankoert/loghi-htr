@@ -154,7 +154,8 @@ def CTCLoss(y_true, y_pred):
 class Model():
 
 
-    def replace_recurrent_layer(self, model, number_characters, use_mask=False, use_gru=False,
+    @staticmethod
+    def replace_recurrent_layer(model, number_characters, use_mask=False, use_gru=False,
                                 rnn_layers=2, rnn_units=256, use_rnn_dropout=True, dropout_rnn=0.5):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
@@ -213,7 +214,8 @@ class Model():
 
         return model
 
-    def replace_final_layer(self, model, number_characters, model_name, use_mask=False ):
+    @staticmethod
+    def replace_final_layer(model, number_characters, model_name, use_mask=False):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
         for layer in model.layers:
@@ -237,7 +239,8 @@ class Model():
 
         return model
 
-    def set_dropout(self, model, dropout=0.5):
+    @staticmethod
+    def set_dropout(model, dropout=0.5):
         initializer = tf.keras.initializers.GlorotNormal()
         last_layer = ""
         for layer in model.layers:
@@ -611,7 +614,8 @@ class Model():
         )
         return model
 
-    def build_model_new11(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new11(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                           batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
                           dropoutconv=0.0, dropout_rnn=0.5):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
@@ -773,8 +777,9 @@ class Model():
         )
         return model
 
-    def build_model_new10(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
-                         batch_normalization=False, dropout=False, use_rnn_dropout=True):
+    @staticmethod
+    def build_model_new10(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.1
@@ -918,7 +923,8 @@ class Model():
         )
         return model
 
-    def build_model_new9(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new9(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
@@ -1099,7 +1105,8 @@ class Model():
         )
         return model
 
-    def build_model_new8(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new8(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
@@ -1280,7 +1287,8 @@ class Model():
         return model
 
 
-    def build_model_new7(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new7(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
@@ -1460,7 +1468,8 @@ class Model():
         )
         return model
 
-    def build_model_new6(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128, batch_normalization = True):
+    @staticmethod
+    def build_model_new6(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128, batch_normalization = True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropout_rnn = 0.0
@@ -1562,7 +1571,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_new5(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new5(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=True, dropout=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
@@ -1755,7 +1765,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_new4(self, imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+    @staticmethod
+    def build_model_new4(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
@@ -1928,7 +1939,8 @@ class Model():
         return model
 
     # xception based
-    def build_model_xception3(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_xception3(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         channel_axis = -1
         # height = 128;
@@ -2111,7 +2123,8 @@ class Model():
             name="conv_final",
         )(x)
 
-    def build_model_new3(self,imgSize, output_dim, rnn_layers=5, rnn_units=128):
+    @staticmethod
+    def build_model_new3(imgSize, output_dim, rnn_layers=5, rnn_units=128):
         # based on https://keras.io/examples/audio/ctc_asr/
         """Model similar to DeepSpeech2."""
         # Model's input
@@ -2179,7 +2192,8 @@ class Model():
         model.compile(optimizer=opt, loss=CTCLoss)
         return model
 
-    def build_model_new2(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_new2(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.0
@@ -2318,7 +2332,8 @@ class Model():
         model.compile(optimizer=opt, loss=CTCLoss)
         return model
 
-    def build_model_new1(self,imgSize, input_dim, output_dim, rnn_layers=5, rnn_units=128):
+    @staticmethod
+    def build_model_new1(imgSize, input_dim, output_dim, rnn_layers=5, rnn_units=128):
         # based on https://keras.io/examples/audio/ctc_asr/
         """Model similar to DeepSpeech2."""
         # Model's input
@@ -2386,7 +2401,8 @@ class Model():
         return model
 
     # xception based
-    def build_model(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         channel_axis = -1
         # height = 128;
@@ -2628,7 +2644,8 @@ class Model():
         return model
 
     # xception based
-    def build_model_old6(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_old6(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         channel_axis = -1
         # height = 128;
@@ -2837,7 +2854,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_old5(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_old5(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutdense = 0.5
@@ -2988,7 +3006,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_old4(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_old4(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.1
@@ -3124,7 +3143,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_old3(self, imgSize, number_characters, use_mask=False, use_gru=False):
+    @staticmethod
+    def build_model_old3(imgSize, number_characters, use_mask=False, use_gru=False):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.0
@@ -3260,7 +3280,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_old2(self, imgSize, number_characters, learning_rate):
+    @staticmethod
+    def build_model_old2(imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.0
@@ -3397,7 +3418,8 @@ class Model():
         # model.compile(optimizer=opt)
         return model
 
-    def build_model_old1(self, imgSize, number_characters, learning_rate):
+    @staticmethod
+    def build_model_old1(imgSize, number_characters, learning_rate):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutdense = 0.5
@@ -3524,7 +3546,8 @@ class Model():
 
     #
     # # Train the model
-    def train_batch(self, model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
+    @staticmethod
+    def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                     early_stopping_patience=20, num_workers=20, max_queue_size=256):
         # # Add early stopping
         callbacks = []

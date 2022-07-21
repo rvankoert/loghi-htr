@@ -4,22 +4,15 @@ from __future__ import print_function
 import os
 import json
 
-from keras.layers import Dense
-from tensorflow.python.framework import sparse_tensor, dtypes
-from tensorflow.python.ops import array_ops, math_ops, sparse_ops
-from tensorflow_addons import layers
 from word_beam_search import WordBeamSearch
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
-import re, string
+import re
 
-# from DataLoader import DataLoader
 import numpy as np
-import matplotlib.pyplot as plt
 import random
 import argparse
 import editdistance
-# import warpctc_tensorflow
 import subprocess
 
 
@@ -822,10 +815,10 @@ def main():
 
 
 def store_info(args, model):
-    bash_command= 'git log --format="%H" -n 1'
+    bash_command = 'git log --format="%H" -n 1'
     process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
     output, errors = process.communicate()
-    model_layers=[]
+    model_layers = []
     model.summary(print_fn=lambda x: model_layers.append(x))
 
     config = {
