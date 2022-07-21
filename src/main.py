@@ -489,7 +489,7 @@ def main():
         print('input height differs from model channels. use --height '+str(model_height))
         exit()
     model_outputs = model.layers[-1].output_shape[2]
-    num_characters=len(char_list) + 1
+    num_characters = len(char_list) + 1
     if args.use_mask:
         num_characters = num_characters+1
     if model_outputs != num_characters:
@@ -538,7 +538,8 @@ def main():
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
-        prediction_model.summary()
+        prediction_model.summary(line_length=110)
+
 
         # weights = model.get_layer(name="dense3").get_weights()
         # prediction_model = keras.models.Model(
@@ -725,7 +726,8 @@ def main():
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
-        prediction_model.summary()
+        prediction_model.summary(line_length=110)
+
         inference_dataset = inference_generator
 
         store_info(args, model)
