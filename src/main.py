@@ -253,6 +253,12 @@ def main():
     if args.random_width:
         random_width = True
 
+    if args.output and not os.path.exists(args.output):
+        try:
+            os.mkdir(args.output)
+        except OSError as error:
+            print(error)
+            print('can not create output directory')
 
     char_list = None
     if args.existing_model:
@@ -455,9 +461,11 @@ def main():
         # elif 'old1' == args.model:
         #     model = modelClass.build_model_old1(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
         else:
-            print('using default model ... Are you sure this is correct?')
-            model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask,
-                                                use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+            print('no model supplied. Existing or new ... Are you sure this is correct?')
+            exit()
+
+            # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask,
+            #                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
         # model = modelClass.build_model_new1(
         #     imgSize,
         #     input_dim=maxTextLen + 1,
@@ -471,7 +479,26 @@ def main():
 
     model.summary(line_length=110)
 
+    model_channels = model.layers[0].input_shape[0][3]
+    if args.channels != model_channels:
+        print('input channels differs from model channels. use --channels '+str(model_channels))
+        exit()
 
+    model_height = model.layers[0].input_shape[0][2]
+    if args.height != model_height:
+        print('input height differs from model channels. use --height '+str(model_height))
+        exit()
+    model_outputs = model.layers[-1].output_shape[2]
+    num_characters=len(char_list) + 1
+    if args.use_mask:
+        num_characters = num_characters+1
+    if model_outputs != num_characters:
+        print('model_outputs: '+str(model_outputs))
+        print('charlist: '+str(num_characters))
+        print('number of characters in model is different from charlist provided.')
+        print('please find correct charlist and use --charlist CORRECT_CHARLIST')
+        print('if the charlist is just 1 lower: did you forget --use_mask')
+        exit()
 
 
     # test_generator = test_generator.getGenerator()

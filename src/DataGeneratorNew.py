@@ -136,6 +136,13 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         final = tf.expand_dims(final, -1)
         return final
 
+    @staticmethod
+    def check_valid_file(img, img_path):
+        if img is None:
+            print('can not read/find the file on disk: ' + img_path)
+            print('you can use --check_missing_files to check/skip during startup for missing files')
+            exit()
+
     def encode_single_sample(self, img_path, label, augment, elastic_transform, distort_jpeg):
         MAX_ROT_ANGLE = 10.0
         # img = tf.io.read_file(img_path)
@@ -143,16 +150,17 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # img = tf.image.convert_image_dtype(img, self.DTYPE)
         if self.channels == 1:
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+            self.check_valid_file(img, img_path)
             img = np.expand_dims(img, -1)
             # gtImageEncoded = tf.image.encode_png(img)
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         elif self.channels == 3:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+            self.check_valid_file(img, img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-            # if not img:
-            #     print (img_path)
+            self.check_valid_file(img, img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
