@@ -493,7 +493,7 @@ def main():
         plt.figure()
         plt.plot(history.history["train_loss"], label="loss")
         plt.plot(history.history["val_loss"], label="val_loss")
-        plt.plot(history.history["train_cer"], label="train_CER_metric")
+        plt.plot(history.history["train_cer"], label="CER_metric")
         plt.plot(history.history["val_cer"], label="val_CER_metric")
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
