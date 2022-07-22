@@ -491,10 +491,10 @@ def main():
         # construct a plot that plots and saves the training history
         plt.style.use("ggplot")
         plt.figure()
-        plt.plot(history.history["train_loss"], label="loss")
+        plt.plot(history.history["loss"], label="loss")
         plt.plot(history.history["val_loss"], label="val_loss")
-        plt.plot(history.history["train_cer"], label="CER_metric")
-        plt.plot(history.history["val_cer"], label="val_CER_metric")
+        plt.plot(history.history["CER_metric"], label="CER train")
+        plt.plot(history.history["val_CER_metric"], label="CER val")
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/CER")
