@@ -491,8 +491,8 @@ def main():
     if args.do_validate:
         print("do_validate")
         # if you just have trained: reload the best model
-        if args.do_train:
-            model = keras.models.load_model(os.path.join(args.output,'/best_val/'))
+        # if args.do_train:
+        #     model = keras.models.load_model(os.path.join(args.output,'/best_val/'))
         validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         # validation_dataset = validation_generator.getGenerator()
         validation_dataset = validation_generator

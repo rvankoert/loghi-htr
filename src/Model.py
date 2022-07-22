@@ -3553,7 +3553,7 @@ class Model():
         callbacks = []
         if early_stopping_patience > 0:
             early_stopping = keras.callbacks.EarlyStopping(
-                monitor='val_loss',
+                monitor='val_CER_metric',
                 patience=early_stopping_patience,
                 restore_best_weights=True,
                 mode='min'
