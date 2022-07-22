@@ -14,6 +14,7 @@ import random
 import argparse
 import editdistance
 import subprocess
+import matplotlib.pyplot as plt
 
 
 class FilePaths:
@@ -486,6 +487,20 @@ def main():
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience
         )
+
+        # construct a plot that plots and saves the training history
+        plt.style.use("ggplot")
+        plt.figure()
+        plt.plot(history.history["train_loss"], label="train_loss")
+        plt.plot(history.history["val_loss"], label="val_loss")
+        plt.plot(history.history["train_cer"], label="train_CER_metric")
+        plt.plot(history.history["val_cer"], label="val_CER_metric")
+        plt.title("Training Loss and Accuracy")
+        plt.xlabel("Epoch #")
+        plt.ylabel("Loss/CER")
+        plt.legend(loc="lower left")
+        plt.savefig(os.path.join(args.output, 'plot.png'))
+
         # except tf.python.framework.errors_impl.ResourceExhaustedError as e:
         #     print("test")
     if args.do_validate:
