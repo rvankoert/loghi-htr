@@ -473,6 +473,7 @@ def main():
         store_info(args, model)
 
         training_dataset = training_generator
+        # try:
         history = Model().train_batch(
             model,
             training_dataset,
@@ -485,12 +486,13 @@ def main():
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience
         )
-
+        # except tf.python.framework.errors_impl.ResourceExhaustedError as e:
+        #     print("test")
     if args.do_validate:
         print("do_validate")
         # if you just have trained: reload the best model
         if args.do_train:
-            model = keras.models.load_model(args.output+'/best_val/')
+            model = keras.models.load_model(os.path.join(args.output,'/best_val/'))
         validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         # validation_dataset = validation_generator.getGenerator()
         validation_dataset = validation_generator
