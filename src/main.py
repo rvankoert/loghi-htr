@@ -491,7 +491,7 @@ def main():
         # construct a plot that plots and saves the training history
         plt.style.use("ggplot")
         plt.figure()
-        plt.plot(history.history["train_loss"], label="train_loss")
+        plt.plot(history.history["train_loss"], label="loss")
         plt.plot(history.history["val_loss"], label="val_loss")
         plt.plot(history.history["train_cer"], label="train_CER_metric")
         plt.plot(history.history["val_cer"], label="val_CER_metric")
