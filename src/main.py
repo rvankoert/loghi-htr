@@ -493,13 +493,21 @@ def main():
         plt.figure()
         plt.plot(history.history["loss"], label="loss")
         plt.plot(history.history["val_loss"], label="val_loss")
+        plt.title("Training Loss and Accuracy")
+        plt.xlabel("Epoch #")
+        plt.ylabel("Loss/CER")
+        plt.legend(loc="lower left")
+        plt.savefig(os.path.join(args.output, 'plot.png'))
+
+        plt.style.use("ggplot")
+        plt.figure()
         plt.plot(history.history["CER_metric"], label="CER train")
         plt.plot(history.history["val_CER_metric"], label="CER val")
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/CER")
         plt.legend(loc="lower left")
-        plt.savefig(os.path.join(args.output, 'plot.png'))
+        plt.savefig(os.path.join(args.output, 'plot2.png'))
 
         # except tf.python.framework.errors_impl.ResourceExhaustedError as e:
         #     print("test")
