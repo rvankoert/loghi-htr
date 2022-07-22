@@ -3548,7 +3548,7 @@ class Model():
     # # Train the model
     @staticmethod
     def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
-                    early_stopping_patience=20, num_workers=20, max_queue_size=256):
+                    early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False):
         # # Add early stopping
         callbacks = []
         if early_stopping_patience > 0:
@@ -3567,11 +3567,12 @@ class Model():
         # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
-        filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
-        checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
         callbacks.append(history)
         callbacks.append(mcp_save)
-        callbacks.append(checkpoint)
+        if output_checkpoints:
+            filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
+            checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
+            callbacks.append(checkpoint)
 
         # cer_metric = CERMetric()
 
