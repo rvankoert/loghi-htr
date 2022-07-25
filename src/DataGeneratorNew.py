@@ -242,10 +242,10 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             randomseed = random.randint(0, 100000), random.randint(0, 1000000)
             random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
             original_height = tf.cast(tf.shape(img)[0], tf.float32)
-            original_width = float(tf.shape(img)[1])
+            original_width = tf.shape(img)[1]
             # print(random_crop)
             # print(original_height)
-            crop_height = random_crop * original_height
+            crop_height = tf.cast(random_crop * original_height, tf.int32)
             crop_size = (crop_height, original_width, img.shape[2])
             img = tf.image.stateless_random_crop(img, crop_size, randomseed)
 
