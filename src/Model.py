@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 from keras.applications.xception import Xception
 from keras.callbacks import ReduceLROnPlateau
@@ -3574,6 +3576,9 @@ class Model():
             checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
             callbacks.append(checkpoint)
 
+        filename = os.path.join(output, 'log.csv')
+        history_logger = tf.keras.callbacks.CSVLogger(filename, separator=",", append=True)
+        callbacks.append(history_logger)
         # cer_metric = CERMetric()
 
         history = model.fit(
