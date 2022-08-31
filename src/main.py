@@ -829,14 +829,20 @@ def main():
 
 
 def store_info(args, model):
-    bash_command = 'git log --format="%H" -n 1'
-    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
-    output, errors = process.communicate()
+    if os.path.exists("version_info"):
+        with open("version_info") as file:
+            version_info = file.read()
+    else:
+        bash_command = 'git log --format="%H" -n 1'
+        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+        output, errors = process.communicate()
+        version_info = output.decode('utf8', errors='strict').strip().replace('"', '')
+
     model_layers = []
     model.summary(print_fn=lambda x: model_layers.append(x))
 
     config = {
-        'git_hash': output.decode('utf8', errors='strict').strip().replace('"', ''),
+        'git_hash': version_info,
         'args': args.__dict__,
         'model': model_layers,
         'notes': ' '
