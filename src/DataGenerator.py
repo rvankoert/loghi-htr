@@ -293,12 +293,13 @@ class DataGenerator(tf.keras.utils.Sequence):
             train_dataset = (
                 train_dataset
                 .map(
-                # .map(lambda x, y: tf.py_function(self.encode_single_sample_augmented, [x,y], [tf.float32,tf.int64]))
-                # .map(lambda x:
-                #     tf.py_function(func=self.encode_single_sample_augmented,
-                #                    inp=[x],
-                #                    Tout=tf.string)
-                self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
+                    # .map(lambda x, y: tf.py_function(self.encode_single_sample_augmented, [x,y],
+                    # [tf.float32,tf.int64]))
+                    # .map(lambda x:
+                    #     tf.py_function(func=self.encode_single_sample_augmented,
+                    #                    inp=[x],
+                    #                    Tout=tf.string)
+                    self.encode_single_sample_augmented, num_parallel_calls=tf.data.experimental.AUTOTUNE
                 )
                 .padded_batch(self.batch_size, padded_shapes=(
                     [None, None, None],

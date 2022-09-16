@@ -39,10 +39,10 @@ def main():
 
     # A utility function to decode the output of the network
 
-
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
-    parser = argparse.ArgumentParser(description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
+    parser = argparse.ArgumentParser(
+        description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
                         help='random seed to be used')
     parser.add_argument('--gpu', metavar='gpu', type=int, default=-1,
@@ -60,7 +60,8 @@ def main():
     parser.add_argument('--height', metavar='height', type=int, default=32,
                         help='rescale everything to this height before training')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
-                        help='maximum width to be used. This should be a high number and generally does not need to be changed')
+                        help='maximum width to be used. This should be a high number and generally does not need to '
+                             'be changed')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
                              '4 for png\'s with transparency')
@@ -101,7 +102,8 @@ def main():
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                         help='use model_name in the output')
     parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
-    parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers', action='store_true')
+    parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
+                        action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
                         help='results_file')
     parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default='output/config.txt',
@@ -110,9 +112,11 @@ def main():
                         help='config_file')
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
-                        help='beam_width when validating/inferencing, higher beam_width gets better results, but run slower. Default 10')
+                        help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
+                             'slower. Default 10')
     parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=10000,
-                        help='decay_steps. default 10000. After this number of iterations the learning rate will decrease with 10 percent.')
+                        help='decay_steps. default 10000. After this number of iterations the learning rate will '
+                             'decrease with 10 percent.')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
@@ -122,8 +126,10 @@ def main():
                         help='Charlist to use')
     parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default='../model/charList2.txt',
                         help='output_charlist to use')
-    parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new model', action='store_true')
-    parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model if creating a new model', action='store_true')
+    parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new '
+                                              'model', action='store_true')
+    parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model '
+                                                  'if creating a new model', action='store_true')
     parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=5,
                         help='number of rnn layers to use in the recurrent part. default 5')
     parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=256,
@@ -140,7 +146,8 @@ def main():
                         help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
                              'using an existing model')
     parser.add_argument('--replace_recurrent_layer', action='store_true',
-                        help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. Additionally replaces final layer as well.')
+                        help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. '
+                             'Additionally replaces final layer as well.')
     parser.add_argument('--thaw', action='store_true',
                         help='beta: thaw. thaws conv layers, only usable with existing_model')
     parser.add_argument('--freeze_conv_layers', action='store_true',
@@ -150,7 +157,8 @@ def main():
     parser.add_argument('--freeze_dense_layers', action='store_true',
                         help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
-                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
+                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in '
+                             'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
                         help='beta: corpus_file to use')
     parser.add_argument('--elastic_transform', action='store_true',
@@ -168,7 +176,8 @@ def main():
     parser.add_argument('--dropoutconv', type=float, default=0.0,
                         help='beta: set_dropout')
     parser.add_argument('--ignore_lines_unknown character', action='store_true',
-                        help='beta: ignore_lines_unknown character. Ignores during training/validation lines that contain characters that are not in charlist.')
+                        help='beta: ignore_lines_unknown character. Ignores during training/validation lines that '
+                             'contain characters that are not in charlist.')
     parser.add_argument('--check_missing_files', action='store_true',
                         help='beta: check_missing_files')
     parser.add_argument('--use_float32', action='store_true',
@@ -458,7 +467,6 @@ def main():
         print('if the charlist is just 1 lower: did you forget --use_mask')
         exit()
 
-
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
@@ -641,7 +649,8 @@ def main():
                         predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
                         current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
                         current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
-                        current_editdistance_wbslower = editdistance.eval(original_text.lower(), char_str[i].strip().lower())
+                        current_editdistance_wbslower = editdistance.eval(original_text.lower(),
+                                                                          char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
                     if cer > 0.0:
                         filename = validation_dataset.get_file(batch_no * batchSize + i)

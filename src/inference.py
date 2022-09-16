@@ -48,11 +48,10 @@ def main():
     learning_rate = 0.0001
     # load training data, create TF model
     charlist = open(FilePaths.fnCharList).read()
-    print (charlist)
+    print(charlist)
     loader = DataLoader(FilePaths.fnTrain, batchSize, imgSize, maxTextLen)
-    print ("loading model")
+    print("loading model")
     model = keras.models.load_model('../models/model-val-best')
-
 
     model.summary()
 

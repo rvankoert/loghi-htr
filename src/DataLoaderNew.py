@@ -17,11 +17,11 @@ class DataLoaderNew:
 
     @staticmethod
     def normalize(input):
-        output = input.replace(',,', '„')\
-            .replace(' ,', ',')\
-            .replace(',', ', ')\
-            .replace(' .', '. ')\
-            .replace('  ', ' ')\
+        output = input.replace(',,', '„') \
+            .replace(' ,', ',') \
+            .replace(',', ', ') \
+            .replace(' .', '. ') \
+            .replace('  ', ' ') \
             .strip()
         return output
 
@@ -42,7 +42,7 @@ class DataLoaderNew:
                  check_missing_files=True,
                  distort_jpeg=False,
                  replace_final_layer=False
-                ):
+                 ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
         # assert filePath[-1] == '/'
@@ -140,11 +140,11 @@ class DataLoaderNew:
                     # ignore comment line
                     if not line or line[0] == '#':
                         continue
-    
+
                     lineSplit = line.strip().split('\t')
                     if len(lineSplit) == 1:
                         continue
-    
+
                     # filename
                     fileName = lineSplit[0]
                     if self.check_missing_files and not os.path.exists(fileName):
@@ -169,7 +169,7 @@ class DataLoaderNew:
                     counter = counter + 1
                     if (counter > 10000):
                         break
-    
+
                     # put sample into list
                     partition['validation'].append(fileName)
                     labels['validation'].append(gtText)
@@ -190,11 +190,11 @@ class DataLoaderNew:
                     # ignore comment line
                     if not line or line[0] == '#':
                         continue
-    
+
                     lineSplit = line.strip().split('\t')
                     if len(lineSplit) == 1:
                         continue
-    
+
                     # filename
                     fileName = lineSplit[0]
                     if self.check_missing_files and not os.path.exists(fileName):
@@ -210,11 +210,11 @@ class DataLoaderNew:
                         gtText = self.normalize(lineSplit[1])
                     else:
                         gtText = lineSplit[1]
-    
+
                     counter = counter + 1
                     # if (counter > 100):
                     #     break
-    
+
                     # put sample into list
                     partition['test'].append(fileName)
                     labels['test'].append(gtText)
@@ -222,7 +222,7 @@ class DataLoaderNew:
                     if not self.injected_charlist:
                         chars = chars.union(set(char for label in gtText for char in label))
                 f.close()
-                
+
         if self.inference_list:
             for sublist in self.inference_list.split():
                 if not os.path.exists(sublist):
@@ -303,7 +303,7 @@ class DataLoaderNew:
                             'channels': self.channels,
                             'do_binarize_sauvola': self.do_binarize_sauvola,
                             'do_binarize_otsu': self.do_binarize_otsu,
-                           }
+                            }
         training_generator = None
         validation_generator = None
         test_generator = None
@@ -318,11 +318,13 @@ class DataLoaderNew:
             )
         if self.validation_list:
             validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
-                                             charList=self.charList, num_oov_indices=self.num_oov_indices)
+                                                    charList=self.charList, num_oov_indices=self.num_oov_indices)
         if self.test_list:
-            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList, num_oov_indices=self.num_oov_indices)
+            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList,
+                                              num_oov_indices=self.num_oov_indices)
         if self.inference_list:
-            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params, charList=self.charList, num_oov_indices=self.num_oov_indices)
+            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params,
+                                                   charList=self.charList, num_oov_indices=self.num_oov_indices)
 
         self.partition = partition
 
