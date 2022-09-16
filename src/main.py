@@ -114,9 +114,9 @@ def main():
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
                              'slower. Default 10')
-    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=10000,
-                        help='decay_steps. default 10000. After this number of iterations the learning rate will '
-                             'decrease with 10 percent.')
+    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=-1,
+                        help='decay_steps. default -1. After this number of iterations the learning rate will '
+                             'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches')
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
@@ -277,8 +277,13 @@ def main():
             initial_learning_rate=learning_rate,
             decay_steps=args.decay_steps,
             decay_rate=0.90)
+    elif args.decay_steps == -1:
+        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=training_generator.__len__(),
+            decay_rate=0.90)
     else:
-        lr_schedule=learning_rate
+        lr_schedule = learning_rate
 
     if args.existing_model:
         print('using existing model as base: ' + args.existing_model)
@@ -482,6 +487,7 @@ def main():
         store_info(args, model)
 
         training_dataset = training_generator
+        print('batches ' + str(training_dataset.__len__()))
         # try:
         history = Model().train_batch(
             model,
