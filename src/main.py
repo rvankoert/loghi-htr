@@ -65,10 +65,10 @@ def main():
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
                              '4 for png\'s with transparency')
-    parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
-                        help='contrastive_loss, binary_crossentropy, mse')
-    parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
-                        help='optimizer: adam, adadelta, rmsprop, sgd')
+    # parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
+    #                     help='contrastive_loss, binary_crossentropy, mse')
+    # parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
+    #                     help='optimizer: adam, adadelta, rmsprop, sgd')
     parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
                         help='memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
 
@@ -95,8 +95,8 @@ def main():
                         help='use this file containing textline location+transcription for inferencing. You can use '
                              'multiple input files quoted and space separated "inference_file1.txt '
                              'inference_file2.txt"to combine inferencing sets.')
-    parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
-                        help='testset to be used')
+    # parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
+    #                     help='testset to be used')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
                         help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
@@ -140,8 +140,6 @@ def main():
                         help='beta: do_binarize_sauvola')
     parser.add_argument('--multiply', metavar='multiply ', type=int, default=1,
                         help='multiply training data, default 1')
-    parser.add_argument('--augment', action='store_true',
-                        help='beta: apply data augmentation to training set. In general this is a good idea')
     parser.add_argument('--replace_final_layer', action='store_true',
                         help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
                              'using an existing model')
@@ -161,12 +159,18 @@ def main():
                              'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
                         help='beta: corpus_file to use')
+    # Data augmentations
     parser.add_argument('--elastic_transform', action='store_true',
                         help='beta: elastic_transform')
     parser.add_argument('--random_crop', action='store_true',
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
                         help='beta: random_width')
+    parser.add_argument('--distort_jpeg', action='store_true',
+                        help='beta: distort_jpeg')
+    parser.add_argument('--augment', action='store_true',
+                        help='beta: apply data augmentation to training set. In general this is a good idea')
+
     parser.add_argument('--dropout_rnn', type=float, default=0.5,
                         help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
     parser.add_argument('--reset_dropout', action='store_true',
@@ -184,8 +188,6 @@ def main():
                         help='beta: use_float32')
     parser.add_argument('--early_stopping_patience', type=int, default=20,
                         help='beta: early_stopping_patience')
-    parser.add_argument('--distort_jpeg', action='store_true',
-                        help='beta: distort_jpeg')
 
 
     args = parser.parse_args()
@@ -742,78 +744,6 @@ def main():
         inference_dataset = inference_generator
 
         store_info(args, model)
-
-
-        # write out used config:
-        # config_output_file = open(args.config_file_output, "w")
-        # config_output_file.write("seed="+str(args.seed) + "\n")
-        # config_output_file.write("gpu="+str(args.gpu) + "\n")
-        # config_output_file.write("learning_rate="+str(args.learning_rate) + "\n")
-        # config_output_file.write("epochs="+str(args.epochs) + "\n")
-        # config_output_file.write("batch_size="+str(args.batch_size) + "\n")
-        # config_output_file.write("height="+str(args.height) + "\n")
-        # config_output_file.write("width="+str(args.width) + "\n")
-        # config_output_file.write("channels="+str(args.channels) + "\n")
-        # config_output_file.write("output="+args.output + "\n")
-        # if args.train_list:
-        #     config_output_file.write("train_list="+args.train_list + "\n")
-        # if args.validation_list:
-        #     config_output_file.write("validation_list="+args.validation_list + "\n")
-        # if args.test_list:
-        #     config_output_file.write("test_list="+args.test_list + "\n")
-        # if args.inference_list:
-        #     config_output_file.write("inference_list="+args.inference_list + "\n")
-        # if args.existing_model:
-        #     config_output_file.write("existing_model="+args.existing_model + "\n")
-        # if args.model_name:
-        #     config_output_file.write("model_name="+args.model_name + "\n")
-        # config_output_file.write("loss="+args.loss + "\n")
-        # config_output_file.write("optimizer="+args.optimizer + "\n")
-        # config_output_file.write("memory_limit="+str(args.memory_limit) + "\n")
-        # config_output_file.write("results_file="+args.results_file + "\n")
-        # config_output_file.write("config_file_output="+args.config_file_output + "\n")
-        # config_output_file.write("config_file="+args.config_file + "\n")
-        # config_output_file.write("beam_width="+str(args.beam_width) + "\n")
-        # config_output_file.write("decay_steps="+str(args.decay_steps) + "\n")
-        # config_output_file.write("steps_per_epoch="+str(args.steps_per_epoch) + "\n")
-        # if args.model:
-        #     config_output_file.write("model="+args.model + "\n")
-        # config_output_file.write("charlist="+args.charlist + "\n")
-        # config_output_file.write("rnn_layers="+str(args.rnn_layers) + "\n")
-        # config_output_file.write("rnn_units="+str(args.rnn_units) + "\n")
-        # config_output_file.write("multiply="+str(args.multiply) + "\n")
-        # config_output_file.write("num_oov_indices="+str(args.num_oov_indices) + "\n")
-        # if args.corpus_file:
-        #     config_output_file.write("corpus_file="+str(args.corpus_file) + "\n")
-
-        # parser.add_argument('--elastic_transform', action='store_true',
-        #                     help='beta: elastic_transform')
-
-        # parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
-        #                     action='store_true')
-        # parser.add_argument('--do_validate', help='if enabled a separate validation run will be done',
-        #                     action='store_true')
-        # parser.add_argument('--do_inference', help='inference', action='store_true')
-
-        # parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
-        #                     help='testset to be used')
-        # parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
-        # parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
-        #                     action='store_true')
-        # parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
-        # parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
-        # parser.add_argument('--use_dropout',
-        #                     help='if enabled some dropout will be added to the model if creating a new model',
-        #                     action='store_true')
-        # parser.add_argument('--use_rnn_dropout',
-        #                     help='if enabled some dropout will be added to rnn layers of the model if creating a new model',
-        #                     action='store_true')
-        # parser.add_argument('--do_binarize_otsu', action='store_true',
-        #                     help='beta: do_binarize_otsu')
-        # parser.add_argument('--do_binarize_sauvola', action='store_true',
-        #                     help='beta: do_binarize_sauvola')
-        # parser.add_argument('--augment', action='store_true',
-        #                     help='beta: apply data augmentation to training set. In general this is a good idea')
 
         # config_output_file.close()
         #  Let's check results on some validation samples
