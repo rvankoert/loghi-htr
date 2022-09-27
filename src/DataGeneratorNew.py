@@ -13,7 +13,7 @@ import tensorflow_addons as tfa
 import random
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
-from keras.preprocessing.image import img_to_array
+from tensorflow.keras.utils import img_to_array
 from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
 # import elasticdeform.tf as etf
@@ -31,11 +31,17 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         X_deformed = elasticdeform.deform_grid(original, displacement, axis=(0, 1), cval=0)
         return X_deformed
 
-    def encode_single_sample_augmented(self, img_path, label):
-        return self.encode_single_sample(img_path, label, self.augment, self.do_elastic_transform, self.distort_jpeg)
+    # def encode_single_sample_augmented(self, img_path, label):
+    #     return self.encode_single_sample(self, img_path, label, self.augment, self.do_elastic_transform, self.distort_jpeg,
+    #                                      self.height, self.width, self.channels, self.do_binarize_otsu,
+    #                                      self.do_binarize_sauvola, self.random_crop, self.random_width
+    #                                      )
 
-    def encode_single_sample_clean(self, img_path, label):
-        return self.encode_single_sample(img_path, label, False, False, False)
+    # def encode_single_sample_clean(self, img_path, label):
+    #     return self.encode_single_sample(self, img_path, label, False, False, False,
+    #                                      self.height, self.width, self.channels, self.do_binarize_otsu,
+    #                                      self.do_binarize_sauvola, self.random_crop, self.random_width
+    #                                      )
 
     @staticmethod
     def sauvola(image):
@@ -143,24 +149,26 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             print('you can use --check_missing_files to check/skip during startup for missing files')
             exit()
 
-    def encode_single_sample(self, img_path, label, augment, elastic_transform, distort_jpeg):
+    @staticmethod
+    def encode_single_sample(datagenerator, img_path, label, augment, elastic_transform, distort_jpeg, height, width, channels,
+                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width):
         MAX_ROT_ANGLE = 10.0
         # img = tf.io.read_file(img_path)
         # img = tf.io.decode_png(img, channels=self.channels)
         # img = tf.image.convert_image_dtype(img, self.DTYPE)
-        if self.channels == 1:
+        if channels == 1:
             img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-            self.check_valid_file(img, img_path)
+            DataGeneratorNew.check_valid_file(img, img_path)
             img = np.expand_dims(img, -1)
             # gtImageEncoded = tf.image.encode_png(img)
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
-        elif self.channels == 3:
+        elif channels == 3:
             img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-            self.check_valid_file(img, img_path)
+            DataGeneratorNew.check_valid_file(img, img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
             img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-            self.check_valid_file(img, img_path)
+            DataGeneratorNew.check_valid_file(img, img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
@@ -168,7 +176,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         if distort_jpeg:
-            if self.channels == 4:
+            if channels == 4:
                 # crappy workaround for bug in shear_x where alpha causes errors
                 channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
                 img = tf.concat([channel1, channel2, channel3], axis=2)
@@ -183,7 +191,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         if elastic_transform:
             alpha_range = random.uniform(0, 750)
             sigma = random.uniform(0, 30)
-            img = self.elastic_transform(img)
+            img = DataGeneratorNew.elastic_transform(img)
         # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
         # print (img)
 
@@ -191,34 +199,35 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
         # img = tf.convert_to_tensor(img)
 
-        if self.do_binarize_otsu:
+        if do_binarize_otsu:
             if img.shape[2] > 1:
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                 # img = tf.image.rgb_to_grayscale(img)
             img = img * 255
-            img = self.otsu_thresholding(img)
+            img = DataGeneratorNew.otsu_thresholding(img)
 
-        if self.do_binarize_sauvola:
+        if do_binarize_sauvola:
             if img.shape[2] > 1:
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             # if img.shape[2] > 1:
             #     img = tf.image.rgb_to_grayscale(img)
             # print (img.shape)
-            img = self.sauvola(img)
+            img = DataGeneratorNew.sauvola(img)
             img = np.array(img, dtype=np.float32)
         # print(img)
         # img *= 255
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
-
+        image_height = img.shape[0]
+        image_width = img.shape[1]
         # img = tf.image.resize_with_pad(img, tf.shape(img)[0], tf.shape(img)[0]+tf.shape(img)[1])
 
         # augment=False
 
-        if augment and self.channels == 3:
+        if augment and channels == 3:
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
             img = tfa.image.shear_x(img, randomShear, replace=1.0)
-        if augment and self.channels == 4:
+        if augment and channels == 4:
             # crappy workaround for bug in shear_x where alpha causes errors
             channel1, channel2, channel3, alpha = tf.split(img, 4, axis=2)
             randomShear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
@@ -238,44 +247,44 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
             img = tf.image.adjust_contrast(img, random_contrast)
 
-        if self.random_crop:
+        if random_crop:
             randomseed = random.randint(0, 100000), random.randint(0, 1000000)
             random_crop = tf.random.uniform(shape=[1], minval=0.8, maxval=1.0)[0]
-            original_height = tf.cast(tf.shape(img)[0], tf.float32)
             original_width = tf.shape(img)[1]
+            original_height = tf.cast(tf.shape(img)[0], tf.float32)
+
             # print(random_crop)
             # print(original_height)
             crop_height = tf.cast(random_crop * original_height, tf.int32)
-            crop_size = (crop_height, original_width, img.shape[2])
+            crop_size = (crop_height, original_width, channels)
             img = tf.image.stateless_random_crop(img, crop_size, randomseed)
 
-        if self.random_width:
-            image_width = tf.shape(img)[1]
-            image_height = tf.shape(img)[0]
+        if random_width:
             random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
             random_width *= float(image_width)
-            random_width = int(random_width)
-            img = tf.image.resize(img, [image_height, random_width])
+            image_width = int(random_width)
+            img = tf.image.resize(img, [image_height, image_width])
 
-        img = tf.image.resize(img, [self.height, self.width], preserve_aspect_ratio=True)
-        label = self.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        # print('height1 '+ str(height) + " " + str(width))
+        # img = tf.image.resize(img, [height, width], preserve_aspect_ratio=True)
+        # print(label)
+        label = datagenerator.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        label_width = label.shape[0]
+        image_width = int((image_width/image_height)*height)
+        # img = tf.image.resize(img, [height, image_width], preserve_aspect_ratio=True)
+        img = tf.image.resize(img, [height, image_width])
 
-        image_height = tf.shape(img)[0]
-        image_width = tf.shape(img)[1]
-        label_width = tf.shape(label)[0]
-        # # #     img = tf.image.resize_with_pad(img, image_height, image_width)
-        #     print("img.shape[0]")
-        #     print(tf.shape(img)[0])
-
-        # img = tf.image.resize_with_pad(img, 51, 1024)
         if image_width < label_width*16:
-            img = tf.image.resize_with_pad(img, self.height, label_width*16)
+            image_width = label_width * 16
+            # print('setting label width '+ str(height) + " " + str(image_width))
+            img = tf.image.resize_with_pad(img, height, image_width)
 
-        image_width = tf.shape(img)[1]
         # pad 25 pixels left and right
-        img = tf.image.resize_with_pad(img, self.height, image_width+50)
-        if image_width > 6000:
-            img = tf.image.resize_with_pad(img, self.height, 6000)
+        # img = tf.ensure_shape(img, [self.height, None, self.channels])
+        # print('height2 ' + str(height) + " " + str(image_width+50) + " " + str(label_width))
+        img = tf.image.resize_with_pad(img, height, image_width+50)
+        # if image_width > 6000:
+        #     img = tf.image.resize_with_pad(img, height, 6000)
         # if self.channels == 1:
         #     img = 0.5 - img/255.0
         # else:
@@ -379,9 +388,15 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             # print(filename)
             if self.shuffle:
                 # print(ID)
-                item = self.encode_single_sample_augmented(filename, label)
+                item = DataGeneratorNew.encode_single_sample(self, filename, label, self.augment, self.do_elastic_transform, self.distort_jpeg,
+                                         self.height, self.width, self.channels, self.do_binarize_otsu,
+                                         self.do_binarize_sauvola, self.random_crop, self.random_width)
             else:
-                item = self.encode_single_sample_clean(filename, label)
+                # item = self.encode_single_sample_clean(filename, label)
+                item = DataGeneratorNew.encode_single_sample(self, filename, label, False, False, False,
+                                         self.height, self.width, self.channels, self.do_binarize_otsu,
+                                         self.do_binarize_sauvola, self.random_crop, self.random_width
+                                         )
             # item = self.get_baselines(ID)
             X.append(item[0])
             Y.append(item[1])
@@ -414,21 +429,21 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         if not self.charList:
             return
         if use_mask:
-            self.char_to_num = layers.experimental.preprocessing.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]'
+            self.char_to_num = tf.keras.layers.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]', encoding="UTF-8"
             )
             # Mapping integers back to original characters
-            self.num_to_char = layers.experimental.preprocessing.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='',
+            self.num_to_char = tf.keras.layers.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='', encoding="UTF-8",
                 invert=True
             )
         else:
-            self.char_to_num = layers.experimental.preprocessing.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None, oov_token='[UNK]'
+            self.char_to_num = tf.keras.layers.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None, oov_token='[UNK]', encoding="UTF-8"
             )
             # Mapping integers back to original characters
-            self.num_to_char = layers.experimental.preprocessing.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None,
+            self.num_to_char = tf.keras.layers.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, encoding="UTF-8",
                 invert=True
             )
 

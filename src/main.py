@@ -208,7 +208,8 @@ def main():
                 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
     if not args.use_float32:
         print("using mixed_float16")
-        tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
+        policy = tf.keras.mixed_precision.Policy('mixed_float16')
+        tf.keras.mixed_precision.set_global_policy(policy)
 
     SEED = args.seed
     random.seed(SEED)
@@ -249,13 +250,23 @@ def main():
                            distort_jpeg=args.distort_jpeg,
                            replace_final_layer=args.replace_final_layer
                            )
-
     if args.model_name:
         FilePaths.modelOutput = args.output + "/" + args.model_name
 
     print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
+    if False:
+        for run in range(5):
+            print("testing dataloader " + str(run))
+            training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
+
+            no_batches = training_generator.__len__()
+            for i in range(no_batches):
+                # if i%10 == 0:
+                print(i)
+                item = training_generator.__getitem__(i)
+                # training_generator.on_epoch_end()
     modelClass = Model()
     print(len(loader.charList))
     use_gru = False

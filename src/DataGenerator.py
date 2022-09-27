@@ -12,7 +12,8 @@ import tensorflow_addons as tfa
 import random
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.interpolation import map_coordinates
-from keras.preprocessing.image import img_to_array
+from tensorflow.keras.utils import img_to_array
+
 from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
 

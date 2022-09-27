@@ -192,10 +192,10 @@ while i < 100:
     else:
         title = title + " different"
     ax[0].set_title(title, fontsize=14)
-    img1 = tf.keras.preprocessing.image.array_to_img(K.squeeze(X[0][0], axis=-0))
+    img1 = tf.keras.utils.array_to_img(K.squeeze(X[0][0], axis=-0))
     ax[0].imshow(img1)
     ax[1].imshow(saliency_map1[0], cmap='jet')
-    img2 = tf.keras.preprocessing.image.array_to_img(K.squeeze(X[0][1], axis=-0))
+    img2 = tf.keras.utils.array_to_img(K.squeeze(X[0][1], axis=-0))
     ax[2].set_title(predicted[0][0], fontsize=14)
     ax[2].imshow(img2)
     ax[3].imshow(saliency_map2[0], cmap='jet')
