@@ -171,6 +171,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             DataGeneratorNew.check_valid_file(img, img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
         # gtImageEncoded = tf.image.encode_png(img)
+        # img = tf.image.decode_image(gtImageEncoded)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         # img *= 255
         # gtImageEncoded = tf.image.encode_png(img)
@@ -272,7 +273,10 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         label_width = label.shape[0]
         image_width = int((image_width/image_height)*height)
         # img = tf.image.resize(img, [height, image_width], preserve_aspect_ratio=True)
+        img = tf.image.convert_image_dtype(img, dtype=tf.float32)
+
         img = tf.image.resize(img, [height, image_width])
+        # # breaks here ^^^^
 
         if image_width < label_width*16:
             image_width = label_width * 16
@@ -294,10 +298,10 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # return {"image": img, "label": label}
         return img, label
 
-    def __init__(self, list_IDs, labels, batch_size=1, dim=(751, 51, 4), channels=4, shuffle=True, height=32,
+    def __init__(self, list_IDs, labels, batch_size=1, channels=4, shuffle=True, height=32,
                  width=99999, charList=None, do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
                  elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False):
-        'Initialization'
+        """Initialization"""
         if charList is None:
             charList = []
         self.batch_size = batch_size
@@ -305,10 +309,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.list_IDs = list_IDs
         self.channels = channels
         self.shuffle = shuffle
-        self.on_epoch_end()
         self.height = height
         self.width = width
-        self.on_epoch_end()
         self.charList = charList
         self.set_charlist(self.charList, num_oov_indices=num_oov_indices)
         self.do_binarize_otsu = do_binarize_otsu
@@ -318,6 +320,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.random_crop = random_crop
         self.random_width = random_width
         self.distort_jpeg = distort_jpeg
+        self.on_epoch_end()
 
     def __len__(self):
         """Denotes the number of batches per epoch"""

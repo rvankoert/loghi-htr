@@ -258,16 +258,33 @@ def main():
     print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator = loader.generators()
 
+    # Testing
     if False:
-        for run in range(5):
+        for run in range(1):
             print("testing dataloader " + str(run))
             training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
 
             no_batches = training_generator.__len__()
-            for i in range(no_batches):
+            for i in range(10):
                 # if i%10 == 0:
                 print(i)
                 item = training_generator.__getitem__(i)
+            training_generator.random_width = False
+            training_generator.random_crop = False
+            # training_generator.augment = True
+            training_generator.elastic_transform = False
+            training_generator.distort_jpeg = False
+            training_generator.do_binarize_sauvola = False
+            training_generator.do_binarize_otsu = False
+            training_generator.on_epoch_end()
+            for i in range(10):
+                # if i%10 == 0:
+                print(i)
+                batch = training_generator.__getitem__(i)
+                item = tf.image.convert_image_dtype(-0.5 - batch[0][1], dtype=tf.uint8)
+                gtImageEncoded = tf.image.encode_png(item)
+                tf.io.write_file("/tmp/test-"+str(i)+".png", gtImageEncoded)
+
                 # training_generator.on_epoch_end()
     modelClass = Model()
     print(len(loader.charList))
