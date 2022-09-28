@@ -269,11 +269,11 @@ def main():
                 # if i%10 == 0:
                 print(i)
                 item = training_generator.__getitem__(i)
-            training_generator.random_width = False
-            training_generator.random_crop = False
+            training_generator.random_width = True
+            training_generator.random_crop = True
             # training_generator.augment = True
-            training_generator.elastic_transform = False
-            training_generator.distort_jpeg = False
+            training_generator.elastic_transform = True
+            training_generator.distort_jpeg = True
             training_generator.do_binarize_sauvola = False
             training_generator.do_binarize_otsu = False
             training_generator.on_epoch_end()
@@ -286,6 +286,7 @@ def main():
                 tf.io.write_file("/tmp/test-"+str(i)+".png", gtImageEncoded)
 
                 # training_generator.on_epoch_end()
+        exit()
     modelClass = Model()
     print(len(loader.charList))
     use_gru = False
