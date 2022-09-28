@@ -176,6 +176,16 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # img *= 255
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
+        # exit()
+        if elastic_transform:
+            alpha_range = random.uniform(0, 750)
+            sigma = random.uniform(0, 30)
+            img = DataGeneratorNew.elastic_transform(img)
+        # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
+        # print (img)
+
         if distort_jpeg:
             if channels == 4:
                 # crappy workaround for bug in shear_x where alpha causes errors
@@ -186,15 +196,6 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
                 img = tf.concat([channel1, channel2, channel3, alpha], axis=2)
             else:
                 img = tf.image.random_jpeg_quality(img, 50, 100)
-        # gtImageEncoded = tf.image.encode_png(img)
-        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
-        # exit()
-        if elastic_transform:
-            alpha_range = random.uniform(0, 750)
-            sigma = random.uniform(0, 30)
-            img = DataGeneratorNew.elastic_transform(img)
-        # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
-        # print (img)
 
         # print(img)
 
@@ -264,6 +265,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
             random_width *= float(image_width)
             image_width = int(random_width)
+            img = tf.image.convert_image_dtype(img, dtype=tf.float32)
             img = tf.image.resize(img, [image_height, image_width])
 
         # print('height1 '+ str(height) + " " + str(width))
