@@ -18,7 +18,7 @@ from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
 # import elasticdeform.tf as etf
 import elasticdeform
-
+import gc
 
 class DataGeneratorNew(tf.keras.utils.Sequence):
     DTYPE = tf.float32
@@ -246,8 +246,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         if augment:
             random_brightness = tf.random.uniform(shape=[1], minval=-0.5, maxval=0.5)[0]
             img = tf.image.adjust_brightness(img, delta=random_brightness)
-            random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
-            img = tf.image.adjust_contrast(img, random_contrast)
+            # random_contrast = tf.random.uniform(shape=[1], minval=0.7, maxval=1.3)[0]
+            # img = tf.image.adjust_contrast(img, contrast_factor=random_contrast)
 
         if random_crop:
             randomseed = random.randint(0, 100000), random.randint(0, 1000000)
@@ -278,7 +278,6 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         img = tf.image.convert_image_dtype(img, dtype=tf.float32)
 
         img = tf.image.resize(img, [height, image_width])
-        # # breaks here ^^^^
 
         if image_width < label_width*16:
             image_width = label_width * 16
@@ -333,6 +332,9 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle:
             np.random.shuffle(self.indexes)
+        gc.collect()
+        tf.keras.backend.clear_session()
+
 
     def get_file(self, index):
         # Find list of IDs
