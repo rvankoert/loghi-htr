@@ -308,7 +308,7 @@ def main():
             initial_learning_rate=learning_rate,
             decay_steps=args.decay_steps,
             decay_rate=0.99)
-    elif args.decay_steps == -1:
+    elif args.decay_steps == -1 and args.do_train:
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=training_generator.__len__(),
