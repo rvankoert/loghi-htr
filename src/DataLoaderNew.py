@@ -167,8 +167,8 @@ class DataLoaderNew:
                         continue
 
                     counter = counter + 1
-                    if (counter > 10000):
-                        break
+                    # if (counter > 10000):
+                    #     break
 
                     # put sample into list
                     partition['validation'].append(fileName)

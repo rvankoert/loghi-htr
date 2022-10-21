@@ -324,6 +324,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         self.on_epoch_end()
 
     def __len__(self):
+        self.on_epoch_end()
         """Denotes the number of batches per epoch"""
         return int(np.ceil(len(self.list_IDs) / self.batch_size))
 
