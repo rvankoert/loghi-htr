@@ -334,7 +334,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
         gc.collect()
-        tf.keras.backend.clear_session()
+        # tf.keras.backend.clear_session()
 
 
     def get_file(self, index):

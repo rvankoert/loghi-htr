@@ -22,6 +22,14 @@ class DataLoaderNew:
             .replace(',', ', ') \
             .replace(' .', '. ') \
             .replace('  ', ' ') \
+            .replace('`', '\'') \
+            .replace('´', '\'') \
+            .replace('ʼ', '\'') \
+            .replace('‘', '\'') \
+            .replace('’', '\'') \
+            .replace('“', '"') \
+            .replace('”', '"') \
+            .replace('·', '.') \
             .strip()
         return output
 
@@ -116,7 +124,7 @@ class DataLoaderNew:
                                 print('a ignoring line: ' + gtText)
                                 ignoreLine = True
                                 break
-                    if ignoreLine:
+                    if ignoreLine or not gtText:
                         continue
                     counter = counter + 1
                     for i in range(0, self.multiply):
@@ -125,7 +133,7 @@ class DataLoaderNew:
                         trainLabels[fileName] = gtText
                     if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(set(char for label in gtText for char in label))
-                    # if (counter > 100000):
+                    # if counter > 100:
                     #     break
                 f.close()
 
@@ -163,7 +171,7 @@ class DataLoaderNew:
                                 print('b ignoring line: ' + gtText)
                                 ignoreLine = True
                                 break
-                    if ignoreLine:
+                    if ignoreLine or not gtText:
                         continue
 
                     counter = counter + 1
@@ -210,6 +218,9 @@ class DataLoaderNew:
                         gtText = self.normalize(lineSplit[1])
                     else:
                         gtText = lineSplit[1]
+
+                    if not gtText:
+                        continue
 
                     counter = counter + 1
                     # if (counter > 100):

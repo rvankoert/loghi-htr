@@ -451,6 +451,12 @@ def main():
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
+            elif 'new14' == args.model:
+                model = modelClass.build_model_new14(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
+                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
+                                                     dropoutconv=args.dropoutconv)
             elif 'old6' == args.model:
                 model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
