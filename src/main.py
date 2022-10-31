@@ -16,7 +16,6 @@ import editdistance
 import subprocess
 import matplotlib.pyplot as plt
 
-
 class FilePaths:
     "filenames and paths to data"
     fnCharList = '../model/charList.txt'

@@ -135,7 +135,8 @@ def CTCLoss(y_true, y_pred):
     label_length = tf.math.count_nonzero(y_true, axis=-1, keepdims=True)
 
     # https://stackoverflow.com/questions/64321779/how-to-use-tf-ctc-loss-with-variable-length-features-and-labels
-
+    # tf.print(input_length)
+    # tf.print(label_length)
     input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
     # label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
 
@@ -289,7 +290,7 @@ class Model():
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool1")(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
         if dropout:
             x = layers.Dropout(dropoutconv)(x)
 
@@ -305,7 +306,7 @@ class Model():
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool2")(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
         if dropout:
             x = layers.Dropout(dropoutconv)(x)
 
@@ -320,7 +321,7 @@ class Model():
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), padding='same', name="pool3")(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
         if dropout:
             x = layers.Dropout(dropoutconv)(x)
 

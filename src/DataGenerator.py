@@ -16,7 +16,7 @@ from tensorflow.keras.utils import img_to_array
 
 from skimage.filters import (threshold_otsu, threshold_niblack,
                              threshold_sauvola)
-
+# from tensorflow.python.data.experimental import AutoShardPolicy
 
 class DataGenerator(tf.keras.utils.Sequence):
     DTYPE = tf.float32

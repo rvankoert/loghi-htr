@@ -4,6 +4,9 @@ from __future__ import print_function
 import os
 import random
 
+from tensorflow.python.data.experimental import AutoShardPolicy
+import tensorflow as tf
+
 from DataGeneratorNew import DataGeneratorNew
 
 
@@ -124,7 +127,8 @@ class DataLoaderNew:
                                 print('a ignoring line: ' + gtText)
                                 ignoreLine = True
                                 break
-                    if ignoreLine or not gtText:
+                    if ignoreLine or len(gtText) == 0:
+                        print(line)
                         continue
                     counter = counter + 1
                     for i in range(0, self.multiply):
@@ -135,6 +139,7 @@ class DataLoaderNew:
                         chars = chars.union(set(char for label in gtText for char in label))
                     # if counter > 100:
                     #     break
+                print('found ' + str(counter) + ' lines suitable for training')
                 f.close()
 
         if self.validation_list:
@@ -184,6 +189,7 @@ class DataLoaderNew:
                     valLabels[fileName] = gtText
                     if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(set(char for label in gtText for char in label))
+                print('found ' + str(counter) + ' lines suitable for validation')
                 f.close()
 
         counter = 0
@@ -232,6 +238,7 @@ class DataLoaderNew:
                     testLabels[fileName] = gtText
                     if not self.injected_charlist:
                         chars = chars.union(set(char for label in gtText for char in label))
+                print('found ' + str(counter) + ' lines suitable for testing')
                 f.close()
 
         if self.inference_list:
@@ -327,6 +334,7 @@ class DataLoaderNew:
                 charList=self.charList,
                 num_oov_indices=self.num_oov_indices
             )
+
         if self.validation_list:
             validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
                                                     charList=self.charList, num_oov_indices=self.num_oov_indices)
