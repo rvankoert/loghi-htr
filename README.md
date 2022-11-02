@@ -33,7 +33,9 @@ for help run:
 python3.8 main.py --help
 
 to train using GPU use this line:
-CUDA_VISIBLE_DEVICES=0 python3.8 main.py --do_train --train_list "training_all_ijsberg_na_train.txt training_all_globalise_train.txt" --validation_list "training_all_globalise_val.txt" --learning_rate 0.0001 --channels 4 --do_validate --gpu 0 --height 64 --use_mask 
+```
+CUDA_VISIBLE_DEVICES=0 python3.8 main.py --do_train --train_list "training_all_ijsberg_na_train.txt training_all_globalise_train.txt" --validation_list "training_all_globalise_val.txt" --learning_rate 0.0001 --channels 4 --do_validate --gpu 0 --height 64 --use_mask --model newd14
+``` 
 
 --do_train: enable training stage
 --train_list: list of files containing training data, must be of format: path_to_textline_image <TAB> transcription
