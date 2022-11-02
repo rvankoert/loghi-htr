@@ -240,9 +240,8 @@ def main():
 
     char_list = None
     if args.existing_model:
-        file = open(args.charlist)
-        char_list = list(char for char in file.read())
-        file.close()
+        with open(args.charlist) as file:
+            char_list = list(char for char in file.read())
         # char_list = args.charlist
     loader = DataLoaderNew(batchSize, imgSize,
                            train_list=args.train_list,
@@ -340,9 +339,8 @@ def main():
             if not os.path.exists(args.charlist):
                 print('cannot find charlist on disk: ' + args.charlist)
                 exit(1)
-            file = open(args.charlist)
-            char_list = list(char for char in file.read())
-            file.close()
+            with open(args.charlist) as file:
+                char_list = list(char for char in file.read())
             # char_list = sorted(list(char_list))
             print("using charlist")
             print("length charlist: " + str(len(char_list)))
@@ -362,9 +360,8 @@ def main():
                 # chars_file = open(args.charlist, 'w')
                 # chars_file.write(str().join(loader.charList))
                 # chars_file.close()
-                chars_file = open(args.output_charlist, 'w')
-                chars_file.write(str().join(loader.charList))
-                chars_file.close()
+                with open(args.output_charlist, 'w') as chars_file:
+                    chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
                 model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
@@ -403,9 +400,8 @@ def main():
             # chars_file = open(args.charlist, 'w')
             # chars_file.write(str().join(loader.charList))
             # chars_file.close()
-            chars_file = open(args.output_charlist, 'w')
-            chars_file.write(str().join(loader.charList))
-            chars_file.close()
+            with open(args.output_charlist, 'w') as chars_file:
+                chars_file.write(str().join(loader.charList))
 
             char_list = loader.charList
             print("creating new model")
@@ -627,14 +623,13 @@ def main():
                 print('cannot find corpus_file on disk: ' + args.corpus_file)
                 exit(1)
 
-            f = open(args.corpus_file)
-            # # corpus = f.read()
-            corpus = ''
-            # # chars = set()
-            for line in f:
-                # chars = chars.union(set(char for label in line for char in label))
-                corpus += line
-            f.close()
+            with open(args.corpus_file) as f:
+                # # corpus = f.read()
+                corpus = ''
+                # # chars = set()
+                for line in f:
+                    # chars = chars.union(set(char for label in line for char in label))
+                    corpus += line
             word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
             #
             chars = '' + ''.join(sorted(list(char_list)))
@@ -792,47 +787,44 @@ def main():
         # config_output_file.close()
         #  Let's check results on some validation samples
         batch_counter = 0
-        text_file = open(args.results_file, "w")
+        with open(args.results_file, "w") as text_file:
 
-        for batch in inference_dataset:
-            # batch_images = batch["image"]
-            # batch_labels = batch["label"]
-            # prediction_model.reset_state()
-            preds = prediction_model.predict_on_batch(batch[0])
-            # preds = prediction_model.predict(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, inference_generator, args.greedy, args.beam_width)
+            for batch in inference_dataset:
+                # batch_images = batch["image"]
+                # batch_labels = batch["label"]
+                # prediction_model.reset_state()
+                preds = prediction_model.predict_on_batch(batch[0])
+                # preds = prediction_model.predict(batch[0])
+                pred_texts = decode_batch_predictions(preds, maxTextLen, inference_generator, args.greedy, args.beam_width)
 
-            orig_texts = []
-            for label in batch[1]:
-                label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
-                orig_texts.append(label.strip())
-            for pred in pred_texts:
-                for i in range(len(pred)):
-                    confidence = pred[i][0]
-                    pred_text = pred[i][1]
-                    # for i in range(16):
-                    filename = loader.get_item('inference', (batch_counter * batchSize) + i)
-                    original_text = orig_texts[i].strip().replace('', '')
-                    predicted_text = pred_text.strip().replace('', '')
-                    print(original_text)
-                    print(filename + "\t" + str(confidence) + "\t" + predicted_text)
-                    text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
+                orig_texts = []
+                for label in batch[1]:
+                    label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
+                    orig_texts.append(label.strip())
+                for pred in pred_texts:
+                    for i in range(len(pred)):
+                        confidence = pred[i][0]
+                        pred_text = pred[i][1]
+                        # for i in range(16):
+                        filename = loader.get_item('inference', (batch_counter * batchSize) + i)
+                        original_text = orig_texts[i].strip().replace('', '')
+                        predicted_text = pred_text.strip().replace('', '')
+                        print(original_text)
+                        print(filename + "\t" + str(confidence) + "\t" + predicted_text)
+                        text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
 
-                    # for i in range(len(pred_texts)):
-            #     filename = loader.get_item(batch_counter * batchSize + item_counter)
-            #     original_text = orig_texts[i].strip().replace('', '')
-            #     predicted_text = pred_texts[i].strip().replace('', '')
-                batch_counter += 1
-                text_file.flush()
-            # keras.backend.clear_session()
-        text_file.close()
-
+                        # for i in range(len(pred_texts)):
+                #     filename = loader.get_item(batch_counter * batchSize + item_counter)
+                #     original_text = orig_texts[i].strip().replace('', '')
+                #     predicted_text = pred_texts[i].strip().replace('', '')
+                    batch_counter += 1
+                    text_file.flush()
+                # keras.backend.clear_session()
 
 def store_info(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
-            file.close()
     else:
         bash_command = 'git log --format="%H" -n 1'
         process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
@@ -851,7 +843,6 @@ def store_info(args, model):
 
     with open(os.path.join(args.output, 'config.json'), 'w') as configuration_file:
         json.dump(config, configuration_file)
-        configuration_file.close()
 
 if __name__ == '__main__':
     main()
