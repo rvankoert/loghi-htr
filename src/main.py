@@ -210,10 +210,12 @@ def main():
             print('setting memory_limit: ' + str(args.memory_limit))
             tf.config.experimental.set_virtual_device_configuration(gpus[0], [
                 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
-    if not args.use_float32:
+    if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
         policy = tf.keras.mixed_precision.Policy('mixed_float16')
         tf.keras.mixed_precision.set_global_policy(policy)
+    else:
+        print("using float32")
 
     SEED = args.seed
     random.seed(SEED)
@@ -235,7 +237,9 @@ def main():
 
     char_list = None
     if args.existing_model:
-        char_list = list(char for char in open(args.charlist).read())
+        file = open(args.charlist)
+        char_list = list(char for char in file.read())
+        file.close()
         # char_list = args.charlist
     loader = DataLoaderNew(batchSize, imgSize,
                            train_list=args.train_list,
@@ -311,6 +315,10 @@ def main():
             decay_steps=args.decay_steps,
             decay_rate=0.99)
     elif args.decay_steps == -1 and args.do_train:
+        if training_generator is None:
+            print('training, but training_generator is None. Did you provide a train_list?')
+            exit(1)
+
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=training_generator.__len__(),
@@ -328,7 +336,9 @@ def main():
             if not os.path.exists(args.charlist):
                 print('cannot find charlist on disk: ' + args.charlist)
                 exit(1)
-            char_list = list(char for char in open(args.charlist).read())
+            file = open(args.charlist)
+            char_list = list(char for char in file.read())
+            file.close()
             # char_list = sorted(list(char_list))
             print("using charlist")
             print("length charlist: " + str(len(char_list)))
@@ -474,7 +484,7 @@ def main():
             # elif 'old1' == args.model:
             #     model = modelClass.build_model_old1(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
             else:
-                print('no model supplied. Existing or new ... Are you sure this is correct?')
+                print('no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
                 exit()
 
                 # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask,
@@ -620,6 +630,7 @@ def main():
             for line in f:
                 # chars = chars.union(set(char for label in line for char in label))
                 corpus += line
+            f.close()
             word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
             #
             chars = '' + ''.join(sorted(list(char_list)))
@@ -816,6 +827,7 @@ def store_info(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
+            file.close()
     else:
         bash_command = 'git log --format="%H" -n 1'
         process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
@@ -834,7 +846,7 @@ def store_info(args, model):
 
     with open(os.path.join(args.output, 'config.json'), 'w') as configuration_file:
         json.dump(config, configuration_file)
-
+        configuration_file.close()
 
 if __name__ == '__main__':
     main()
