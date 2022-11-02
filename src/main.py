@@ -187,6 +187,8 @@ def main():
                         help='beta: use_float32')
     parser.add_argument('--early_stopping_patience', type=int, default=20,
                         help='beta: early_stopping_patience')
+    parser.add_argument('--normalize_text', type=bool, default=True,
+                        help='')
 
 
     args = parser.parse_args()
@@ -227,6 +229,7 @@ def main():
     maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
+    normalize_text = args.normalize_text
 
     if args.output and not os.path.exists(args.output):
         try:
@@ -256,7 +259,8 @@ def main():
                            random_width=args.random_width,
                            check_missing_files=args.check_missing_files,
                            distort_jpeg=args.distort_jpeg,
-                           replace_final_layer=args.replace_final_layer
+                           replace_final_layer=args.replace_final_layer,
+                           normalize_text=normalize_text
                            )
     if args.model_name:
         FilePaths.modelOutput = args.output + "/" + args.model_name
@@ -771,7 +775,8 @@ def main():
                                imgSize,
                                char_list,
                                inference_list=args.inference_list,
-                               check_missing_files=args.check_missing_files
+                               check_missing_files=args.check_missing_files,
+                               normalize_text=normalize_text
                                )
         training_generator, validation_generator, test_generator, inference_generator = loader.generators()
         inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
