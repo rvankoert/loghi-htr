@@ -331,5 +331,3 @@ class DataLoaderNewTest(unittest.TestCase):
                           'test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l11.png',
                           'test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l10.png',
                           'test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l13.png'])
-
-    # test voor regelse die niet ondersteunde karakters bevatten (zitten niet in charList)
