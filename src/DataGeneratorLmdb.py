@@ -287,7 +287,8 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
 
     def __init__(self, list_IDs, labels, batch_size=1, channels=4, shuffle=True, height=32,
                  width=99999, charList=None, do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
-                 elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False):
+                 elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False,
+                 lmdb_name='/tmp/loghi_lmdb'):
         """Initialization"""
         if charList is None:
             charList = []
@@ -308,19 +309,18 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         self.random_width = random_width
         self.distort_jpeg = distort_jpeg
         self.on_epoch_end()
-        # TODO make path a param
-        self.lmdb_name = '/tmp/loghi_lmdb' + str(uuid.uuid4())
+        self.lmdb_name = lmdb_name + str(uuid.uuid4())
 
         self.__generate_ldmb__(self.list_IDs)
 
     def __generate_ldmb__(self, image_paths):
         length = len(image_paths)
 
-        # FIXME make variable based on the images
-        map_size = 2000000000
-        # FIXME find beter path
-        env = lmdb.open(self.lmdb_name, map_size=map_size)
         channels = self.channels
+        # calculation based on unit8
+        map_size = length * channels * 8 * self.height * self.width
+        print("map_size: ", map_size)
+        env = lmdb.open(self.lmdb_name, map_size=map_size)
         with env.begin(write=True) as txn:
             for i in range(length):
                 img_path = image_paths[i]
@@ -336,7 +336,6 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 else:
                     img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-                    print(type(self.sauvola(img)))
                     DataGeneratorLmdb.check_valid_file(img, img_path)
                     img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
                 key = img_path
@@ -423,7 +422,6 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
                             continue
                         lmdb_image = pickle.loads(data)
                         img = lmdb_image
-                        print(np.iinfo(img.dtype))
                         # print(self.labels)
                         # print(ID)
                         # print(label)
