@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 import json
 
+from matplotlib import use
 from word_beam_search import WordBeamSearch
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
@@ -189,6 +190,8 @@ def main():
                         help='beta: early_stopping_patience')
     parser.add_argument('--normalize_text', type=bool, default=True,
                         help='')
+    parser.add_argument('--use_lmdb', action='store_true',
+                        help='use lmdb to store images, this might be faster for more epochs')
 
 
     args = parser.parse_args()
@@ -259,7 +262,8 @@ def main():
                            check_missing_files=args.check_missing_files,
                            distort_jpeg=args.distort_jpeg,
                            replace_final_layer=args.replace_final_layer,
-                           normalize_text=normalize_text
+                           normalize_text=normalize_text,
+                           use_lmdb=args.use_lmdb
                            )
     if args.model_name:
         FilePaths.modelOutput = args.output + "/" + args.model_name

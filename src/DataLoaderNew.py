@@ -7,6 +7,7 @@ import random
 from tensorflow.python.data.experimental import AutoShardPolicy
 import tensorflow as tf
 
+from DataGeneratorLmdb import DataGeneratorLmdb
 from DataGeneratorNew import DataGeneratorNew
 
 
@@ -52,7 +53,8 @@ class DataLoaderNew:
                  random_width=False,
                  check_missing_files=True,
                  distort_jpeg=False,
-                 replace_final_layer=False
+                 replace_final_layer=False,
+                 use_lmdb=False
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
@@ -83,6 +85,7 @@ class DataLoaderNew:
         self.check_missing_files = check_missing_files
         self.distort_jpeg = distort_jpeg
         self.replace_final_layer = replace_final_layer
+        self.use_lmdb=use_lmdb
 
     def generators(self):
         chars = set()
@@ -147,27 +150,36 @@ class DataLoaderNew:
         test_generator = None
         inference_generator = None
         if self.train_list:
-            training_generator = DataGeneratorNew(
-                partition['train'],
-                labels['train'],
-                **trainParams,
-                charList=self.charList,
-                num_oov_indices=self.num_oov_indices
-            )
+            training_generator = self.create_data_generator(labels, partition, trainParams, 'train')
 
         if self.validation_list:
-            validation_generator = DataGeneratorNew(partition['validation'], labels['validation'], **validationParams,
-                                                    charList=self.charList, num_oov_indices=self.num_oov_indices)
+            validation_generator = self.create_data_generator(labels, partition, validationParams, 'validation')
         if self.test_list:
-            test_generator = DataGeneratorNew(partition['test'], labels['test'], **testParams, charList=self.charList,
-                                              num_oov_indices=self.num_oov_indices)
+            test_generator = self.create_data_generator(labels, partition, testParams, 'test')
         if self.inference_list:
-            inference_generator = DataGeneratorNew(partition['inference'], labels['inference'], **inference_params,
-                                                   charList=self.charList, num_oov_indices=self.num_oov_indices)
+            inference_generator = self.create_data_generator(labels, partition, inference_params, 'inference')
 
         self.partition = partition
 
         return training_generator, validation_generator, test_generator, inference_generator
+
+    def create_data_generator(self, labels, partition, params, process_step):
+        if self.use_lmdb:
+            return DataGeneratorLmdb(
+                partition[process_step],
+                labels[process_step],
+                **params,
+                charList=self.charList,
+                num_oov_indices=self.num_oov_indices
+            )
+        else:
+            return DataGeneratorNew(
+                partition[process_step],
+                labels[process_step],
+                **params,
+                charList=self.charList,
+                num_oov_indices=self.num_oov_indices
+            )
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
                     include_missing_files=False, is_inference=False):

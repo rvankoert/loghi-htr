@@ -319,7 +319,6 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         channels = self.channels
         # calculation based on unit8
         map_size = length * channels * 8 * self.height * self.width
-        print("map_size: ", map_size)
         env = lmdb.open(self.lmdb_name, map_size=map_size)
         with env.begin(write=True) as txn:
             for i in range(length):
