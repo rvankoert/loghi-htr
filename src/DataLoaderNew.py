@@ -169,7 +169,7 @@ class DataLoaderNew:
         self.check_missing_files = check_missing_files
         self.distort_jpeg = distort_jpeg
         self.replace_final_layer = replace_final_layer
-        self.use_lmdb = use_lmdb,
+        self.use_lmdb = use_lmdb
         self.reuse_old_lmdb_train = reuse_old_lmdb_train
         self.reuse_old_lmdb_val = reuse_old_lmdb_val
         self.reuse_old_lmdb_test = reuse_old_lmdb_test
