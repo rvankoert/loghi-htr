@@ -37,56 +37,6 @@ class DataLoaderNew:
             .strip()
         return output
 
-    def __init__(self, batchSize, imgSize, char_list=None,
-                 train_list='',
-                 validation_list='',
-                 test_list='',
-                 inference_list='',
-                 do_binarize_sauvola=False,
-                 do_binarize_otsu=False,
-                 normalize_text=True,
-                 multiply=1,
-                 augment=True,
-                 elastic_transform=False,
-                 num_oov_indices=0,
-                 random_crop=False,
-                 random_width=False,
-                 check_missing_files=True,
-                 distort_jpeg=False,
-                 replace_final_layer=False,
-                 use_lmdb=False
-                 ):
-        """loader for dataset at given location, preprocess images and text according to parameters"""
-
-        # assert filePath[-1] == '/'
-
-        self.currIdx = 0
-        self.batchSize = batchSize
-        self.imgSize = imgSize
-        self.samples = []
-        self.height = imgSize[0]
-        self.width = imgSize[1]
-        self.channels = imgSize[2]
-        self.partition = []
-        self.injected_charlist = char_list
-        self.train_list = train_list
-        self.validation_list = validation_list
-        self.test_list = test_list
-        self.inference_list = inference_list
-        self.do_binarize_sauvola = do_binarize_sauvola
-        self.do_binarize_otsu = do_binarize_otsu
-        self.normalize_text = normalize_text
-        self.multiply = multiply
-        self.dataAugmentation = augment
-        self.elastic_transform = elastic_transform
-        self.num_oov_indices = num_oov_indices
-        self.random_crop = random_crop
-        self.random_width = random_width
-        self.check_missing_files = check_missing_files
-        self.distort_jpeg = distort_jpeg
-        self.replace_final_layer = replace_final_layer
-        self.use_lmdb=use_lmdb
-
     def generators(self):
         chars = set()
         partition = {'train': [], 'validation': [], 'test': [], 'inference': []}
@@ -150,27 +100,90 @@ class DataLoaderNew:
         test_generator = None
         inference_generator = None
         if self.train_list:
-            training_generator = self.create_data_generator(labels, partition, trainParams, 'train')
+            training_generator = self.create_data_generator(labels, partition, trainParams, 'train',
+                                                            reuse_old_lmdb=self.reuse_old_lmdb_train)
 
         if self.validation_list:
-            validation_generator = self.create_data_generator(labels, partition, validationParams, 'validation')
+            validation_generator = self.create_data_generator(labels, partition, validationParams, 'validation',
+                                                              reuse_old_lmdb=self.reuse_old_lmdb_val)
         if self.test_list:
-            test_generator = self.create_data_generator(labels, partition, testParams, 'test')
+            test_generator = self.create_data_generator(labels, partition, testParams, 'test',
+                                                        reuse_old_lmdb=self.reuse_old_lmdb_test)
         if self.inference_list:
-            inference_generator = self.create_data_generator(labels, partition, inference_params, 'inference')
+            inference_generator = self.create_data_generator(labels, partition, inference_params, 'inference',
+                                                             reuse_old_lmdb=self.reuse_old_lmdb_inference)
 
         self.partition = partition
 
         return training_generator, validation_generator, test_generator, inference_generator
 
-    def create_data_generator(self, labels, partition, params, process_step):
+    def __init__(self, batchSize, imgSize, char_list=None,
+                 train_list='',
+                 validation_list='',
+                 test_list='',
+                 inference_list='',
+                 do_binarize_sauvola=False,
+                 do_binarize_otsu=False,
+                 normalize_text=True,
+                 multiply=1,
+                 augment=True,
+                 elastic_transform=False,
+                 num_oov_indices=0,
+                 random_crop=False,
+                 random_width=False,
+                 check_missing_files=True,
+                 distort_jpeg=False,
+                 replace_final_layer=False,
+                 use_lmdb=False,
+                 reuse_old_lmdb_train=None,
+                 reuse_old_lmdb_val=None,
+                 reuse_old_lmdb_test=None,
+                 reuse_old_lmdb_inference=None
+                 ):
+        """loader for dataset at given location, preprocess images and text according to parameters"""
+
+        # assert filePath[-1] == '/'
+
+        self.currIdx = 0
+        self.batchSize = batchSize
+        self.imgSize = imgSize
+        self.samples = []
+        self.height = imgSize[0]
+        self.width = imgSize[1]
+        self.channels = imgSize[2]
+        self.partition = []
+        self.injected_charlist = char_list
+        self.train_list = train_list
+        self.validation_list = validation_list
+        self.test_list = test_list
+        self.inference_list = inference_list
+        self.do_binarize_sauvola = do_binarize_sauvola
+        self.do_binarize_otsu = do_binarize_otsu
+        self.normalize_text = normalize_text
+        self.multiply = multiply
+        self.dataAugmentation = augment
+        self.elastic_transform = elastic_transform
+        self.num_oov_indices = num_oov_indices
+        self.random_crop = random_crop
+        self.random_width = random_width
+        self.check_missing_files = check_missing_files
+        self.distort_jpeg = distort_jpeg
+        self.replace_final_layer = replace_final_layer
+        self.use_lmdb = use_lmdb,
+        self.reuse_old_lmdb_train = reuse_old_lmdb_train
+        self.reuse_old_lmdb_val = reuse_old_lmdb_val
+        self.reuse_old_lmdb_test = reuse_old_lmdb_test
+        self.reuse_old_lmdb_inference = reuse_old_lmdb_inference
+
+    def create_data_generator(self, labels, partition, params, process_step, reuse_old_lmdb=None):
         if self.use_lmdb:
             return DataGeneratorLmdb(
                 partition[process_step],
                 labels[process_step],
                 **params,
                 charList=self.charList,
-                num_oov_indices=self.num_oov_indices
+                num_oov_indices=self.num_oov_indices,
+                reuse_old_lmdb=reuse_old_lmdb
             )
         else:
             return DataGeneratorNew(

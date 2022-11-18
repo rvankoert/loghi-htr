@@ -280,7 +280,7 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
     def __init__(self, list_IDs, labels, batch_size=1, channels=4, shuffle=True, height=32,
                  width=99999, charList=None, do_binarize_otsu=False, do_binarize_sauvola=False, augment=False,
                  elastic_transform=False, num_oov_indices=0, random_crop=False, random_width=False, distort_jpeg=False,
-                 lmdb_name='/tmp/loghi_lmdb'):
+                 lmdb_name='/tmp/loghi_lmdb', reuse_old_lmdb=None):
         """Initialization"""
         if charList is None:
             charList = []
@@ -302,9 +302,12 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         self.random_width = random_width
         self.distort_jpeg = distort_jpeg
         self.on_epoch_end()
-        self.lmdb_name = lmdb_name + str(uuid.uuid4())
 
-        self.__generate_ldmb__(self.list_IDs)
+        if reuse_old_lmdb is not None:
+            self.env = lmdb.open(reuse_old_lmdb)
+        else:
+            self.lmdb_name = lmdb_name + str(uuid.uuid4())
+            self.__generate_ldmb__(self.list_IDs)
 
     def __generate_ldmb__(self, image_paths):
         length = len(image_paths)

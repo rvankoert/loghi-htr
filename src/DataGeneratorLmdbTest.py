@@ -81,3 +81,23 @@ class DataGeneratorLmdbTest(unittest.TestCase):
         np.testing.assert_array_equal(lmdb_labels.numpy(), sauvola_labels.numpy())
         self.assertTrue((lmdb_images.numpy() != sauvola_images.numpy()).any())
 
+    def test_if_old_lmdb_is_reused(self):
+        labels = ['lem in de korte veerstraat, ons vervoegt']
+        img_paths = ['test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l2.png']
+        charList = list(' &,-./123456789:=ABCDEFGHIJKMNOPRSTVWZabcdefghijklmnopqrstuvwxyz¶ê—„')
+
+        lmdb1 = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, shuffle=False)
+
+        lmdb_name = lmdb1.lmdb_name
+        lmdb2 = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, reuse_old_lmdb=lmdb_name, shuffle=False)
+
+        (lmdb1_images, lmdb1_labels) = lmdb1[0]
+        (lmdb2_images, lmdb2_labels) = lmdb2[0]
+
+        np.testing.assert_array_equal(lmdb1_labels.numpy(), lmdb2_labels.numpy())
+        np.testing.assert_array_equal(lmdb1_images.numpy(), lmdb2_images.numpy())
+
+
+
+
+
