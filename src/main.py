@@ -208,10 +208,10 @@ def main():
     if args.gpu != '-1':
         gpus = tf.config.experimental.list_physical_devices('GPU')
 
-        if len(gpus) > 0 and args.memory_limit > 0:
-            print('setting memory_limit: ' + str(args.memory_limit))
-            tf.config.experimental.set_virtual_device_configuration(gpus[0], [
-                tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
+        # if len(gpus) > 0 and args.memory_limit > 0:
+        #     print('setting memory_limit: ' + str(args.memory_limit))
+        #     tf.config.experimental.set_virtual_device_configuration(gpus[0], [
+        #         tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
         policy = tf.keras.mixed_precision.Policy('mixed_float16')
