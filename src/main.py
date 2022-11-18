@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 import json
 
+from matplotlib import use
 from word_beam_search import WordBeamSearch
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
@@ -189,6 +190,12 @@ def main():
                         help='beta: early_stopping_patience')
     parser.add_argument('--normalize_text', type=bool, default=True,
                         help='')
+    parser.add_argument('--use_lmdb', action='store_true',
+                        help='use lmdb to store images, this might be faster for more epochs')
+    parser.add_argument('--reuse_old_lmdb_train', type=str, help='path of the folder of lmdb for training data')
+    parser.add_argument('--reuse_old_lmdb_val', type=str, help='path of the folder of lmdb for validation data')
+    parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
+    parser.add_argument('--reuse_old_lmdb_infenrence', type=str, help='path of the folder of lmdb for inference data')
 
 
     args = parser.parse_args()
@@ -259,7 +266,12 @@ def main():
                            check_missing_files=args.check_missing_files,
                            distort_jpeg=args.distort_jpeg,
                            replace_final_layer=args.replace_final_layer,
-                           normalize_text=normalize_text
+                           normalize_text=normalize_text,
+                           use_lmdb=args.use_lmdb,
+                           reuse_old_lmdb_train=args.reuse_old_lmdb_train,
+                           reuse_old_lmdb_val=args.reuse_old_lmdb_val,
+                           reuse_old_lmdb_test=args.reuse_old_lmdb_test,
+                           reuse_old_lmdb_inference=args.reuse_old_lmdb_inference
                            )
     if args.model_name:
         FilePaths.modelOutput = args.output + "/" + args.model_name
