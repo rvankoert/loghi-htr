@@ -46,7 +46,7 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
 
         window_size = 51
         thresh_sauvola = threshold_sauvola(image, window_size=window_size, k=0.1)
-        binary_sauvola = np.invert(image > thresh_sauvola)*1
+        binary_sauvola = np.invert(image > thresh_sauvola) * 1
         # binary_sauvola = (image > thresh_sauvola)*1
 
         return tf.convert_to_tensor(binary_sauvola)
@@ -168,7 +168,7 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         if elastic_transform:
             alpha_range = random.uniform(0, 750)
             sigma = random.uniform(0, 30)
-            img = DataGeneratorNew.elastic_transform(img)
+            img = DataGeneratorLmdb.elastic_transform(img)
         # img = elasticdeform.deform_random_grid(img, sigma=1, points=3)
         # print (img)
 
@@ -192,16 +192,8 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
                 img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                 # img = tf.image.rgb_to_grayscale(img)
             img = img * 255
-            img = DataGeneratorNew.otsu_thresholding(img)
+            img = DataGeneratorLmdb.otsu_thresholding(img)
 
-        if do_binarize_sauvola:
-            if img.shape[2] > 1:
-                img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            # if img.shape[2] > 1:
-            #     img = tf.image.rgb_to_grayscale(img)
-            # print (img.shape)
-            img = DataGeneratorNew.sauvola(img)
-            img = np.array(img, dtype=np.float32)
         # print(img)
         # img *= 255
         # gtImageEncoded = tf.image.encode_png(img)
@@ -295,6 +287,7 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.labels = labels
         self.list_IDs = list_IDs
+        # self.channels = 1 if do_binarize_sauvola else channels
         self.channels = channels
         self.shuffle = shuffle
         self.height = height
@@ -319,8 +312,8 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         channels = self.channels
         # calculation based on unit8
         map_size = length * channels * 8 * self.height * self.width
-        env = lmdb.open(self.lmdb_name, map_size=map_size)
-        with env.begin(write=True) as txn:
+        self.env = lmdb.open(self.lmdb_name, map_size=map_size)
+        with self.env.begin(write=True) as txn:
             for i in range(length):
                 img_path = image_paths[i]
                 if channels == 1:
@@ -337,10 +330,20 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
                     img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
                     DataGeneratorLmdb.check_valid_file(img, img_path)
                     img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+
+                if self.do_binarize_sauvola:
+                    if img.shape[2] > 1:
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                    # if img.shape[2] > 1:
+                    #     img = tf.image.rgb_to_grayscale(img)
+                    # print (img.shape)
+                    tensor = DataGeneratorLmdb.sauvola(img)
+                    img = tensor.numpy() * 255
+                    img = img.astype(np.uint8)
+
+                    # img = np.array(img, dtype=np.float32)
                 key = img_path
                 txn.put(key.encode('ascii'), pickle.dumps(img))
-
-        env.close()
 
     def __len__(self):
         self.on_epoch_end()
@@ -406,50 +409,51 @@ class DataGeneratorLmdb(tf.keras.utils.Sequence):
         real_ids = []
 
         # do not lock the database to allow multiple simultaneous reads reads
-        with lmdb.open(self.lmdb_name, readonly=True, lock=False) as env:
-            with env.begin() as txn:
-                    # print(np.shape(img))
+        # with lmdb.open(self.lmdb_name, readonly=True, lock=False) as env:
+        with self.env.begin() as txn:
+                # print(np.shape(img))
 
-                    for i, ID in enumerate(list_IDs_temp):
+                for i, ID in enumerate(list_IDs_temp):
 
-                        # Store sample
-                        # X[i,] = np.load('data/' + ID + '.npy')
-                        label = self.labels[ID]
-                        filename = self.list_IDs[ID]
-                        data = txn.get(filename.encode('ascii'))
-                        if data is None:
-                            continue
-                        lmdb_image = pickle.loads(data)
-                        img = lmdb_image
-                        # print(self.labels)
+                    # Store sample
+                    # X[i,] = np.load('data/' + ID + '.npy')
+                    label = self.labels[ID]
+                    filename = self.list_IDs[ID]
+                    data = txn.get(filename.encode('ascii'))
+                    if data is None:
+                        continue
+                    lmdb_image = pickle.loads(data)
+                    img = lmdb_image
+                    # print(self.labels)
+                    # print(ID)
+                    # print(label)
+                    # print(filename)
+                    if self.shuffle:
                         # print(ID)
-                        # print(label)
-                        # print(filename)
-                        if self.shuffle:
-                            # print(ID)
-                            item = DataGeneratorLmdb.encode_single_sample(self, img, label, self.augment,
-                                                                         self.do_elastic_transform, self.distort_jpeg,
-                                                                         self.height, self.width, self.channels,
-                                                                         self.do_binarize_otsu,
-                                                                         self.do_binarize_sauvola, self.random_crop,
-                                                                         self.random_width)
-                        else:
-                            # item = self.encode_single_sample_clean(filename, label)
-                            item = DataGeneratorLmdb.encode_single_sample(self, img, label, False, False, False,
-                                                                         self.height, self.width, self.channels,
-                                                                         self.do_binarize_otsu,
-                                                                         self.do_binarize_sauvola, self.random_crop,
-                                                                         self.random_width
-                                                                         )
-                        # item = self.get_baselines(ID)
-                        X.append(item[0])
-                        Y.append(item[1])
-                        size_x = item[0].shape[0]
-                        size_y = len(item[1])
-                        if size_x > max_size_x:
-                            max_size_x = size_x
-                        if size_y > max_size_y:
-                            max_size_y = size_y
+                        item = DataGeneratorLmdb.encode_single_sample(self, img, label, self.augment,
+                                                                     self.do_elastic_transform, self.distort_jpeg,
+                                                                     self.height, self.width, self.channels,
+                                                                     self.do_binarize_otsu,
+                                                                     self.do_binarize_sauvola, self.random_crop,
+                                                                     self.random_width)
+                    else:
+                        # item = self.encode_single_sample_clean(filename, label)
+                        item = DataGeneratorLmdb.encode_single_sample(self, img, label, False, False, False,
+                                                                     self.height, self.width, self.channels,
+                                                                     self.do_binarize_otsu,
+                                                                     self.do_binarize_sauvola, self.random_crop,
+                                                                     self.random_width
+                                                                     )
+                    # item = self.get_baselines(ID)
+                    X.append(item[0])
+                    Y.append(item[1])
+
+                    size_x = item[0].shape[0]
+                    size_y = len(item[1])
+                    if size_x > max_size_x:
+                        max_size_x = size_x
+                    if size_y > max_size_y:
+                        max_size_y = size_y
 
         for i, ID in enumerate(list_IDs_temp):
             if i > len(X):

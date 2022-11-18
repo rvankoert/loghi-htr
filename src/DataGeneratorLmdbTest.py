@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 
 from DataGeneratorLmdb import DataGeneratorLmdb
 from DataGeneratorNew import DataGeneratorNew
@@ -6,7 +7,7 @@ from DataGeneratorNew import DataGeneratorNew
 
 class DataGeneratorLmdbTest(unittest.TestCase):
 
-    def test__datageneration_worksLmdb(self):
+    def test_datageneration_works(self):
         labels = ['lem in de korte veerstraat, ons vervoegt', 'wonende meede binnen deze Stad in de g',
                           'verzogt betaling van de vorenstaande', '„zelve binnen een maand voldoen„',
                           'gaf, ik ben nu niet bij kas maar zal de']
@@ -20,9 +21,9 @@ class DataGeneratorLmdbTest(unittest.TestCase):
 
         lmdb = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList)
 
-        lmdb.__getitem__(1)
+        self.assertEqual(5, len(lmdb))
 
-    def test__datageneration_worksNew(self):
+    def test_datageneration_works_with_black_and_white(self):
         labels = ['lem in de korte veerstraat, ons vervoegt', 'wonende meede binnen deze Stad in de g',
                           'verzogt betaling van de vorenstaande', '„zelve binnen een maand voldoen„',
                           'gaf, ik ben nu niet bij kas maar zal de']
@@ -34,6 +35,49 @@ class DataGeneratorLmdbTest(unittest.TestCase):
 
         charList = list(' &,-./123456789:=ABCDEFGHIJKMNOPRSTVWZabcdefghijklmnopqrstuvwxyz¶ê—„')
 
+        lmdb = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, channels=1)
+
+        self.assertEqual(5, len(lmdb))
+
+    def test_lmdb_image_equals_read_from_disk(self):
+        labels = ['lem in de korte veerstraat, ons vervoegt']
+        img_paths = ['test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l2.png']
+        charList = list(' &,-./123456789:=ABCDEFGHIJKMNOPRSTVWZabcdefghijklmnopqrstuvwxyz¶ê—„')
+
+        lmdb = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList)
         generator = DataGeneratorNew(list_IDs=img_paths, labels=labels, charList=charList)
 
-        generator.__getitem__(1)
+        gen_images, gen_labels = generator[0]
+        lmdb_images, lmdb_labels = lmdb[0]
+
+        np.testing.assert_array_equal(gen_images.numpy(), lmdb_images.numpy())
+        np.testing.assert_array_equal(gen_labels.numpy(), lmdb_labels.numpy())
+
+    def test_lmdb_image_equals_read_from_disk_sauvola(self):
+        labels = ['lem in de korte veerstraat, ons vervoegt']
+        img_paths = ['test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l2.png']
+        charList = list(' &,-./123456789:=ABCDEFGHIJKMNOPRSTVWZabcdefghijklmnopqrstuvwxyz¶ê—„')
+
+        lmdb = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, do_binarize_sauvola=True, channels=1)
+        generator = DataGeneratorNew(list_IDs=img_paths, labels=labels, charList=charList, do_binarize_sauvola=True, channels=1)
+
+        gen_images, gen_labels = generator[0]
+        lmdb_images, lmdb_labels = lmdb[0]
+
+        np.testing.assert_array_equal(gen_images.numpy(), lmdb_images.numpy())
+        np.testing.assert_array_equal(gen_labels.numpy(), lmdb_labels.numpy())
+
+    def test_lmdb_image_is_difference_with_sauvola(self):
+        labels = ['lem in de korte veerstraat, ons vervoegt']
+        img_paths = ['test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l2.png']
+        charList = list(' &,-./123456789:=ABCDEFGHIJKMNOPRSTVWZabcdefghijklmnopqrstuvwxyz¶ê—„')
+
+        lmdb = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, do_binarize_sauvola=False)
+        sauvola = DataGeneratorLmdb(list_IDs=img_paths, labels=labels, charList=charList, do_binarize_sauvola=True, channels=1)
+
+        (sauvola_images, sauvola_labels) = sauvola[0]
+        (lmdb_images, lmdb_labels) = lmdb[0]
+
+        np.testing.assert_array_equal(lmdb_labels.numpy(), sauvola_labels.numpy())
+        self.assertTrue((lmdb_images.numpy() != sauvola_images.numpy()).any())
+
