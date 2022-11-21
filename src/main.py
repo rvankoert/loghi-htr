@@ -195,7 +195,7 @@ def main():
     parser.add_argument('--reuse_old_lmdb_train', type=str, help='path of the folder of lmdb for training data')
     parser.add_argument('--reuse_old_lmdb_val', type=str, help='path of the folder of lmdb for validation data')
     parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
-    parser.add_argument('--reuse_old_lmdb_infenrence', type=str, help='path of the folder of lmdb for inference data')
+    parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
 
 
     args = parser.parse_args()

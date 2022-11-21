@@ -15,8 +15,6 @@ import tensorflow_addons as tfa
 from skimage.filters import (threshold_sauvola)
 import uuid
 
-from LMDB_Image import LMDBImage
-
 
 class DataGeneratorLmdb(tf.keras.utils.Sequence):
     DTYPE = tf.float32
