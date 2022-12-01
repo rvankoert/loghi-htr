@@ -177,7 +177,7 @@ for layerId in range(len(submodel.layers)):
                            char_list=char_list
                            )
 
-    training_generator, validation_generator, test_generator, inference_generator = loader.generators()
+    training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
 
     validation_dataset = validation_generator.getGenerator()
 

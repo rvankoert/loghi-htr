@@ -16,9 +16,11 @@ import argparse
 import editdistance
 import subprocess
 import matplotlib.pyplot as plt
+from utils import Utils
+
 
 class FilePaths:
-    "filenames and paths to data"
+    """filenames and paths to data"""
     fnCharList = '../model/charList.txt'
     fnAccuracy = '../model/accuracy.txt'
     fnInfer = '../data/test.png'
@@ -39,7 +41,6 @@ def main():
 
     # A utility function to decode the output of the network
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
     parser = argparse.ArgumentParser(
         description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
@@ -117,6 +118,9 @@ def main():
     parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=-1,
                         help='decay_steps. default -1. After this number of iterations the learning rate will '
                              'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches')
+    parser.add_argument('--decay_rate', type=float, default=0.99,
+                        help='beta: decay_rate. Default 0.99. disables learning rate decay when set to 0')
+
     parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
@@ -161,7 +165,7 @@ def main():
                         help='beta: corpus_file to use')
     # Data augmentations
     parser.add_argument('--elastic_transform', action='store_true',
-                        help='beta: elastic_transform')
+                        help='beta: elastic_transform, currently disabled')
     parser.add_argument('--random_crop', action='store_true',
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
@@ -188,7 +192,7 @@ def main():
                         help='beta: use_float32')
     parser.add_argument('--early_stopping_patience', type=int, default=20,
                         help='beta: early_stopping_patience')
-    parser.add_argument('--normalize_text', type=bool, default=True,
+    parser.add_argument('--normalize_text', action='store_true',
                         help='')
     parser.add_argument('--use_lmdb', action='store_true',
                         help='use lmdb to store images, this might be faster for more epochs')
@@ -196,9 +200,17 @@ def main():
     parser.add_argument('--reuse_old_lmdb_val', type=str, help='path of the folder of lmdb for validation data')
     parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
     parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
+    parser.add_argument('--deterministic', action='store_true',
+                        help='beta: deterministic mode (reproducable results')
 
 
     args = parser.parse_args()
+
+    if args.deterministic:
+        os.environ['TF_DETERMINISTIC_OPS'] = '1'
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        tf.random.set_seed(args.seed)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
@@ -226,17 +238,11 @@ def main():
     else:
         print("using float32")
 
-    SEED = args.seed
-    random.seed(SEED)
-    np.random.seed(SEED)
-    tf.random.set_seed(SEED)
-
-    batchSize = args.batch_size
-    imgSize = (args.height, args.width, args.channels)
+    batch_size = args.batch_size
+    img_size = (args.height, args.width, args.channels)
     maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
-    normalize_text = args.normalize_text
 
     if args.output and not os.path.exists(args.output):
         try:
@@ -250,7 +256,8 @@ def main():
         with open(args.charlist) as file:
             char_list = list(char for char in file.read())
         # char_list = args.charlist
-    loader = DataLoaderNew(batchSize, imgSize,
+
+    loader = DataLoaderNew(batch_size, img_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
                            test_list=args.test_list,
@@ -266,18 +273,19 @@ def main():
                            check_missing_files=args.check_missing_files,
                            distort_jpeg=args.distort_jpeg,
                            replace_final_layer=args.replace_final_layer,
-                           normalize_text=normalize_text,
+                           normalize_text=args.normalize_text,
                            use_lmdb=args.use_lmdb,
                            reuse_old_lmdb_train=args.reuse_old_lmdb_train,
                            reuse_old_lmdb_val=args.reuse_old_lmdb_val,
                            reuse_old_lmdb_test=args.reuse_old_lmdb_test,
-                           reuse_old_lmdb_inference=args.reuse_old_lmdb_inference
+                           reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
+                           use_mask=args.use_mask
                            )
     if args.model_name:
         FilePaths.modelOutput = args.output + "/" + args.model_name
 
     print("creating generators")
-    training_generator, validation_generator, test_generator, inference_generator = loader.generators()
+    training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
 
     # Testing
     if False:
@@ -320,16 +328,16 @@ def main():
     if args.batch_normalization:
         batch_normalization = True
 
-    use_rnn_dropout=False
+    use_rnn_dropout = False
     if args.use_rnn_dropout:
         use_rnn_dropout = True
 
-    if args.decay_steps > 0:
+    if args.decay_rate > 0 and args.decay_steps > 0:
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=args.decay_steps,
-            decay_rate=0.99)
-    elif args.decay_steps == -1 and args.do_train:
+            decay_rate=args.decay_rate)
+    elif args.decay_rate > 0 and args.decay_steps == -1 and args.do_train:
         if training_generator is None:
             print('training, but training_generator is None. Did you provide a train_list?')
             exit(1)
@@ -337,7 +345,7 @@ def main():
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=training_generator.__len__(),
-            decay_rate=0.99)
+            decay_rate=args.decay_rate)
     else:
         lr_schedule = learning_rate
 
@@ -420,69 +428,69 @@ def main():
             # model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             if 'new2' == args.model:
-                model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+                model = modelClass.build_model_new2(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'new3' == args.model:
-                model = modelClass.build_model_new3(imgSize, len(char_list))  # (loader.charList, keep_prob=0.8)
+                model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
             elif 'new4' == args.model:
-                model = modelClass.build_model_new4(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new4(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units,
                                                     batch_normalization=batch_normalization)
             elif 'new5' == args.model:
-                model = modelClass.build_model_new5(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new5(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=5,
                                                     batch_normalization=batch_normalization, dropout=args.use_dropout)
             elif 'new6' == args.model:
-                model = modelClass.build_model_new6(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new6(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=2,
                                                     batch_normalization=batch_normalization)
             elif 'new7' == args.model:
-                model = modelClass.build_model_new7(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new7(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                     batch_normalization=batch_normalization, dropout=args.use_dropout)
             elif 'new8' == args.model:
-                model = modelClass.build_model_new8(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new8(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new9' == args.model:
-                model = modelClass.build_model_new9(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new9(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new10' == args.model:
-                model = modelClass.build_model_new10(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new10(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout)
             elif 'new11' == args.model:
-                model = modelClass.build_model_new11(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new11(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new12' == args.model:
-                model = modelClass.build_model_new12(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new12(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new13' == args.model:
-                model = modelClass.build_model_new13(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new13(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new14' == args.model:
-                model = modelClass.build_model_new14(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new14(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'old6' == args.model:
-                model = modelClass.build_model_old6(imgSize, len(char_list), use_mask=use_mask,
+                model = modelClass.build_model_old6(img_size, len(char_list), use_mask=use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'old5' == args.model:
-                model = modelClass.build_model_old5(imgSize, len(char_list), use_mask=use_mask,
+                model = modelClass.build_model_old5(img_size, len(char_list), use_mask=use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             # Old models that require specific loader
             # elif 'old4' == args.model:
@@ -541,11 +549,7 @@ def main():
     if args.do_train:
         validation_dataset = None
         if args.do_validate:
-            validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-            # validation_dataset = validation_generator.getGenerator()
             validation_dataset = validation_generator
-        training_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-        # training_dataset = training_generator.getGenerator()
 
         store_info(args, model)
 
@@ -593,7 +597,8 @@ def main():
         # if you just have trained: reload the best model
         # if args.do_train:
         #     model = keras.models.load_model(os.path.join(args.output,'/best_val/'))
-        validation_generator.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
+        utils = Utils(char_list,use_mask)
+        # utils.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
         # validation_dataset = validation_generator.getGenerator()
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
@@ -661,7 +666,7 @@ def main():
             # batch_labels = batch["label"]
             preds = prediction_model.predict(batch[0])
             # preds = prediction_model.predict_on_batch(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, validation_generator, args.greedy, args.beam_width,
+            pred_texts = decode_batch_predictions(preds, maxTextLen, utils, args.greedy, args.beam_width,
                                                   args.num_oov_indices)
             predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
@@ -697,13 +702,13 @@ def main():
             counter += 1
             orig_texts = []
             for label in batch[1]:
-                label = tf.strings.reduce_join(validation_generator.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
-            for pred in pred_texts:
-                for i in range(len(pred)):
-                    confidence = pred[i][0]
-                    pred_text = pred[i][1]
+            for prediction in pred_texts:
+                for i in range(len(prediction)):
+                    confidence = prediction[i][0]
+                    pred_text = prediction[i][1]
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = pred_text.strip().replace('', '')
@@ -722,8 +727,8 @@ def main():
                                                                           char_str[i].strip().lower())
                     cer = current_editdistance/float(len(original_text))
                     if cer > 0.0:
-                        filename = validation_dataset.get_file(batch_no * batchSize + i)
-                        print(filename)
+                        # filename = validation_dataset.get_file(batch_no * batchSize + i)
+                        # print(filename)
                         # print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
@@ -778,15 +783,16 @@ def main():
         # char_list = sorted(list(char_list))
         #
         print(char_list)
-        loader = DataLoaderNew(batchSize,
-                               imgSize,
+        loader = DataLoaderNew(batch_size,
+                               img_size,
                                char_list,
                                inference_list=args.inference_list,
                                check_missing_files=args.check_missing_files,
-                               normalize_text=normalize_text
+                               normalize_text=args.normalize_text,
+                               use_mask=args.use_mask
                                )
-        training_generator, validation_generator, test_generator, inference_generator = loader.generators()
-        inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
+        training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
+        # inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
@@ -802,23 +808,18 @@ def main():
         with open(args.results_file, "w") as text_file:
 
             for batch in inference_dataset:
-                # batch_images = batch["image"]
-                # batch_labels = batch["label"]
-                # prediction_model.reset_state()
                 preds = prediction_model.predict_on_batch(batch[0])
-                # preds = prediction_model.predict(batch[0])
-                pred_texts = decode_batch_predictions(preds, maxTextLen, inference_generator, args.greedy, args.beam_width)
+                pred_texts = decode_batch_predictions(preds, maxTextLen, utils, args.greedy, args.beam_width)
 
                 orig_texts = []
                 for label in batch[1]:
-                    label = tf.strings.reduce_join(inference_generator.num_to_char(label)).numpy().decode("utf-8")
+                    label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
                     orig_texts.append(label.strip())
-                for pred in pred_texts:
-                    for i in range(len(pred)):
-                        confidence = pred[i][0]
-                        pred_text = pred[i][1]
-                        # for i in range(16):
-                        filename = loader.get_item('inference', (batch_counter * batchSize) + i)
+                for prediction in pred_texts:
+                    for i in range(len(prediction)):
+                        confidence = prediction[i][0]
+                        pred_text = prediction[i][1]
+                        filename = loader.get_item('inference', (batch_counter * batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = pred_text.strip().replace('', '')
                         print(original_text)

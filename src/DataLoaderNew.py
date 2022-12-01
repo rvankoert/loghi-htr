@@ -6,9 +6,13 @@ import random
 
 from tensorflow.python.data.experimental import AutoShardPolicy
 import tensorflow as tf
+from tensorflow.data import AUTOTUNE
 
 from DataGeneratorLmdb import DataGeneratorLmdb
 from DataGeneratorNew import DataGeneratorNew
+from DataGeneratorNew2 import DataGeneratorNew2
+import numpy as np
+from utils import Utils
 
 
 class DataLoaderNew:
@@ -43,28 +47,32 @@ class DataLoaderNew:
         labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
 
         if self.train_list:
-            chars = self.create_data(chars, labels, partition, 'train', self.train_list)
+            chars, train_files = self.create_data(chars, labels, partition, 'train', self.train_list)
 
         if self.validation_list:
-            chars = self.create_data(chars, labels, partition, 'validation', self.validation_list)
+            chars, validation_files = self.create_data(chars, labels, partition, 'validation', self.validation_list)
 
         if self.test_list:
-            chars = self.create_data(chars, labels, partition, 'test', self.test_list, include_unsupported_chars=True)
+            chars, test_files = self.create_data(chars, labels, partition, 'test', self.test_list,
+                                                 include_unsupported_chars=True)
 
         if self.inference_list:
-            chars = self.create_data(chars, labels, partition, 'inference', self.inference_list,
-                                     include_unsupported_chars=True, include_missing_files=True, is_inference=True)
+            chars, inference_files = self.create_data(chars, labels, partition, 'inference', self.inference_list,
+                                                      include_unsupported_chars=True, include_missing_files=True,
+                                                      is_inference=True)
 
         # list of all chars in dataset
         if self.injected_charlist and not self.replace_final_layer:
-            print('using injected_charlist')
+            print('using injected charlist')
             self.charList = self.injected_charlist
         else:
             self.charList = sorted(list(chars))
 
-        trainParams = {'shuffle': True,
+        self.utils = Utils(self.charList, self.use_mask)
+
+        trainParams = {'height': self.height,
+                       'shuffle': True,
                        'batch_size': self.batchSize,
-                       'height': self.height,
                        'channels': self.channels,
                        'do_binarize_sauvola': self.do_binarize_sauvola,
                        'do_binarize_otsu': self.do_binarize_otsu,
@@ -99,32 +107,126 @@ class DataLoaderNew:
         validation_generator = None
         test_generator = None
         inference_generator = None
+        use_classic = False
+        deterministic = False
         if self.train_list:
-            training_generator = self.create_data_generator(labels, partition, trainParams, 'train',
-                                                            reuse_old_lmdb=self.reuse_old_lmdb_train)
+            if use_classic:
+                training_generator = self.create_data_generator(labels,
+                                                                partition,
+                                                                trainParams,
+                                                                'train',
+                                                                reuse_old_lmdb=self.reuse_old_lmdb_train)
+            else:
+                dataGeneratorNew2 = DataGeneratorNew2(self.utils, trainParams, channels=self.channels)
+                num_batches = np.ceil(len(train_files) / self.batchSize)
+                training_generator = tf.data.Dataset.from_tensor_slices(train_files)
+                training_generator = (training_generator
+                                      .repeat()
+                                      .shuffle(len(train_files))
+                                      .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                           deterministic=deterministic)
+                                      .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
+                                                    padding_values=(
+                                                        tf.constant(-10, dtype=tf.float32),
+                                                        tf.constant(0, dtype=tf.int64))
+                                                    )
+                                      .prefetch(AUTOTUNE)
+                                      ).apply(tf.data.experimental.assert_cardinality(num_batches))
 
         if self.validation_list:
-            validation_generator = self.create_data_generator(labels, partition, validationParams, 'validation',
-                                                              reuse_old_lmdb=self.reuse_old_lmdb_val)
+            if use_classic:
+                validation_generator = self.create_data_generator(labels,
+                                                                  partition,
+                                                                  validationParams,
+                                                                  'validation',
+                                                                  reuse_old_lmdb=self.reuse_old_lmdb_val
+                                                                  )
+            else:
+                dataGeneratorNew2 = DataGeneratorNew2(self.utils, validationParams, channels=self.channels)
+                num_batches = np.ceil(len(validation_files) / self.batchSize)
+                print('validation batches: ' + str(num_batches))
+                validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
+                validation_generator = (validation_generator
+                                        # .repeat()
+                                        .shuffle(len(validation_files))
+                                        .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                             deterministic=deterministic)
+                                        .padded_batch(self.batchSize,
+                                                      padded_shapes=([None, None, self.channels], [None]),
+                                                      padding_values=(
+                                                          tf.constant(-10, dtype=tf.float32),
+                                                          tf.constant(0, dtype=tf.int64))
+                                                      )
+                                        .prefetch(AUTOTUNE)
+                                        ).apply(tf.data.experimental.assert_cardinality(num_batches))
         if self.test_list:
-            test_generator = self.create_data_generator(labels, partition, testParams, 'test',
-                                                        reuse_old_lmdb=self.reuse_old_lmdb_test)
-        if self.inference_list:
-            inference_generator = self.create_data_generator(labels, partition, inference_params, 'inference',
-                                                             reuse_old_lmdb=self.reuse_old_lmdb_inference)
+            if use_classic:
+                test_generator = self.create_data_generator(labels,
+                                                            partition,
+                                                            testParams,
+                                                            'test',
+                                                            reuse_old_lmdb=self.reuse_old_lmdb_test
+                                                            )
+            else:
+                dataGeneratorNew2 = DataGeneratorNew2(self.utils, testParams, channels=self.channels)
+                num_batches = np.ceil(len(test_files) / self.batchSize)
+                test_generator = tf.data.Dataset.from_tensor_slices(test_files)
+                test_generator = (test_generator
+                                  .repeat()
+                                  .shuffle(len(test_files))
+                                  .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                       deterministic=deterministic)
+                                  .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
+                                                padding_values=(
+                                                    tf.constant(-10, dtype=tf.float32), tf.constant(0, dtype=tf.int64))
+                                                )
+                                  .prefetch(AUTOTUNE)
+                                  ).apply(tf.data.experimental.assert_cardinality(num_batches))
 
+        if self.inference_list:
+            # if use_classic:
+            inference_generator = self.create_data_generator(labels,
+                                                             partition,
+                                                             inference_params,
+                                                             'inference',
+                                                             reuse_old_lmdb=self.reuse_old_lmdb_inference
+                                                             )
+            # else:
+            #     dataGeneratorNew2 = DataGeneratorNew2(self.utils, inference_params,
+            #                                           char_list=self.charList,
+            #                                           channels=self.channels)
+            #     num_batches = np.ceil(len(inference_files) / self.batchSize)
+            #     inference_generator = tf.data.Dataset.from_tensor_slices(inference_files)
+            #     inference_generator = (inference_generator
+            #                            .repeat()
+            #                            .shuffle(len(inference_files))
+            #                            .map(dataGeneratorNew2.load_images,
+            #                                 num_parallel_calls=AUTOTUNE,
+            #                                 deterministic=deterministic)
+            #                            .padded_batch(self.batchSize,
+            #                                          padded_shapes=([None, None, self.channels], [None]),
+            #                                          padding_values=(
+            #                                              tf.constant(-10, dtype=tf.float32),
+            #                                              tf.constant(0, dtype=tf.int64)
+            #                                          )
+            #                                          )
+            #                            .prefetch(AUTOTUNE)
+            #                            ).apply(tf.data.experimental.assert_cardinality(num_batches))
         self.partition = partition
 
-        return training_generator, validation_generator, test_generator, inference_generator
+        return training_generator, validation_generator, test_generator, inference_generator, self.utils
 
-    def __init__(self, batchSize, imgSize, char_list=None,
+    def __init__(self,
+                 batchSize,
+                 imgSize,
+                 char_list=None,
                  train_list='',
                  validation_list='',
                  test_list='',
                  inference_list='',
                  do_binarize_sauvola=False,
                  do_binarize_otsu=False,
-                 normalize_text=True,
+                 normalize_text=False,
                  multiply=1,
                  augment=True,
                  elastic_transform=False,
@@ -138,7 +240,8 @@ class DataLoaderNew:
                  reuse_old_lmdb_train=None,
                  reuse_old_lmdb_val=None,
                  reuse_old_lmdb_test=None,
-                 reuse_old_lmdb_inference=None
+                 reuse_old_lmdb_inference=None,
+                 use_mask=False
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
@@ -174,6 +277,7 @@ class DataLoaderNew:
         self.reuse_old_lmdb_val = reuse_old_lmdb_val
         self.reuse_old_lmdb_test = reuse_old_lmdb_test
         self.reuse_old_lmdb_inference = reuse_old_lmdb_inference
+        self.use_mask = use_mask
 
     def create_data_generator(self, labels, partition, params, process_step, reuse_old_lmdb=None):
         if self.use_lmdb:
@@ -196,6 +300,7 @@ class DataLoaderNew:
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
                     include_missing_files=False, is_inference=False):
+        files = []
         for sublist in data_file_list.split():
             if not os.path.exists(sublist):
                 print(sublist + "does not exist, enter a valid filename. exiting...")
@@ -237,12 +342,14 @@ class DataLoaderNew:
                     for i in range(0, self.multiply):
                         partition[partition_name].append(fileName)
                         labels[partition_name].append(gtText)
+                        files.append([fileName, gtText])
                     if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(set(char for label in gtText for char in label))
+
                     # if counter > 100:
                     #     break
                 print('found ' + str(counter) + ' lines suitable for ' + partition_name)
-        return chars
+        return chars, files
 
     @staticmethod
     def truncateLabel(text, maxTextLen):

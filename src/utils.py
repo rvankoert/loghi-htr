@@ -13,6 +13,42 @@ from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
 
 
+class Utils():
+
+    def __init__(self, chars, use_mask):
+        self.set_charlist(chars=chars, use_mask=use_mask)
+
+    def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
+        self.charList = chars
+        if num_oov_indices > 0:
+            self.charList.insert(1, '[UNK]')
+        if not self.charList:
+            print('no charlist :(')
+            return
+        if use_mask:
+            print('using mask')
+            self.char_to_num = tf.keras.layers.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]',
+                encoding="UTF-8"
+            )
+            # Mapping integers back to original characters
+            self.num_to_char = tf.keras.layers.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='',
+                encoding="UTF-8",
+                invert=True
+            )
+        else:
+            self.char_to_num = tf.keras.layers.StringLookup(
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None, oov_token='[UNK]',
+                encoding="UTF-8"
+            )
+            # Mapping integers back to original characters
+            self.num_to_char = tf.keras.layers.StringLookup(
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None,
+                encoding="UTF-8",
+                invert=True
+            )
+
 def shape(x):
     """Returns the symbolic shape of a tensor or variable.
 
@@ -88,7 +124,7 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     return (decoded_dense, log_prob)
 
 
-def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True, beam_width=1, num_oov_indices=0):
+def decode_batch_predictions(pred, maxTextLen, utils, greedy=True, beam_width=1, num_oov_indices=0):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
     # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
     # sequence_length = tf.constant(np.array([None], dtype=np.int32))
@@ -117,7 +153,7 @@ def decode_batch_predictions(pred, maxTextLen, validation_generator, greedy=True
             i = i + 1
             # print(confidence)
             res = res + num_oov_indices
-            chars = validation_generator.num_to_char(res)
+            chars = utils.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
         output_texts.append(output_text)
