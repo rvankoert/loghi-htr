@@ -77,7 +77,7 @@ class DataLoaderNew:
                        'do_binarize_sauvola': self.do_binarize_sauvola,
                        'do_binarize_otsu': self.do_binarize_otsu,
                        'augment': self.dataAugmentation,
-                       'elastic_transform': self.elastic_transform,
+                       'do_elastic_transform': self.elastic_transform,
                        'random_crop': self.random_crop,
                        'random_width': self.random_width,
                        'distort_jpeg': self.distort_jpeg
@@ -117,7 +117,17 @@ class DataLoaderNew:
                                                                 'train',
                                                                 reuse_old_lmdb=self.reuse_old_lmdb_train)
             else:
-                data_generator_new2 = DataGeneratorNew2(self.utils, trainParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils, 
+                                                        self.batchSize,
+                                                        channels=self.channels,
+                                                        do_binarize_sauvola=self.do_binarize_sauvola,
+                                                        do_binarize_otsu=self.do_binarize_otsu,
+                                                        # augment=self.au,
+                                                        do_elastic_transform=self.elastic_transform,
+                                                        random_crop=self.random_crop,
+                                                        random_width=self.random_width,
+                                                        distort_jpeg=self.distort_jpeg
+                                                        )
                 num_batches = np.ceil(len(train_files) / self.batchSize)
                 training_generator = tf.data.Dataset.from_tensor_slices(train_files)
                 training_generator = (training_generator
@@ -142,7 +152,11 @@ class DataLoaderNew:
                                                                   reuse_old_lmdb=self.reuse_old_lmdb_val
                                                                   )
             else:
-                data_generator_new2 = DataGeneratorNew2(self.utils, validationParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils,
+                                                        self.batchSize,
+                                                        channels=self.channels,
+                                                        do_binarize_sauvola=self.do_binarize_sauvola,
+                                                        do_binarize_otsu=self.do_binarize_otsu,)
                 num_batches = np.ceil(len(validation_files) / self.batchSize)
                 print('validation batches: ' + str(num_batches))
                 validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
@@ -168,7 +182,11 @@ class DataLoaderNew:
                                                             reuse_old_lmdb=self.reuse_old_lmdb_test
                                                             )
             else:
-                data_generator_new2 = DataGeneratorNew2(self.utils, testParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils,
+                                                        self.batchSize,
+                                                        channels=self.channels,
+                                                        do_binarize_sauvola=self.do_binarize_sauvola,
+                                                        do_binarize_otsu=self.do_binarize_otsu,)
                 num_batches = np.ceil(len(test_files) / self.batchSize)
                 test_generator = tf.data.Dataset.from_tensor_slices(test_files)
                 test_generator = (test_generator
@@ -192,9 +210,11 @@ class DataLoaderNew:
                                                              reuse_old_lmdb=self.reuse_old_lmdb_inference
                                                              )
             # else:
-            #     dataGeneratorNew2 = DataGeneratorNew2(self.utils, inference_params,
-            #                                           char_list=self.charList,
-            #                                           channels=self.channels)
+            #     dataGeneratorNew2 = DataGeneratorNew2(self.utils,
+            #                                                         self.batchSize,
+            #                                                         channels=self.channels,
+            #                                                         do_binarize_sauvola=self.do_binarize_sauvola,
+            #                                                         do_binarize_otsu=self.do_binarize_otsu)
             #     num_batches = np.ceil(len(inference_files) / self.batchSize)
             #     inference_generator = tf.data.Dataset.from_tensor_slices(inference_files)
             #     inference_generator = (inference_generator

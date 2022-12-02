@@ -8,46 +8,34 @@ import argparse
 import time
 import random
 from utils import Utils
+import elasticdeform.tf as etf
 
 
 class DataGeneratorNew2(tf.keras.utils.Sequence):
 
-    def __init__(self, utils, batchSize, height=64,
+    def __init__(self,
+                 utils,
+                 batchSize,
+                 height=64,
                  do_binarize_sauvola=False,
                  do_binarize_otsu=False,
-                 normalize_text=False,
-                 multiply=1,
                  augment=True,
-                 elastic_transform=False,
+                 do_elastic_transform=False,
                  random_crop=False,
                  random_width=False,
-                 check_missing_files=True,
                  distort_jpeg=False,
-                 replace_final_layer=False,
-                 use_lmdb=False,
-                 reuse_old_lmdb_train=None,
-                 reuse_old_lmdb_val=None,
-                 reuse_old_lmdb_test=None,
-                 reuse_old_lmdb_inference=None,
                  channels=1
                  ):
+        print(height)
+
         self.batchSize = batchSize
         self.do_binarize_sauvola = do_binarize_sauvola
         self.do_binarize_otsu = do_binarize_otsu
-        self.normalize_text = normalize_text
-        self.multiply = multiply
         self.dataAugmentation = augment
-        self.elastic_transform = elastic_transform
+        self.do_elastic_transform = do_elastic_transform
         self.random_crop = random_crop
         self.random_width = random_width
-        self.check_missing_files = check_missing_files
         self.distort_jpeg = distort_jpeg
-        self.replace_final_layer = replace_final_layer
-        self.use_lmdb = use_lmdb
-        self.reuse_old_lmdb_train = reuse_old_lmdb_train
-        self.reuse_old_lmdb_val = reuse_old_lmdb_val
-        self.reuse_old_lmdb_test = reuse_old_lmdb_test
-        self.reuse_old_lmdb_inference = reuse_old_lmdb_inference
         self.utils = utils
         self.height = height
         self.channels = channels
@@ -61,6 +49,25 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
     #     # X_deformed = elasticdeform.deform_random_grid(original)
     #     X_deformed = elasticdeform.deform_grid(original, displacement, axis=(0, 1), cval=0)
     #     return X_deformed
+
+    def elastic_transform(self, original):
+
+        displacement_val = tf.random.normal([2, 3, 3]) * 5
+        # X_val = numpy.random.rand(200, 300)
+        # dY_val = numpy.random.rand(200, 300)
+
+        # construct TensorFlow input and top gradient
+        # displacement = tf.Variable(displacement_val)
+        # X = tf.Variable(original)
+        # dY = tf.Variable(dY_val)
+
+        # the deform_grid function is similar to the plain Python equivalent,
+        # but it accepts and returns TensorFlow Tensors
+        X_deformed = etf.deform_grid(original, displacement_val, axis=(0, 1), order=3)
+
+        # # the gradient w.r.t. X can be computed in the normal TensorFlow manner
+        # [dX] = tf.gradients(X_deformed, X, dY)
+        return X_deformed
 
     def load_images(self, imagePath):
         image = tf.io.read_file(imagePath[0])
@@ -76,6 +83,9 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
                 image = tf.concat([channel1, channel2, channel3, alpha], axis=2)
             else:
                 image = tf.image.random_jpeg_quality(image, 20, 100)
+
+        if self.do_elastic_transform:
+            image = self.elastic_transform(image)
 
         if self.random_crop:
             randomseed = random.randint(0, 100000), random.randint(0, 1000000)
@@ -100,6 +110,10 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
             image = tf.image.resize(image, [image_height, image_width])
 
         image = tf.image.resize_with_pad(image, self.height, image_width+50)
+
+        # gtImageEncoded = tf.image.encode_png(tf.cast(image*255, dtype="uint8"))
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+
         image = 0.5 - image
         image = tf.transpose(image, perm=[1, 0, 2])
 

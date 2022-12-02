@@ -202,6 +202,9 @@ def main():
     parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
     parser.add_argument('--deterministic', action='store_true',
                         help='beta: deterministic mode (reproducable results')
+    parser.add_argument('--output_checkpoints', action='store_true',
+                        help='Continuously output checkpoints after each epoch. Default only best_val is saved')
+
 
 
     args = parser.parse_args()
@@ -256,7 +259,6 @@ def main():
         with open(args.charlist) as file:
             char_list = list(char for char in file.read())
         # char_list = args.charlist
-
     loader = DataLoaderNew(batch_size, img_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
@@ -566,7 +568,8 @@ def main():
             steps_per_epoch=args.steps_per_epoch,
             num_workers=args.num_workers,
             max_queue_size=args.max_queue_size,
-            early_stopping_patience=args.early_stopping_patience
+            early_stopping_patience=args.early_stopping_patience,
+            output_checkpoints=args.output_checkpoints
         )
 
         # construct a plot that plots and saves the training history
