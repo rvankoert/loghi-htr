@@ -7,8 +7,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_training_data(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list.txt'
         ).generators()
         self.assertEqual(training_generator.labels,
@@ -24,8 +24,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_training_data_ignore_missing_images(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list_with_missing_images.txt'
         ).generators()
         self.assertEqual(training_generator.labels,
@@ -41,8 +41,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_training_data_includes_missing_images_when_check_missing_files_is_false(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list_with_missing_images.txt',
             check_missing_files=False
         ).generators()
@@ -60,8 +60,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_training_data_ignores_lines_without_text(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list_with_textless_images.txt'
         ).generators()
         self.assertEqual(training_generator.labels,
@@ -80,8 +80,8 @@ class DataLoaderNewTest(unittest.TestCase):
                           'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '§',
                           '½', 'à', 'â', 'ä', 'é', 'ë', 'ï', 'ƒ', '‛', '„', '‸', '⁓', '℔', '⅓']
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list_with_unsupported_characters.txt',
             char_list=self.char_list
         ).generators()
@@ -101,8 +101,8 @@ class DataLoaderNewTest(unittest.TestCase):
                           'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '§',
                           '½', 'à', 'â', 'ä', 'é', 'ë', 'ï', 'ƒ', '‛', '„', '‸', '⁓', '℔', '⅓']
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             train_list='./test/files/images_list_with_unsupported_characters.txt',
             char_list=self.char_list,
             replace_final_layer=True
@@ -120,8 +120,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_val_data(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             validation_list='./test/files/images_list.txt'
         ).generators()
         self.assertEqual(validation_generator.labels,
@@ -137,8 +137,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_val_data_ignore_missing_images(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             validation_list='./test/files/images_list_with_missing_images.txt'
         ).generators()
         self.assertEqual(validation_generator.labels,
@@ -154,8 +154,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_val_data_includes_missing_images_when_check_missing_files_is_false(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             validation_list='./test/files/images_list_with_missing_images.txt',
             check_missing_files=False
         ).generators()
@@ -173,8 +173,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_val_data_ignores_lines_without_text(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             validation_list='./test/files/images_list_with_textless_images.txt'
         ).generators()
         self.assertEqual(validation_generator.labels,
@@ -193,8 +193,8 @@ class DataLoaderNewTest(unittest.TestCase):
                           'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '§',
                           '½', 'à', 'â', 'ä', 'é', 'ë', 'ï', 'ƒ', '‛', '„', '‸', '⁓', '℔', '⅓']
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             validation_list='./test/files/images_list_with_unsupported_characters.txt',
             char_list=self.char_list
         ).generators()
@@ -209,8 +209,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_test_data(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             test_list='./test/files/images_list.txt'
         ).generators()
         self.assertEqual(test_generator.labels,
@@ -226,8 +226,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_test_data_ignore_missing_images(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             test_list='./test/files/images_list_with_missing_images.txt'
         ).generators()
         self.assertEqual(test_generator.labels,
@@ -243,8 +243,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_test_data_includes_missing_images_when_check_missing_files_is_false(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             test_list='./test/files/images_list_with_missing_images.txt',
             check_missing_files=False
         ).generators()
@@ -262,8 +262,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_test_data_ignores_lines_without_text(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             test_list='./test/files/images_list_with_textless_images.txt'
         ).generators()
         self.assertEqual(test_generator.labels,
@@ -282,8 +282,8 @@ class DataLoaderNewTest(unittest.TestCase):
                           'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '§',
                           '½', 'à', 'â', 'ä', 'é', 'ë', 'ï', 'ƒ', '‛', '„', '‸', '⁓', '℔', '⅓']
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             test_list='./test/files/images_list_with_unsupported_characters.txt',
             char_list=self.char_list
         ).generators()
@@ -300,8 +300,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_inference_data(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             inference_list='./test/files/inference_list.txt'
         ).generators()
 
@@ -317,8 +317,8 @@ class DataLoaderNewTest(unittest.TestCase):
 
     def test_load_inference_data_includes_missing_images(self):
         training_generator, validation_generator, test_generator, inference_generator = DataLoaderNew(
-            batchSize=1,
-            imgSize=[50, 100, 3],
+            batch_size=1,
+            img_size=[50, 100, 3],
             inference_list='./test/files/inference_list_with_missing_images.txt'
         ).generators()
         self.assertEqual(inference_generator.labels,

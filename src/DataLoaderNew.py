@@ -117,13 +117,13 @@ class DataLoaderNew:
                                                                 'train',
                                                                 reuse_old_lmdb=self.reuse_old_lmdb_train)
             else:
-                dataGeneratorNew2 = DataGeneratorNew2(self.utils, trainParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils, trainParams, channels=self.channels)
                 num_batches = np.ceil(len(train_files) / self.batchSize)
                 training_generator = tf.data.Dataset.from_tensor_slices(train_files)
                 training_generator = (training_generator
                                       .repeat()
                                       .shuffle(len(train_files))
-                                      .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                      .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
                                            deterministic=deterministic)
                                       .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
                                                     padding_values=(
@@ -142,14 +142,14 @@ class DataLoaderNew:
                                                                   reuse_old_lmdb=self.reuse_old_lmdb_val
                                                                   )
             else:
-                dataGeneratorNew2 = DataGeneratorNew2(self.utils, validationParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils, validationParams, channels=self.channels)
                 num_batches = np.ceil(len(validation_files) / self.batchSize)
                 print('validation batches: ' + str(num_batches))
                 validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
                 validation_generator = (validation_generator
                                         # .repeat()
                                         .shuffle(len(validation_files))
-                                        .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                        .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
                                              deterministic=deterministic)
                                         .padded_batch(self.batchSize,
                                                       padded_shapes=([None, None, self.channels], [None]),
@@ -168,13 +168,13 @@ class DataLoaderNew:
                                                             reuse_old_lmdb=self.reuse_old_lmdb_test
                                                             )
             else:
-                dataGeneratorNew2 = DataGeneratorNew2(self.utils, testParams, channels=self.channels)
+                data_generator_new2 = DataGeneratorNew2(self.utils, testParams, channels=self.channels)
                 num_batches = np.ceil(len(test_files) / self.batchSize)
                 test_generator = tf.data.Dataset.from_tensor_slices(test_files)
                 test_generator = (test_generator
                                   .repeat()
                                   .shuffle(len(test_files))
-                                  .map(dataGeneratorNew2.load_images, num_parallel_calls=AUTOTUNE,
+                                  .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
                                        deterministic=deterministic)
                                   .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
                                                 padding_values=(
@@ -217,8 +217,8 @@ class DataLoaderNew:
         return training_generator, validation_generator, test_generator, inference_generator, self.utils
 
     def __init__(self,
-                 batchSize,
-                 imgSize,
+                 batch_size,
+                 img_size,
                  char_list=None,
                  train_list='',
                  validation_list='',
@@ -245,15 +245,13 @@ class DataLoaderNew:
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
-        # assert filePath[-1] == '/'
-
         self.currIdx = 0
-        self.batchSize = batchSize
-        self.imgSize = imgSize
+        self.batchSize = batch_size
+        self.imgSize = img_size
         self.samples = []
-        self.height = imgSize[0]
-        self.width = imgSize[1]
-        self.channels = imgSize[2]
+        self.height = img_size[0]
+        self.width = img_size[1]
+        self.channels = img_size[2]
         self.partition = []
         self.injected_charlist = char_list
         self.train_list = train_list
@@ -352,7 +350,7 @@ class DataLoaderNew:
         return chars, files
 
     @staticmethod
-    def truncateLabel(text, maxTextLen):
+    def truncate_label(text, max_text_len):
         # ctc_loss can't compute loss if it cannot find a mapping between text label and input
         # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
         # If a too-long label is provided, ctc_loss returns an infinite gradient
@@ -362,7 +360,7 @@ class DataLoaderNew:
                 cost += 2
             else:
                 cost += 1
-            if cost > maxTextLen:
+            if cost > max_text_len:
                 return text[:i]
         return text
 
