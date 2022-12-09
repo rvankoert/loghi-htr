@@ -11,12 +11,17 @@ from keras.models import Model
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
+from numpy import exp
 
 
 class Utils():
 
     def __init__(self, chars, use_mask):
         self.set_charlist(chars=chars, use_mask=use_mask)
+
+    def softmax(self, vector):
+        e = exp(vector)
+        return e / e.sum()
 
     def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
         self.charList = chars
@@ -121,7 +126,7 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
             st.indices, st.values, (num_samples, num_steps))
         decoded_dense.append(
             sparse_ops.sparse_tensor_to_dense(sp_input=st, default_value=-1))
-    return (decoded_dense, log_prob)
+    return decoded_dense, log_prob
 
 
 def decode_batch_predictions(pred, maxTextLen, utils, greedy=True, beam_width=1, num_oov_indices=0):
@@ -149,6 +154,8 @@ def decode_batch_predictions(pred, maxTextLen, utils, greedy=True, beam_width=1,
         i = 0
         for res in results:
             log_prob = ctc_decoded[1][i][top_path]
+            if log_prob < 0:
+                log_prob = -log_prob
             confidence = np.exp(log_prob)
             i = i + 1
             # print(confidence)
