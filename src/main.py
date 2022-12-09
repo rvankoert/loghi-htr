@@ -162,7 +162,9 @@ def main():
                         help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in '
                              'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
-                        help='beta: corpus_file to use')
+                        help='beta: corpus_file to use, enables WordBeamSearch')
+    parser.add_argument('--wbs_smoothing', metavar='corpus_file ', type=float, default=0.1,
+                        help='beta: smoothing to use when using word beam search')
     # Data augmentations
     parser.add_argument('--elastic_transform', action='store_true',
                         help='beta: elastic_transform, currently disabled')
@@ -597,12 +599,7 @@ def main():
         #     print("test")
     if args.do_validate:
         print("do_validate")
-        # if you just have trained: reload the best model
-        # if args.do_train:
-        #     model = keras.models.load_model(os.path.join(args.output,'/best_val/'))
-        utils = Utils(char_list,use_mask)
-        # utils.set_charlist(char_list, use_mask, num_oov_indices=args.num_oov_indices)
-        # validation_dataset = validation_generator.getGenerator()
+        utils = Utils(char_list, use_mask)
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -649,18 +646,22 @@ def main():
                 # # chars = set()
                 for line in f:
                     # chars = chars.union(set(char for label in line for char in label))
+                    if args.normalize_text:
+                        line = loader.normalize(line)
                     corpus += line
             word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
+            word_chars = '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
             #
             chars = '' + ''.join(sorted(list(char_list)))
 
-            print(len(chars))
+            print('using corpus file: '+str(args.corpus_file))
             # NGramsForecast
             # Words
             # NGrams
             # NGramsForecastAndSample
-            wbs = WordBeamSearch(args.beam_width, 'NGrams', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
+            wbs = WordBeamSearch(args.beam_width, 'NGrams',  args.wbs_smoothing, corpus.encode('utf8'), chars.encode('utf8'),
                                  word_chars.encode('utf8'))
+            print('Created WordBeamSearcher')
 
         batch_no = 0
         #  Let's check results on some validation samples
@@ -671,8 +672,9 @@ def main():
             # preds = prediction_model.predict_on_batch(batch[0])
             pred_texts = decode_batch_predictions(preds, maxTextLen, utils, args.greedy, args.beam_width,
                                                   args.num_oov_indices)
-            predsbeam = tf.transpose(preds, perm=[1, 0, 2])
 
+            # preds = utils.softmax(preds)
+            predsbeam = tf.transpose(preds, perm=[1, 0, 2])
             # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
             #                      word_chars.encode('utf8'))
             # label_str = wbs.compute(mat)
@@ -692,6 +694,7 @@ def main():
             # if True:
             #     exit(1)
             if wbs:
+                print('computing wbs...')
                 label_str = wbs.compute(predsbeam)
                 char_str = []  # decoded texts for batch
                 # print(len(label_str))
@@ -700,7 +703,7 @@ def main():
                     # print(len(curr_label_str))
                     s = ''.join([chars[label] for label in curr_label_str])
                     char_str.append(s)
-                    # print(s)
+                    print(s)
 
             counter += 1
             orig_texts = []
@@ -749,13 +752,15 @@ def main():
                     totallength_simple += len(ground_truth_simple)
 
                     print(cer)
-                    print(totaleditdistance/float(totallength))
-                    print(totaleditdistance_lower / float(totallength))
-                    print(totaleditdistance_simple / float(totallength_simple))
+                    print("avg editdistance: " + str(totaleditdistance/float(totallength)))
+                    print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
+                    if totallength_simple > 0:
+                        print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
                     if wbs:
-                        print(totaleditdistance_wbs_simple/ float(totallength_simple))
-                        print(totaleditdistance_wbs / float(totallength))
-                        print(totaleditdistance_wbs_lower / float(totallength))
+                        print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
+                        print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
+                        if totallength_simple > 0:
+                            print("avg editdistance wbs_simple: " + str(totaleditdistance_wbs_simple/ float(totallength_simple)))
             batch_no += 1
 
         totalcer = totaleditdistance/float(totallength)
@@ -769,9 +774,9 @@ def main():
         print('totalcerlower: ' + str(totalcerlower))
         print('totalcersimple: ' + str(totalcersimple))
         if wbs:
-            print('totalcerwbssimple: ' + str(totalcerwbssimple))
             print('totalcerwbs: ' + str(totalcerwbs))
             print('totalcerwbslower: ' + str(totalcerwbslower))
+            print('totalcerwbssimple: ' + str(totalcerwbssimple))
     #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
     #            img = img.T
     #            title = f"Prediction: {pred_texts[i].strip()}"
