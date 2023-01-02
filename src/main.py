@@ -126,9 +126,9 @@ def main():
     parser.add_argument('--model', metavar='model ', type=str, default=None,
                         help='Model to use')
     parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
-    parser.add_argument('--charlist', metavar='charlist ', type=str, default='../model/charList2.txt',
+    parser.add_argument('--charlist', metavar='charlist ', type=str, default=None,
                         help='Charlist to use')
-    parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default='../model/charList2.txt',
+    parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
                         help='output_charlist to use')
     parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new '
                                               'model', action='store_true')
@@ -259,7 +259,10 @@ def main():
             print('can not create output directory')
 
     char_list = None
-    if args.existing_model:
+    charlist_location = args.charlist
+    if not charlist_location:
+        charlist_location = args.output + '/charlist.txt'
+    if args.existing_model and not args.replace_final_layer:
         with open(args.charlist) as file:
             char_list = list(char for char in file.read())
         # char_list = args.charlist
@@ -354,22 +357,26 @@ def main():
     else:
         lr_schedule = learning_rate
 
+    output_charlist_location = args.output_charlist
+    if not output_charlist_location:
+        output_charlist_location = args.output + '/charlist.txt'
 
     with strategy.scope():
         if args.existing_model:
             print('using existing model as base: ' + args.existing_model)
-            if not os.path.exists(args.existing_model):
-                print('cannot find existing model on disk: ' + args.existing_model)
-                exit(1)
-            if not os.path.exists(args.charlist):
-                print('cannot find charlist on disk: ' + args.charlist)
-                exit(1)
-            with open(args.charlist) as file:
-                char_list = list(char for char in file.read())
-            # char_list = sorted(list(char_list))
-            print("using charlist")
-            print("length charlist: " + str(len(char_list)))
-            print(char_list)
+            if not args.replace_final_layer:
+                if not os.path.exists(args.existing_model):
+                    print('cannot find existing model on disk: ' + args.existing_model)
+                    exit(1)
+                if not os.path.exists(charlist_location):
+                    print('cannot find charlist on disk: ' + charlist_location)
+                    exit(1)
+                with open(charlist_location) as file:
+                    char_list = list(char for char in file.read())
+                # char_list = sorted(list(char_list))
+                print("using charlist")
+                print("length charlist: " + str(len(char_list)))
+                print(char_list)
             get_custom_objects().update({"CERMetric": CERMetric})
             get_custom_objects().update({"WERMetric": WERMetric})
             get_custom_objects().update({"CTCLoss": CTCLoss})
@@ -385,7 +392,7 @@ def main():
                 # chars_file = open(args.charlist, 'w')
                 # chars_file.write(str().join(loader.charList))
                 # chars_file.close()
-                with open(args.output_charlist, 'w') as chars_file:
+                with open(output_charlist_location, 'w') as chars_file:
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
@@ -425,7 +432,7 @@ def main():
             # chars_file = open(args.charlist, 'w')
             # chars_file.write(str().join(loader.charList))
             # chars_file.close()
-            with open(args.output_charlist, 'w') as chars_file:
+            with open(output_charlist_location, 'w') as chars_file:
                 chars_file.write(str().join(loader.charList))
 
             char_list = loader.charList

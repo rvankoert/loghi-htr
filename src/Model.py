@@ -948,7 +948,7 @@ class Model():
 
     @staticmethod
     def build_model_new10(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
-                          batch_normalization=False, dropout=False, use_rnn_dropout=True):
+                          batch_normalization=False, dropout=False, use_rnn_dropout=True, seed=42):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropoutconv = 0.1
@@ -961,7 +961,7 @@ class Model():
         )
 
         # labels = layers.Input(name="label", shape=(None,))
-        initializer = tf.keras.initializers.GlorotNormal()
+        initializer = tf.keras.initializers.GlorotNormal(seed=seed)
         channel_axis = -1
 
         x = input_img

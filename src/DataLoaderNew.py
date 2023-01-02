@@ -28,7 +28,8 @@ class DataLoaderNew:
         output = input.replace(',,', '„') \
             .replace(' ,', ',') \
             .replace(',', ', ') \
-            .replace(' .', '. ') \
+             .replace(' .', '.') \
+            .replace('.', '. ') \
             .replace('  ', ' ') \
             .replace('`', '\'') \
             .replace('´', '\'') \
