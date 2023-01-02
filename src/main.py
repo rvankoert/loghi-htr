@@ -183,6 +183,8 @@ def main():
                         help='beta: reset_dropout')
     parser.add_argument('--set_dropout', type=float, default=0.5,
                         help='beta: set_dropout')
+    parser.add_argument('--dropout_dense', type=float, default=0.5,
+                        help='beta: dropout_dense')
     parser.add_argument('--dropoutconv', type=float, default=0.0,
                         help='beta: set_dropout')
     parser.add_argument('--ignore_lines_unknown character', action='store_true',
@@ -331,7 +333,6 @@ def main():
         use_mask = True
     if args.batch_normalization:
         batch_normalization = True
-
     use_rnn_dropout = False
     if args.use_rnn_dropout:
         use_rnn_dropout = True
@@ -353,8 +354,8 @@ def main():
     else:
         lr_schedule = learning_rate
 
-    with strategy.scope():
 
+    with strategy.scope():
         if args.existing_model:
             print('using existing model as base: ' + args.existing_model)
             if not os.path.exists(args.existing_model):
@@ -489,7 +490,7 @@ def main():
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
                                                      batch_normalization=batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
+                                                     dropout_conv=args.dropoutconv, dropout_dense=args.dropout_dense)
             elif 'old6' == args.model:
                 model = modelClass.build_model_old6(img_size, len(char_list), use_mask=use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)

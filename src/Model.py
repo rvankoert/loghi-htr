@@ -253,10 +253,10 @@ class Model():
         return model
 
     @staticmethod
-    def build_model_new14(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
-                          batch_normalization=False, dropout=False, use_rnn_dropout=True, dropoutdense=0.5,
-                          dropoutconv=0.0, dropout_rnn=0.5):
-        (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
+    def build_model_new14(img_size, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                          batch_normalization=False, dropout=False, use_rnn_dropout=True, dropout_dense=0.5,
+                          dropout_conv=0.0, dropout_rnn=0.5, seed=42):
+        (height, width, channels) = img_size[0], img_size[1], img_size[2]
         # Inputs to the model
         # dropoutdense = 0
         # dropoutconv = 0
@@ -270,7 +270,7 @@ class Model():
         )
 
         # labels = layers.Input(name="label", shape=(None,))
-        initializer = tf.keras.initializers.GlorotNormal()
+        initializer = tf.keras.initializers.GlorotNormal(seed)
         channel_axis = -1
 
         x = input_img
@@ -292,7 +292,7 @@ class Model():
             x = layers.BatchNormalization(axis=channel_axis)(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
         if dropout:
-            x = layers.Dropout(dropoutconv)(x)
+            x = layers.Dropout(dropout_conv)(x)
 
         # Second conv block
         x = layers.Conv2D(
@@ -308,7 +308,7 @@ class Model():
             x = layers.BatchNormalization(axis=channel_axis)(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
         if dropout:
-            x = layers.Dropout(dropoutconv)(x)
+            x = layers.Dropout(dropout_conv)(x)
 
         x = layers.Conv2D(
             64,
@@ -323,7 +323,7 @@ class Model():
             x = layers.BatchNormalization(axis=channel_axis)(x)
         x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
         if dropout:
-            x = layers.Dropout(dropoutconv)(x)
+            x = layers.Dropout(dropout_conv)(x)
 
         x = layers.Conv2D(
             96,
@@ -337,7 +337,7 @@ class Model():
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
         if dropout:
-            x = layers.Dropout(dropoutconv)(x)
+            x = layers.Dropout(dropout_conv)(x)
 
         x = layers.Conv2D(
             128,
@@ -351,7 +351,7 @@ class Model():
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
         if dropout:
-            x = layers.Dropout(dropoutconv)(x)
+            x = layers.Dropout(dropout_conv)(x)
 
         # x = layers.Conv2D(
         #     196,
@@ -402,8 +402,8 @@ class Model():
 
         # x = layers.Dense(1024, activation="elu",
         #                  kernel_initializer=initializer)(x)
-        if dropout:
-            x = layers.Dropout(dropoutdense)(x)
+        if dropout_dense > 0:
+            x = layers.Dropout(dropout_dense)(x)
 
         # Output layer
         if use_mask:
@@ -414,7 +414,7 @@ class Model():
                              kernel_initializer=initializer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
         model = keras.models.Model(
-            inputs=[input_img], outputs=output, name="model_new13"
+            inputs=[input_img], outputs=output, name="model_new14"
         )
         return model
 
