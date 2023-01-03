@@ -19,29 +19,7 @@ import matplotlib.pyplot as plt
 from utils import Utils
 
 
-class FilePaths:
-    """filenames and paths to data"""
-    fnCharList = '../model/charList.txt'
-    fnAccuracy = '../model/accuracy.txt'
-    fnInfer = '../data/test.png'
-    fnCorpus = '../data/corpus.txt'
-
-    fnCharList = '../model/charList2.txt'
-    fnAccuracy = '../model/accuracy2.txt'
-    fnInfer = '../data2/test.png'
-    fnCorpus = '../data2/corpus.txt'
-
-    modelOutput = '../models/model-val-best'
-
-
 def main():
-    # tf.compat.v1.disable_eager_execution()
-    # tf.compat.v1.enable_eager_execution()
-    # print(tf.executing_eagerly())
-
-    # A utility function to decode the output of the network
-
-
     parser = argparse.ArgumentParser(
         description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -209,8 +187,6 @@ def main():
     parser.add_argument('--output_checkpoints', action='store_true',
                         help='Continuously output checkpoints after each epoch. Default only best_val is saved')
 
-
-
     args = parser.parse_args()
 
     if args.deterministic:
@@ -220,8 +196,6 @@ def main():
         tf.random.set_seed(args.seed)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-    # os.environ["TF_CPP_VMODULE"] = "gpu_process_state=10,gpu_cudamallocasync_allocator=10"
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
     from Model import Model, CERMetric, WERMetric, CTCLoss
@@ -247,7 +221,6 @@ def main():
 
     batch_size = args.batch_size
     img_size = (args.height, args.width, args.channels)
-    maxTextLen = 128
     epochs = args.epochs
     learning_rate = args.learning_rate
 
@@ -265,7 +238,6 @@ def main():
     if args.existing_model and not args.replace_final_layer:
         with open(args.charlist) as file:
             char_list = list(char for char in file.read())
-        # char_list = args.charlist
     loader = DataLoaderNew(batch_size, img_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
@@ -290,8 +262,6 @@ def main():
                            reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
                            use_mask=args.use_mask
                            )
-    if args.model_name:
-        FilePaths.modelOutput = args.output + "/" + args.model_name
 
     print("creating generators")
     training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
@@ -323,7 +293,6 @@ def main():
                 gtImageEncoded = tf.image.encode_png(item)
                 tf.io.write_file("/tmp/test-"+str(i)+".png", gtImageEncoded)
 
-                # training_generator.on_epoch_end()
         exit()
     modelClass = Model()
     print(len(loader.charList))
@@ -389,9 +358,6 @@ def main():
                                                            use_rnn_dropout=use_rnn_dropout, dropout_rnn=args.dropout_rnn)
 
             if args.replace_final_layer:
-                # chars_file = open(args.charlist, 'w')
-                # chars_file.write(str().join(loader.charList))
-                # chars_file.close()
                 with open(output_charlist_location, 'w') as chars_file:
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
@@ -429,16 +395,11 @@ def main():
                 keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
         else:
             # save characters of model for inference mode
-            # chars_file = open(args.charlist, 'w')
-            # chars_file.write(str().join(loader.charList))
-            # chars_file.close()
             with open(output_charlist_location, 'w') as chars_file:
                 chars_file.write(str().join(loader.charList))
 
             char_list = loader.charList
             print("creating new model")
-            # model = modelClass.build_model(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
-            # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             if 'new2' == args.model:
                 model = modelClass.build_model_new2(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'new3' == args.model:
@@ -504,33 +465,12 @@ def main():
             elif 'old5' == args.model:
                 model = modelClass.build_model_old5(img_size, len(char_list), use_mask=use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
-            # Old models that require specific loader
-            # elif 'old4' == args.model:
-            #     model = modelClass.build_model_old4(imgSize, len(char_list), use_mask=use_mask,
-            #                                         use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
-            # elif 'old3' == args.model:
-            #     model = modelClass.build_model_old3(imgSize, len(char_list), use_mask=use_mask,
-            #                                         use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
-            # elif 'old2' == args.model:
-            #     model = modelClass.build_model_old2(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
-            # elif 'old1' == args.model:
-            #     model = modelClass.build_model_old1(imgSize, len(char_list), learning_rate=learning_rate)  # (loader.charList, keep_prob=0.8)
             else:
                 print('no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
                 exit()
 
-                # model = modelClass.build_model_new2(imgSize, len(char_list), use_mask=use_mask,
-                #                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
-            # model = modelClass.build_model_new1(
-            #     imgSize,
-            #     input_dim=maxTextLen + 1,
-            #     output_dim=len(char_list),
-            #     rnn_units=512,
-            # )
-
             model.compile(
                 keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
-            # model.compile(keras.optimizers.RMSprop(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
     model.summary(line_length=110)
 
@@ -676,13 +616,13 @@ def main():
         for batch in validation_dataset:
             # batch_images = batch["image"]
             # batch_labels = batch["label"]
-            preds = prediction_model.predict(batch[0])
+            predictions = prediction_model.predict(batch[0])
             # preds = prediction_model.predict_on_batch(batch[0])
-            pred_texts = decode_batch_predictions(preds, maxTextLen, utils, args.greedy, args.beam_width,
+            predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width,
                                                   args.num_oov_indices)
 
             # preds = utils.softmax(preds)
-            predsbeam = tf.transpose(preds, perm=[1, 0, 2])
+            predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
             # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
             #                      word_chars.encode('utf8'))
             # label_str = wbs.compute(mat)
@@ -719,13 +659,13 @@ def main():
                 label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
-            for prediction in pred_texts:
+            for prediction in predicted_texts:
                 for i in range(len(prediction)):
                     confidence = prediction[i][0]
-                    pred_text = prediction[i][1]
+                    predicted_text = prediction[i][1]
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
-                    predicted_text = pred_text.strip().replace('', '')
+                    predicted_text = predicted_text.strip().replace('', '')
                     current_editdistance = editdistance.eval(original_text, predicted_text)
                     current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
 
@@ -795,9 +735,6 @@ def main():
 
     if args.do_inference:
         print('inferencing')
-        # char_list = set(char for char in open(args.charlist).read())
-        # char_list = sorted(list(char_list))
-        #
         print(char_list)
         loader = DataLoaderNew(batch_size,
                                img_size,
@@ -808,7 +745,6 @@ def main():
                                use_mask=args.use_mask
                                )
         training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
-        # inference_generator.set_charlist(char_list, use_mask=use_mask, num_oov_indices=args.num_oov_indices)
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
@@ -818,37 +754,30 @@ def main():
 
         store_info(args, model)
 
-        # config_output_file.close()
-        #  Let's check results on some validation samples
         batch_counter = 0
         with open(args.results_file, "w") as text_file:
 
             for batch in inference_dataset:
-                preds = prediction_model.predict_on_batch(batch[0])
-                pred_texts = decode_batch_predictions(preds, maxTextLen, utils, args.greedy, args.beam_width)
+                predictions = prediction_model.predict_on_batch(batch[0])
+                predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width)
 
                 orig_texts = []
                 for label in batch[1]:
                     label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
                     orig_texts.append(label.strip())
-                for prediction in pred_texts:
+                for prediction in predicted_texts:
                     for i in range(len(prediction)):
                         confidence = prediction[i][0]
-                        pred_text = prediction[i][1]
+                        predicted_text = prediction[i][1]
                         filename = loader.get_item('inference', (batch_counter * batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
-                        predicted_text = pred_text.strip().replace('', '')
+                        predicted_text = predicted_text.strip().replace('', '')
                         print(original_text)
                         print(filename + "\t" + str(confidence) + "\t" + predicted_text)
                         text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
 
-                        # for i in range(len(pred_texts)):
-                #     filename = loader.get_item(batch_counter * batchSize + item_counter)
-                #     original_text = orig_texts[i].strip().replace('', '')
-                #     predicted_text = pred_texts[i].strip().replace('', '')
                     batch_counter += 1
                     text_file.flush()
-                # keras.backend.clear_session()
 
 def store_info(args, model):
     if os.path.exists("version_info"):

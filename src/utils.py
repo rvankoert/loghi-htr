@@ -129,7 +129,7 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     return decoded_dense, log_prob
 
 
-def decode_batch_predictions(pred, maxTextLen, utils, greedy=True, beam_width=1, num_oov_indices=0):
+def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=0):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
     # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
     # sequence_length = tf.constant(np.array([None], dtype=np.int32))

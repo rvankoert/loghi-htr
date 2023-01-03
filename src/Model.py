@@ -13,7 +13,6 @@ from tensorflow.python.framework import dtypes as dtypes_module
 from tensorflow.python.keras import backend_config
 from tensorflow.python.ops import ctc_ops as ctc
 
-from utils import decode_batch_predictions
 import keras.backend as K
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
