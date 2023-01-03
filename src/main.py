@@ -107,7 +107,7 @@ def main():
                         action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
                         help='results_file')
-    parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default='output/config.txt',
+    parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
                         help='config_file_output')
     parser.add_argument('--config_file', metavar='config_file', type=str, default='config.txt',
                         help='config_file')
@@ -187,8 +187,8 @@ def main():
                         help='beta: dropout_dense')
     parser.add_argument('--dropoutconv', type=float, default=0.0,
                         help='beta: set_dropout')
-    parser.add_argument('--ignore_lines_unknown character', action='store_true',
-                        help='beta: ignore_lines_unknown character. Ignores during training/validation lines that '
+    parser.add_argument('--ignore_lines_unknown_character', action='store_true',
+                        help='beta: ignore_lines_unknown_character. Ignores during training/validation lines that '
                              'contain characters that are not in charlist.')
     parser.add_argument('--check_missing_files', action='store_true',
                         help='beta: check_missing_files')
@@ -870,7 +870,11 @@ def store_info(args, model):
         'notes': ' '
     }
 
-    with open(os.path.join(args.output, 'config.json'), 'w') as configuration_file:
+    if args.config_file_output:
+        config_file_output = args.config_file_output
+    else:
+        config_file_output = os.path.join(args.output, 'config.json')
+    with open(config_file_output, 'w') as configuration_file:
         json.dump(config, configuration_file)
 
 if __name__ == '__main__':

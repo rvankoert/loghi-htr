@@ -7,6 +7,11 @@ from keras.layers import Lambda, Dense
 from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import array_ops
+from tensorflow.python.framework import dtypes as dtypes_module
+from tensorflow.python.keras import backend_config
+from tensorflow.python.ops import ctc_ops as ctc
 
 from utils import decode_batch_predictions
 import keras.backend as K
@@ -15,11 +20,41 @@ gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
+epsilon = backend_config.epsilon
+
+def ctc_batch_cost(y_true, y_pred, input_length, label_length):
+  """Runs CTC loss algorithm on each batch element.
+  Arguments:
+      y_true: tensor `(samples, max_string_length)`
+          containing the truth labels.
+      y_pred: tensor `(samples, time_steps, num_categories)`
+          containing the prediction, or output of the softmax.
+      input_length: tensor `(samples, 1)` containing the sequence length for
+          each batch item in `y_pred`.
+      label_length: tensor `(samples, 1)` containing the sequence length for
+          each batch item in `y_true`.
+  Returns:
+      Tensor with shape (samples,1) containing the
+          CTC loss of each element.
+  """
+  label_length = math_ops.cast(
+      array_ops.squeeze(label_length, axis=-1), dtypes_module.int32)
+  input_length = math_ops.cast(
+      array_ops.squeeze(input_length, axis=-1), dtypes_module.int32)
+  sparse_labels = math_ops.cast(
+      K.ctc_label_dense_to_sparse(y_true, label_length), dtypes_module.int32)
+
+  y_pred = math_ops.log(array_ops.transpose(y_pred, perm=[1, 0, 2]) + epsilon())
+
+  return array_ops.expand_dims(
+      ctc.ctc_loss(
+          inputs=y_pred, labels=sparse_labels, sequence_length=input_length, ignore_longer_outputs_than_inputs=True), 1)
+
 
 class CTCLayer(tf.keras.layers.Layer):
     def __init__(self, name=None):
         super().__init__(name=name)
-        self.loss_fn = keras.backend.ctc_batch_cost
+        self.loss_fn = ctc_batch_cost
 
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
@@ -140,7 +175,7 @@ def CTCLoss(y_true, y_pred):
     input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
     # label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
 
-    loss = keras.backend.ctc_batch_cost(y_true, y_pred, input_length, label_length)
+    loss = ctc_batch_cost(y_true, y_pred, input_length, label_length)
     return loss
 
 
