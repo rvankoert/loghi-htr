@@ -154,8 +154,6 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
         i = 0
         for res in results:
             log_prob = ctc_decoded[1][i][top_path]
-            if log_prob < 0:
-                log_prob = -log_prob
             confidence = np.exp(log_prob)
             i = i + 1
             # print(confidence)
