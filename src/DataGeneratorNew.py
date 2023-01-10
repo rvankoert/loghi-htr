@@ -270,7 +270,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
         img = tf.image.resize(img, [height, image_width])
 
-        if self.augment and image_width < label_width*16:
+        if augment and image_width < label_width*16:
             image_width = label_width * 16
             # print('setting label width '+ str(height) + " " + str(image_width))
             img = tf.image.resize_with_pad(img, height, image_width)
