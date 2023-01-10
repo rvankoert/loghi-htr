@@ -274,7 +274,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             image_width = label_width * 16
             # print('setting label width '+ str(height) + " " + str(image_width))
             img = tf.image.resize_with_pad(img, height, image_width)
-        return img
+        return img, label
 
     @staticmethod
     def encode_single_sample(datagenerator, img_path, label, augment, elastic_transform, distort_jpeg, height, width, channels,
@@ -294,7 +294,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
         # exit()
-        img = DataGeneratorNew.augment(img, datagenerator, label, augment, elastic_transform, distort_jpeg, height,
+        img, label = DataGeneratorNew.augment(img, datagenerator, label, augment, elastic_transform, distort_jpeg, height,
                                        width, channels, do_binarize_otsu, do_binarize_sauvola, random_crop, random_width)
 
         # pad 25 pixels left and right
