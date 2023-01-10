@@ -300,6 +300,7 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # pad 25 pixels left and right
         # img = tf.ensure_shape(img, [self.height, None, self.channels])
         # print('height2 ' + str(height) + " " + str(image_width+50) + " " + str(label_width))
+        image_width = img.shape[1]
         img = tf.image.resize_with_pad(img, height, image_width+50)
         # if image_width > 6000:
         #     img = tf.image.resize_with_pad(img, height, 6000)
