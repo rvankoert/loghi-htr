@@ -294,10 +294,8 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # gtImageEncoded = tf.image.encode_png(img)
         # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
         # exit()
-        img = augment(img, datagenerator, label,augment, elastic_transform, distort_jpeg, height, channels,
-                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width)
-
-
+        img = DataGeneratorNew.augment(img, datagenerator, label, augment, elastic_transform, distort_jpeg, height,
+                                       width, channels, do_binarize_otsu, do_binarize_sauvola, random_crop, random_width)
 
         # pad 25 pixels left and right
         # img = tf.ensure_shape(img, [self.height, None, self.channels])
