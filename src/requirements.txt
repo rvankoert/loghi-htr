@@ -11,3 +11,5 @@ tf_keras_vis==0.8.1
 scikit-image==0.18.3
 elasticdeform
 lmdb===1.3.0
+pyparsing
+six
