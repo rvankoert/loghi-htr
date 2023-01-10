@@ -150,35 +150,26 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             exit()
 
     @staticmethod
-    def encode_single_sample(datagenerator, img_path, label, augment, elastic_transform, distort_jpeg, height, width, channels,
-                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width):
-        MAX_ROT_ANGLE = 10.0
-        # img = tf.io.read_file(img_path)
-        # img = tf.io.decode_png(img, channels=self.channels)
-        # img = tf.image.convert_image_dtype(img, self.DTYPE)
+    def load_image(image_path, channels):
         if channels == 1:
-            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-            DataGeneratorNew.check_valid_file(img, img_path)
+            img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+            DataGeneratorNew.check_valid_file(img, image_path)
             img = np.expand_dims(img, -1)
             # gtImageEncoded = tf.image.encode_png(img)
             # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
         elif channels == 3:
-            img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-            DataGeneratorNew.check_valid_file(img, img_path)
+            img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+            DataGeneratorNew.check_valid_file(img, image_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
-            img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-            DataGeneratorNew.check_valid_file(img, img_path)
+            img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            DataGeneratorNew.check_valid_file(img, image_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
-        # gtImageEncoded = tf.image.encode_png(img)
-        # img = tf.image.decode_image(gtImageEncoded)
-        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
-        # img *= 255
-        # gtImageEncoded = tf.image.encode_png(img)
-        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
-        # gtImageEncoded = tf.image.encode_png(img)
-        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
-        # exit()
+        return img
+
+    @staticmethod
+    def augment(img, datagenerator, label, augment, elastic_transform, distort_jpeg, height, width, channels,
+                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width):
         if elastic_transform:
             alpha_range = random.uniform(0, 750)
             sigma = random.uniform(0, 30)
@@ -279,10 +270,34 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
 
         img = tf.image.resize(img, [height, image_width])
 
-        if image_width < label_width*16:
+        if self.augment and image_width < label_width*16:
             image_width = label_width * 16
             # print('setting label width '+ str(height) + " " + str(image_width))
             img = tf.image.resize_with_pad(img, height, image_width)
+        return img
+
+    @staticmethod
+    def encode_single_sample(datagenerator, img_path, label, augment, elastic_transform, distort_jpeg, height, width, channels,
+                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width):
+        MAX_ROT_ANGLE = 10.0
+        # img = tf.io.read_file(img_path)
+        # img = tf.io.decode_png(img, channels=self.channels)
+        # img = tf.image.convert_image_dtype(img, self.DTYPE)
+        img = DataGeneratorNew.load_image(img_path, channels)
+
+        # gtImageEncoded = tf.image.encode_png(img)
+        # img = tf.image.decode_image(gtImageEncoded)
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # img *= 255
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testa.png", gtImageEncoded)
+        # gtImageEncoded = tf.image.encode_png(img)
+        # tf.io.write_file("/tmp/testb.png", gtImageEncoded)
+        # exit()
+        img = augment(img, datagenerator, label,augment, elastic_transform, distort_jpeg, height, channels,
+                             do_binarize_otsu, do_binarize_sauvola, random_crop, random_width)
+
+
 
         # pad 25 pixels left and right
         # img = tf.ensure_shape(img, [self.height, None, self.channels])
