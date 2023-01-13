@@ -186,6 +186,8 @@ def main():
                         help='beta: deterministic mode (reproducable results')
     parser.add_argument('--output_checkpoints', action='store_true',
                         help='Continuously output checkpoints after each epoch. Default only best_val is saved')
+    parser.add_argument('--no_auto', action='store_true',
+                        help='No Auto disabled automatic "fixing" of certain parameters')
 
     args = parser.parse_args()
 
@@ -219,9 +221,7 @@ def main():
     else:
         print("using float32")
 
-    batch_size = args.batch_size
     img_size = (args.height, args.width, args.channels)
-    epochs = args.epochs
     learning_rate = args.learning_rate
 
     if args.output and not os.path.exists(args.output):
@@ -238,7 +238,7 @@ def main():
     if args.existing_model and not args.replace_final_layer:
         with open(args.charlist) as file:
             char_list = list(char for char in file.read())
-    loader = DataLoaderNew(batch_size, img_size,
+    loader = DataLoaderNew(args.batch_size, img_size,
                            train_list=args.train_list,
                            validation_list=args.validation_list,
                            test_list=args.test_list,
@@ -297,14 +297,8 @@ def main():
     modelClass = Model()
     print(len(loader.charList))
     use_gru = False
-    use_mask = False
-    batch_normalization = False
     if args.use_gru:
         use_gru = True
-    if args.use_mask:
-        use_mask = True
-    if args.batch_normalization:
-        batch_normalization = True
     use_rnn_dropout = False
     if args.use_rnn_dropout:
         use_rnn_dropout = True
@@ -318,7 +312,6 @@ def main():
         if training_generator is None:
             print('training, but training_generator is None. Did you provide a train_list?')
             exit(1)
-
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
             decay_steps=train_batches,
@@ -353,7 +346,7 @@ def main():
             model = keras.models.load_model(args.existing_model)
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                            rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
                                                            use_rnn_dropout=use_rnn_dropout, dropout_rnn=args.dropout_rnn)
 
@@ -362,7 +355,7 @@ def main():
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
-                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
+                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=args.use_mask)
             if args.thaw:
                 for layer in model.layers:
                     layer.trainable = True
@@ -401,69 +394,69 @@ def main():
             char_list = loader.charList
             print("creating new model")
             if 'new2' == args.model:
-                model = modelClass.build_model_new2(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
+                model = modelClass.build_model_new2(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'new3' == args.model:
                 model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
             elif 'new4' == args.model:
-                model = modelClass.build_model_new4(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new4(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units,
-                                                    batch_normalization=batch_normalization)
+                                                    batch_normalization=args.batch_normalization)
             elif 'new5' == args.model:
-                model = modelClass.build_model_new5(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new5(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=5,
-                                                    batch_normalization=batch_normalization, dropout=args.use_dropout)
+                                                    batch_normalization=args.batch_normalization, dropout=args.use_dropout)
             elif 'new6' == args.model:
-                model = modelClass.build_model_new6(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new6(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=2,
-                                                    batch_normalization=batch_normalization)
+                                                    batch_normalization=args.batch_normalization)
             elif 'new7' == args.model:
-                model = modelClass.build_model_new7(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new7(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                    batch_normalization=batch_normalization, dropout=args.use_dropout)
+                                                    batch_normalization=args.batch_normalization, dropout=args.use_dropout)
             elif 'new8' == args.model:
-                model = modelClass.build_model_new8(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new8(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                    batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                    batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new9' == args.model:
-                model = modelClass.build_model_new9(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new9(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                     rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                    batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                    batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new10' == args.model:
-                model = modelClass.build_model_new10(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new10(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout)
             elif 'new11' == args.model:
-                model = modelClass.build_model_new11(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new11(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new12' == args.model:
-                model = modelClass.build_model_new12(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new12(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new13' == args.model:
-                model = modelClass.build_model_new13(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new13(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropoutconv=args.dropoutconv)
             elif 'new14' == args.model:
-                model = modelClass.build_model_new14(img_size, len(char_list), use_mask=use_mask, use_gru=use_gru,
+                model = modelClass.build_model_new14(img_size, len(char_list), use_mask=args.use_mask, use_gru=use_gru,
                                                      rnn_units=args.rnn_units, rnn_layers=args.rnn_layers,
-                                                     batch_normalization=batch_normalization, dropout=args.use_dropout,
+                                                     batch_normalization=args.batch_normalization, dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn,
                                                      dropout_conv=args.dropoutconv, dropout_dense=args.dropout_dense)
             elif 'old6' == args.model:
-                model = modelClass.build_model_old6(img_size, len(char_list), use_mask=use_mask,
+                model = modelClass.build_model_old6(img_size, len(char_list), use_mask=args.use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'old5' == args.model:
-                model = modelClass.build_model_old5(img_size, len(char_list), use_mask=use_mask,
+                model = modelClass.build_model_old5(img_size, len(char_list), use_mask=args.use_mask,
                                                     use_gru=use_gru)  # (loader.charList, keep_prob=0.8)
             else:
                 print('no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
@@ -512,7 +505,7 @@ def main():
             model,
             training_dataset,
             validation_dataset,
-            epochs=epochs,
+            epochs=args.epochs,
             output=args.output,
             model_name='encoder12',
             steps_per_epoch=args.steps_per_epoch,
@@ -547,7 +540,7 @@ def main():
         #     print("test")
     if args.do_validate:
         print("do_validate")
-        utils = Utils(char_list, use_mask)
+        utils = Utils(char_list, args.use_mask)
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -736,7 +729,7 @@ def main():
     if args.do_inference:
         print('inferencing')
         print(char_list)
-        loader = DataLoaderNew(batch_size,
+        loader = DataLoaderNew(args.batch_size,
                                img_size,
                                char_list,
                                inference_list=args.inference_list,
@@ -769,7 +762,7 @@ def main():
                     for i in range(len(prediction)):
                         confidence = prediction[i][0]
                         predicted_text = prediction[i][1]
-                        filename = loader.get_item('inference', (batch_counter * batch_size) + i)
+                        filename = loader.get_item('inference', (batch_counter * args.batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = predicted_text.strip().replace('', '')
                         print(original_text)
