@@ -110,6 +110,7 @@ class DataLoaderNew:
         inference_generator = None
         use_classic = False
         deterministic = False
+        train_batches=0
         if self.train_list:
             if use_classic:
                 training_generator = self.create_data_generator(labels,
@@ -129,7 +130,7 @@ class DataLoaderNew:
                                                         random_width=self.random_width,
                                                         distort_jpeg=self.distort_jpeg
                                                         )
-                num_batches = np.ceil(len(train_files) / self.batchSize)
+                train_batches = np.ceil(len(train_files) / self.batchSize)
                 training_generator = tf.data.Dataset.from_tensor_slices(train_files)
                 training_generator = (training_generator
                                       .repeat()
@@ -142,7 +143,7 @@ class DataLoaderNew:
                                                         tf.constant(0, dtype=tf.int64))
                                                     )
                                       .prefetch(AUTOTUNE)
-                                      ).apply(tf.data.experimental.assert_cardinality(num_batches))
+                                      ).apply(tf.data.experimental.assert_cardinality(train_batches))
 
         if self.validation_list:
             if use_classic:
@@ -235,7 +236,7 @@ class DataLoaderNew:
             #                            ).apply(tf.data.experimental.assert_cardinality(num_batches))
         self.partition = partition
 
-        return training_generator, validation_generator, test_generator, inference_generator, self.utils
+        return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
 
     def __init__(self,
                  batch_size,
