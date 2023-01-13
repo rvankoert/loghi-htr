@@ -264,7 +264,7 @@ def main():
                            )
 
     print("creating generators")
-    training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
+    training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
     # Testing
     if False:
@@ -321,7 +321,7 @@ def main():
 
         lr_schedule = keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=learning_rate,
-            decay_steps=training_generator.__len__(),
+            decay_steps=train_batches,
             decay_rate=args.decay_rate)
     else:
         lr_schedule = learning_rate
@@ -744,7 +744,7 @@ def main():
                                normalize_text=args.normalize_text,
                                use_mask=args.use_mask
                                )
-        training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
+        training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
