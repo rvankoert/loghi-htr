@@ -725,7 +725,10 @@ def main():
                         print(predicted_text)
                         if wbs:
                             print(char_str[i])
-
+                    print('confidence: ' + str(confidence)
+                          + ' cer: ' + str(cer)
+                          + ' total: ' + str(len(original_text))
+                          + ' errors: ' + str(current_editdistance))
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
                     totaleditdistance_simple += current_editdistance_simple
