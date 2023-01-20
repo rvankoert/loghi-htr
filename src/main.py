@@ -727,7 +727,8 @@ def main():
                             print(char_str[i])
                     print('confidence: ' + str(confidence)
                           + ' cer: ' + str(cer)
-                          + ' total: ' + str(len(original_text))
+                          + ' total_orig: ' + str(len(original_text))
+                          + ' total_pred: ' + str(len(predicted_text))
                           + ' errors: ' + str(current_editdistance))
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
