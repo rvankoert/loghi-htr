@@ -207,6 +207,11 @@ def main():
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
+    do_train = args.do_train
+    if not args.no_auto and args.train_list:
+        print('do_train implied by providing a train_list')
+        do_train = True
+
     if args.gpu != '-1':
         gpus = tf.config.experimental.list_physical_devices('GPU')
 
@@ -234,115 +239,128 @@ def main():
     charlist_location = args.charlist
     if not charlist_location:
         charlist_location = args.output + '/charlist.txt'
-    if args.existing_model and not args.replace_final_layer:
-        with open(args.charlist) as file:
-            char_list = list(char for char in file.read())
-    img_size = (args.height, args.width, args.channels)
-    loader = DataLoaderNew(args.batch_size, img_size,
-                           train_list=args.train_list,
-                           validation_list=args.validation_list,
-                           test_list=args.test_list,
-                           inference_list=args.inference_list,
-                           char_list=char_list,
-                           do_binarize_sauvola=args.do_binarize_sauvola,
-                           do_binarize_otsu=args.do_binarize_otsu,
-                           multiply=args.multiply,
-                           augment=args.augment,
-                           elastic_transform=args.elastic_transform,
-                           random_crop=args.random_crop,
-                           random_width=args.random_width,
-                           check_missing_files=args.check_missing_files,
-                           distort_jpeg=args.distort_jpeg,
-                           replace_final_layer=args.replace_final_layer,
-                           normalize_text=args.normalize_text,
-                           use_lmdb=args.use_lmdb,
-                           reuse_old_lmdb_train=args.reuse_old_lmdb_train,
-                           reuse_old_lmdb_val=args.reuse_old_lmdb_val,
-                           reuse_old_lmdb_test=args.reuse_old_lmdb_test,
-                           reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
-                           use_mask=args.use_mask
-                           )
-
-    print("creating generators")
-    training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
-
-    # Testing
-    if False:
-        for run in range(1):
-            print("testing dataloader " + str(run))
-            training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
-
-            no_batches = training_generator.__len__()
-            for i in range(10):
-                # if i%10 == 0:
-                print(i)
-                item = training_generator.__getitem__(i)
-            training_generator.random_width = True
-            training_generator.random_crop = True
-            # training_generator.augment = True
-            training_generator.elastic_transform = True
-            training_generator.distort_jpeg = True
-            training_generator.do_binarize_sauvola = False
-            training_generator.do_binarize_otsu = False
-            training_generator.on_epoch_end()
-            for i in range(10):
-                # if i%10 == 0:
-                print(i)
-                batch = training_generator.__getitem__(i)
-                item = tf.image.convert_image_dtype(-0.5 - batch[0][1], dtype=tf.uint8)
-                gtImageEncoded = tf.image.encode_png(item)
-                tf.io.write_file("/tmp/test-"+str(i)+".png", gtImageEncoded)
-
-        exit()
-    modelClass = Model()
-    print(len(loader.charList))
-
-    if args.decay_rate > 0 and args.decay_steps > 0:
-        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=learning_rate,
-            decay_steps=args.decay_steps,
-            decay_rate=args.decay_rate)
-    elif args.decay_rate > 0 and args.decay_steps == -1 and args.do_train:
-        if training_generator is None:
-            print('training, but training_generator is None. Did you provide a train_list?')
-            exit(1)
-        lr_schedule = keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=learning_rate,
-            decay_steps=train_batches,
-            decay_rate=args.decay_rate)
-    else:
-        lr_schedule = learning_rate
-
-    output_charlist_location = args.output_charlist
-    if not output_charlist_location:
-        output_charlist_location = args.output + '/charlist.txt'
-
+    model_channels = args.channels
+    model_height = args.height
     with strategy.scope():
         if args.existing_model:
-            print('using existing model as base: ' + args.existing_model)
-            if not args.replace_final_layer:
-                if not os.path.exists(args.existing_model):
-                    print('cannot find existing model on disk: ' + args.existing_model)
-                    exit(1)
-                if not os.path.exists(charlist_location):
-                    print('cannot find charlist on disk: ' + charlist_location)
-                    exit(1)
-                with open(charlist_location) as file:
-                    char_list = list(char for char in file.read())
-                # char_list = sorted(list(char_list))
-                print("using charlist")
-                print("length charlist: " + str(len(char_list)))
-                print(char_list)
+            if not os.path.exists(args.existing_model):
+                print('cannot find existing model on disk: ' + args.existing_model)
+                exit(1)
+            if not os.path.exists(charlist_location):
+                print('cannot find charlist on disk: ' + charlist_location)
+                exit(1)
+            with open(charlist_location) as file:
+                char_list = list(char for char in file.read())
+            # char_list = sorted(list(char_list))
+            print("using charlist")
+            print("length charlist: " + str(len(char_list)))
+            print(char_list)
             get_custom_objects().update({"CERMetric": CERMetric})
             get_custom_objects().update({"WERMetric": WERMetric})
             get_custom_objects().update({"CTCLoss": CTCLoss})
 
             model = keras.models.load_model(args.existing_model)
+            if not args.replace_final_layer:
+                model_channels = model.layers[0].input_shape[0][3]
+
+            model_height = model.layers[0].input_shape[0][2]
+            if args.height != model_height:
+                print('input height differs from model channels. use --height ' + str(model_height))
+                print('resetting height to: ' + str(model_height))
+                if args.no_auto:
+                    exit(1)
+            with open(args.charlist) as file:
+                char_list = list(char for char in file.read())
+        img_size = (model_height, args.width, model_channels)
+        loader = DataLoaderNew(args.batch_size, img_size,
+                               train_list=args.train_list,
+                               validation_list=args.validation_list,
+                               test_list=args.test_list,
+                               inference_list=args.inference_list,
+                               char_list=char_list,
+                               do_binarize_sauvola=args.do_binarize_sauvola,
+                               do_binarize_otsu=args.do_binarize_otsu,
+                               multiply=args.multiply,
+                               augment=args.augment,
+                               elastic_transform=args.elastic_transform,
+                               random_crop=args.random_crop,
+                               random_width=args.random_width,
+                               check_missing_files=args.check_missing_files,
+                               distort_jpeg=args.distort_jpeg,
+                               replace_final_layer=args.replace_final_layer,
+                               normalize_text=args.normalize_text,
+                               use_lmdb=args.use_lmdb,
+                               reuse_old_lmdb_train=args.reuse_old_lmdb_train,
+                               reuse_old_lmdb_val=args.reuse_old_lmdb_val,
+                               reuse_old_lmdb_test=args.reuse_old_lmdb_test,
+                               reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
+                               use_mask=args.use_mask
+                               )
+
+        print("creating generators")
+        training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
+
+        # Testing
+        if False:
+            for run in range(1):
+                print("testing dataloader " + str(run))
+                training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
+
+                no_batches = training_generator.__len__()
+                for i in range(10):
+                    # if i%10 == 0:
+                    print(i)
+                    item = training_generator.__getitem__(i)
+                training_generator.random_width = True
+                training_generator.random_crop = True
+                # training_generator.augment = True
+                training_generator.elastic_transform = True
+                training_generator.distort_jpeg = True
+                training_generator.do_binarize_sauvola = False
+                training_generator.do_binarize_otsu = False
+                training_generator.on_epoch_end()
+                for i in range(10):
+                    # if i%10 == 0:
+                    print(i)
+                    batch = training_generator.__getitem__(i)
+                    item = tf.image.convert_image_dtype(-0.5 - batch[0][1], dtype=tf.uint8)
+                    gtImageEncoded = tf.image.encode_png(item)
+                    tf.io.write_file("/tmp/test-" + str(i) + ".png", gtImageEncoded)
+
+            exit()
+        modelClass = Model()
+        print(len(loader.charList))
+
+        if args.decay_rate > 0 and args.decay_steps > 0:
+            lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=learning_rate,
+                decay_steps=args.decay_steps,
+                decay_rate=args.decay_rate)
+        elif args.decay_rate > 0 and args.decay_steps == -1 and do_train:
+            if training_generator is None:
+                print('training, but training_generator is None. Did you provide a train_list?')
+                exit(1)
+            lr_schedule = keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=learning_rate,
+                decay_steps=train_batches,
+                decay_rate=args.decay_rate)
+        else:
+            lr_schedule = learning_rate
+
+        output_charlist_location = args.output_charlist
+        if not output_charlist_location:
+            output_charlist_location = args.output + '/charlist.txt'
+
+        if args.existing_model:
+            print('using existing model as base: ' + args.existing_model)
+            # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask, use_gru=args.use_gru,
+                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
+                                                           use_gru=args.use_gru,
                                                            rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
-                                                           use_rnn_dropout=args.use_rnn_dropout, dropout_rnn=args.dropout_rnn)
+                                                           use_rnn_dropout=args.use_rnn_dropout,
+                                                           dropout_rnn=args.dropout_rnn)
 
             if args.replace_final_layer:
                 with open(output_charlist_location, 'w') as chars_file:
@@ -376,7 +394,6 @@ def main():
             #     for layer in model.layers:
             #         print(layer.name)
             #         layer.trainable = True
-
 
             model.compile(
                 keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
@@ -503,30 +520,32 @@ def main():
                                                     use_mask=args.use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             else:
-                print('no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
+                print(
+                    'no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
                 exit()
 
             model.compile(
                 keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
 
+
     model.summary(line_length=110)
 
     model_channels = model.layers[0].input_shape[0][3]
     if args.channels != model_channels:
-        print('input channels differs from model channels. use --channels '+str(model_channels))
-        exit()
+        print('input channels differs from model channels. use --channels ' + str(model_channels))
+        if args.no_auto:
+            exit()
+        else:
+            print('setting correct number of channels: ' + str(model_channels))
 
-    model_height = model.layers[0].input_shape[0][2]
-    if args.height != model_height:
-        print('input height differs from model channels. use --height '+str(model_height))
-        exit()
+
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
     if args.use_mask:
-        num_characters = num_characters+1
+        num_characters = num_characters + 1
     if model_outputs != num_characters:
-        print('model_outputs: '+str(model_outputs))
-        print('charlist: '+str(num_characters))
+        print('model_outputs: ' + str(model_outputs))
+        print('charlist: ' + str(num_characters))
         print('number of characters in model is different from charlist provided.')
         print('please find correct charlist and use --charlist CORRECT_CHARLIST')
         print('if the charlist is just 1 lower: did you forget --use_mask')
@@ -535,7 +554,7 @@ def main():
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
-    if args.do_train:
+    if do_train:
         validation_dataset = None
         if args.do_validate:
             validation_dataset = validation_generator
@@ -563,7 +582,8 @@ def main():
         plt.style.use("ggplot")
         plt.figure()
         plt.plot(history.history["loss"], label="loss")
-        plt.plot(history.history["val_loss"], label="val_loss")
+        if args.validation_list:
+            plt.plot(history.history["val_loss"], label="val_loss")
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/CER")
@@ -573,7 +593,8 @@ def main():
         plt.style.use("ggplot")
         plt.figure()
         plt.plot(history.history["CER_metric"], label="CER train")
-        plt.plot(history.history["val_CER_metric"], label="CER val")
+        if args.validation_list:
+            plt.plot(history.history["val_CER_metric"], label="CER val")
         plt.title("Training Loss and Accuracy")
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/CER")
@@ -592,7 +613,6 @@ def main():
         )
         prediction_model.summary(line_length=110)
 
-
         # weights = model.get_layer(name="dense3").get_weights()
         # prediction_model = keras.models.Model(
         #     model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
@@ -606,7 +626,6 @@ def main():
         # # output = Dense(148, activation='softmax')(dense3)
         # prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
         # prediction_model.summary(line_length=120)
-
 
         totalcer = 0.
         totaleditdistance = 0
@@ -639,12 +658,12 @@ def main():
             #
             chars = '' + ''.join(sorted(list(char_list)))
 
-            print('using corpus file: '+str(args.corpus_file))
+            print('using corpus file: ' + str(args.corpus_file))
             # NGramsForecast
             # Words
             # NGrams
             # NGramsForecastAndSample
-            wbs = WordBeamSearch(args.beam_width, 'NGrams',  args.wbs_smoothing, corpus.encode('utf8'), chars.encode('utf8'),
+            wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing, corpus.encode('utf8'), chars.encode('utf8'),
                                  word_chars.encode('utf8'))
             print('Created WordBeamSearcher')
 
@@ -656,7 +675,7 @@ def main():
             predictions = prediction_model.predict(batch[0])
             # preds = prediction_model.predict_on_batch(batch[0])
             predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width,
-                                                  args.num_oov_indices)
+                                                       args.num_oov_indices)
 
             # preds = utils.softmax(preds)
             predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
@@ -674,7 +693,6 @@ def main():
             # print(label_str[0])
             # print(char_str[0])
             # return label_str[0], char_str[0]
-
 
             # if True:
             #     exit(1)
@@ -716,7 +734,7 @@ def main():
                         current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
                         current_editdistance_wbslower = editdistance.eval(original_text.lower(),
                                                                           char_str[i].strip().lower())
-                    cer = current_editdistance/float(len(original_text))
+                    cer = current_editdistance / float(len(original_text))
                     if cer > 0.0:
                         # filename = validation_dataset.get_file(batch_no * batchSize + i)
                         # print(filename)
@@ -741,7 +759,7 @@ def main():
                     totallength_simple += len(ground_truth_simple)
 
                     print(cer)
-                    print("avg editdistance: " + str(totaleditdistance/float(totallength)))
+                    print("avg editdistance: " + str(totaleditdistance / float(totallength)))
                     print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
                     if totallength_simple > 0:
                         print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
@@ -749,16 +767,17 @@ def main():
                         print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
                         print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
                         if totallength_simple > 0:
-                            print("avg editdistance wbs_simple: " + str(totaleditdistance_wbs_simple/ float(totallength_simple)))
+                            print("avg editdistance wbs_simple: " + str(
+                                totaleditdistance_wbs_simple / float(totallength_simple)))
             batch_no += 1
 
-        totalcer = totaleditdistance/float(totallength)
-        totalcerlower = totaleditdistance_lower/float(totallength)
+        totalcer = totaleditdistance / float(totallength)
+        totalcerlower = totaleditdistance_lower / float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
         if wbs:
             totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
-            totalcerwbs = totaleditdistance_wbs/float(totallength)
-            totalcerwbslower = totaleditdistance_wbs_lower/float(totallength)
+            totalcerwbs = totaleditdistance_wbs / float(totallength)
+            totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
         print('totalcer: ' + str(totalcer))
         print('totalcerlower: ' + str(totalcerlower))
         print('totalcersimple: ' + str(totalcersimple))
@@ -820,6 +839,7 @@ def main():
                     batch_counter += 1
                     text_file.flush()
 
+
 def store_info(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
@@ -846,6 +866,7 @@ def store_info(args, model):
         config_file_output = os.path.join(args.output, 'config.json')
     with open(config_file_output, 'w') as configuration_file:
         json.dump(config, configuration_file)
+
 
 if __name__ == '__main__':
     main()

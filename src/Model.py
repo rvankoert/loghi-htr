@@ -3765,8 +3765,12 @@ class Model():
         from keras.callbacks import History
         from keras.callbacks import ModelCheckpoint
         history = History()
-        mcp_save = ModelCheckpoint(output + '/best_val/', save_best_only=True, monitor='val_CER_metric',
+        if validation_dataset:
+            mcp_save = ModelCheckpoint(output + '/best_val/', save_best_only=True, monitor='val_CER_metric',
                                    mode='min', verbose=1)
+        else:
+            mcp_save = ModelCheckpoint(output + '/best_train/', save_best_only=True, monitor='CER_metric',
+                                       mode='min', verbose=1)
         # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
