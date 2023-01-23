@@ -156,9 +156,11 @@ class DataLoaderNew:
             else:
                 data_generator_new2 = DataGeneratorNew2(self.utils,
                                                         self.batchSize,
+                                                        height=self.height,
                                                         channels=self.channels,
                                                         do_binarize_sauvola=self.do_binarize_sauvola,
-                                                        do_binarize_otsu=self.do_binarize_otsu,)
+                                                        do_binarize_otsu=self.do_binarize_otsu,
+                                                        )
                 num_batches = np.ceil(len(validation_files) / self.batchSize)
                 print('validation batches: ' + str(num_batches))
                 validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
@@ -186,6 +188,7 @@ class DataLoaderNew:
             else:
                 data_generator_new2 = DataGeneratorNew2(self.utils,
                                                         self.batchSize,
+                                                        height=self.height,
                                                         channels=self.channels,
                                                         do_binarize_sauvola=self.do_binarize_sauvola,
                                                         do_binarize_otsu=self.do_binarize_otsu,)

@@ -84,7 +84,7 @@ def main():
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
                         action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
-                        help='results_file')
+                        help='results_file. When inferencing the results are stored at this location.')
     parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
                         help='config_file_output')
     parser.add_argument('--config_file', metavar='config_file', type=str, default='config.txt',
@@ -149,7 +149,7 @@ def main():
     parser.add_argument('--random_crop', action='store_true',
                         help='beta: broken. random_crop')
     parser.add_argument('--random_width', action='store_true',
-                        help='beta: random_width')
+                        help='data augmentation option: random_width, stretches the textline horizontally to random width')
     parser.add_argument('--distort_jpeg', action='store_true',
                         help='beta: distort_jpeg')
     parser.add_argument('--augment', action='store_true',
@@ -157,6 +157,8 @@ def main():
 
     parser.add_argument('--dropout_rnn', type=float, default=0.5,
                         help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
+    parser.add_argument('--dropout_recurrent_dropout', type=float, default=0,
+                        help='beta: dropout_recurrent_dropout. Default 0. This is terribly slow on GPU as there is no support in cuDNN RNN ops')
     parser.add_argument('--reset_dropout', action='store_true',
                         help='beta: reset_dropout')
     parser.add_argument('--set_dropout', type=float, default=0.5,
@@ -183,11 +185,13 @@ def main():
     parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
     parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
     parser.add_argument('--deterministic', action='store_true',
-                        help='beta: deterministic mode (reproducable results')
+                        help='beta: deterministic mode (reproducible results')
     parser.add_argument('--output_checkpoints', action='store_true',
                         help='Continuously output checkpoints after each epoch. Default only best_val is saved')
     parser.add_argument('--no_auto', action='store_true',
                         help='No Auto disabled automatic "fixing" of certain parameters')
+    parser.add_argument('--cnn_multiplier', type=int, default=4,
+                        help='beta: cnn_multiplier')
 
     args = parser.parse_args()
 
@@ -208,9 +212,13 @@ def main():
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     do_train = args.do_train
+    use_mask = args.use_mask
     if not args.no_auto and args.train_list:
         print('do_train implied by providing a train_list')
         do_train = True
+    if not args.no_auto and args.batch_size > 1:
+        print('batch_size > 1, setting use_mask=True')
+        use_mask = True
 
     if args.gpu != '-1':
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -294,7 +302,7 @@ def main():
                                reuse_old_lmdb_val=args.reuse_old_lmdb_val,
                                reuse_old_lmdb_test=args.reuse_old_lmdb_test,
                                reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
-                               use_mask=args.use_mask
+                               use_mask=use_mask
                                )
 
         print("creating generators")
@@ -356,7 +364,7 @@ def main():
             # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
+                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask,
                                                            use_gru=args.use_gru,
                                                            rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
                                                            use_rnn_dropout=args.use_rnn_dropout,
@@ -367,7 +375,7 @@ def main():
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
-                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=args.use_mask)
+                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
             if args.thaw:
                 for layer in model.layers:
                     layer.trainable = True
@@ -406,19 +414,19 @@ def main():
             print("creating new model")
             if 'new2' == args.model:
                 model = modelClass.build_model_new2(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'new3' == args.model:
                 model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
             elif 'new4' == args.model:
                 model = modelClass.build_model_new4(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     batch_normalization=args.batch_normalization)
             elif 'new5' == args.model:
                 model = modelClass.build_model_new5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=5,
@@ -426,14 +434,14 @@ def main():
                                                     dropout=args.use_dropout)
             elif 'new6' == args.model:
                 model = modelClass.build_model_new6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=2,
                                                     batch_normalization=args.batch_normalization)
             elif 'new7' == args.model:
                 model = modelClass.build_model_new7(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -441,7 +449,7 @@ def main():
                                                     dropout=args.use_dropout)
             elif 'new8' == args.model:
                 model = modelClass.build_model_new8(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -450,7 +458,7 @@ def main():
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new9' == args.model:
                 model = modelClass.build_model_new9(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -459,7 +467,7 @@ def main():
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new10' == args.model:
                 model = modelClass.build_model_new10(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
+                                                     use_mask=use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -468,7 +476,7 @@ def main():
                                                      use_rnn_dropout=args.use_rnn_dropout)
             elif 'new11' == args.model:
                 model = modelClass.build_model_new11(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
+                                                     use_mask=use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -479,7 +487,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new12' == args.model:
                 model = modelClass.build_model_new12(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
+                                                     use_mask=use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -490,7 +498,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new13' == args.model:
                 model = modelClass.build_model_new13(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
+                                                     use_mask=use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -501,7 +509,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new14' == args.model:
                 model = modelClass.build_model_new14(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
+                                                     use_mask=use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -509,15 +517,29 @@ def main():
                                                      dropout=args.use_dropout,
                                                      use_rnn_dropout=args.use_rnn_dropout,
                                                      dropout_rnn=args.dropout_rnn,
+                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
                                                      dropout_conv=args.dropoutconv,
                                                      dropout_dense=args.dropout_dense)
+            elif 'new15' == args.model:
+                model = modelClass.build_model_new15(img_size, len(char_list),
+                                                     use_mask=use_mask,
+                                                     use_gru=args.use_gru,
+                                                     rnn_units=args.rnn_units,
+                                                     rnn_layers=args.rnn_layers,
+                                                     batch_normalization=args.batch_normalization,
+                                                     use_rnn_dropout=args.use_rnn_dropout,
+                                                     dropout_rnn=args.dropout_rnn,
+                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
+                                                     dropout_conv=args.dropoutconv,
+                                                     dropout_dense=args.dropout_dense,
+                                                     multiplier=args.cnn_multiplier)
             elif 'old6' == args.model:
                 model = modelClass.build_model_old6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'old5' == args.model:
                 model = modelClass.build_model_old5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
+                                                    use_mask=use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             else:
                 print(
@@ -541,7 +563,7 @@ def main():
 
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
-    if args.use_mask:
+    if use_mask:
         num_characters = num_characters + 1
     if model_outputs != num_characters:
         print('model_outputs: ' + str(model_outputs))
@@ -549,14 +571,14 @@ def main():
         print('number of characters in model is different from charlist provided.')
         print('please find correct charlist and use --charlist CORRECT_CHARLIST')
         print('if the charlist is just 1 lower: did you forget --use_mask')
-        exit()
+        exit(1)
 
     # test_generator = test_generator.getGenerator()
     # inference_dataset = inference_generator.getGenerator()
 
     if do_train:
         validation_dataset = None
-        if args.do_validate:
+        if args.validation_list:
             validation_dataset = validation_generator
 
         store_info(args, model)
@@ -605,7 +627,7 @@ def main():
         #     print("test")
     if args.do_validate:
         print("do_validate")
-        utils = Utils(char_list, args.use_mask)
+        utils = Utils(char_list, use_mask)
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -802,7 +824,7 @@ def main():
                                inference_list=args.inference_list,
                                check_missing_files=args.check_missing_files,
                                normalize_text=args.normalize_text,
-                               use_mask=args.use_mask
+                               use_mask=use_mask
                                )
         training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
         prediction_model = keras.models.Model(

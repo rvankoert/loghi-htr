@@ -84,8 +84,12 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
             else:
                 image = tf.image.random_jpeg_quality(image, 20, 100)
 
+        image_width = tf.shape(image)[1]
+        image_height = tf.shape(image)[0]
         if self.do_elastic_transform:
+            # print(image)
             image = self.elastic_transform(image)
+            print(image)
 
         if self.random_crop:
             randomseed = random.randint(0, 100000), random.randint(0, 1000000)
@@ -98,10 +102,10 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
             crop_height = tf.cast(random_crop * original_height, tf.int32)
             crop_size = (crop_height, original_width, self.channels)
             image = tf.image.stateless_random_crop(image, crop_size, randomseed)
+            image_width = tf.shape(image)[1]
+            image_height = tf.shape(image)[0]
 
-        image_width = tf.shape(image)[1]
-        image_height = tf.shape(image)[0]
-
+        print(image)
         if self.random_width:
             random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
             random_width *= float(image_width)
