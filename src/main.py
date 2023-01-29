@@ -49,7 +49,7 @@ def main():
     # parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
     #                     help='optimizer: adam, adadelta, rmsprop, sgd')
     parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
-                        help='memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
+                        help='deprecated: memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
 
     parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
                         action='store_true')
