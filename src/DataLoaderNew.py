@@ -166,7 +166,6 @@ class DataLoaderNew:
                 validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
                 validation_generator = (validation_generator
                                         # .repeat()
-                                        .shuffle(len(validation_files))
                                         .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
                                              deterministic=deterministic)
                                         .padded_batch(self.batchSize,
