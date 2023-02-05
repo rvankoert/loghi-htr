@@ -138,6 +138,8 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
 
     # Use greedy search. For complex tasks, you can use beam search
     pred = tf.dtypes.cast(pred, tf.float32)
+    # pred_matrix = tf.transpose(pred[0], perm=[1, 0])
+    # np.savetxt("foo.csv", pred_matrix, delimiter=",")
     top_paths = 1
     output_texts = []
     ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=greedy, beam_width=beam_width, top_paths=top_paths)
@@ -161,6 +163,8 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             chars = utils.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
+            # print( output_text)
+            # exit()
         output_texts.append(output_text)
     return output_texts
 
@@ -184,7 +188,7 @@ def deprocess_image(img):
 
 def initialize_image(channels):
     # We start from a gray image with some random noise
-    img = tf.random.uniform((1, 128, 128, channels))
+    img = tf.random.uniform((1, 64, 64, channels))
     # ResNet50V2 expects inputs in the range [-1, +1].
     # Here we scale our random inputs to [-0.125, +0.125]
     return (img - 0.5) * 0.25

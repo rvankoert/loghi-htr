@@ -54,7 +54,7 @@ def visualize_filter(filter_index):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)
 
     # Decode the resulting input image
-    img = utils.deprocess_image(img[0].numpy())
+    img = deprocess_image(img[0].numpy())
     return loss, img
 
 

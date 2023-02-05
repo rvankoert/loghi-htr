@@ -37,20 +37,14 @@ parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
 parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
                     help='batch_size to be used, when using variable sized input this must be 1')
 
-parser.add_argument('--height', metavar='height', type=int, default=128,
+parser.add_argument('--height', metavar='height', type=int, default=64,
                     help='height to be used')
 parser.add_argument('--width', metavar='width', type=int, default=751,
                     help='width to be used')
-parser.add_argument('--channels', metavar='channels', type=int, default=4,
+parser.add_argument('--channels', metavar='channels', type=int, default=3,
                     help='channels to be used')
 parser.add_argument('--output', metavar='output', type=str, default='output',
                     help='base output to be used')
-parser.add_argument('--trainset', metavar='trainset', type=str, default='/data/cvl-database-1-1/train.txt',
-                    help='trainset to be used')
-parser.add_argument('--testset', metavar='testset', type=str, default='/data/cvl-database-1-1/test.txt',
-                    help='testset to be used')
-parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
-                    help='testset to be used')
 parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
                     help='spec')
 parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
@@ -61,6 +55,10 @@ parser.add_argument('--do_binarize_otsu', action='store_true',
                     help='prefix to use for testing')
 parser.add_argument('--do_binarize_sauvola', action='store_true',
                     help='do_binarize_sauvola')
+
+parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
+                    help='validation_list')
+
 args = parser.parse_args()
 
 SEED = args.seed
@@ -140,12 +138,12 @@ def visualize_filter(filter_index, channels):
     # We run gradient ascent for 20 steps
     iterations = 30
     learning_rate = 10.0
-    img = utils.initialize_image(channels)
+    img = initialize_image(channels)
     for iteration in range(iterations):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)
 
     # Decode the resulting input image
-    img = utils.deprocess_image(img[0].numpy())
+    img = deprocess_image(img[0].numpy())
     return loss, img
 
 
@@ -169,22 +167,26 @@ for layerId in range(len(submodel.layers)):
 
     char_list = None
     maxTextLen = 128
-    loader = DataLoaderNew(1, imgSize, 1,
-                           train_list='training_all_prizepapers_val.txt',
-                           validation_list='training_all_prizepapers_val.txt',
+    loader = DataLoaderNew(1, imgSize,
+                           train_list=args.validation_list,
+                           validation_list=args.validation_list,
                            test_list=None,
                            inference_list=None,
-                           char_list=char_list
+                           char_list=char_list,
+                           check_missing_files=False
                            )
 
-    training_generator, validation_generator, test_generator, inference_generator, utils = loader.generators()
+    training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
-    validation_dataset = validation_generator.getGenerator()
+    validation_dataset = validation_generator
 
-    while i < 10:
-        item = loader.get_item('validation', i)
-        print(item)
-        item = validation_generator.encode_single_sample_clean(item, "none")
+    for batch in validation_dataset:
+        if i > 10:
+            print('breaking')
+            break
+        item = batch[0]
+        # print(item)
+        # item = dataGenerator.encode_single_sample_clean(item, "none")
         # item = tf.expand_dims(
         #     item, 0
         # )
@@ -198,8 +200,11 @@ for layerId in range(len(submodel.layers)):
         # Rendering
         # img1 = tf.keras.preprocessing.image.array_to_img(X[0])
 
-        maps = utils.get_feature_maps(submodel, layerId, X[0])
+        maps = get_feature_maps(submodel, layerId, X[0])
 
+        # Normalised [0,1]
+        maps = (maps - np.min(maps)) / np.ptp(maps)
+        maps = np.asarray(maps, dtype=np.float64)
         fig = plt.figure(figsize=(40, numFilters * 2))
         columns = 2
         rows = numFilters
@@ -214,12 +219,13 @@ for layerId in range(len(submodel.layers)):
             ax[-1].set_title("ax:" + str(j))  # set title
             if args.channels == 1:
                 img = tf.squeeze(img)
-            plt.imshow(img, cmap='gray')
+            plt.imshow(img)
             ax.append(fig.add_subplot(rows, columns, j * 2 + 2))
             # ax[-1].set_title("ax:" + str(j))  # set title
             if args.channels == 1:
                 maps[j - 1] = tf.squeeze(maps[j - 1])
-            plt.imshow(maps[j - 1], cmap='gray')
+            print(maps[j - 1]+0.5)
+            plt.imshow(maps[j - 1]+0.5, cmap='gray')
 
         # plt.show()  # finally, render the plot
 

@@ -279,6 +279,220 @@ class Model:
         return model
 
     @staticmethod
+    def build_model_new16(img_size, number_characters,
+                          use_mask=False,
+                          use_gru=False,
+                          rnn_layers=5,
+                          rnn_units=128,
+                          batch_normalization=False,
+                          use_rnn_dropout=True,
+                          dropout_dense=0.5,
+                          dropout_conv=0.0,
+                          dropout_rnn=0.5,
+                          dropout_recurrent_dropout=0,
+                          seed=42,
+                          multiplier=4
+                          ):
+        (height, width, channels) = img_size[0], img_size[1], img_size[2]
+
+        padding = "same"
+        activation = "elu"
+        width = None
+        input_img = layers.Input(
+            shape=(width, height, channels), name="image"
+        )
+
+        initializer = tf.keras.initializers.GlorotNormal(seed)
+        channel_axis = -1
+
+        x = input_img
+
+        # First conv block
+        x = layers.Conv2D(
+            filters=2 * multiplier,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv1",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
+        if dropout_conv > 0:
+            x = layers.Dropout(dropout_conv)(x)
+
+        # Second conv block
+        x = layers.Conv2D(
+            filters=3 * multiplier,
+            kernel_size=[3, 3],
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv2",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
+        if dropout_conv > 0:
+            x = layers.Dropout(dropout_conv)(x)
+
+        x = layers.Conv2D(
+            5 * multiplier,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv3",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
+        if dropout_conv > 0:
+            x = layers.Dropout(dropout_conv)(x)
+
+        x = layers.Conv2D(
+            8 * multiplier,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv4",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        if dropout_conv > 0:
+            x = layers.Dropout(dropout_conv)(x)
+
+        x = layers.Conv2D(
+            12 * multiplier,
+            (3, 3),
+            strides=(1, 1),
+            activation=activation,
+            padding=padding,
+            name="Conv5",
+            kernel_initializer=initializer
+        )(x)
+        if batch_normalization:
+            x = layers.BatchNormalization(axis=channel_axis)(x)
+        if dropout_conv > 0:
+            x = layers.Dropout(dropout_conv)(x)
+
+        # x = layers.Conv2D(
+        #     196,
+        #     (3, 3),
+        #     strides=(1, 1),
+        #     activation=activation,
+        #     padding=padding,
+        #     name="Conv6",
+        #     kernel_initializer=initializer
+        # )(x)
+        # if batch_normalization:
+        #     x = layers.BatchNormalization(axis=channel_axis)(x)
+        # if use_dropout:
+        #     x = layers.Dropout(dropoutconv)(x)
+
+        oldshape = (-1, x.shape[-2], 512)
+        print(oldshape)
+        # oldshape = x.shape
+        new_shape = (-1, x.shape[-2] * x.shape[-1])
+
+        x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
+
+        for i in range(1, rnn_layers + 1):
+            if use_gru:
+                recurrent = layers.GRU(
+                    units=rnn_units,
+                    # activation=activation,
+                    recurrent_activation="sigmoid",
+                    dropout=dropout_rnn,
+                    recurrent_dropout=dropout_recurrent_dropout,
+                    unroll=False,
+                    use_bias=True,
+                    return_sequences=True,
+                    kernel_initializer=initializer,
+                    reset_after=True,
+                    name=f"gru_{i}",
+
+                )
+            else:
+                recurrent = layers.LSTM(rnn_units,
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}",
+                                        dropout=dropout_rnn,
+                                        recurrent_dropout=dropout_recurrent_dropout
+                                        )
+
+            x = recurrent(x)
+
+        print(x.shape)
+        x = layers.Reshape(target_shape=new_shape, name="reshapeOld")(x)
+        # x = layers.Conv2D(
+        #     filters=2 * multiplier,
+        #     kernel_size=[3, 3],
+        #     strides=(1, 1),
+        #     activation=activation,
+        #     padding=padding,
+        #     name="ConvExtra",
+        #     kernel_initializer=initializer
+        # )(x)
+        # x = layers.Reshape(target_shape=new_shape, name="reshapeNew")(x)
+        #
+        # for i in range(1, rnn_layers + 1):
+        #     if use_gru:
+        #         recurrent = layers.GRU(
+        #             units=rnn_units,
+        #             # activation=activation,
+        #             recurrent_activation="sigmoid",
+        #             dropout=dropout_rnn,
+        #             recurrent_dropout=dropout_recurrent_dropout,
+        #             unroll=False,
+        #             use_bias=True,
+        #             return_sequences=True,
+        #             kernel_initializer=initializer,
+        #             reset_after=True,
+        #             name=f"gru_{i}",
+        #
+        #         )
+        #     else:
+        #         recurrent = layers.LSTM(rnn_units,
+        #                                 # activation=activation,
+        #                                 return_sequences=True,
+        #                                 kernel_initializer=initializer,
+        #                                 name=f"lstm2_{i}",
+        #                                 dropout=dropout_rnn,
+        #                                 recurrent_dropout=dropout_recurrent_dropout
+        #                                 )
+        #
+        #     x = layers.Bidirectional(
+        #         recurrent, name=f"bidirectional2_{i}", merge_mode="concat"
+        #     )(x)
+
+        # x = layers.Dense(1024, activation="elu",
+        #                  kernel_initializer=initializer)(x)
+        if dropout_dense > 0:
+            x = layers.Dropout(dropout_dense)(x)
+
+        # Output layer
+        if use_mask:
+            x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        else:
+            x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+                             kernel_initializer=initializer)(x)
+        output = layers.Activation('linear', dtype=tf.float32)(x)
+        model = keras.models.Model(
+            inputs=[input_img], outputs=output, name="model_new16"
+        )
+        return model
+
+    @staticmethod
     def build_model_new15(img_size, number_characters,
                           use_mask=False,
                           use_gru=False,
@@ -335,7 +549,7 @@ class Model:
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
+        # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
         if dropout_conv > 0:
             x = layers.Dropout(dropout_conv)(x)
 
@@ -350,7 +564,7 @@ class Model:
         )(x)
         if batch_normalization:
             x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
+        # x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
         if dropout_conv > 0:
             x = layers.Dropout(dropout_conv)(x)
 
