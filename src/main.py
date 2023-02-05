@@ -18,8 +18,7 @@ import subprocess
 import matplotlib.pyplot as plt
 from utils import Utils
 
-
-def main():
+def get_args():
     parser = argparse.ArgumentParser(
         description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -194,6 +193,11 @@ def main():
                         help='beta: cnn_multiplier')
 
     args = parser.parse_args()
+    return args
+
+def main():
+
+    args = get_args()
 
     if args.deterministic:
         os.environ['TF_DETERMINISTIC_OPS'] = '1'
