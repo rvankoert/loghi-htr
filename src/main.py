@@ -18,7 +18,7 @@ import subprocess
 import matplotlib.pyplot as plt
 from utils import Utils
 
-def get_args():
+def get_arg_parser():
     parser = argparse.ArgumentParser(
         description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -191,7 +191,11 @@ def get_args():
                         help='No Auto disabled automatic "fixing" of certain parameters')
     parser.add_argument('--cnn_multiplier', type=int, default=4,
                         help='beta: cnn_multiplier')
+    return parser
 
+def get_args():
+    parser = get_arg_parser()
+    # TODO: use config
     args = parser.parse_args()
     return args
 

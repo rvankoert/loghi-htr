@@ -77,7 +77,11 @@ def prepare_image(image):
 def predict():
     # initialize the data dictionary that will be returned from the
     # view
+    beam_width = 10
+    greedy = False
     data = {"success": True}
+    # TODO: read charlist from model
+
 
     with open(charlistPath) as file:
         char_list = list(char for char in file.read())
@@ -98,7 +102,7 @@ def predict():
             data["predictions"] = []
 
             predictions = model.predict(image)
-            predicted_texts = decode_batch_predictions(predictions, utils, False, 10)
+            predicted_texts = decode_batch_predictions(predictions, utils, greedy, beam_width)
 
             for prediction in predicted_texts:
                 for i in range(len(prediction)):
