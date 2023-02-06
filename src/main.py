@@ -193,21 +193,27 @@ def get_arg_parser():
                         help='beta: cnn_multiplier')
     return parser
 
+
 def get_args():
     parser = get_arg_parser()
-    # TODO: use config
     args = parser.parse_args()
+    # TODO: use config
+
     return args
+
+
+def set_deterministic():
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    tf.random.set_seed(args.seed)
+
 
 def main():
 
     args = get_args()
-
     if args.deterministic:
-        os.environ['TF_DETERMINISTIC_OPS'] = '1'
-        random.seed(args.seed)
-        np.random.seed(args.seed)
-        tf.random.set_seed(args.seed)
+        set_deterministic()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 

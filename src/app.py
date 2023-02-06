@@ -19,12 +19,20 @@ from keras.utils.generic_utils import get_custom_objects
 from DataGeneratorNew import DataGeneratorNew
 from utils import Utils
 from utils import decode_batch_predictions
+from queue import Queue
+from AppLocker import AppLocker
 
 # initialize our Flask application and the Keras model
 app = flask.Flask(__name__)
 model = None
 modelPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062'
 charlistPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062.charlist'
+beam_width = 10
+greedy = False
+processing = False
+line_queue = Queue(256)
+app_locker = AppLocker()
+batch_size = 32
 
 def load_model():
     global model
@@ -33,7 +41,9 @@ def load_model():
     get_custom_objects().update({"CTCLoss": CTCLoss})
 
     model = keras.models.load_model(modelPath)
+
     print('model loaded')
+
 
 def prepare_image(image):
     # if the image mode is not RGB, convert it
@@ -47,16 +57,16 @@ def prepare_image(image):
     # image = np.expand_dims(image, -1)
     image_height = image.shape[0]
     image_width = image.shape[1]
-    print(image)
-    print(image.shape)
+    # print(image)
+    # print(image.shape)
     image = image / 255
     # print(X.shape)
     image = tf.image.resize_with_pad(image, image_height, image_width + 50)
-    print(image.shape)
+    # print(image.shape)
     image = 0.5 - image
-    print(image.shape)
+    # print(image.shape)
     image = tf.transpose(image, perm=[1, 0, 2])
-    print(image.shape)
+    # print(image.shape)
     X.append(image)
     # X.append(image)
     Y.append(0)
@@ -73,21 +83,42 @@ def prepare_image(image):
     return X
 
 
+def process(data, line_queue):
+    # classify the input image and then initialize the list
+    # of predictions to return to the client
+    data["predictions"] = []
+    with open(charlistPath) as file:
+        char_list = list(char for char in file.read())
+    utils = Utils(char_list, True)
+
+    batch = []
+    for i in range(line_queue.qsize()):
+        image = line_queue.get()
+        batch.append(image[0])
+        if i > batch_size:
+            break
+    batch = tf.convert_to_tensor(batch)
+    predictions = model.predict(batch)
+    predicted_texts = decode_batch_predictions(predictions, utils, greedy, beam_width)
+    print('processing')
+    for prediction in predicted_texts:
+        for i in range(len(prediction)):
+            confidence = prediction[i][0]
+            predicted_text = prediction[i][1]
+            predicted_text = predicted_text.strip().replace('', '')
+            r = {"label": predicted_text, "probability": float(confidence)}
+            data["predictions"].append(r)
+    return data
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     # initialize the data dictionary that will be returned from the
     # view
-    beam_width = 10
-    greedy = False
     data = {"success": True}
     # TODO: read charlist from model
 
-
-    with open(charlistPath) as file:
-        char_list = list(char for char in file.read())
-
-    utils = Utils(char_list, True)
-
+    print('current queue size: ' + str(line_queue.qsize()))
     # ensure an image was properly uploaded to our endpoint
     if flask.request.method == "POST":
         if flask.request.files.get("image"):
@@ -97,20 +128,19 @@ def predict():
             # preprocess the image and prepare it for classification
             image = prepare_image(image)
 
-            # classify the input image and then initialize the list
-            # of predictions to return to the client
-            data["predictions"] = []
+            line_queue.put(image)
 
-            predictions = model.predict(image)
-            predicted_texts = decode_batch_predictions(predictions, utils, greedy, beam_width)
+            print('locking')
 
-            for prediction in predicted_texts:
-                for i in range(len(prediction)):
-                    confidence = prediction[i][0]
-                    predicted_text = prediction[i][1]
-                    predicted_text = predicted_text.strip().replace('', '')
-                    r = {"label": predicted_text, "probability": float(confidence)}
-                    data["predictions"].append(r)
+            # with app_locker._lock:
+            if not app_locker.get_processing():
+                if line_queue.qsize() >= batch_size:
+
+                    print('locking2')
+                    app_locker.set_processing(True)
+                    data = process(data, line_queue)
+                    print('locking3')
+                    app_locker.set_processing(False)
 
             # indicate that the request was a success
             data["success"] = True
