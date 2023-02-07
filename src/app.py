@@ -5,6 +5,7 @@
 # 	curl -X POST -F image=@dog.jpg 'http://localhost:5000/predict'
 
 # import the necessary packages
+import os
 from keras.applications import ResNet50
 from tensorflow.keras.utils import img_to_array
 from keras.applications import imagenet_utils
@@ -29,7 +30,6 @@ modelPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_
 charlistPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062.charlist'
 beam_width = 10
 greedy = False
-processing = False
 line_queue = Queue(256)
 app_locker = AppLocker()
 batch_size = 32
@@ -42,6 +42,10 @@ def load_model():
 
     model = keras.models.load_model(modelPath)
 
+    with open(charlistPath) as file:
+        char_list = list(char for char in file.read())
+    AppLocker.utils = Utils(char_list, True)
+
     print('model loaded')
 
 
@@ -53,7 +57,8 @@ def prepare_image(image):
     X = []
     Y = []
 
-    image = tf.image.resize(image, [64, 99999], preserve_aspect_ratio=True)
+    with app_locker._lock3:
+        image = tf.image.resize(image, [64, 99999], preserve_aspect_ratio=True)
     # image = np.expand_dims(image, -1)
     image_height = image.shape[0]
     image_width = image.shape[1]
@@ -61,11 +66,13 @@ def prepare_image(image):
     # print(image.shape)
     image = image / 255
     # print(X.shape)
-    image = tf.image.resize_with_pad(image, image_height, image_width + 50)
+    with app_locker._lock3:
+        image = tf.image.resize_with_pad(image, image_height, image_width + 50)
     # print(image.shape)
     image = 0.5 - image
     # print(image.shape)
-    image = tf.transpose(image, perm=[1, 0, 2])
+    with app_locker._lock3:
+        image = tf.transpose(image, perm=[1, 0, 2])
     # print(image.shape)
     X.append(image)
     # X.append(image)
@@ -86,20 +93,38 @@ def prepare_image(image):
 def process(data, line_queue):
     # classify the input image and then initialize the list
     # of predictions to return to the client
-    data["predictions"] = []
-    with open(charlistPath) as file:
-        char_list = list(char for char in file.read())
-    utils = Utils(char_list, True)
-
     batch = []
-    for i in range(line_queue.qsize()):
-        image = line_queue.get()
-        batch.append(image[0])
-        if i > batch_size:
-            break
+    if line_queue.qsize() >= batch_size:
+        print('line_queue.qsize() >= batch_size:')
+        print(app_locker.get_processing())
+        if not app_locker.get_processing():
+            with app_locker._lock2:
+                app_locker.set_processing(True)
+            for i in range(line_queue.qsize()):
+                image = line_queue.get()
+                batch.append(image[0])
+                print('adding image to batch: ' + str(i))
+                if i >= batch_size:
+                    break
+        else:
+            return data
+    else:
+        return data
+
+    data["predictions"] = []
+
+    max_width = 0
+    for image in batch:
+        if image.shape[0] > max_width:
+            max_width = image.shape[0]
+    print('max_width: ' + str(max_width))
+    with app_locker._lock3:
+        for i in range(len(batch)):
+            batch[i] = tf.image.resize_with_pad(batch[i], max_width, 64)
+
     batch = tf.convert_to_tensor(batch)
     predictions = model.predict(batch)
-    predicted_texts = decode_batch_predictions(predictions, utils, greedy, beam_width)
+    predicted_texts = decode_batch_predictions(predictions, AppLocker.utils, greedy, beam_width)
     print('processing')
     for prediction in predicted_texts:
         for i in range(len(prediction)):
@@ -108,6 +133,11 @@ def process(data, line_queue):
             predicted_text = predicted_text.strip().replace('', '')
             r = {"label": predicted_text, "probability": float(confidence)}
             data["predictions"].append(r)
+            print(predicted_text)
+    if app_locker.get_processing:
+        with app_locker._lock2:
+            app_locker.set_processing(False)
+
     return data
 
 
@@ -126,21 +156,15 @@ def predict():
             image = tf.io.decode_jpeg(image, channels=1)
 
             # preprocess the image and prepare it for classification
-            image = prepare_image(image)
+            print(image.shape)
+            while line_queue.qsize() > batch_size:
+                print('processing ' + str(line_queue.qsize()))
+                data = process(data, line_queue)
 
+            print('locking ' + str(line_queue.qsize()))
+            image = prepare_image(image)
             line_queue.put(image)
 
-            print('locking')
-
-            # with app_locker._lock:
-            if not app_locker.get_processing():
-                if line_queue.qsize() >= batch_size:
-
-                    print('locking2')
-                    app_locker.set_processing(True)
-                    data = process(data, line_queue)
-                    print('locking3')
-                    app_locker.set_processing(False)
 
             # indicate that the request was a success
             data["success"] = True
@@ -152,6 +176,7 @@ def predict():
 # if this is the main thread of execution first load the model and
 # then start the server
 if __name__ == "__main__":
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     print(("* Loading Keras model and Flask starting server..."
            "please wait until server has fully started"))
     load_model()
