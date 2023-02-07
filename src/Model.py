@@ -14,6 +14,7 @@ from tensorflow.python.keras import backend_config
 from tensorflow.python.ops import ctc_ops as ctc
 
 import keras.backend as K
+import json
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -4125,7 +4126,8 @@ class Model:
     # # Train the model
     @staticmethod
     def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
-                    early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False):
+                    early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
+                    metadata=None):
         # # Add early stopping
         callbacks = []
         if early_stopping_patience > 0 and validation_dataset:
@@ -4140,7 +4142,11 @@ class Model:
         from keras.callbacks import ModelCheckpoint
         history = History()
         if validation_dataset:
-            mcp_save = ModelCheckpoint(output + '/best_val/', save_best_only=True, monitor='val_CER_metric',
+            base_path = output + '/best_val/'
+            if metadata is not None:
+                with open(base_path+'file.txt', 'w') as file:
+                    file.write(json.dumps(metadata))
+            mcp_save = ModelCheckpoint(base_path, save_best_only=True, monitor='val_CER_metric',
                                    mode='min', verbose=1)
         else:
             mcp_save = ModelCheckpoint(output + '/best_train/', save_best_only=True, monitor='CER_metric',

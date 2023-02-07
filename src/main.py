@@ -31,24 +31,20 @@ def get_arg_parser():
                         help='epochs to be used, default 40')
     parser.add_argument('--batch_size', metavar='batch_size', type=int, default=4,
                         help='batch_size to be used, default 4')
-    parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
-                        help='num_workers')
+    # parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
+    #                     help='num_workers')
     parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
                         help='max_queue_size')
-    parser.add_argument('--height', metavar='height', type=int, default=32,
-                        help='rescale everything to this height before training')
+    parser.add_argument('--height', metavar='height', type=int, default=64,
+                        help='rescale everything to this height before training, default 64')
     parser.add_argument('--width', metavar='width', type=int, default=65536,
                         help='maximum width to be used. This should be a high number and generally does not need to '
                              'be changed')
     parser.add_argument('--channels', metavar='channels', type=int, default=3,
                         help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
                              '4 for png\'s with transparency')
-    # parser.add_argument('--loss', metavar='loss ', type=str, default="contrastive_loss",
-    #                     help='contrastive_loss, binary_crossentropy, mse')
-    # parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
-    #                     help='optimizer: adam, adadelta, rmsprop, sgd')
-    parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
-                        help='deprecated: memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
+    # parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
+    #                     help='deprecated: memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
 
     parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
                         action='store_true')
@@ -73,21 +69,19 @@ def get_arg_parser():
                         help='use this file containing textline location+transcription for inferencing. You can use '
                              'multiple input files quoted and space separated "inference_file1.txt '
                              'inference_file2.txt"to combine inferencing sets.')
-    # parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
-    #                     help='testset to be used')
+
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
                         help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                         help='use model_name in the output')
-    parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data', action='store_true')
+    parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
                         action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
                         help='results_file. When inferencing the results are stored at this location.')
     parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
                         help='config_file_output')
-    parser.add_argument('--config_file', metavar='config_file', type=str, default='config.txt',
-                        help='config_file')
+
     parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
@@ -121,6 +115,7 @@ def get_arg_parser():
                         help='beta: do_binarize_sauvola')
     parser.add_argument('--multiply', metavar='multiply ', type=int, default=1,
                         help='multiply training data, default 1')
+
     parser.add_argument('--replace_final_layer', action='store_true',
                         help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
                              'using an existing model')
@@ -194,10 +189,22 @@ def get_arg_parser():
     return parser
 
 
+def fix_args(args):
+    if not args.no_auto and args.train_list:
+        print('do_train implied by providing a train_list')
+        args.__dict__['do_train'] = True
+    if not args.no_auto and args.batch_size > 1:
+        print('batch_size > 1, setting use_mask=True')
+        args.__dict__['use_mask'] = True
+
+
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
     # TODO: use config
+    dictionary = args.__dict__
+    fix_args(args)
+    print(dictionary)
 
     return args
 
@@ -225,22 +232,9 @@ def main():
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-    do_train = args.do_train
-    use_mask = args.use_mask
-    if not args.no_auto and args.train_list:
-        print('do_train implied by providing a train_list')
-        do_train = True
-    if not args.no_auto and args.batch_size > 1:
-        print('batch_size > 1, setting use_mask=True')
-        use_mask = True
-
     if args.gpu != '-1':
         gpus = tf.config.experimental.list_physical_devices('GPU')
 
-        # if len(gpus) > 0 and args.memory_limit > 0:
-        #     print('setting memory_limit: ' + str(args.memory_limit))
-        #     tf.config.experimental.set_virtual_device_configuration(gpus[0], [
-        #         tf.config.experimental.VirtualDeviceConfiguration(memory_limit=args.memory_limit)])
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
         policy = tf.keras.mixed_precision.Policy('mixed_float16')
@@ -289,6 +283,7 @@ def main():
             if args.height != model_height:
                 print('input height differs from model channels. use --height ' + str(model_height))
                 print('resetting height to: ' + str(model_height))
+                args.__dict__['height']=model_height
                 if args.no_auto:
                     exit(1)
             with open(args.charlist) as file:
@@ -316,7 +311,7 @@ def main():
                                reuse_old_lmdb_val=args.reuse_old_lmdb_val,
                                reuse_old_lmdb_test=args.reuse_old_lmdb_test,
                                reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
-                               use_mask=use_mask
+                               use_mask=args.use_mask
                                )
 
         print("creating generators")
@@ -358,7 +353,7 @@ def main():
                 initial_learning_rate=learning_rate,
                 decay_steps=args.decay_steps,
                 decay_rate=args.decay_rate)
-        elif args.decay_rate > 0 and args.decay_steps == -1 and do_train:
+        elif args.decay_rate > 0 and args.decay_steps == -1 and args.do_train:
             if training_generator is None:
                 print('training, but training_generator is None. Did you provide a train_list?')
                 exit(1)
@@ -378,7 +373,7 @@ def main():
             # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=use_mask,
+                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
                                                            use_gru=args.use_gru,
                                                            rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
                                                            use_rnn_dropout=args.use_rnn_dropout,
@@ -389,7 +384,7 @@ def main():
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
-                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=use_mask)
+                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=args.use_mask)
             if args.thaw:
                 for layer in model.layers:
                     layer.trainable = True
@@ -428,19 +423,19 @@ def main():
             print("creating new model")
             if 'new2' == args.model:
                 model = modelClass.build_model_new2(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'new3' == args.model:
                 model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
             elif 'new4' == args.model:
                 model = modelClass.build_model_new4(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     batch_normalization=args.batch_normalization)
             elif 'new5' == args.model:
                 model = modelClass.build_model_new5(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=5,
@@ -448,14 +443,14 @@ def main():
                                                     dropout=args.use_dropout)
             elif 'new6' == args.model:
                 model = modelClass.build_model_new6(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=2,
                                                     batch_normalization=args.batch_normalization)
             elif 'new7' == args.model:
                 model = modelClass.build_model_new7(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -463,7 +458,7 @@ def main():
                                                     dropout=args.use_dropout)
             elif 'new8' == args.model:
                 model = modelClass.build_model_new8(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -472,7 +467,7 @@ def main():
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new9' == args.model:
                 model = modelClass.build_model_new9(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru,
                                                     rnn_units=args.rnn_units,
                                                     rnn_layers=args.rnn_layers,
@@ -481,7 +476,7 @@ def main():
                                                     use_rnn_dropout=args.use_rnn_dropout)
             elif 'new10' == args.model:
                 model = modelClass.build_model_new10(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -490,7 +485,7 @@ def main():
                                                      use_rnn_dropout=args.use_rnn_dropout)
             elif 'new11' == args.model:
                 model = modelClass.build_model_new11(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -501,7 +496,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new12' == args.model:
                 model = modelClass.build_model_new12(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -512,7 +507,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new13' == args.model:
                 model = modelClass.build_model_new13(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -523,7 +518,7 @@ def main():
                                                      dropoutconv=args.dropoutconv)
             elif 'new14' == args.model:
                 model = modelClass.build_model_new14(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -536,7 +531,7 @@ def main():
                                                      dropout_dense=args.dropout_dense)
             elif 'new15' == args.model:
                 model = modelClass.build_model_new15(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -549,7 +544,7 @@ def main():
                                                      multiplier=args.cnn_multiplier)
             elif 'new16' == args.model:
                 model = modelClass.build_model_new16(img_size, len(char_list),
-                                                     use_mask=use_mask,
+                                                     use_mask=args.use_mask,
                                                      use_gru=args.use_gru,
                                                      rnn_units=args.rnn_units,
                                                      rnn_layers=args.rnn_layers,
@@ -562,11 +557,11 @@ def main():
                                                      multiplier=args.cnn_multiplier)
             elif 'old6' == args.model:
                 model = modelClass.build_model_old6(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             elif 'old5' == args.model:
                 model = modelClass.build_model_old5(img_size, len(char_list),
-                                                    use_mask=use_mask,
+                                                    use_mask=args.use_mask,
                                                     use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
             else:
                 print(
@@ -585,12 +580,13 @@ def main():
         if args.no_auto:
             exit()
         else:
+            args.__dict__['channels']=model_channels
             print('setting correct number of channels: ' + str(model_channels))
 
 
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
-    if use_mask:
+    if args.use_mask:
         num_characters = num_characters + 1
     if model_outputs != num_characters:
         print('model_outputs: ' + str(model_outputs))
@@ -600,10 +596,7 @@ def main():
         print('if the charlist is just 1 lower: did you forget --use_mask')
         exit(1)
 
-    # test_generator = test_generator.getGenerator()
-    # inference_dataset = inference_generator.getGenerator()
-
-    if do_train:
+    if args.do_train:
         validation_dataset = None
         if args.validation_list:
             validation_dataset = validation_generator
@@ -621,10 +614,11 @@ def main():
             output=args.output,
             model_name='encoder12',
             steps_per_epoch=args.steps_per_epoch,
-            num_workers=args.num_workers,
+            # num_workers=args.num_workers,
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,
-            output_checkpoints=args.output_checkpoints
+            output_checkpoints=args.output_checkpoints,
+            metadata=args.__dict__
         )
 
         # construct a plot that plots and saves the training history
@@ -654,7 +648,7 @@ def main():
         #     print("test")
     if args.do_validate:
         print("do_validate")
-        utils = Utils(char_list, use_mask)
+        utils = Utils(char_list, args.use_mask)
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -851,7 +845,7 @@ def main():
                                inference_list=args.inference_list,
                                check_missing_files=args.check_missing_files,
                                normalize_text=args.normalize_text,
-                               use_mask=use_mask
+                               use_mask=args.use_mask
                                )
         training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
         prediction_model = keras.models.Model(
@@ -889,7 +883,7 @@ def main():
                     text_file.flush()
 
 
-def store_info(args, model):
+def store_info(args, model, history):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
@@ -906,7 +900,8 @@ def store_info(args, model):
         'git_hash': version_info,
         'args': args.__dict__,
         'model': model_layers,
-        'notes': ' '
+        'notes': ' ',
+        'history': history
     }
 
     if args.config_file_output:
