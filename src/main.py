@@ -883,7 +883,7 @@ def main():
                     text_file.flush()
 
 
-def store_info(args, model, history):
+def store_info(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
@@ -900,8 +900,7 @@ def store_info(args, model, history):
         'git_hash': version_info,
         'args': args.__dict__,
         'model': model_layers,
-        'notes': ' ',
-        'history': history
+        'notes': ' '
     }
 
     if args.config_file_output:
