@@ -206,36 +206,34 @@ class DataLoaderNew:
                                   ).apply(tf.data.experimental.assert_cardinality(num_batches))
 
         if self.inference_list:
-            # if use_classic:
-            inference_generator = self.create_data_generator(labels,
+            if use_classic:
+                inference_generator = self.create_data_generator(labels,
                                                              partition,
                                                              inference_params,
                                                              'inference',
                                                              reuse_old_lmdb=self.reuse_old_lmdb_inference
                                                              )
-            # else:
-            #     dataGeneratorNew2 = DataGeneratorNew2(self.utils,
-            #                                                         self.batchSize,
-            #                                                         channels=self.channels,
-            #                                                         do_binarize_sauvola=self.do_binarize_sauvola,
-            #                                                         do_binarize_otsu=self.do_binarize_otsu)
-            #     num_batches = np.ceil(len(inference_files) / self.batchSize)
-            #     inference_generator = tf.data.Dataset.from_tensor_slices(inference_files)
-            #     inference_generator = (inference_generator
-            #                            .repeat()
-            #                            .shuffle(len(inference_files))
-            #                            .map(dataGeneratorNew2.load_images,
-            #                                 num_parallel_calls=AUTOTUNE,
-            #                                 deterministic=deterministic)
-            #                            .padded_batch(self.batchSize,
-            #                                          padded_shapes=([None, None, self.channels], [None]),
-            #                                          padding_values=(
-            #                                              tf.constant(-10, dtype=tf.float32),
-            #                                              tf.constant(0, dtype=tf.int64)
-            #                                          )
-            #                                          )
-            #                            .prefetch(AUTOTUNE)
-            #                            ).apply(tf.data.experimental.assert_cardinality(num_batches))
+            else:
+                dataGeneratorNew2 = DataGeneratorNew2(self.utils,
+                                                                    self.batchSize,
+                                                                    channels=self.channels,
+                                                                    do_binarize_sauvola=self.do_binarize_sauvola,
+                                                                    do_binarize_otsu=self.do_binarize_otsu)
+                num_batches = np.ceil(len(inference_files) / self.batchSize)
+                inference_generator = tf.data.Dataset.from_tensor_slices(inference_files)
+                inference_generator = (inference_generator
+                                       .map(dataGeneratorNew2.load_images,
+                                            num_parallel_calls=AUTOTUNE,
+                                            deterministic=True)
+                                       .padded_batch(self.batchSize,
+                                                     padded_shapes=([None, None, self.channels], [None]),
+                                                     padding_values=(
+                                                         tf.constant(-10, dtype=tf.float32),
+                                                         tf.constant(0, dtype=tf.int64)
+                                                     )
+                                                     )
+                                       .prefetch(AUTOTUNE)
+                                       ).apply(tf.data.experimental.assert_cardinality(num_batches))
         self.partition = partition
 
         return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches

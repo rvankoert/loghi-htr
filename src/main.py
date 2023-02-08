@@ -863,7 +863,6 @@ def main():
             for batch in inference_dataset:
                 predictions = prediction_model.predict_on_batch(batch[0])
                 predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width)
-
                 orig_texts = []
                 for label in batch[1]:
                     label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
