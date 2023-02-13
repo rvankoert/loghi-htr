@@ -4144,7 +4144,8 @@ class Model:
         if validation_dataset:
             base_path = output + '/best_val/'
             if metadata is not None:
-                os.makedirs(base_path)
+                if not os.path.exists(base_path):
+                    os.makedirs(base_path)
                 with open(base_path+'file.txt', 'w') as file:
                     file.write(json.dumps(metadata))
             mcp_save = ModelCheckpoint(base_path, save_best_only=True, monitor='val_CER_metric',

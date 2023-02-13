@@ -165,9 +165,9 @@ class DataLoaderNew:
                 print('validation batches: ' + str(num_batches))
                 validation_generator = tf.data.Dataset.from_tensor_slices(validation_files)
                 validation_generator = (validation_generator
-                                        # .repeat()
-                                        .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
-                                             deterministic=deterministic)
+                                        .map(data_generator_new2.load_images,
+                                             num_parallel_calls=AUTOTUNE,
+                                             deterministic=True)
                                         .padded_batch(self.batchSize,
                                                       padded_shapes=([None, None, self.channels], [None]),
                                                       padding_values=(
@@ -186,19 +186,19 @@ class DataLoaderNew:
                                                             )
             else:
                 data_generator_new2 = DataGeneratorNew2(self.utils,
-                                                        self.batchSize,
-                                                        height=self.height,
-                                                        channels=self.channels,
-                                                        do_binarize_sauvola=self.do_binarize_sauvola,
-                                                        do_binarize_otsu=self.do_binarize_otsu,)
+                                                      self.batchSize,
+                                                      height=self.height,
+                                                      channels=self.channels,
+                                                      do_binarize_sauvola=self.do_binarize_sauvola,
+                                                      do_binarize_otsu=self.do_binarize_otsu)
                 num_batches = np.ceil(len(test_files) / self.batchSize)
                 test_generator = tf.data.Dataset.from_tensor_slices(test_files)
                 test_generator = (test_generator
-                                  .repeat()
-                                  .shuffle(len(test_files))
-                                  .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
-                                       deterministic=deterministic)
-                                  .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
+                                  .map(data_generator_new2.load_images,
+                                       num_parallel_calls=AUTOTUNE,
+                                       deterministic=True)
+                                  .padded_batch(self.batchSize,
+                                                padded_shapes=([None, None, self.channels], [None]),
                                                 padding_values=(
                                                     tf.constant(-10, dtype=tf.float32), tf.constant(0, dtype=tf.int64))
                                                 )
@@ -215,10 +215,10 @@ class DataLoaderNew:
                                                              )
             else:
                 dataGeneratorNew2 = DataGeneratorNew2(self.utils,
-                                                                    self.batchSize,
-                                                                    channels=self.channels,
-                                                                    do_binarize_sauvola=self.do_binarize_sauvola,
-                                                                    do_binarize_otsu=self.do_binarize_otsu)
+                                                      self.batchSize,
+                                                      channels=self.channels,
+                                                      do_binarize_sauvola=self.do_binarize_sauvola,
+                                                      do_binarize_otsu=self.do_binarize_otsu)
                 num_batches = np.ceil(len(inference_files) / self.batchSize)
                 inference_generator = tf.data.Dataset.from_tensor_slices(inference_files)
                 inference_generator = (inference_generator

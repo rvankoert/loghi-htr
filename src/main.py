@@ -226,7 +226,7 @@ def main():
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
     from Model import Model, CERMetric, WERMetric, CTCLoss
-    from keras.utils.generic_utils import get_custom_objects
+    from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
     import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
@@ -779,18 +779,13 @@ def main():
                                                                           char_str[i].strip().lower())
                     cer = current_editdistance / float(len(original_text))
                     if cer > 0.0:
-                        # filename = validation_dataset.get_file(batch_no * batchSize + i)
-                        # print(filename)
+                        filename = loader.get_item('validation', (batch_no * args.batch_size) + i)
+                        print('\n' + filename)
                         # print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
                         if wbs:
                             print(char_str[i])
-                    print('confidence: ' + str(confidence)
-                          + ' cer: ' + str(cer)
-                          + ' total_orig: ' + str(len(original_text))
-                          + ' total_pred: ' + str(len(predicted_text))
-                          + ' errors: ' + str(current_editdistance))
                     totaleditdistance += current_editdistance
                     totaleditdistance_lower += current_editdistance_lower
                     totaleditdistance_simple += current_editdistance_simple
@@ -801,17 +796,25 @@ def main():
                     totallength += len(original_text)
                     totallength_simple += len(ground_truth_simple)
 
-                    print(cer)
-                    print("avg editdistance: " + str(totaleditdistance / float(totallength)))
-                    print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
-                    if totallength_simple > 0:
-                        print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
-                    if wbs:
-                        print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
-                        print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
+                    if cer > 0.0:
+                        print('confidence: ' + str(confidence)
+                              + ' cer: ' + str(cer)
+                              + ' total_orig: ' + str(len(original_text))
+                              + ' total_pred: ' + str(len(predicted_text))
+                              + ' errors: ' + str(current_editdistance))
+                        # print(cer)
+                        print("avg editdistance: " + str(totaleditdistance / float(totallength)))
+                        print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
                         if totallength_simple > 0:
-                            print("avg editdistance wbs_simple: " + str(
-                                totaleditdistance_wbs_simple / float(totallength_simple)))
+                            print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
+                        if wbs:
+                            print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
+                            print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
+                            if totallength_simple > 0:
+                                print("avg editdistance wbs_simple: " + str(
+                                    totaleditdistance_wbs_simple / float(totallength_simple)))
+                    else:
+                        print('.', end='')
             batch_no += 1
 
         totalcer = totaleditdistance / float(totallength)
