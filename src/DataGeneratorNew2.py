@@ -19,7 +19,7 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
                  height=64,
                  do_binarize_sauvola=False,
                  do_binarize_otsu=False,
-                 augment=True,
+                 augment=False,
                  do_elastic_transform=False,
                  random_crop=False,
                  random_width=False,
@@ -31,7 +31,6 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
         self.batchSize = batchSize
         self.do_binarize_sauvola = do_binarize_sauvola
         self.do_binarize_otsu = do_binarize_otsu
-        self.dataAugmentation = augment
         self.do_elastic_transform = do_elastic_transform
         self.random_crop = random_crop
         self.random_width = random_width
