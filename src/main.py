@@ -88,7 +88,7 @@ def get_arg_parser():
                              'slower. Default 10')
     parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=-1,
                         help='decay_steps. default -1. After this number of iterations the learning rate will '
-                             'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches')
+                             'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches / 1 epoch')
     parser.add_argument('--decay_rate', type=float, default=0.99,
                         help='beta: decay_rate. Default 0.99. disables learning rate decay when set to 0')
 
