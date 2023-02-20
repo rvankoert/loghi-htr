@@ -23,7 +23,7 @@ for gpu in gpus:
 epsilon = backend_config.epsilon
 
 def ctc_batch_cost(y_true, y_pred, input_length, label_length):
-  """Runs CTC loss algorithm on each batch element.
+    """Runs CTC loss algorithm on each batch element.
   Arguments:
       y_true: tensor `(samples, max_string_length)`
           containing the truth labels.
@@ -37,18 +37,22 @@ def ctc_batch_cost(y_true, y_pred, input_length, label_length):
       Tensor with shape (samples,1) containing the
           CTC loss of each element.
   """
-  label_length = math_ops.cast(
-      array_ops.squeeze(label_length, axis=-1), dtypes_module.int32)
-  input_length = math_ops.cast(
-      array_ops.squeeze(input_length, axis=-1), dtypes_module.int32)
-  sparse_labels = math_ops.cast(
-      K.ctc_label_dense_to_sparse(y_true, label_length), dtypes_module.int32)
+    label_length = math_ops.cast(
+        array_ops.squeeze(label_length, axis=-1), dtypes_module.int32)
+    input_length = math_ops.cast(
+        array_ops.squeeze(input_length, axis=-1), dtypes_module.int32)
+    sparse_labels = math_ops.cast(
+        K.ctc_label_dense_to_sparse(y_true, label_length), dtypes_module.int32)
 
-  y_pred = math_ops.log(array_ops.transpose(y_pred, perm=[1, 0, 2]) + epsilon())
+    y_pred = math_ops.log(array_ops.transpose(y_pred, perm=[1, 0, 2]) + epsilon())
 
-  return array_ops.expand_dims(
-      ctc.ctc_loss(
-          inputs=y_pred, labels=sparse_labels, sequence_length=input_length, ignore_longer_outputs_than_inputs=True), 1)
+    return array_ops.expand_dims(
+        ctc.ctc_loss(
+            inputs=y_pred,
+            labels=sparse_labels,
+            sequence_length=input_length,
+            ignore_longer_outputs_than_inputs=True),
+        1)
 
 
 class CTCLayer(tf.keras.layers.Layer):
@@ -198,7 +202,7 @@ class Model:
             model.get_layer(name="image").input, model.get_layer(name=last_layer).output
         )
         if not use_rnn_dropout:
-            dropout_rnn=0
+            dropout_rnn = 0
         x = prediction_model.output
         for i in range(1, rnn_layers + 1):
             if use_gru:
@@ -1864,7 +1868,6 @@ class Model:
         )
         return model
 
-
     @staticmethod
     def build_model_new7(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
                          batch_normalization=False, dropout=False):
@@ -2047,7 +2050,8 @@ class Model:
         return model
 
     @staticmethod
-    def build_model_new6(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128, batch_normalization = True):
+    def build_model_new6(imgSize, number_characters, use_mask=False, use_gru=False, rnn_layers=5, rnn_units=128,
+                         batch_normalization=True):
         (height, width, channels) = imgSize[0], imgSize[1], imgSize[2]
         # Inputs to the model
         dropout_rnn = 0.0
@@ -2110,11 +2114,11 @@ class Model:
                 )
             else:
                 recurrent = layers.LSTM(rnn_units,
-                    return_sequences=True,
-                    dropout=dropout_rnn,
-                    kernel_initializer=initializer,
-                    name=f"lstm_{i}"
-                )
+                                        return_sequences=True,
+                                        dropout=dropout_rnn,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
 
             x = layers.Bidirectional(
                 recurrent, name=f"bidirectional_{i}", merge_mode="concat"
@@ -2278,7 +2282,6 @@ class Model:
         # if dropout:
         #     x = layers.Dropout(dropoutconv)(x)
 
-
         new_shape = (-1, x.shape[-2] * x.shape[-1])
         # new_shape = (-1, (height) * 128)
         # x = tf.reshape(input, shape=[73, (height // 4) * 64])
@@ -2302,12 +2305,12 @@ class Model:
                 )
             else:
                 recurrent = layers.LSTM(rnn_units,
-                    # activation=activation,
-                    return_sequences=True,
-                    dropout=dropout_rnn,
-                    kernel_initializer=initializer,
-                    name=f"lstm_{i}"
-                )
+                                        # activation=activation,
+                                        return_sequences=True,
+                                        dropout=dropout_rnn,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
 
             x = layers.Bidirectional(
                 recurrent, name=f"bidirectional_{i}", merge_mode="concat"
@@ -2449,7 +2452,6 @@ class Model:
         # if dropout:
         #     x = layers.Dropout(dropoutconv)(x)
 
-
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
         # filters in the last layer is 64. Reshape accordingly before
@@ -2476,11 +2478,11 @@ class Model:
                 )
             else:
                 recurrent = layers.LSTM(rnn_units,
-                    return_sequences=True,
-                    dropout=dropout_rnn,
-                    kernel_initializer=initializer,
-                    name=f"lstm_{i}"
-                )
+                                        return_sequences=True,
+                                        dropout=dropout_rnn,
+                                        kernel_initializer=initializer,
+                                        name=f"lstm_{i}"
+                                        )
 
             x = layers.Bidirectional(
                 recurrent, name=f"bidirectional_{i}", merge_mode="concat"
@@ -2631,7 +2633,7 @@ class Model:
                                        name=prefix + '_sepconv1')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv1_bn')(x)
+                                              name=prefix + '_sepconv1_bn')(x)
             x = layers.Activation('elu', name=prefix + '_sepconv2_act')(x)
             x = layers.SeparableConv2D(728, (3, 3),
                                        padding='same',
@@ -2639,7 +2641,7 @@ class Model:
                                        name=prefix + '_sepconv2')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv2_bn')(x)
+                                              name=prefix + '_sepconv2_bn')(x)
             x = layers.Activation('elu', name=prefix + '_sepconv3_act')(x)
             x = layers.SeparableConv2D(728, (3, 3),
                                        padding='same',
@@ -2647,7 +2649,7 @@ class Model:
                                        name=prefix + '_sepconv3')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv3_bn')(x)
+                                              name=prefix + '_sepconv3_bn')(x)
 
             x = layers.add([x, residual])
 
@@ -2696,7 +2698,7 @@ class Model:
         x = layers.Conv2D(
             256,
             (1, 1),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             name="conv_final",
         )(x)
@@ -2789,7 +2791,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -2802,7 +2804,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -2816,7 +2818,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -2830,7 +2832,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -2842,7 +2844,7 @@ class Model:
         x = layers.Conv2D(
             128,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -2860,7 +2862,6 @@ class Model:
         #     name="Conv6",
         # )(x)
         # x = layers.Dropout(dropoutconv)(x)
-
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -3093,7 +3094,7 @@ class Model:
                                        name=prefix + '_sepconv1')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv1_bn')(x)
+                                              name=prefix + '_sepconv1_bn')(x)
             x = layers.Activation('elu', name=prefix + '_sepconv2_act')(x)
             x = layers.SeparableConv2D(728, (3, 3),
                                        padding='same',
@@ -3101,7 +3102,7 @@ class Model:
                                        name=prefix + '_sepconv2')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv2_bn')(x)
+                                              name=prefix + '_sepconv2_bn')(x)
             x = layers.Activation('elu', name=prefix + '_sepconv3_act')(x)
             x = layers.SeparableConv2D(728, (3, 3),
                                        padding='same',
@@ -3109,7 +3110,7 @@ class Model:
                                        name=prefix + '_sepconv3')(x)
             if batch_normalization:
                 x = layers.BatchNormalization(axis=channel_axis,
-                                          name=prefix + '_sepconv3_bn')(x)
+                                              name=prefix + '_sepconv3_bn')(x)
 
             x = layers.add([x, residual])
 
@@ -3158,11 +3159,10 @@ class Model:
         x = layers.Conv2D(
             256,
             (1, 1),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             name="conv_final",
         )(x)
-
 
         # x = layers.GlobalMaxPooling2D()(x)
 
@@ -3178,9 +3178,9 @@ class Model:
         # x = layers.Reshape((-1, 4096))(x) # 103
         # x = layers.Reshape((-1, 2048))(x)
         # x = layers.Reshape((-1, 6144))(x)
-        x = layers.Reshape((-1, 256*3))(x)
+        x = layers.Reshape((-1, 256 * 3))(x)
 
-        dropout_rnn=0
+        dropout_rnn = 0
         initializer = tf.keras.initializers.GlorotNormal()
         if use_mask:
             x = tf.keras.layers.Masking(mask_value=-1.0)(x)
@@ -3389,10 +3389,9 @@ class Model:
         # # x = layers.Dense(1024, activation="elu", name="dense2")(x)
         # # x = layers.Dropout(dropoutdense)(x)
 
-
         x = layers.Reshape((-1, 2048))(x)
 
-        dropout_rnn=0.0
+        dropout_rnn = 0.0
         initializer = tf.keras.initializers.GlorotNormal()
         # x = tf.keras.layers.Masking(mask_value=-1.0)(x)
         x = layers.Bidirectional(layers.GRU(512, return_sequences=True, dropout=dropout_rnn,
@@ -3453,7 +3452,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -3465,7 +3464,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -3478,7 +3477,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -3491,7 +3490,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -3502,7 +3501,7 @@ class Model:
         x = layers.Conv2D(
             128,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -3519,7 +3518,6 @@ class Model:
         #     name="Conv6",
         # )(x)
         # x = layers.Dropout(dropoutconv)(x)
-
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -3602,7 +3600,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -3614,7 +3612,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -3627,7 +3625,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -3640,7 +3638,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -3651,7 +3649,7 @@ class Model:
         x = layers.Conv2D(
             128,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -3668,7 +3666,6 @@ class Model:
         #     name="Conv6",
         # )(x)
         # x = layers.Dropout(dropoutconv)(x)
-
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -3739,7 +3736,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -3751,7 +3748,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -3764,7 +3761,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -3777,7 +3774,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -3788,7 +3785,7 @@ class Model:
         x = layers.Conv2D(
             128,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -3805,7 +3802,6 @@ class Model:
         #     name="Conv6",
         # )(x)
         # x = layers.Dropout(dropoutconv)(x)
-
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -3875,7 +3871,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -3886,7 +3882,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -3898,7 +3894,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -3910,7 +3906,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -3920,7 +3916,7 @@ class Model:
         x = layers.Conv2D(
             128,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -3936,7 +3932,6 @@ class Model:
         #     name="Conv6",
         # )(x)
         # x = layers.Dropout(dropoutconv)(x)
-
 
         # We have used two max pool with pool size and strides 2.
         # Hence, downsampled feature maps are 4x smaller. The number of
@@ -4013,7 +4008,7 @@ class Model:
         x = layers.Conv2D(
             16,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv1",
@@ -4024,7 +4019,7 @@ class Model:
         x = layers.Conv2D(
             32,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv2",
@@ -4036,7 +4031,7 @@ class Model:
         x = layers.Conv2D(
             48,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv3",
@@ -4048,7 +4043,7 @@ class Model:
         x = layers.Conv2D(
             64,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv4",
@@ -4058,7 +4053,7 @@ class Model:
         x = layers.Conv2D(
             80,
             (3, 3),
-            strides=(1,1),
+            strides=(1, 1),
             activation='elu',
             padding=padding,
             name="Conv5",
@@ -4146,10 +4141,10 @@ class Model:
             if metadata is not None:
                 if not os.path.exists(base_path):
                     os.makedirs(base_path)
-                with open(base_path+'file.txt', 'w') as file:
+                with open(base_path + 'file.txt', 'w') as file:
                     file.write(json.dumps(metadata))
             mcp_save = ModelCheckpoint(base_path, save_best_only=True, monitor='val_CER_metric',
-                                   mode='min', verbose=1)
+                                       mode='min', verbose=1)
         else:
             mcp_save = ModelCheckpoint(output + '/best_train/', save_best_only=True, monitor='CER_metric',
                                        mode='min', verbose=1)
