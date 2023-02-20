@@ -130,6 +130,9 @@ def get_arg_parser():
                         help='beta: freeze_recurrent_layers. Freezes recurrent layers, only usable with existing_model')
     parser.add_argument('--freeze_dense_layers', action='store_true',
                         help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
+    parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
+                        help='optimizer.')
+
     parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
                         help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in '
                              'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
@@ -412,8 +415,6 @@ def main():
             #         print(layer.name)
             #         layer.trainable = True
 
-            model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
         else:
             # save characters of model for inference mode
             with open(output_charlist_location, 'w') as chars_file:
@@ -568,9 +569,30 @@ def main():
                     'no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
                 exit()
 
+        if args.optimizer == 'adam':
             model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
-
+                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'adamw':
+            model.compile(
+                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'adadelta':
+            model.compile(
+                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'adagrad':
+            model.compile(
+                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'adamax':
+            model.compile(
+                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'adafactor':
+            model.compile(
+                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        elif args.optimizer == 'nadam':
+            model.compile(
+                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+        else:
+            print('wrong optimizer')
+            exit()
 
     model.summary(line_length=110)
 
