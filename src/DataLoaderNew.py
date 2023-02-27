@@ -121,6 +121,7 @@ class DataLoaderNew:
             else:
                 data_generator_new2 = DataGeneratorNew2(self.utils, 
                                                         self.batchSize,
+                                                        height=self.height,
                                                         channels=self.channels,
                                                         do_binarize_sauvola=self.do_binarize_sauvola,
                                                         do_binarize_otsu=self.do_binarize_otsu,
@@ -216,6 +217,7 @@ class DataLoaderNew:
             else:
                 dataGeneratorNew2 = DataGeneratorNew2(self.utils,
                                                       self.batchSize,
+                                                      height=self.height,
                                                       channels=self.channels,
                                                       do_binarize_sauvola=self.do_binarize_sauvola,
                                                       do_binarize_otsu=self.do_binarize_otsu)
