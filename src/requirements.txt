@@ -1,6 +1,7 @@
-numpy
+flask
+numpy==1.20
 editdistance==0.6.0
- tensorflow==2.11.0
+tensorflow==2.11.0
 scipy
 tensorflow_addons==0.19.0
 matplotlib
