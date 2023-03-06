@@ -35,6 +35,11 @@ beam_width = 10
 greedy = True
 app_locker = AppLocker()
 batch_size = 64
+COUNT = 0
+
+def increment():
+    global COUNT
+    COUNT = COUNT+1
 
 def load_model():
     global model
@@ -141,7 +146,9 @@ def process(line_queue):
                 print(text)
                 text_file.write(text)
                 text_file.flush()
+                increment()
 
+    print('total lines processed: ' + str(COUNT))
     if app_locker.get_processing:
         with app_locker._lock2:
             app_locker.set_processing(False)
@@ -150,6 +157,8 @@ def process(line_queue):
 
 
 def continuous_process():
+    global counter
+
     while True:
         if line_queue.qsize() > batch_size:
             # print('processing ' + str(line_queue.qsize()))
@@ -186,7 +195,7 @@ def predict():
             # print('locking ' + str(line_queue.qsize()))
             image = prepare_image(identifier, image)
             result = line_queue.put((identifier, image))
-            print (result)
+            # print(result)
             # line_queue.put(identifier, image)
 
 
