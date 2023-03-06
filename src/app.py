@@ -91,11 +91,6 @@ def prepare_image(identifier, image):
 
 
 def process(line_queue):
-    # classify the input image and then initialize the list
-    # of predictions to return to the client
-    # if line_queue.qsize() >= batch_size:
-        # print('line_queue.qsize() >= batch_size:')
-        # print(app_locker.get_processing())
     if not app_locker.get_processing() and line_queue.qsize() > 0:
         with app_locker._lock2:
             app_locker.set_processing(True)
@@ -110,10 +105,6 @@ def process(line_queue):
                     break
     else:
         return
-    # else:
-    #     return
-
-    # data["predictions"] = []
 
     max_width = 0
     for image in batch:
