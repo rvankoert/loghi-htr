@@ -36,6 +36,7 @@ greedy = True
 app_locker = AppLocker()
 batch_size = 64
 COUNT = 0
+output_path = '/tmp/output/loghi-htr'
 
 def increment():
     global COUNT
@@ -133,7 +134,7 @@ def process(line_queue):
             # print(batchIds[i] + "\t" + str(confidence) + "\t" + predicted_text)
             identifier = batchIds[i]
             text = identifier + "\t" + str(confidence) + "\t" + predicted_text + "\n"
-            with open(os.path.join('/tmp/output', identifier+'.txt'), "w") as text_file:
+            with open(os.path.join(output_path, identifier+'.txt'), "w") as text_file:
                 print(text)
                 text_file.write(text)
                 text_file.flush()
