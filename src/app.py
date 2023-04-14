@@ -99,9 +99,9 @@ def process(line_queue):
             batch = []
             batchIds = []
             for i in range(line_queue.qsize()):
-                identifier, image = line_queue.get()
+                group_id, identifier, image = line_queue.get()
                 batch.append(image[0])
-                batchIds.append(identifier)
+                batchIds.append((group_id, identifier))
                 # print('adding image to batch: ' + str(i))
                 if i >= batch_size:
                     break
@@ -133,9 +133,16 @@ def process(line_queue):
             # data["predictions"].append(r)
             # print(predicted_text)
             # print(batchIds[i] + "\t" + str(confidence) + "\t" + predicted_text)
-            identifier = batchIds[i]
+            group_id = batchIds[i][0]
+            identifier = batchIds[i][1]
+
             text = identifier + "\t" + str(confidence) + "\t" + predicted_text + "\n"
-            with open(os.path.join(output_path, identifier+'.txt'), "w") as text_file:
+            output_dir = os.path.join(output_path, group_id)
+            if not os.path.exists(output_dir):
+                print("creating output dir: " + output_dir)
+                os.makedirs(output_dir)
+                print("created dir: " + output_dir)
+            with open(os.path.join(output_path, group_id, identifier+'.txt'), "w") as text_file:
                 print(text)
                 text_file.write(text)
                 text_file.flush()
@@ -172,6 +179,7 @@ def predict():
     # ensure an image was properly uploaded to our endpoint
     if flask.request.method == "POST":
         request = flask.request
+        group_id = request.form["group_id"]
         identifier = request.form["identifier"]
 
         if identifier and request.files.get("image"):
@@ -185,11 +193,8 @@ def predict():
             #     print('processing ' + str(line_queue.qsize()))
             #     data = process(data, line_queue)
 
-            # print('locking ' + str(line_queue.qsize()))
             image = prepare_image(identifier, image)
-            result = line_queue.put((identifier, image))
-            # print(result)
-            # line_queue.put(identifier, image)
+            result = line_queue.put((group_id, identifier, image))
 
 
             # indicate that the request was a success
@@ -211,9 +216,9 @@ def read_environment():
     global charlist_path
     charlist_path = get_environment_var("LOGHI_CHARLIST_PATH", charlist_path)
     global beam_width
-    beam_width = get_environment_var("LOGHI_BEAMWIDTH", beam_width)
+    beam_width = int(get_environment_var("LOGHI_BEAMWIDTH", beam_width))
     global batch_size
-    batch_size = get_environment_var("LOGHI_BATCHSIZE", batch_size)
+    batch_size = int(get_environment_var("LOGHI_BATCHSIZE", batch_size))
     global output_path
     output_path = get_environment_var("LOGHI_OUTPUT_PATH", output_path)
 
