@@ -1,5 +1,5 @@
 flask
-numpy
+numpy<1.24
 editdistance==0.6.0
 tensorflow==2.11.0
 scipy

@@ -16,7 +16,7 @@ import tensorflow as tf
 import random
 import argparse
 import tensorflow_addons as tfa
-from keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras.utils import get_custom_objects
 
 
 def compute_loss(input_image, filter_index):
@@ -67,8 +67,6 @@ parser.add_argument('--height', metavar='height', type=int, default=51,
                     help='height to be used')
 parser.add_argument('--width', metavar='width', type=int, default=751,
                     help='width to be used')
-parser.add_argument('--channels', metavar='channels', type=int, default=4,
-                    help='channels to be used')
 parser.add_argument('--output', metavar='output', type=str, default='output',
                     help='base output to be used')
 parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
@@ -78,7 +76,7 @@ args = parser.parse_args()
 
 SEED = args.seed
 GPU = args.gpu
-config.IMG_SHAPE = (args.height, args.width, args.channels)
+
 config.BASE_OUTPUT = args.output
 
 MODEL_PATH = "../models/model-val-best/checkpoints/best_val/"
@@ -113,8 +111,10 @@ get_custom_objects().update({"CTCLoss": CTCLoss})
 
 # model = keras.applications.ResNet50V2(weights="imagenet", include_top=False)
 model = keras.models.load_model(MODEL_PATH)
+model_channels = model.layers[0].input_shape[0][3]
+
 model.summary()
-config.IMG_SHAPE = (64, 64, args.channels)
+config.IMG_SHAPE = (64, 64, model_channels)
 layer_name = "conv3_block4_out"
 # submodel=model
 submodel = model
@@ -143,7 +143,7 @@ for layer in submodel.layers:
     cropped_height = config.IMG_SHAPE[1] #- 25 * 2
     width = n * cropped_width + (n - 1) * margin * 2
     height = n * cropped_height + (n - 1) * margin * 2
-    stitched_filters = np.zeros((width, height, args.channels))
+    stitched_filters = np.zeros((width, height, model_channels))
 
     # Fill the picture with our saved filters
     for i in range(n):

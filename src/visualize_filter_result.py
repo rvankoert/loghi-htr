@@ -1,6 +1,5 @@
 import os
 
-from keras.utils.generic_utils import get_custom_objects
 
 from config import *
 import utils
@@ -20,8 +19,9 @@ from matplotlib import pyplot as plt
 import tensorflow_addons as tfa
 
 # disable GPU for now, because it is already running on my dev machine
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
+from tensorflow.keras.utils import get_custom_objects
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -41,8 +41,6 @@ parser.add_argument('--height', metavar='height', type=int, default=64,
                     help='height to be used')
 parser.add_argument('--width', metavar='width', type=int, default=751,
                     help='width to be used')
-parser.add_argument('--channels', metavar='channels', type=int, default=3,
-                    help='channels to be used')
 parser.add_argument('--output', metavar='output', type=str, default='output',
                     help='base output to be used')
 parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
@@ -65,7 +63,6 @@ SEED = args.seed
 GPU = args.gpu
 PERCENT_VALIDATION = args.percent_validation
 LEARNING_RATE = args.learning_rate
-config.IMG_SHAPE = (args.height, args.width, args.channels)
 config.BATCH_SIZE = args.batch_size
 config.EPOCHS = args.epochs
 config.BASE_OUTPUT = args.output
@@ -89,8 +86,7 @@ if GPU >= 0:
         tf.config.experimental.set_virtual_device_configuration(gpus[GPU], [
             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
 
-imgSize = config.IMG_SHAPE
-print("[INFO] loading DiFor dataset...")
+print("[INFO] loading dataset...")
 
 get_custom_objects().update({"CERMetric": CERMetric})
 get_custom_objects().update({"WERMetric": WERMetric})
@@ -98,6 +94,9 @@ get_custom_objects().update({"CTCLoss": CTCLoss})
 
 
 model = keras.models.load_model(MODEL_PATH)
+model_channels = model.layers[0].input_shape[0][3]
+config.IMG_SHAPE = (args.height, args.width, model_channels)
+imgSize = config.IMG_SHAPE
 
 model.summary()
 
@@ -161,29 +160,29 @@ for layerId in range(len(submodel.layers)):
     i = 0
     for filter_index in range(numFilters):
         print("Processing filter %d" % (filter_index,))
-        loss, img = visualize_filter(filter_index, args.channels)
+        loss, img = visualize_filter(filter_index, model_channels)
 
         all_imgs.append(img)
 
     char_list = None
     maxTextLen = 128
     loader = DataLoaderNew(1, imgSize,
-                           train_list=args.validation_list,
-                           validation_list=args.validation_list,
+                           train_list=None,
+                           validation_list=None,
                            test_list=None,
-                           inference_list=None,
+                           inference_list=args.validation_list,
                            char_list=char_list,
                            check_missing_files=False
                            )
 
     training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
-    validation_dataset = validation_generator
+    inference_dataset = inference_generator
 
-    for batch in validation_dataset:
-        if i > 10:
-            print('breaking')
-            break
+    for batch in inference_dataset:
+        # if i > 10:
+        #     print('breaking')
+        #     break
         item = batch[0]
         # print(item)
         # item = dataGenerator.encode_single_sample_clean(item, "none")
@@ -217,14 +216,14 @@ for layerId in range(len(submodel.layers)):
             # create subplot and append to ax
             ax.append(fig.add_subplot(rows, columns, j * 2 + 1))
             ax[-1].set_title("ax:" + str(j))  # set title
-            if args.channels == 1:
+            if model_channels == 1:
                 img = tf.squeeze(img)
             plt.imshow(img)
             ax.append(fig.add_subplot(rows, columns, j * 2 + 2))
             # ax[-1].set_title("ax:" + str(j))  # set title
-            if args.channels == 1:
+            if model_channels == 1:
                 maps[j - 1] = tf.squeeze(maps[j - 1])
-            print(maps[j - 1]+0.5)
+            # print(maps[j - 1]+0.5)
             plt.imshow(maps[j - 1]+0.5, cmap='gray')
 
         # plt.show()  # finally, render the plot
