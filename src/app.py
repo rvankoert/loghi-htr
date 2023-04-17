@@ -163,6 +163,10 @@ def continuous_process():
         if line_queue.qsize() > batch_size:
             # print('processing ' + str(line_queue.qsize()))
             process(line_queue)
+        elif line_queue.qsize() > 0:
+            time.sleep(3)
+            # print('processing ' + str(line_queue.qsize()))
+            process(line_queue)
         else:
             # print('sleeping')
             time.sleep(1)
