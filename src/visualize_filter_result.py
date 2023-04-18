@@ -166,7 +166,7 @@ for layerId in range(len(submodel.layers)):
 
     char_list = None
     maxTextLen = 128
-    loader = DataLoaderNew(1, imgSize,
+    loader = DataLoaderNew(args.batch_size, imgSize,
                            train_list=None,
                            validation_list=None,
                            test_list=None,
@@ -179,6 +179,7 @@ for layerId in range(len(submodel.layers)):
 
     inference_dataset = inference_generator
 
+    batch_counter = 0
     for batch in inference_dataset:
         # if i > 10:
         #     print('breaking')
@@ -229,6 +230,8 @@ for layerId in range(len(submodel.layers)):
         # plt.show()  # finally, render the plot
 
         # plt.show()
+        filename = loader.get_item('inference', (batch_counter * args.batch_size))
         plt.tight_layout()
-        plt.savefig('results/{}-{}.png'.format(layerId, i))
+        plt.savefig('results/{}-{}'.format(layerId, os.path.basename(filename)))
         plt.close()
+        batch_counter = batch_counter + 1
