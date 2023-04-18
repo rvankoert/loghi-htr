@@ -256,7 +256,9 @@ def main():
 
     char_list = None
     charlist_location = args.charlist
-    if not charlist_location:
+    if not charlist_location and args.existing_model:
+        charlist_location = args.existing_model + '/charlist.txt'
+    elif not charlist_location:
         charlist_location = args.output + '/charlist.txt'
     model_channels = args.channels
     model_height = args.height
