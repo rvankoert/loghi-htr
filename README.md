@@ -1,16 +1,19 @@
 # Loghi-core HTR
 
-the source of this documentation is: https://github.com/rvankoert/htr
+the source of this documentation is: https://github.com/knaw-huc/loghi-htr
 
+```bash
 # Install
 sudo apt-get install python3.8-dev
 git clone https://github.com/githubharald/CTCWordBeamSearch
 cd CTCWordBeamSearch
 python3.8 -m pip install .
+cd ..
 
-git clone https://github.com/rvankoert/htr
+git clone https://github.com/knaw-huc/loghi-htr
 cd htr/src/
 python3.8 -m pip install -r requirements.txt
+```
 
 
 # Usage
