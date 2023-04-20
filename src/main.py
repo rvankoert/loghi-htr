@@ -267,7 +267,7 @@ def main():
             if not os.path.exists(args.existing_model):
                 print('cannot find existing model on disk: ' + args.existing_model)
                 exit(1)
-            if not os.path.exists(charlist_location):
+            if not os.path.exists(charlist_location) and not args.replace_final_layer:
                 print('cannot find charlist on disk: ' + charlist_location)
                 exit(1)
             with open(charlist_location) as file:
