@@ -291,8 +291,9 @@ def main():
                 args.__dict__['height']=model_height
                 if args.no_auto:
                     exit(1)
-            with open(args.charlist) as file:
-                char_list = list(char for char in file.read())
+            if not args.replace_final_layer:
+                with open(args.charlist) as file:
+                    char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
         loader = DataLoaderNew(args.batch_size, img_size,
                                train_list=args.train_list,
