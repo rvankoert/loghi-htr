@@ -559,6 +559,18 @@ def main():
                                                      dropout_conv=args.dropoutconv,
                                                      dropout_dense=args.dropout_dense,
                                                      multiplier=args.cnn_multiplier)
+            elif 'new17' == args.model:
+                model = modelClass.build_model_new17(img_size, len(char_list),
+                                                     use_mask=args.use_mask,
+                                                     use_gru=args.use_gru,
+                                                     rnn_units=args.rnn_units,
+                                                     rnn_layers=args.rnn_layers,
+                                                     batch_normalization=args.batch_normalization,
+                                                     use_rnn_dropout=args.use_rnn_dropout,
+                                                     dropout_rnn=args.dropout_rnn,
+                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
+                                                     dropout_conv=args.dropoutconv,
+                                                     dropout_dense=args.dropout_dense)
             elif 'old6' == args.model:
                 model = modelClass.build_model_old6(img_size, len(char_list),
                                                     use_mask=args.use_mask,
