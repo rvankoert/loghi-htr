@@ -12,6 +12,8 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import dtypes as dtypes_module
 from tensorflow.python.keras import backend_config
 from tensorflow.python.ops import ctc_ops as ctc
+from tensorflow.keras.layers import Add,Concatenate, Conv2D, GlobalMaxPooling2D, MaxPooling2D, ReLU, BatchNormalization, AveragePooling2D
+from tensorflow import Tensor
 
 import keras.backend as K
 import json
@@ -21,6 +23,37 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 epsilon = backend_config.epsilon
+
+def relu_bn(inputs: Tensor) -> Tensor:
+    relu = ReLU()(inputs)
+    bn = BatchNormalization()(relu)
+    return bn
+
+
+def residual_block(x: Tensor, downsample: bool, filters: int, kernel_size: int = 3) -> Tensor:
+    y = Conv2D(kernel_size=kernel_size,
+               strides=(1 if not downsample else 2),
+               filters=filters,
+               padding="same")(x)
+    y = relu_bn(y)
+    y = Conv2D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding="same")(y)
+    y = relu_bn(y)
+    y = Conv2D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding="same")(y)
+
+    if downsample:
+        x = Conv2D(kernel_size=1,
+                   strides=2,
+                   filters=filters,
+                   padding="same")(x)
+    out = Add()([x, y])
+    out = relu_bn(out)
+    return out
 
 def ctc_batch_cost(y_true, y_pred, input_length, label_length):
     """Runs CTC loss algorithm on each batch element.
@@ -302,308 +335,23 @@ class Model:
         initializer = tf.keras.initializers.GlorotNormal(seed)
         channel_axis = -1
 
-        x = input_img
+        num_filters = 16
 
-        # if use_mask:
-        #     masked = x
+        t = BatchNormalization()(input_img)
+        t = Conv2D(kernel_size=3,
+                   strides=1,
+                   filters=num_filters,
+                   padding="same")(t)
+        t = relu_bn(t)
 
-        # First conv block
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        res_layer = x
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=24,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool1")(x)
-        if dropout:
-            x = layers.Dropout(dropout_conv)(x)
-        res_layer = x
+        num_blocks_list = [2, 5, 5, 2]
+        for i in range(len(num_blocks_list)):
+            num_blocks = num_blocks_list[i]
+            for j in range(num_blocks):
+                t = residual_block(t, downsample=(j == 0 and i != 0), filters=num_filters)
+            num_filters *= 2
 
-        # Second conv block
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        res_layer = x
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            filters=36,
-            kernel_size=[3, 3],
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool2")(x)
-        if dropout:
-            x = layers.Dropout(dropout_conv)(x)
-
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        res_layer = x
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            64,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.add([res_layer, x])
-        res_layer = x
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        x = layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same', name="pool3")(x)
-        if dropout:
-            x = layers.Dropout(dropout_conv)(x)
-
-        x = layers.Conv2D(
-            96,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            96,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        x = layers.Conv2D(
-            96,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            kernel_initializer=initializer
-        )(x)
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        if dropout:
-            x = layers.Dropout(dropout_conv)(x)
-
-        x = layers.Conv2D(
-            128,
-            (3, 3),
-            strides=(1, 1),
-            activation=activation,
-            padding=padding,
-            name="Conv5",
-            kernel_initializer=initializer
-        )(x)
-        if batch_normalization:
-            x = layers.BatchNormalization(axis=channel_axis)(x)
-        if dropout:
-            x = layers.Dropout(dropout_conv)(x)
-
-        # x = layers.Conv2D(
-        #     196,
-        #     (3, 3),
-        #     strides=(1, 1),
-        #     activation=activation,
-        #     padding=padding,
-        #     name="Conv6",
-        #     kernel_initializer=initializer
-        # )(x)
-        # if batch_normalization:
-        #     x = layers.BatchNormalization(axis=channel_axis)(x)
-        # if dropout:
-        #     x = layers.Dropout(dropoutconv)(x)
-
+        x = t
         new_shape = (-1, x.shape[-2] * x.shape[-1])
 
         x = layers.Reshape(target_shape=new_shape, name="reshape")(x)
