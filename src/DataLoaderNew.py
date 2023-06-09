@@ -110,7 +110,7 @@ class DataLoaderNew:
         inference_generator = None
         use_classic = False
         deterministic = False
-        train_batches=0
+        train_batches = 0
         if self.train_list:
             if use_classic:
                 training_generator = self.create_data_generator(labels,

@@ -2,6 +2,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import json
 
 from matplotlib import use
@@ -284,6 +285,22 @@ def main():
             if not args.replace_final_layer:
                 model_channels = model.layers[0].input_shape[0][3]
 
+            # policy = tf.keras.mixed_precision.Policy('float32')
+            # tf.keras.mixed_precision.set_global_policy(policy)
+            #
+            # modelClass = Model()
+            # new_model = modelClass.build_model_new10((64, None, 1), 455,
+            #                                          use_mask=True,
+            #                                          use_gru=False,
+            #                                          rnn_units=512,
+            #                                          rnn_layers=5,
+            #                                          batch_normalization=True,
+            #                                          dropout=True,
+            #                                          use_rnn_dropout=False)
+            # new_model.set_weights(model.get_weights())
+            # new_model.save('/tmp/testmodel')
+            # print('saved as 32 bit')
+            #
             model_height = model.layers[0].input_shape[0][2]
             if args.height != model_height:
                 print('input height differs from model channels. use --height ' + str(model_height))
@@ -292,7 +309,7 @@ def main():
                 if args.no_auto:
                     exit(1)
             if not args.replace_final_layer:
-                with open(args.charlist) as file:
+                with open(charlist_location) as file:
                     char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
         loader = DataLoaderNew(args.batch_size, img_size,

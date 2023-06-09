@@ -12,6 +12,7 @@ from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
 from numpy import exp
+import cv2
 
 
 class Utils():
@@ -173,20 +174,28 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
 
 def deprocess_image(img):
     # Normalize array: center on 0., ensure variance is 0.15
-    img -= img.mean()
-    img /= img.std() + 1e-5
-    img *= 0.15
+    # img -= img.mean()
+    # img /= img.std() + 1e-5
+    # img *= 0.15
+    #
+    # # Center crop
+    # # img = img[25:-25, 25:-25, :]
+    #
+    # # Clip to [0, 1]
+    # print(np.min(img))
+    # print(np.max(img))
+    # # img += 0.5
+    # img = np.clip(img, 0, 1)
+    #
+    # # Convert to RGB array
+    # img *= 255
+    # img = np.clip(img, 0, 255).astype("uint8")
 
-    # Center crop
-    # img = img[25:-25, 25:-25, :]
-
-    # Clip to [0, 1]
+    img /= 2.0
     img += 0.5
-    img = np.clip(img, 0, 1)
-
-    # Convert to RGB array
-    img *= 255
+    img *= 255.
     img = np.clip(img, 0, 255).astype("uint8")
+    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
 def initialize_image(channels):

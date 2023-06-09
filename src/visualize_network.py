@@ -6,8 +6,8 @@ from Model import CTCLoss, CERMetric, WERMetric
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ['TF_DETERMINISTIC_OPS'] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 from config import *
 import tensorflow.keras as keras
@@ -52,9 +52,9 @@ def visualize_filter(filter_index):
     img = initialize_image()
     for iteration in range(iterations):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)
-
+    img = tf.transpose(img[0].numpy(), perm=[1, 0, 2])
     # Decode the resulting input image
-    img = deprocess_image(img[0].numpy())
+    img = deprocess_image(img)
     return loss, img
 
 
@@ -120,7 +120,7 @@ layer_name = "conv3_block4_out"
 submodel = model
 print(submodel.summary())
 for layer in submodel.layers:
-    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("Conv") and not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
     # print(layer.name)
     # continue

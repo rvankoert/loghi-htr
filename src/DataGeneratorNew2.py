@@ -136,6 +136,21 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
                 image = tfa.image.shear_x(image, random_shear, replace=0)
                 image, image, image = tf.split(image, 3, axis=2)
 
+        label = imagePath[1]
+        encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+
+        label_counter = 0
+        lastchar =None
+        for char in encodedLabel:
+            label_counter += 1
+            if char == lastchar:
+                label_counter += 1
+            lastchar = char
+        label_width = label_counter
+        if image_width < label_width*16:
+            image_width = label_width * 16
+            # print('setting label width '+ str(height) + " " + str(image_width))
+            image = tf.image.resize_with_pad(image, self.height, image_width)
 
         # time.sleep(2.0)
         # gtImageEncoded = tf.image.encode_png(tf.cast(image*255, dtype="uint8"))
@@ -144,9 +159,8 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
         image = 0.5 - image
         image = tf.transpose(image, perm=[1, 0, 2])
 
-        label = imagePath[1]
         # print('label')
         # print(label)
-        encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        # encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
         return image, encodedLabel
 

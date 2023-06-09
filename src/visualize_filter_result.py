@@ -20,7 +20,7 @@ import tensorflow_addons as tfa
 
 # disable GPU for now, because it is already running on my dev machine
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_DETERMINISTIC_OPS'] = '1'
+os.environ['TF_DETERMINISTIC_OPS'] = '0'
 from tensorflow.keras.utils import get_custom_objects
 
 parser = argparse.ArgumentParser(description='Process some integers.')
@@ -149,7 +149,7 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
     feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
     # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
@@ -181,9 +181,9 @@ for layerId in range(len(submodel.layers)):
 
     batch_counter = 0
     for batch in inference_dataset:
-        # if i > 10:
-        #     print('breaking')
-        #     break
+        if batch_counter > 10:
+            print('breaking')
+            break
         item = batch[0]
         # print(item)
         # item = dataGenerator.encode_single_sample_clean(item, "none")

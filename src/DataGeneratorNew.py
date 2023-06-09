@@ -263,7 +263,15 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
         # img = tf.image.resize(img, [height, width], preserve_aspect_ratio=True)
         # print(label)
         label = datagenerator.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-        label_width = label.shape[0]
+        label_counter = 0
+        lastchar =None
+        for char in label:
+            label_counter += 1
+            if char == lastchar:
+                label_counter += 1
+            lastchar = char
+        label_width = label_counter
+        # label_width = label.shape[0]
         image_width = int((image_width/image_height)*height)
         # img = tf.image.resize(img, [height, image_width], preserve_aspect_ratio=True)
         img = tf.image.convert_image_dtype(img, dtype=tf.float32)
@@ -410,9 +418,11 @@ class DataGeneratorNew(tf.keras.utils.Sequence):
             # print(filename)
             if self.shuffle:
                 # print(ID)
-                item = DataGeneratorNew.encode_single_sample(self, filename, label, self.augment, self.do_elastic_transform, self.distort_jpeg,
-                                         self.height, self.width, self.channels, self.do_binarize_otsu,
-                                         self.do_binarize_sauvola, self.random_crop, self.random_width)
+                item = DataGeneratorNew.encode_single_sample(self, filename, label, self.augment,
+                                                             self.do_elastic_transform, self.distort_jpeg,
+                                                             self.height, self.width, self.channels,
+                                                             self.do_binarize_otsu, self.do_binarize_sauvola,
+                                                             self.random_crop, self.random_width)
             else:
                 # item = self.encode_single_sample_clean(filename, label)
                 item = DataGeneratorNew.encode_single_sample(self, filename, label, False, False, False,
