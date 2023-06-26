@@ -48,7 +48,7 @@ class DataLoaderNew:
         labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
 
         if self.train_list:
-            chars, train_files = self.create_data(chars, labels, partition, 'train', self.train_list)
+            chars, train_files = self.create_data(chars, labels, partition, 'train', self.train_list, use_multiply=True)
 
         if self.validation_list:
             chars, validation_files = self.create_data(chars, labels, partition, 'validation', self.validation_list)
@@ -321,7 +321,7 @@ class DataLoaderNew:
             )
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
-                    include_missing_files=False, is_inference=False):
+                    include_missing_files=False, is_inference=False, use_multiply=False):
         files = []
         for sublist in data_file_list.split():
             if not os.path.exists(sublist):
@@ -361,7 +361,12 @@ class DataLoaderNew:
                         print(line)
                         continue
                     counter = counter + 1
-                    for i in range(0, self.multiply):
+                    if use_multiply:
+                        for i in range(0, self.multiply):
+                            partition[partition_name].append(fileName)
+                            labels[partition_name].append(gtText)
+                            files.append([fileName, gtText])
+                    else:
                         partition[partition_name].append(fileName)
                         labels[partition_name].append(gtText)
                         files.append([fileName, gtText])
