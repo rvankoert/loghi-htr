@@ -129,7 +129,8 @@ class DataLoaderNew:
                                                         do_elastic_transform=self.elastic_transform,
                                                         random_crop=self.random_crop,
                                                         random_width=self.random_width,
-                                                        distort_jpeg=self.distort_jpeg
+                                                        distort_jpeg=self.distort_jpeg,
+                                                        do_random_shear=self.do_random_shear
                                                         )
                 train_batches = np.ceil(len(train_files) / self.batchSize)
                 training_generator = tf.data.Dataset.from_tensor_slices(train_files)
@@ -265,7 +266,8 @@ class DataLoaderNew:
                  reuse_old_lmdb_val=None,
                  reuse_old_lmdb_test=None,
                  reuse_old_lmdb_inference=None,
-                 use_mask=False
+                 use_mask=False,
+                 do_random_shear=False
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
 
@@ -300,6 +302,7 @@ class DataLoaderNew:
         self.reuse_old_lmdb_test = reuse_old_lmdb_test
         self.reuse_old_lmdb_inference = reuse_old_lmdb_inference
         self.use_mask = use_mask
+        self.do_random_shear = do_random_shear
 
     def create_data_generator(self, labels, partition, params, process_step, reuse_old_lmdb=None):
         if self.use_lmdb:

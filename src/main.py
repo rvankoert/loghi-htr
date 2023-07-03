@@ -150,6 +150,9 @@ def get_arg_parser():
                         help='data augmentation option: random_width, stretches the textline horizontally to random width')
     parser.add_argument('--distort_jpeg', action='store_true',
                         help='beta: distort_jpeg')
+    parser.add_argument('--do_random_shear', action='store_true',
+                        help='beta: do_random_shear')
+
     parser.add_argument('--augment', action='store_true',
                         help='beta: apply data augmentation to training set. In general this is a good idea')
 
@@ -334,7 +337,8 @@ def main():
                                reuse_old_lmdb_val=args.reuse_old_lmdb_val,
                                reuse_old_lmdb_test=args.reuse_old_lmdb_test,
                                reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
-                               use_mask=args.use_mask
+                               use_mask=args.use_mask,
+                               do_random_shear=args.do_random_shear
                                )
 
         print("creating generators")
