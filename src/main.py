@@ -712,25 +712,32 @@ def main():
 
         if args.optimizer == 'adam':
             model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adamw':
             model.compile(
-                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adadelta':
             model.compile(
-                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adagrad':
             model.compile(
-                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adamax':
             model.compile(
-                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adafactor':
             model.compile(
-                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'nadam':
             model.compile(
-                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         else:
             print('wrong optimizer')
             exit()
@@ -769,6 +776,7 @@ def main():
         training_dataset = training_generator
         print('batches ' + str(training_dataset.__len__()))
         # try:
+        metadata = get_config(args, model)
         history = Model().train_batch(
             model,
             training_dataset,
@@ -781,7 +789,8 @@ def main():
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,
             output_checkpoints=args.output_checkpoints,
-            metadata=args.__dict__
+            charlist=loader.charList,
+            metadata=metadata
         )
 
         # construct a plot that plots and saves the training history
@@ -1048,7 +1057,7 @@ def main():
                     text_file.flush()
 
 
-def store_info(args, model):
+def get_config(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
@@ -1067,7 +1076,11 @@ def store_info(args, model):
         'model': model_layers,
         'notes': ' '
     }
+    return config
 
+
+def store_info(args, model):
+    config = get_config(args, model)
     if args.config_file_output:
         config_file_output = args.config_file_output
     else:

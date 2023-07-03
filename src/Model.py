@@ -14,6 +14,7 @@ from tensorflow.python.keras import backend_config
 from tensorflow.python.ops import ctc_ops as ctc
 from tensorflow.keras.layers import Add,Concatenate, Conv2D, ELU, GlobalMaxPooling2D, MaxPooling2D, ReLU, BatchNormalization, AveragePooling2D
 from tensorflow import Tensor
+from LoghiCustomCallback import LoghiCustomCallback
 
 import keras.backend as K
 import json
@@ -99,6 +100,7 @@ class CTCLayer(tf.keras.layers.Layer):
         super().__init__(name=name)
         self.loss_fn = ctc_batch_cost
 
+    @tf.function
     def call(self, y_true, y_pred):
         # Compute the training-time loss value and add it
         # to the layer using `self.add_loss()`.
@@ -127,17 +129,21 @@ class CERMetric(tf.keras.metrics.Metric):
     A custom Keras metric to compute the Character Error Rate
     """
 
-    def __init__(self, name='CER_metric', **kwargs):
+    def __init__(self, name='CER_metric', greedy=True, beam_width=1, **kwargs):
         super(CERMetric, self).__init__(name=name, **kwargs)
         self.cer_accumulator = self.add_weight(name="total_cer", initializer="zeros")
         self.counter = self.add_weight(name="cer_count", initializer="zeros")
+        self.greedy = greedy
+        self.beam_width = beam_width
 
+    @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
         decode, log = K.ctc_decode(y_pred,
                                    input_length,
-                                   greedy=True)
+                                   greedy=True,
+                                   beam_width=10)
 
         decode = K.ctc_label_dense_to_sparse(decode[0], K.cast(input_length, 'int32'))
         y_true_sparse = K.ctc_label_dense_to_sparse(y_true, K.cast(input_length, 'int32'))
@@ -168,6 +174,7 @@ class WERMetric(tf.keras.metrics.Metric):
         self.wer_accumulator = self.add_weight(name="total_wer", initializer="zeros")
         self.counter = self.add_weight(name="wer_count", initializer="zeros")
 
+    @tf.function
     def update_state(self, y_true, y_pred, sample_weight=None):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
@@ -197,6 +204,7 @@ class WERMetric(tf.keras.metrics.Metric):
         self.counter.assign(0.0)
 
 
+@tf.function
 def CTCLoss(y_true, y_pred):
     # # Compute the training-time loss value
     # y_true = tf.where(tf.equal(y_true, 01), tf.ones_like(y_true), y_true)
@@ -4246,12 +4254,11 @@ class Model:
         # model.compile(optimizer=opt)
         return model
 
-    #
     # # Train the model
     @staticmethod
     def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                     early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
-                    metadata=None):
+                    metadata=None, charlist=None):
         # # Add early stopping
         callbacks = []
         if early_stopping_patience > 0 and validation_dataset:
@@ -4267,11 +4274,6 @@ class Model:
         history = History()
         if validation_dataset:
             base_path = output + '/best_val/'
-            if metadata is not None:
-                if not os.path.exists(base_path):
-                    os.makedirs(base_path)
-                with open(base_path + 'file.txt', 'w') as file:
-                    file.write(json.dumps(metadata))
             mcp_save = ModelCheckpoint(base_path, save_best_only=True, monitor='val_CER_metric',
                                        mode='min', verbose=1)
         else:
@@ -4281,12 +4283,14 @@ class Model:
         reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                            verbose=1, min_delta=1e-4, mode='min')
         callbacks.append(history)
-        callbacks.append(mcp_save)
-        if output_checkpoints:
-            filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
-            checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
-            callbacks.append(checkpoint)
+        # callbacks.append(mcp_save)
+        # if output_checkpoints:
+        #     filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
+        #     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
+        #     callbacks.append(checkpoint)
 
+        callbacks.append(LoghiCustomCallback( save_best=True, save_checkpoint=output_checkpoints, output=output,
+                                              charlist=charlist, metadata=metadata))
         filename = os.path.join(output, 'log.csv')
         history_logger = tf.keras.callbacks.CSVLogger(filename, separator=",", append=True)
         callbacks.append(history_logger)
