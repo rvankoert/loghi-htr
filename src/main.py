@@ -288,22 +288,131 @@ def main():
             if not args.replace_final_layer:
                 model_channels = model.layers[0].input_shape[0][3]
 
-            # policy = tf.keras.mixed_precision.Policy('float32')
-            # tf.keras.mixed_precision.set_global_policy(policy)
-            #
-            # modelClass = Model()
-            # new_model = modelClass.build_model_new10((64, None, 1), 455,
-            #                                          use_mask=True,
-            #                                          use_gru=False,
-            #                                          rnn_units=512,
-            #                                          rnn_layers=5,
-            #                                          batch_normalization=True,
-            #                                          dropout=True,
-            #                                          use_rnn_dropout=False)
-            # new_model.set_weights(model.get_weights())
-            # new_model.save('/tmp/testmodel')
-            # print('saved as 32 bit')
-            #
+            if False:
+                policy = tf.keras.mixed_precision.Policy('float32')
+                tf.keras.mixed_precision.set_global_policy(policy)
+                print(model.summary())
+                previouslayer = None
+                inputs = None
+                counter = 0
+                dictionary = {}
+                for layer in model.layers:
+                    counter += 1
+                    if layer.name == 'image':
+                        model_channels = model.layers[0].input_shape[0][3]
+                        model_height = model.layers[0].input_shape[0][2]
+                        model_width = model.layers[0].input_shape[0][1]
+                        new_layer = tf.keras.layers.Input(
+                            shape=(model_width, model_height, model_channels), name="image"
+                        )
+
+                        inputs = new_layer
+                    elif layer.name.startswith('bidirectional'):
+
+                        # print('bidirectional')
+                        recurrent = None
+                        if layer.layer.name.startswith('lstm'):
+                            recurrent = tf.keras.layers.LSTM(layer.layer.units,
+                                               activation=layer.layer.activation,
+                                               return_sequences=layer.layer.return_sequences,
+                                               kernel_initializer=layer.layer.kernel_initializer,
+                                               name=layer.layer.name,
+                                               dropout=layer.layer.dropout,
+                                               recurrent_dropout=layer.layer.recurrent_dropout
+                                               )
+                        else:
+                            print(layer.layer.name)
+
+                        new_layer = tf.keras.layers.Bidirectional(
+                            recurrent, name=layer.name, merge_mode=layer.merge_mode
+                        )(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+                        # print(layer.layer.name)
+                    elif layer.name.startswith('dropout'):
+                        # print('dropout')
+                        new_layer = tf.keras.layers.Dropout(layer.rate, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+
+                    elif layer.name.startswith('reshape'):
+                        new_layer = tf.keras.layers.Reshape(target_shape=layer.target_shape, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+
+                        # print('reshape')
+                    elif layer.name.startswith('dense3'):
+                        new_layer = tf.keras.layers.Dense(layer.units, activation=layer.activation, name=layer.name,
+                                     kernel_initializer=layer.kernel_initializer)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+                        # print('dense3')
+                    elif layer.name.startswith('conv2d'):
+                        # print('conv2d')
+                        new_layer = tf.keras.layers.Conv2D(kernel_size=layer.kernel_size,
+                                                           strides=layer.strides,
+                                                           filters=layer.filters,
+                                                           padding=layer.padding,
+                                                           activation=layer.activation,
+                                                           name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+                    elif layer.name.startswith('elu'):
+                        # print('elu')
+                        new_layer = tf.keras.layers.ELU(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+
+                    elif layer.name.startswith('batch_normalization'):
+                        # print(model.get_layer(layer.name).name.split('/')[0])
+                        # print(model.get_layer(layer.name).input[0].name)
+                        # print(model.get_layer(layer.name).input.name.split('/')[0])
+                        # input = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
+                        # print(input)
+                        new_layer = tf.keras.layers.BatchNormalization(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+                    elif layer.name.startswith('add'):
+                        # print(layer.get_config())
+                        # print(layer.submodules)
+                        # print(model.get_layer(layer.name).input[0].name.split('/')[0])
+                        input1 = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
+                        input2 = dictionary[model.get_layer(layer.name).input[1].name.split('/')[0]]
+                        new_layer = tf.keras.layers.Add()([input1, input2])
+                        # print('add')
+                    elif layer.name.startswith('activation'):
+                        # print('activation')
+                        new_layer = tf.keras.layers.Activation('linear', dtype=tf.float32, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
+                        output = new_layer
+                    else:
+                        print(layer)
+                        print(layer.compute_dtype)
+                        print(layer.name)
+                        print(layer.input_spec)
+                        exit()
+                    print(layer.compute_dtype)
+
+                    dictionary[new_layer.name.split('/')[0]] = new_layer
+                    # print(dictionary)
+                    # print(layer.name)
+                    # print(new_layer.name)
+                    # if not previouslayer is None:
+                    #     new_layer = new_layer(previouslayer)
+                    previouslayer = new_layer
+
+                    # if layer.compute_dtype =='float16':
+                    #     layer.
+
+                new_model = keras.models.Model(
+                    inputs=inputs, outputs=output, name=model.name
+                )
+
+                print(new_model.summary())
+                new_model.set_weights(model.get_weights())
+                print('saved as 32 bit')
+
+                new_model.save('/tmp/testmodel')
+                exit()
+                modelClass = Model()
+                new_model = modelClass.build_model_new10((64, None, 1), 455,
+                                                         use_mask=True,
+                                                         use_gru=False,
+                                                         rnn_units=512,
+                                                         rnn_layers=5,
+                                                         batch_normalization=True,
+                                                         dropout=True,
+                                                         use_rnn_dropout=False)
+                new_model.set_weights(model.get_weights())
+                new_model.save('/tmp/testmodel')
+                print('saved as 32 bit')
+
+
             model_height = model.layers[0].input_shape[0][2]
             if args.height != model_height:
                 print('input height differs from model channels. use --height ' + str(model_height))
@@ -607,25 +716,32 @@ def main():
 
         if args.optimizer == 'adam':
             model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adamw':
             model.compile(
-                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adadelta':
             model.compile(
-                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adagrad':
             model.compile(
-                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adamax':
             model.compile(
-                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'adafactor':
             model.compile(
-                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         elif args.optimizer == 'nadam':
             model.compile(
-                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss, metrics=[CERMetric(), WERMetric()])
+                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss,
+                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
         else:
             print('wrong optimizer')
             exit()
@@ -664,6 +780,7 @@ def main():
         training_dataset = training_generator
         print('batches ' + str(training_dataset.__len__()))
         # try:
+        metadata = get_config(args, model)
         history = Model().train_batch(
             model,
             training_dataset,
@@ -676,7 +793,8 @@ def main():
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,
             output_checkpoints=args.output_checkpoints,
-            metadata=args.__dict__
+            charlist=loader.charList,
+            metadata=metadata
         )
 
         # construct a plot that plots and saves the training history
@@ -943,7 +1061,7 @@ def main():
                     text_file.flush()
 
 
-def store_info(args, model):
+def get_config(args, model):
     if os.path.exists("version_info"):
         with open("version_info") as file:
             version_info = file.read()
@@ -962,7 +1080,11 @@ def store_info(args, model):
         'model': model_layers,
         'notes': ' '
     }
+    return config
 
+
+def store_info(args, model):
+    config = get_config(args, model)
     if args.config_file_output:
         config_file_output = args.config_file_output
     else:
