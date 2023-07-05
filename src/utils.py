@@ -1,10 +1,3 @@
-# self.char_to_num = layers.experimental.preprocessing.StringLookup(
-#     vocabulary=list(self.charList), num_oov_indices=0, mask_token=None, oov_token='[UNK]'
-# )
-# # Mapping integers back to original characters
-# self.num_to_char = layers.experimental.preprocessing.StringLookup(
-#     vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None, invert=True
-# )
 import tensorflow as tf
 import numpy as np
 from keras.models import Model
@@ -135,7 +128,7 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
     # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
     # sequence_length = tf.constant(np.array([None], dtype=np.int32))
     # sequence_lengths = tf.cast(tf.fill(538,maxTextLen ),tf.int32)
-    sequence_lengths = tf.fill(tf.shape(pred)[1], tf.shape(pred)[0])
+    # sequence_lengths = tf.fill(tf.shape(pred)[1], tf.shape(pred)[0])
 
     # Use greedy search. For complex tasks, you can use beam search
     pred = tf.dtypes.cast(pred, tf.float32)
@@ -173,29 +166,10 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
     return output_texts
 
 def deprocess_image(img):
-    # Normalize array: center on 0., ensure variance is 0.15
-    # img -= img.mean()
-    # img /= img.std() + 1e-5
-    # img *= 0.15
-    #
-    # # Center crop
-    # # img = img[25:-25, 25:-25, :]
-    #
-    # # Clip to [0, 1]
-    # print(np.min(img))
-    # print(np.max(img))
-    # # img += 0.5
-    # img = np.clip(img, 0, 1)
-    #
-    # # Convert to RGB array
-    # img *= 255
-    # img = np.clip(img, 0, 255).astype("uint8")
-
     img /= 2.0
     img += 0.5
     img *= 255.
     img = np.clip(img, 0, 255).astype("uint8")
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return img
 
 def initialize_image(channels):

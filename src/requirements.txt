@@ -14,3 +14,4 @@ elasticdeform
 lmdb===1.3.0
 pyparsing
 six
+blinker==1.4
