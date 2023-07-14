@@ -137,9 +137,11 @@ class DataLoaderNew:
                 training_generator = (training_generator
                                       .repeat()
                                       .shuffle(len(train_files))
-                                      .map(data_generator_new2.load_images, num_parallel_calls=AUTOTUNE,
+                                      .map(data_generator_new2.load_images,
+                                           num_parallel_calls=AUTOTUNE,
                                            deterministic=deterministic)
-                                      .padded_batch(self.batchSize, padded_shapes=([None, None, self.channels], [None]),
+                                      .padded_batch(self.batchSize,
+                                                    padded_shapes=([None, None, self.channels], [None]),
                                                     padding_values=(
                                                         tf.constant(-10, dtype=tf.float32),
                                                         tf.constant(0, dtype=tf.int64))
