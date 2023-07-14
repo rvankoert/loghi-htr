@@ -253,7 +253,7 @@ def main():
 
     if args.output and not os.path.exists(args.output):
         try:
-            os.mkdir(args.output)
+            os.makedirs(args.output)
         except OSError as error:
             print(error)
             print('can not create output directory')
@@ -1053,6 +1053,12 @@ def main():
                         filename = loader.get_item('inference', (batch_counter * args.batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = predicted_text.strip().replace('', '')
+                        if len(predicted_text) > 0:
+                            # we really want 1/number of timesteps in CTC matrix, but len(predicted_text) is next best for now
+                            confidence = pow(confidence, (1 / len(predicted_text)))
+                            if confidence < 0:
+                                confidence = -confidence
+
                         print(original_text)
                         print(filename + "\t" + str(confidence) + "\t" + predicted_text)
                         text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
