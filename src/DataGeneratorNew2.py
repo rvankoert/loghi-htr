@@ -24,7 +24,8 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
                  random_crop=False,
                  random_width=False,
                  distort_jpeg=False,
-                 channels=1
+                 channels=1,
+                 do_random_shear=False
                  ):
         print(height)
 
@@ -38,6 +39,7 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
         self.utils = utils
         self.height = height
         self.channels = channels
+        self.do_random_shear = do_random_shear
 
     # @staticmethod
     # def elastic_transform(original, seed=42):
