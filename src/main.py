@@ -451,7 +451,7 @@ def main():
                                )
 
         print("creating generators")
-        training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
+        training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Testing
         if False:
@@ -824,7 +824,7 @@ def main():
         #     print("test")
     if args.do_validate:
         print("do_validate")
-        utils = Utils(char_list, args.use_mask)
+        utilsObject = Utils(char_list, args.use_mask)
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
@@ -893,7 +893,7 @@ def main():
             # batch_labels = batch["label"]
             predictions = prediction_model.predict(batch[0])
             # preds = prediction_model.predict_on_batch(batch[0])
-            predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width,
+            predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
                                                        args.num_oov_indices)
 
             # preds = utils.softmax(preds)
@@ -930,7 +930,7 @@ def main():
             counter += 1
             orig_texts = []
             for label in batch[1]:
-                label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
             for prediction in predicted_texts:
@@ -1026,7 +1026,7 @@ def main():
                                normalize_text=args.normalize_text,
                                use_mask=args.use_mask
                                )
-        training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
+        training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
         prediction_model = keras.models.Model(
             model.get_layer(name="image").input, model.get_layer(name="dense3").output
         )
@@ -1041,10 +1041,10 @@ def main():
 
             for batch in inference_dataset:
                 predictions = prediction_model.predict_on_batch(batch[0])
-                predicted_texts = decode_batch_predictions(predictions, utils, args.greedy, args.beam_width)
+                predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width)
                 orig_texts = []
                 for label in batch[1]:
-                    label = tf.strings.reduce_join(utils.num_to_char(label)).numpy().decode("utf-8")
+                    label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
                     orig_texts.append(label.strip())
                 for prediction in predicted_texts:
                     for i in range(len(prediction)):
