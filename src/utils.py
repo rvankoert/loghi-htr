@@ -186,3 +186,11 @@ def get_feature_maps(model, layer_id, input_image):
     # img = tf.transpose(img, perm=[1, 0, 2])
 
     return model_.predict(np.expand_dims(input_image, axis=0))[0, :, :, :].transpose((2, 1, 0))
+
+def normalize_confidence(confidence, predicted_text):
+    if len(predicted_text) > 0:
+        # we really want 1/number of timesteps in CTC matrix, but len(predicted_text) is next best for now
+        confidence = pow(confidence, (1 / len(predicted_text)))
+        if confidence < 0:
+            confidence = -confidence
+    return confidence

@@ -27,17 +27,25 @@ from threading import Thread
 
 # initialize our Flask application and the Keras model
 app = flask.Flask(__name__)
+# def app(environ, start_response):
+#     data = b"Hello, World!\n"
+#     start_response("200 OK", [
+#         ("Content-Type", "text/plain"),
+#         ("Content-Length", str(len(data)))
+#     ])
+#     return iter([data])
+
+#app = app()
+
 model = None
 modelPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062'
-charlist_path = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062.charlist'
+charlist_path = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062/charlist.txt'
 beam_width = 10
 greedy = True
 app_locker = AppLocker()
 batch_size = 64
 COUNT = 0
 output_path = '/tmp/output/loghi-htr'
-
-
 
 def increment():
     global COUNT
@@ -135,6 +143,7 @@ def process(line_queue):
             # print(batchIds[i] + "\t" + str(confidence) + "\t" + predicted_text)
             group_id = batchIds[i][0]
             identifier = batchIds[i][1]
+            confidence = utils.normalize_confidence(confidence, predicted_text)
 
             text = identifier + "\t" + str(confidence) + "\t" + predicted_text + "\n"
             output_dir = os.path.join(output_path, group_id)
@@ -226,18 +235,20 @@ def read_environment():
     global output_path
     output_path = get_environment_var("LOGHI_OUTPUT_PATH", output_path)
 
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+print(("* Loading Keras model and Flask starting server..."
+       "please wait until server has fully started"))
+read_environment()
+load_model()
+global line_queue
+line_queue = Queue(256)
+daemon = Thread(target=continuous_process, daemon=True, name='Monitor')
+daemon.start()
+
 # if this is the main thread of execution first load the model and
 # then start the server
 if __name__ == "__main__":
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    print(("* Loading Keras model and Flask starting server..."
-           "please wait until server has fully started"))
-    read_environment()
-    load_model()
-    global line_queue
-    line_queue = Queue(256)
-    daemon = Thread(target=continuous_process, daemon=True, name='Monitor')
-    daemon.start()
 
     # continuous_process(line_queue)
     # pool.apply_async(continuous_process, args=[line_queue])

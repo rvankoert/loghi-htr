@@ -124,6 +124,7 @@ class DataGeneratorNew2(tf.keras.utils.Sequence):
                 # crappy workaround for bug in shear_x where alpha causes errors
                 channel1, channel2, channel3, alpha = tf.split(image, 4, axis=2)
                 image = tf.concat([channel1, channel2, channel3], axis=2)
+                # replace shear_x with: https://www.tensorflow.org/api_docs/python/tf/keras/preprocessing/image/apply_affine_transform
                 image = tfa.image.shear_x(image, random_shear, replace=0)
                 image2 = tf.concat([alpha, alpha, alpha], axis=2)
                 image2 = tfa.image.shear_x(image2, random_shear, replace=0)
