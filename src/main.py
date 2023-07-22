@@ -9,6 +9,7 @@ from matplotlib import use
 from word_beam_search import WordBeamSearch
 from DataLoaderNew import DataLoaderNew
 from utils import decode_batch_predictions
+from utils import normalize_confidence
 import re
 
 import numpy as np
@@ -1054,7 +1055,7 @@ def main():
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = predicted_text.strip().replace('', '')
 
-                        confidence = utils.normalize_confidence(confidence, predicted_text)
+                        confidence = normalize_confidence(confidence, predicted_text)
 
                         print(original_text)
                         print(filename + "\t" + str(confidence) + "\t" + predicted_text)
