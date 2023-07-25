@@ -215,7 +215,7 @@ def predict():
 
             # indicate that the request was a success
             data["success"] = True
-            data["queue_remaining"] = QUEUEMAXSIZE - line_queue.qsize
+            data["queue_remaining"] = QUEUEMAXSIZE - line_queue.qsize()
 
     # return the data dictionary as a JSON response
     return flask.jsonify(data)
