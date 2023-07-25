@@ -239,7 +239,7 @@ def read_environment():
     global output_path
     output_path = get_environment_var("LOGHI_OUTPUT_PATH", output_path)
     global QUEUEMAXSIZE
-    QUEUEMAXSIZE = get_environment_var("QUEUEMAXSIZE", output_path)
+    QUEUEMAXSIZE = get_environment_var("QUEUEMAXSIZE", 256)
 
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
