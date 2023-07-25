@@ -198,7 +198,7 @@ def predict():
         if identifier and request.files.get("image"):
             # if request.files.get("image"):
             image = request.files["image"].read()
-            image = tf.io.decode_jpeg(image, channels=1)
+            image = tf.io.decode_jpeg(image)
             
             # preprocess the image and prepare it for classification
             # print(image.shape)
