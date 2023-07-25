@@ -215,6 +215,7 @@ def predict():
 
             # indicate that the request was a success
             data["success"] = True
+            data["queue_remaining"] = QUEUEMAXSIZE - line_queue.qsize
 
     # return the data dictionary as a JSON response
     return flask.jsonify(data)
@@ -237,6 +238,8 @@ def read_environment():
     batch_size = int(get_environment_var("LOGHI_BATCHSIZE", batch_size))
     global output_path
     output_path = get_environment_var("LOGHI_OUTPUT_PATH", output_path)
+    global QUEUEMAXSIZE
+    QUEUEMAXSIZE = get_environment_var("QUEUEMAXSIZE", output_path)
 
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -245,7 +248,7 @@ print(("* Loading Keras model and Flask starting server..."
 read_environment()
 load_model()
 global line_queue
-line_queue = Queue(256)
+line_queue = Queue(QUEUEMAXSIZE)
 daemon = Thread(target=continuous_process, daemon=True, name='Monitor')
 daemon.start()
 
