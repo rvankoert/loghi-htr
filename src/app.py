@@ -20,6 +20,7 @@ from tensorflow.keras.utils import get_custom_objects
 from DataGeneratorNew import DataGeneratorNew
 from utils import Utils
 from utils import decode_batch_predictions
+from utils import normalize_confidence
 from queue import Queue
 from AppLocker import AppLocker
 import time
@@ -35,11 +36,11 @@ app = flask.Flask(__name__)
 #     ])
 #     return iter([data])
 
-#app = app()
+# app = app()
 
 model = None
-modelPath = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062'
-charlist_path = '/home/rutger/src/loghi-htr-models/republic-2023-01-02-base-generic_new14-2022-12-20-valcer-0.0062/charlist.txt'
+modelPath = '/home/rutger/src/loghi-htr-models/generic_new_17_2023_05_25_4channel'
+charlist_path = '/home/rutger/src/loghi-htr-models/generic_new_17_2023_05_25_4channel/charlist.txt'
 beam_width = 10
 greedy = True
 app_locker = AppLocker()
@@ -56,8 +57,10 @@ def load_model():
     get_custom_objects().update({"CERMetric": CERMetric})
     get_custom_objects().update({"WERMetric": WERMetric})
     get_custom_objects().update({"CTCLoss": CTCLoss})
-
     model = keras.models.load_model(modelPath)
+
+    global CHANNELS
+    CHANNELS = model.layers[0].input_shape[0][3]
 
     with open(charlist_path) as file:
         char_list = list(char for char in file.read())
@@ -143,7 +146,7 @@ def process(line_queue):
             # print(batchIds[i] + "\t" + str(confidence) + "\t" + predicted_text)
             group_id = batchIds[i][0]
             identifier = batchIds[i][1]
-            confidence = utils.normalize_confidence(confidence, predicted_text)
+            confidence = normalize_confidence(confidence, predicted_text)
 
             text = identifier + "\t" + str(confidence) + "\t" + predicted_text + "\n"
             output_dir = os.path.join(output_path, group_id)
@@ -198,7 +201,7 @@ def predict():
         if identifier and request.files.get("image"):
             # if request.files.get("image"):
             image = request.files["image"].read()
-            image = tf.io.decode_jpeg(image)
+            image = tf.io.decode_jpeg(image, channels=CHANNELS)
             
             # preprocess the image and prepare it for classification
             # print(image.shape)
