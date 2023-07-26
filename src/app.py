@@ -76,8 +76,8 @@ def prepare_image(identifier, image):
     # image = DataGeneratorNew.encode_single_sample(image)
     X = []
 
-    print(identifier)
-    print(image.shape)
+    print(identifier + str(image.shape))
+
     with app_locker._lock3:
         image = tf.image.resize(image, [64, 99999], preserve_aspect_ratio=True)
     # image = np.expand_dims(image, -1)
@@ -159,7 +159,7 @@ def process(line_queue):
                 text_file.write(text)
                 text_file.flush()
                 increment()
-
+        print('queue remaining: ' + str(line_queue.qsize()))
     print('total lines processed: ' + str(COUNT))
     if app_locker.get_processing:
         with app_locker._lock2:
