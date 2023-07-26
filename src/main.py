@@ -19,6 +19,7 @@ import editdistance
 import subprocess
 import matplotlib.pyplot as plt
 from utils import Utils
+import uuid
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
@@ -1082,7 +1083,8 @@ def get_config(args, model):
         'git_hash': version_info,
         'args': args.__dict__,
         'model': model_layers,
-        'notes': ' '
+        'notes': ' ',
+        'uuid': str(uuid.uuid4())
     }
     return config
 
