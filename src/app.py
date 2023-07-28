@@ -148,7 +148,7 @@ def process(line_queue):
             identifier = batchIds[i][1]
             confidence = normalize_confidence(confidence, predicted_text)
 
-            text = identifier + "\t" + str(confidence) + "\t" + predicted_text + "\n"
+            text = identifier + "\t" + str(confidence) + "\t" + predicted_text
             output_dir = os.path.join(output_path, group_id)
             if not os.path.exists(output_dir):
                 print("creating output dir: " + output_dir)
@@ -156,7 +156,7 @@ def process(line_queue):
                 print("created dir: " + output_dir)
             with open(os.path.join(output_path, group_id, identifier+'.txt'), "w") as text_file:
                 print(text)
-                text_file.write(text)
+                text_file.write(text + "\n")
                 text_file.flush()
                 increment()
         print('queue remaining: ' + str(line_queue.qsize()))
