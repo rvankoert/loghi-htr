@@ -1,25 +1,24 @@
-from __future__ import division
-from __future__ import print_function
+from __future__ import division, print_function
+import uuid
+from utils import Utils
+import matplotlib.pyplot as plt
+import subprocess
+import editdistance
+import argparse
+import random
+import numpy as np
+import re
+import tensorflow as tf
+from utils import normalize_confidence
+from utils import decode_batch_predictions
+from DataLoaderNew import DataLoaderNew
+from word_beam_search import WordBeamSearch
+import json
+from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-import json
 
-from matplotlib import use
-from word_beam_search import WordBeamSearch
-from DataLoaderNew import DataLoaderNew
-from utils import decode_batch_predictions
-from utils import normalize_confidence
-import re
-
-import numpy as np
-import random
-import argparse
-import editdistance
-import subprocess
-import matplotlib.pyplot as plt
-from utils import Utils
-import uuid
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
@@ -51,8 +50,10 @@ def get_arg_parser():
 
     parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
                         action='store_true')
-    parser.add_argument('--do_validate', help='if enabled a separate validation run will be done', action='store_true')
-    parser.add_argument('--do_inference', help='inference', action='store_true')
+    parser.add_argument(
+        '--do_validate', help='if enabled a separate validation run will be done', action='store_true')
+    parser.add_argument('--do_inference', help='inference',
+                        action='store_true')
 
     parser.add_argument('--output', metavar='output', type=str, default='output',
                         help='base output to be used')
@@ -77,7 +78,8 @@ def get_arg_parser():
                         help='continue training/validation/testing/inferencing from this model as a starting point.')
     parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                         help='use model_name in the output')
-    parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
+    parser.add_argument(
+        '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
     parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
                         action='store_true')
     parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
@@ -85,7 +87,8 @@ def get_arg_parser():
     parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
                         help='config_file_output')
 
-    parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
+    parser.add_argument(
+        '--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
     parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                         help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
                              'slower. Default 10')
@@ -99,7 +102,8 @@ def get_arg_parser():
                         help='steps_per_epoch. default None')
     parser.add_argument('--model', metavar='model ', type=str, default=None,
                         help='Model to use')
-    parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
+    parser.add_argument('--batch_normalization',
+                        help='batch_normalization', action='store_true')
     parser.add_argument('--charlist', metavar='charlist ', type=str, default=None,
                         help='Charlist to use')
     parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
@@ -183,10 +187,14 @@ def get_arg_parser():
                         help='')
     parser.add_argument('--use_lmdb', action='store_true',
                         help='use lmdb to store images, this might be faster for more epochs')
-    parser.add_argument('--reuse_old_lmdb_train', type=str, help='path of the folder of lmdb for training data')
-    parser.add_argument('--reuse_old_lmdb_val', type=str, help='path of the folder of lmdb for validation data')
-    parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
-    parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
+    parser.add_argument('--reuse_old_lmdb_train', type=str,
+                        help='path of the folder of lmdb for training data')
+    parser.add_argument('--reuse_old_lmdb_val', type=str,
+                        help='path of the folder of lmdb for validation data')
+    parser.add_argument('--reuse_old_lmdb_test', type=str,
+                        help='path of the folder of lmdb for test data')
+    parser.add_argument('--reuse_old_lmdb_inference', type=str,
+                        help='path of the folder of lmdb for inference data')
     parser.add_argument('--deterministic', action='store_true',
                         help='beta: deterministic mode (reproducible results')
     parser.add_argument('--output_checkpoints', action='store_true',
@@ -218,7 +226,7 @@ def get_args():
     return args
 
 
-def set_deterministic():
+def set_deterministic(args):
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -229,12 +237,12 @@ def main():
 
     args = get_args()
     if args.deterministic:
-        set_deterministic()
+        set_deterministic(args)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
-    from Model import Model, CERMetric, WERMetric, CTCLoss
+    from Model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
     import tensorflow as tf
@@ -290,136 +298,12 @@ def main():
             if not args.replace_final_layer:
                 model_channels = model.layers[0].input_shape[0][3]
 
-            if False:
-                policy = tf.keras.mixed_precision.Policy('float32')
-                tf.keras.mixed_precision.set_global_policy(policy)
-                print(model.summary())
-                previouslayer = None
-                inputs = None
-                counter = 0
-                dictionary = {}
-                for layer in model.layers:
-                    counter += 1
-                    if layer.name == 'image':
-                        model_channels = model.layers[0].input_shape[0][3]
-                        model_height = model.layers[0].input_shape[0][2]
-                        model_width = model.layers[0].input_shape[0][1]
-                        new_layer = tf.keras.layers.Input(
-                            shape=(model_width, model_height, model_channels), name="image"
-                        )
-
-                        inputs = new_layer
-                    elif layer.name.startswith('bidirectional'):
-
-                        # print('bidirectional')
-                        recurrent = None
-                        if layer.layer.name.startswith('lstm'):
-                            recurrent = tf.keras.layers.LSTM(layer.layer.units,
-                                               activation=layer.layer.activation,
-                                               return_sequences=layer.layer.return_sequences,
-                                               kernel_initializer=layer.layer.kernel_initializer,
-                                               name=layer.layer.name,
-                                               dropout=layer.layer.dropout,
-                                               recurrent_dropout=layer.layer.recurrent_dropout
-                                               )
-                        else:
-                            print(layer.layer.name)
-
-                        new_layer = tf.keras.layers.Bidirectional(
-                            recurrent, name=layer.name, merge_mode=layer.merge_mode
-                        )(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        # print(layer.layer.name)
-                    elif layer.name.startswith('dropout'):
-                        # print('dropout')
-                        new_layer = tf.keras.layers.Dropout(layer.rate, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                    elif layer.name.startswith('reshape'):
-                        new_layer = tf.keras.layers.Reshape(target_shape=layer.target_shape, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                        # print('reshape')
-                    elif layer.name.startswith('dense3'):
-                        new_layer = tf.keras.layers.Dense(layer.units, activation=layer.activation, name=layer.name,
-                                     kernel_initializer=layer.kernel_initializer)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        # print('dense3')
-                    elif layer.name.startswith('conv2d'):
-                        # print('conv2d')
-                        new_layer = tf.keras.layers.Conv2D(kernel_size=layer.kernel_size,
-                                                           strides=layer.strides,
-                                                           filters=layer.filters,
-                                                           padding=layer.padding,
-                                                           activation=layer.activation,
-                                                           name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                    elif layer.name.startswith('elu'):
-                        # print('elu')
-                        new_layer = tf.keras.layers.ELU(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                    elif layer.name.startswith('batch_normalization'):
-                        # print(model.get_layer(layer.name).name.split('/')[0])
-                        # print(model.get_layer(layer.name).input[0].name)
-                        # print(model.get_layer(layer.name).input.name.split('/')[0])
-                        # input = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
-                        # print(input)
-                        new_layer = tf.keras.layers.BatchNormalization(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                    elif layer.name.startswith('add'):
-                        # print(layer.get_config())
-                        # print(layer.submodules)
-                        # print(model.get_layer(layer.name).input[0].name.split('/')[0])
-                        input1 = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
-                        input2 = dictionary[model.get_layer(layer.name).input[1].name.split('/')[0]]
-                        new_layer = tf.keras.layers.Add()([input1, input2])
-                        # print('add')
-                    elif layer.name.startswith('activation'):
-                        # print('activation')
-                        new_layer = tf.keras.layers.Activation('linear', dtype=tf.float32, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        output = new_layer
-                    else:
-                        print(layer)
-                        print(layer.compute_dtype)
-                        print(layer.name)
-                        print(layer.input_spec)
-                        exit()
-                    print(layer.compute_dtype)
-
-                    dictionary[new_layer.name.split('/')[0]] = new_layer
-                    # print(dictionary)
-                    # print(layer.name)
-                    # print(new_layer.name)
-                    # if not previouslayer is None:
-                    #     new_layer = new_layer(previouslayer)
-                    previouslayer = new_layer
-
-                    # if layer.compute_dtype =='float16':
-                    #     layer.
-
-                new_model = keras.models.Model(
-                    inputs=inputs, outputs=output, name=model.name
-                )
-
-                print(new_model.summary())
-                new_model.set_weights(model.get_weights())
-                print('saved as 32 bit')
-
-                new_model.save('/tmp/testmodel')
-                exit()
-                modelClass = Model()
-                new_model = modelClass.build_model_new10((64, None, 1), 455,
-                                                         use_mask=True,
-                                                         use_gru=False,
-                                                         rnn_units=512,
-                                                         rnn_layers=5,
-                                                         batch_normalization=True,
-                                                         dropout=True,
-                                                         use_rnn_dropout=False)
-                new_model.set_weights(model.get_weights())
-                new_model.save('/tmp/testmodel')
-                print('saved as 32 bit')
-
-
             model_height = model.layers[0].input_shape[0][2]
             if args.height != model_height:
-                print('input height differs from model channels. use --height ' + str(model_height))
+                print(
+                    'input height differs from model channels. use --height ' + str(model_height))
                 print('resetting height to: ' + str(model_height))
-                args.__dict__['height']=model_height
+                args.__dict__['height'] = model_height
                 if args.no_auto:
                     exit(1)
             if not args.replace_final_layer:
@@ -459,7 +343,8 @@ def main():
         if False:
             for run in range(1):
                 print("testing dataloader " + str(run))
-                training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
+                training_generator.set_charlist(
+                    char_list, True, num_oov_indices=args.num_oov_indices)
 
                 no_batches = training_generator.__len__()
                 for i in range(10):
@@ -478,12 +363,13 @@ def main():
                     # if i%10 == 0:
                     print(i)
                     batch = training_generator.__getitem__(i)
-                    item = tf.image.convert_image_dtype(-0.5 - batch[0][1], dtype=tf.uint8)
+                    item = tf.image.convert_image_dtype(
+                        -0.5 - batch[0][1], dtype=tf.uint8)
                     gtImageEncoded = tf.image.encode_png(item)
-                    tf.io.write_file("/tmp/test-" + str(i) + ".png", gtImageEncoded)
+                    tf.io.write_file("/tmp/test-" + str(i) +
+                                     ".png", gtImageEncoded)
 
             exit()
-        modelClass = Model()
         print(len(loader.charList))
 
         if args.decay_rate > 0 and args.decay_steps > 0:
@@ -493,7 +379,8 @@ def main():
                 decay_rate=args.decay_rate)
         elif args.decay_rate > 0 and args.decay_steps == -1 and args.do_train:
             if training_generator is None:
-                print('training, but training_generator is None. Did you provide a train_list?')
+                print(
+                    'training, but training_generator is None. Did you provide a train_list?')
                 exit(1)
             lr_schedule = keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=learning_rate,
@@ -511,18 +398,19 @@ def main():
             # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
-                                                           use_gru=args.use_gru,
-                                                           rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
-                                                           use_rnn_dropout=args.use_rnn_dropout,
-                                                           dropout_rnn=args.dropout_rnn)
+                model = replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
+                                                use_gru=args.use_gru,
+                                                rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
+                                                use_rnn_dropout=args.use_rnn_dropout,
+                                                dropout_rnn=args.dropout_rnn)
 
             if args.replace_final_layer:
                 with open(output_charlist_location, 'w') as chars_file:
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
-                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=args.use_mask)
+                model = replace_final_layer(model, len(
+                    char_list), model.name, use_mask=args.use_mask)
             if args.thaw:
                 for layer in model.layers:
                     layer.trainable = True
@@ -543,7 +431,7 @@ def main():
                         print(layer.name)
                         layer.trainable = False
             if args.reset_dropout:
-                modelClass.set_dropout(model, args.set_dropout)
+                set_dropout(model, args.set_dropout)
 
             # if True:
             #     for layer in model.layers:
@@ -557,164 +445,17 @@ def main():
 
             char_list = loader.charList
             print("creating new model")
-            if 'new2' == args.model:
-                model = modelClass.build_model_new2(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            elif 'new3' == args.model:
-                model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
-            elif 'new4' == args.model:
-                model = modelClass.build_model_new4(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    batch_normalization=args.batch_normalization)
-            elif 'new5' == args.model:
-                model = modelClass.build_model_new5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=5,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout)
-            elif 'new6' == args.model:
-                model = modelClass.build_model_new6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=2,
-                                                    batch_normalization=args.batch_normalization)
-            elif 'new7' == args.model:
-                model = modelClass.build_model_new7(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout)
-            elif 'new8' == args.model:
-                model = modelClass.build_model_new8(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout,
-                                                    use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new9' == args.model:
-                model = modelClass.build_model_new9(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout,
-                                                    use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new10' == args.model:
-                model = modelClass.build_model_new10(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new11' == args.model:
-                model = modelClass.build_model_new11(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new12' == args.model:
-                model = modelClass.build_model_new12(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new13' == args.model:
-                model = modelClass.build_model_new13(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new14' == args.model:
-                model = modelClass.build_model_new14(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense)
-            elif 'new15' == args.model:
-                model = modelClass.build_model_new15(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense,
-                                                     multiplier=args.cnn_multiplier)
-            elif 'new16' == args.model:
-                model = modelClass.build_model_new16(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense,
-                                                     multiplier=args.cnn_multiplier)
-            elif 'new17' == args.model:
-                model = modelClass.build_model_new17(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense)
-            elif 'old6' == args.model:
-                model = modelClass.build_model_old6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            elif 'old5' == args.model:
-                model = modelClass.build_model_old5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            else:
-                print(
-                    'no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
-                exit()
+            model = build_model_new17(img_size, len(char_list),
+                                      use_mask=args.use_mask,
+                                      use_gru=args.use_gru,
+                                      rnn_units=args.rnn_units,
+                                      rnn_layers=args.rnn_layers,
+                                      batch_normalization=args.batch_normalization,
+                                      use_rnn_dropout=args.use_rnn_dropout,
+                                      dropout_rnn=args.dropout_rnn,
+                                      dropout_recurrent_dropout=args.dropout_recurrent_dropout,
+                                      dropout_conv=args.dropoutconv,
+                                      dropout_dense=args.dropout_dense)
 
         if args.optimizer == 'adam':
             model.compile(
@@ -752,13 +493,13 @@ def main():
 
     model_channels = model.layers[0].input_shape[0][3]
     if args.channels != model_channels:
-        print('input channels differs from model channels. use --channels ' + str(model_channels))
+        print('input channels differs from model channels. use --channels ' +
+              str(model_channels))
         if args.no_auto:
             exit()
         else:
-            args.__dict__['channels']=model_channels
+            args.__dict__['channels'] = model_channels
             print('setting correct number of channels: ' + str(model_channels))
-
 
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
@@ -783,7 +524,7 @@ def main():
         print('batches ' + str(training_dataset.__len__()))
         # try:
         metadata = get_config(args, model)
-        history = Model().train_batch(
+        history = train_batch(
             model,
             training_dataset,
             validation_dataset,
@@ -830,7 +571,8 @@ def main():
         validation_dataset = validation_generator
         # Get the prediction model by extracting layers till the output layer
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="dense3").output
+            model.get_layer(name="image").input, model.get_layer(
+                name="dense3").output
         )
         prediction_model.summary(line_length=110)
 
@@ -932,7 +674,8 @@ def main():
             counter += 1
             orig_texts = []
             for label in batch[1]:
-                label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(
+                    utilsObject.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
             for prediction in predicted_texts:
@@ -942,22 +685,30 @@ def main():
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
-                    current_editdistance = editdistance.eval(original_text, predicted_text)
-                    current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
+                    current_editdistance = editdistance.eval(
+                        original_text, predicted_text)
+                    current_editdistance_lower = editdistance.eval(
+                        original_text.lower(), predicted_text.lower())
 
                     pattern = re.compile('[\W_]+')
-                    ground_truth_simple = pattern.sub('', original_text).lower()
+                    ground_truth_simple = pattern.sub(
+                        '', original_text).lower()
                     predicted_simple = pattern.sub('', predicted_text).lower()
-                    current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
+                    current_editdistance_simple = editdistance.eval(
+                        ground_truth_simple, predicted_simple)
                     if wbs:
-                        predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
-                        current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
-                        current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                        predicted_wbs_simple = pattern.sub(
+                            '', char_str[i]).lower()
+                        current_editdistance_wbs_simple = editdistance.eval(
+                            ground_truth_simple, predicted_wbs_simple)
+                        current_editdistance_wbs = editdistance.eval(
+                            original_text, char_str[i].strip())
                         current_editdistance_wbslower = editdistance.eval(original_text.lower(),
                                                                           char_str[i].strip().lower())
                     cer = current_editdistance / float(len(original_text))
                     if cer > 0.0:
-                        filename = loader.get_item('validation', (batch_no * args.batch_size) + i)
+                        filename = loader.get_item(
+                            'validation', (batch_no * args.batch_size) + i)
                         print('\n' + filename)
                         # print(predicted_simple)
                         print(original_text)
@@ -981,13 +732,18 @@ def main():
                               + ' total_pred: ' + str(len(predicted_text))
                               + ' errors: ' + str(current_editdistance))
                         # print(cer)
-                        print("avg editdistance: " + str(totaleditdistance / float(totallength)))
-                        print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
+                        print("avg editdistance: " +
+                              str(totaleditdistance / float(totallength)))
+                        print("avg editdistance lower: " +
+                              str(totaleditdistance_lower / float(totallength)))
                         if totallength_simple > 0:
-                            print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
+                            print("avg editdistance simple: " +
+                                  str(totaleditdistance_simple / float(totallength_simple)))
                         if wbs:
-                            print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
-                            print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
+                            print("avg editdistance wbs: " +
+                                  str(totaleditdistance_wbs / float(totallength)))
+                            print("avg editdistance wbs lower: " +
+                                  str(totaleditdistance_wbs_lower / float(totallength)))
                             if totallength_simple > 0:
                                 print("avg editdistance wbs_simple: " + str(
                                     totaleditdistance_wbs_simple / float(totallength_simple)))
@@ -999,7 +755,8 @@ def main():
         totalcerlower = totaleditdistance_lower / float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
         if wbs:
-            totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
+            totalcerwbssimple = totaleditdistance_wbs_simple / \
+                float(totallength_simple)
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
         print('totalcer: ' + str(totalcer))
@@ -1030,7 +787,8 @@ def main():
                                )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="dense3").output
+            model.get_layer(name="image").input, model.get_layer(
+                name="dense3").output
         )
         prediction_model.summary(line_length=110)
 
@@ -1043,24 +801,30 @@ def main():
 
             for batch in inference_dataset:
                 predictions = prediction_model.predict_on_batch(batch[0])
-                predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width)
+                predicted_texts = decode_batch_predictions(
+                    predictions, utilsObject, args.greedy, args.beam_width)
                 orig_texts = []
                 for label in batch[1]:
-                    label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
+                    label = tf.strings.reduce_join(
+                        utilsObject.num_to_char(label)).numpy().decode("utf-8")
                     orig_texts.append(label.strip())
                 for prediction in predicted_texts:
                     for i in range(len(prediction)):
                         confidence = prediction[i][0]
                         predicted_text = prediction[i][1]
-                        filename = loader.get_item('inference', (batch_counter * args.batch_size) + i)
+                        filename = loader.get_item(
+                            'inference', (batch_counter * args.batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = predicted_text.strip().replace('', '')
 
-                        confidence = normalize_confidence(confidence, predicted_text)
+                        confidence = normalize_confidence(
+                            confidence, predicted_text)
 
                         print(original_text)
-                        print(filename + "\t" + str(confidence) + "\t" + predicted_text)
-                        text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
+                        print(filename + "\t" + str(confidence) +
+                              "\t" + predicted_text)
+                        text_file.write(
+                            filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
 
                     batch_counter += 1
                     text_file.flush()
@@ -1072,9 +836,11 @@ def get_config(args, model):
             version_info = file.read()
     else:
         bash_command = 'git log --format="%H" -n 1'
-        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(
+            bash_command.split(), stdout=subprocess.PIPE)
         output, errors = process.communicate()
-        version_info = output.decode('utf8', errors='strict').strip().replace('"', '')
+        version_info = output.decode(
+            'utf8', errors='strict').strip().replace('"', '')
 
     model_layers = []
     model.summary(print_fn=lambda x: model_layers.append(x))
