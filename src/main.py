@@ -1,21 +1,27 @@
-from __future__ import division, print_function
-import uuid
-from utils import Utils
-import matplotlib.pyplot as plt
-import subprocess
-import editdistance
-import argparse
-import random
-import numpy as np
-import re
-import tensorflow as tf
-from utils import normalize_confidence
-from utils import decode_batch_predictions
-from DataLoaderNew import DataLoaderNew
-from word_beam_search import WordBeamSearch
-import json
-from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
+# Imports
 
+# > Standard library
+from __future__ import division, print_function
+import argparse
+import json
+import random
+import re
+import subprocess
+import uuid
+
+# > Local dependencies
+from DataLoaderNew import DataLoaderNew
+from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
+from utils import Utils, normalize_confidence, decode_batch_predictions
+
+# > Third party dependencies
+import editdistance
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from word_beam_search import WordBeamSearch
+
+# > Environment
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -245,7 +251,6 @@ def main():
     from Model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
-    import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
@@ -340,36 +345,6 @@ def main():
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Testing
-        if False:
-            for run in range(1):
-                print("testing dataloader " + str(run))
-                training_generator.set_charlist(
-                    char_list, True, num_oov_indices=args.num_oov_indices)
-
-                no_batches = training_generator.__len__()
-                for i in range(10):
-                    # if i%10 == 0:
-                    print(i)
-                    item = training_generator.__getitem__(i)
-                training_generator.random_width = True
-                training_generator.random_crop = True
-                # training_generator.augment = True
-                training_generator.elastic_transform = True
-                training_generator.distort_jpeg = True
-                training_generator.do_binarize_sauvola = False
-                training_generator.do_binarize_otsu = False
-                training_generator.on_epoch_end()
-                for i in range(10):
-                    # if i%10 == 0:
-                    print(i)
-                    batch = training_generator.__getitem__(i)
-                    item = tf.image.convert_image_dtype(
-                        -0.5 - batch[0][1], dtype=tf.uint8)
-                    gtImageEncoded = tf.image.encode_png(item)
-                    tf.io.write_file("/tmp/test-" + str(i) +
-                                     ".png", gtImageEncoded)
-
-            exit()
         print(len(loader.charList))
 
         if args.decay_rate > 0 and args.decay_steps > 0:
@@ -576,20 +551,6 @@ def main():
         )
         prediction_model.summary(line_length=110)
 
-        # weights = model.get_layer(name="dense3").get_weights()
-        # prediction_model = keras.models.Model(
-        #     model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
-        # )
-        # # print(weights)
-        # new_column = np.random.uniform(-0.5, 0.5, size=(512, 1))
-        # weights[0] = np.append(weights[0], new_column, axis=1)
-        # new_column = np.random.uniform(-0.5, 0.5, 1)[0]
-        # weights[1] = np.append(weights[1], new_column)
-        # dense3 = Dense(148, activation='softmax', weights=weights, name='dense3')(prediction_model.output)
-        # # output = Dense(148, activation='softmax')(dense3)
-        # prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
-        # prediction_model.summary(line_length=120)
-
         totalcer = 0.
         totaleditdistance = 0
         totaleditdistance_lower = 0
@@ -657,8 +618,6 @@ def main():
             # print(char_str[0])
             # return label_str[0], char_str[0]
 
-            # if True:
-            #     exit(1)
             if wbs:
                 print('computing wbs...')
                 label_str = wbs.compute(predsbeam)

@@ -1,16 +1,21 @@
-import keras.backend as K
-from LoghiCustomCallback import LoghiCustomCallback
-from tensorflow import Tensor
+# Imports
+
+# > Standard library
 import os
 
-import tensorflow as tf
+# > Local dependencies
+from LoghiCustomCallback import LoghiCustomCallback
+
+# > Third party dependencies
+import keras.backend as K
 from keras.callbacks import ReduceLROnPlateau
-from tensorflow import keras
+import tensorflow as tf
+from tensorflow import keras, Tensor
 from tensorflow.keras import layers
+from tensorflow.keras.layers import Add, Conv2D, ELU, BatchNormalization
 from tensorflow.python.ops import math_ops, array_ops, ctc_ops
 from tensorflow.python.framework import dtypes as dtypes_module
 from tensorflow.python.keras import backend_config
-from tensorflow.keras.layers import Add, Conv2D, ELU, BatchNormalization
 
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
