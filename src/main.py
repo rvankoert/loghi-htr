@@ -254,9 +254,6 @@ def main():
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-    if args.gpu != '-1':
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
         policy = tf.keras.mixed_precision.Policy('mixed_float16')
@@ -408,11 +405,6 @@ def main():
             if args.reset_dropout:
                 set_dropout(model, args.set_dropout)
 
-            # if True:
-            #     for layer in model.layers:
-            #         print(layer.name)
-            #         layer.trainable = True
-
         else:
             # save characters of model for inference mode
             with open(output_charlist_location, 'w') as chars_file:
@@ -432,34 +424,22 @@ def main():
                                       dropout_conv=args.dropoutconv,
                                       dropout_dense=args.dropout_dense)
 
-        if args.optimizer == 'adam':
-            model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adamw':
-            model.compile(
-                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adadelta':
-            model.compile(
-                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adagrad':
-            model.compile(
-                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adamax':
-            model.compile(
-                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adafactor':
-            model.compile(
-                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'nadam':
-            model.compile(
-                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
+        optimizers = {
+            "adam": keras.optimizers.Adam,
+            "adamw": keras.optimizers.experimental.AdamW,
+            "adadelta": keras.optimizers.Adadelta,
+            "adagrad": keras.optimizers.Adagrad,
+            "adamax": keras.optimizers.Adamax,
+            "adafactor": keras.optimizers.Adafactor,
+            "nadam": keras.optimizers.Nadam
+        }
+
+        if args.optimizer in optimizers:
+            model.compile(optimizers[args.optimizer](learning_rate=lr_schedule,),
+                          loss=CTCLoss,
+                          metrics=[CERMetric(greedy=args.greedy,
+                                             beam_width=args.beam_width),
+                                   WERMetric()])
         else:
             print('wrong optimizer')
             exit()
