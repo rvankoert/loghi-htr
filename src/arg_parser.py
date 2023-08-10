@@ -65,7 +65,6 @@ def get_arg_parser():
                                'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches / 1 epoch')
     training_args.add_argument('--decay_rate', type=float, default=0.99,
                                help='beta: decay_rate. Default 0.99. disables learning rate decay when set to 0')
-
     training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                                help='steps_per_epoch. default None')
     training_args.add_argument('--output_checkpoints', action='store_true',
@@ -78,7 +77,6 @@ def get_arg_parser():
                                help='multiply training data, default 1')
     training_args.add_argument(
         '--do_validate', help='if enabled a separate validation run will be done', action='store_true')
-
     training_args.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
                                help='use this file containing textline location+transcription for validation. You can use '
                                'multiple input files quoted and space separated "validation_file1.txt '
@@ -150,7 +148,6 @@ def get_arg_parser():
     augmentation_args = parser.add_argument_group('Augmentation arguments')
     augmentation_args.add_argument('--augment', action='store_true',
                                    help='beta: apply data augmentation to training set. In general this is a good idea')
-
     augmentation_args.add_argument('--elastic_transform', action='store_true',
                                    help='beta: elastic_transform, currently disabled')
     augmentation_args.add_argument('--random_crop', action='store_true',
@@ -178,35 +175,35 @@ def get_arg_parser():
                           help='beta: smoothing to use when using word beam search')
 
     # Miscellaneous
-    misc_parser = parser.add_argument_group('Miscellaneous arguments')
+    misc_args = parser.add_argument_group('Miscellaneous arguments')
 
     # parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
     #                     help='num_workers')
-    misc_parser.add_argument('--do_binarize_otsu', action='store_true',
-                             help='beta: do_binarize_otsu')
-    misc_parser.add_argument('--do_binarize_sauvola', action='store_true',
-                             help='beta: do_binarize_sauvola')
-    misc_parser.add_argument('--ignore_lines_unknown_character', action='store_true',
-                             help='beta: ignore_lines_unknown_character. Ignores during training/validation lines that '
-                             'contain characters that are not in charlist.')
-    misc_parser.add_argument('--check_missing_files', action='store_true',
-                             help='beta: check_missing_files')
-    misc_parser.add_argument('--normalize_text', action='store_true',
-                             help='')
-    misc_parser.add_argument('--use_lmdb', action='store_true',
-                             help='use lmdb to store images, this might be faster for more epochs')
-    misc_parser.add_argument('--reuse_old_lmdb_train', type=str,
-                             help='path of the folder of lmdb for training data')
-    misc_parser.add_argument('--reuse_old_lmdb_val', type=str,
-                             help='path of the folder of lmdb for validation data')
-    misc_parser.add_argument('--reuse_old_lmdb_test', type=str,
-                             help='path of the folder of lmdb for test data')
-    misc_parser.add_argument('--reuse_old_lmdb_inference', type=str,
-                             help='path of the folder of lmdb for inference data')
-    misc_parser.add_argument('--deterministic', action='store_true',
-                             help='beta: deterministic mode (reproducible results')
-    misc_parser.add_argument('--no_auto', action='store_true',
-                             help='No Auto disabled automatic "fixing" of certain parameters')
+    misc_args.add_argument('--do_binarize_otsu', action='store_true',
+                           help='beta: do_binarize_otsu')
+    misc_args.add_argument('--do_binarize_sauvola', action='store_true',
+                           help='beta: do_binarize_sauvola')
+    misc_args.add_argument('--ignore_lines_unknown_character', action='store_true',
+                           help='beta: ignore_lines_unknown_character. Ignores during training/validation lines that '
+                           'contain characters that are not in charlist.')
+    misc_args.add_argument('--check_missing_files', action='store_true',
+                           help='beta: check_missing_files')
+    misc_args.add_argument('--normalize_text', action='store_true',
+                           help='')
+    misc_args.add_argument('--use_lmdb', action='store_true',
+                           help='use lmdb to store images, this might be faster for more epochs')
+    misc_args.add_argument('--reuse_old_lmdb_train', type=str,
+                           help='path of the folder of lmdb for training data')
+    misc_args.add_argument('--reuse_old_lmdb_val', type=str,
+                           help='path of the folder of lmdb for validation data')
+    misc_args.add_argument('--reuse_old_lmdb_test', type=str,
+                           help='path of the folder of lmdb for test data')
+    misc_args.add_argument('--reuse_old_lmdb_inference', type=str,
+                           help='path of the folder of lmdb for inference data')
+    misc_args.add_argument('--deterministic', action='store_true',
+                           help='beta: deterministic mode (reproducible results')
+    misc_args.add_argument('--no_auto', action='store_true',
+                           help='No Auto disabled automatic "fixing" of certain parameters')
 
     return parser
 

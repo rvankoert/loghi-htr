@@ -19,7 +19,6 @@ class ModelCreationTest(unittest.TestCase):
         img_size = (32, 32, 3)
         number_characters = 26
         model = self.build_model(img_size, number_characters)
-        print(model.summary())
 
         # Verify that a tf.keras.Model is created
         self.assertIsInstance(model, tf.keras.Model,
