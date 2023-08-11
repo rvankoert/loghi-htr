@@ -9,6 +9,18 @@ import sys
 
 
 class ModelCreationTest(unittest.TestCase):
+    """
+    Tests for creating a new model.
+
+    Test coverage:
+        1. `test_default_parameters`: Check that the model can be created and
+        verifies that the in- and output shapes are correct.
+        2. `test_mask_usage`: Verify that using a mask changes the output
+        shape.
+        3. `test_gru_vs_lstm`: Check that the model can be created correctly
+        with both GRU and LSTM RNN layers.
+    """
+
     @classmethod
     def setUpClass(cls):
         sys.path.append("./src")
