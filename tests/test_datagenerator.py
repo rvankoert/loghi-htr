@@ -1,8 +1,13 @@
-import unittest
-from unittest.mock import patch, ANY
+# Imports
+
+# > Third party dependencies
+import numpy as np
+
+# > Standard library
 import os
 import sys
-import numpy as np
+import unittest
+from unittest.mock import patch, ANY
 
 
 class TestDataGenerator(unittest.TestCase):
@@ -31,26 +36,6 @@ class TestDataGenerator(unittest.TestCase):
         project_root = os.path.abspath(os.path.join(current_file_dir, ".."))
         src_dir = os.path.join(project_root, "src")
         sys.path.append(src_dir)
-
-        # Set paths for data and model directories
-        cls.data_dir = os.path.join(project_root, "tests", "data")
-
-        cls.sample_image_paths = [os.path.join(
-            cls.data_dir, f"test-image{i+1}") for i in range(3)]
-
-        # Extract labels from .txt files
-        cls.sample_labels = []
-        for i in range(3):
-            label_path = os.path.join(cls.data_dir, f"test-image{i+1}.txt")
-            with open(label_path, "r") as file:
-                cls.sample_labels.append(file.readline().strip())
-
-        # Create sample list file
-        cls.sample_list_file = os.path.join(cls.data_dir, "sample_list.txt")
-        with open(cls.sample_list_file, "w") as f:
-            for img_path, label in zip(cls.sample_image_paths,
-                                       cls.sample_labels):
-                f.write(f"{img_path}.png\t{label}\n")
 
         from DataGeneratorNew2 import DataGeneratorNew2
         cls.DataGenerator = DataGeneratorNew2
@@ -143,7 +128,8 @@ class TestDataGenerator(unittest.TestCase):
         result_image, result_label = dg.load_images(
             ["mock_image_path", "mock"])
 
-        # Ensure the resized image has the expected width (original width * 1.1)
+        # Ensure the resized image has the expected expected_width
+        # (original width * 1.1)
         expected_width = 110 + 50  # 100 * 1.1 + 50 extra padding
         self.assertEqual(result_image.shape[0], expected_width)
 
