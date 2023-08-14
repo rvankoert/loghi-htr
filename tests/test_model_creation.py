@@ -24,6 +24,8 @@ class ModelCreationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         sys.path.append("./src")
+        tf.get_logger().setLevel('ERROR')
+
         from Model import build_model_new17
         cls.build_model = staticmethod(build_model_new17)
 
