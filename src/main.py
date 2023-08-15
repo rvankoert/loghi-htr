@@ -3,6 +3,7 @@
 # > Standard library
 from __future__ import division, print_function
 import json
+import logging
 import random
 import re
 import subprocess
@@ -13,6 +14,7 @@ from arg_parser import get_args
 from DataLoaderNew import DataLoaderNew
 from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
 from utils import Utils, normalize_confidence, decode_batch_predictions
+from vgsl_model_generator import VGSLModelGenerator
 
 # > Third party dependencies
 import editdistance
@@ -34,6 +36,13 @@ def set_deterministic(args):
 
 
 def main():
+    # Set up logging
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%d/%m/%Y %H:%M:%S",
+        level=logging.INFO,
+    )
+
     args = get_args()
     if args.deterministic:
         set_deterministic(args)
@@ -204,18 +213,16 @@ def main():
                 chars_file.write(str().join(loader.charList))
 
             char_list = loader.charList
+
             print("creating new model")
-            model = build_model_new17(img_size, len(char_list),
-                                      use_mask=args.use_mask,
-                                      use_gru=args.use_gru,
-                                      rnn_units=args.rnn_units,
-                                      rnn_layers=args.rnn_layers,
-                                      batch_normalization=args.batch_normalization,
-                                      use_rnn_dropout=args.use_rnn_dropout,
-                                      dropout_rnn=args.dropout_rnn,
-                                      dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                      dropout_conv=args.dropoutconv,
-                                      dropout_dense=args.dropout_dense)
+            model_generator = VGSLModelGenerator(
+                model=args.model,
+                channels=model_channels,
+                output_classes=len(char_list) + 2
+                if args.use_mask else len(char_list) + 1
+            )
+
+            model = model_generator.build()
 
         optimizers = {
             "adam": keras.optimizers.Adam,
