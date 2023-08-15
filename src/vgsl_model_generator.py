@@ -50,7 +50,7 @@ class VGSLModelGenerator:
 
     def init_model_from_string(self, vgsl_spec_string,
                                channels=None, output_classes=None):
-        logging.info("Initializing model\n")
+        logging.info("Initializing model")
         self.history = []
         self.selected_model_vgsl_spec = vgsl_spec_string.split()
         self.inputs = self.make_input_layer(self.selected_model_vgsl_spec[0],
@@ -123,41 +123,41 @@ class VGSLModelGenerator:
     def get_model_libary():
         model_library = {
             "modelkeras":
-                ("None,64,None,3 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-                 "Fc64 Do2 Bld128 Bld64 O1s138"),
+                ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
+                 "Fc64 Do2 Bld128 Bld64 O1s92"),
             "model10":
-                ("None,64,None,3 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
                  "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 O1s138"),
+                 "Bg256 Bg256 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
                  "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 "
                  "Bg256 Fe1024 O1s92"),
             "model12":
-                ("None,64,None,3 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
+                ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
                  "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
                  "O1s92"),
             "model13":
-                ("None,64,None,3 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
+                ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
                  "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model14":
-                ("None,64,None,3 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
+                ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
                  "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
                  "Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model15":
-                ("None,64,None,3 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+                ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
                  "O1s92"),
             "model16":
-                ("None,64,None,3 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+                ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfxs128 Gfxs128 Gfxs128 Gfxs128 "
                  "Gfxs128 O1s92"),
             "model17":
-                ("None,64,None,3 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
+                ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
                  "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Bl128 "
-                 "Bl128 Bl128 Bl128 Bl128 O1s138")
+                 "Bl128 Bl128 Bl128 Bl128 O1s92")
         }
 
         return model_library
@@ -203,6 +203,7 @@ class VGSLModelGenerator:
             logging.warning("Overwriting channels from input string. "
                             "Was: %s, now: %s", depth, channels)
             depth = channels
+            self.selected_model_vgsl_spec[0] = f"{batch},{height},{width},{depth}"
 
         logging.info("Creating input layer with shape: (%s, %s, %s, %s)",
                      batch, height, width, depth)
@@ -381,6 +382,7 @@ class VGSLModelGenerator:
             logging.warning("Overwriting output classes from input string. "
                             "Was: %s, now: %s", classes, output_classes)
             classes = output_classes
+            self.selected_model_vgsl_spec[-1] = f"O1{linearity}{classes}"
 
         if linearity == "s":
             return layers.Dense(classes,
