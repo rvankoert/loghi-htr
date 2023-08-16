@@ -525,10 +525,19 @@ def main():
                                use_mask=args.use_mask
                                )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
+
+        # Get the prediction model by taking the last dense layer of the full
+        # model
+        last_dense_layer = None
+        for layer in reversed(model.layers):
+            if layer.name.startswith('dense'):
+                last_dense_layer = layer
+                break
+
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(
-                name="dense3").output
+            model.get_layer(name="image").input, last_dense_layer.output
         )
+
         prediction_model.summary(line_length=110)
 
         inference_dataset = inference_generator
