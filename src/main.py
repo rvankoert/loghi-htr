@@ -324,10 +324,17 @@ def main():
         print("do_validate")
         utilsObject = Utils(char_list, args.use_mask)
         validation_dataset = validation_generator
-        # Get the prediction model by extracting layers till the output layer
+
+        # Get the prediction model by taking the last dense layer of the full
+        # model
+        last_dense_layer = None
+        for layer in reversed(model.layers):
+            if layer.name.startswith('dense'):
+                last_dense_layer = layer
+                break
+
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(
-                name="dense3").output
+            model.get_layer(name="image").input, last_dense_layer.output
         )
         prediction_model.summary(line_length=110)
 
