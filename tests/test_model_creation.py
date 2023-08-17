@@ -276,7 +276,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[1].conv1.strides, (2, 2))
 
     def test_dropout_layer(self):
-        vgsl_spec_string = "None,64,None,1 Do5 O1s10"
+        vgsl_spec_string = "None,64,None,1 D50 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[1], layers.Dropout)
