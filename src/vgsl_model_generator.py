@@ -11,7 +11,7 @@ from tensorflow.keras import layers, models, initializers, Input
 
 
 class VGSLModelGenerator:
-    """Nice description about this class blabla"""
+    """Nice description about this class I made some changes"""
 
     def __init__(self,
                  model,
