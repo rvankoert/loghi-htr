@@ -85,9 +85,9 @@ class VGSLModelGenerator:
                 setattr(self, f"avgpool{index}", self.avgpool_generator(layer))
                 self.history.append(f"avgpool{index}")
             elif layer.startswith('RB'):
-                setattr(self, f"resLrock{index}",
-                        self.resLrock_generator(layer))
-                self.history.append(f"resLrock{index}")
+                setattr(self, f"ResidualBlock{index}",
+                        self.residual_block_generator(layer))
+                self.history.append(f"ResidualBlock{index}")
             elif layer.startswith('D'):
                 setattr(self, f"dropout{index}", self.dropout_generator(layer))
                 self.history.append(f"dropout{index}")
@@ -316,7 +316,7 @@ class VGSLModelGenerator:
              "kernel_initializer": self.initializer
         }
 
-        rnn_layer = layers.GRU
+        rnn_layer = layers.LSTM
         return rnn_layer(**kwargs)
 
     def gru_generator(self, layer):
@@ -361,7 +361,7 @@ class VGSLModelGenerator:
 
         return layers.Bidirectional(rnn_layer(**rnn_params), merge_mode='concat')
 
-    def resLrock_generator(self, layer):
+    def residual_block_generator(self, layer):
         """
         Create a Residual Block with Conv2D layers and an elu BatchNorm, RB
         """
