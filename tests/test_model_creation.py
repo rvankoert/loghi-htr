@@ -8,6 +8,7 @@ from tensorflow.keras import layers
 from tensorflow.keras import activations
 
 # > Standard library
+import logging
 import unittest
 import sys
 
@@ -37,7 +38,13 @@ class VGSLModelGeneratorTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         sys.path.append("./src")
-        tf.get_logger().setLevel('ERROR')
+
+        # Set up logging
+        logging.basicConfig(
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            datefmt="%d/%m/%Y %H:%M:%S",
+            level=logging.ERROR,
+        )
 
         from vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
@@ -197,7 +204,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[5].activation, activations.softmax)
 
     def test_lstm_layer(self):
-        vgsl_spec_string = "None,64,None,1 Rc Lfxs128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Lfs128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.LSTM)
@@ -208,7 +215,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].return_sequences, True)
 
         # Check backwards LSTM with return_sequences
-        vgsl_spec_string = "None,64,None,1 Rc Lrx128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Lr128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
 
@@ -216,7 +223,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].return_sequences, False)
 
     def test_gru_layer(self):
-        vgsl_spec_string = "None,64,None,1 Rc Gfxs128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Gfs128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.GRU)
@@ -227,7 +234,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].return_sequences, True)
 
         # Check backwards GRU with return_sequences
-        vgsl_spec_string = "None,64,None,1 Rc Grx128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Gr128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
 
@@ -235,14 +242,14 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].return_sequences, False)
 
     def test_bidirectional_layer(self):
-        vgsl_spec_string = "None,64,None,1 Rc Bgxs128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Bgs128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.Bidirectional)
         self.assertIsInstance(model.layers[2].layer, layers.GRU)
         self.assertEqual(model.layers[2].layer.units, 128)
 
-        vgsl_spec_string = "None,64,None,1 Rc Blxs128 O1s10"
+        vgsl_spec_string = "None,64,None,1 Rc Bls128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.Bidirectional)

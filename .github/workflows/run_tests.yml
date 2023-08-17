@@ -3,7 +3,7 @@ name: Run Tests
 on: [push, pull_request]
 
 jobs:
-  test:
+  unittests:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,18 +26,26 @@ jobs:
     - name: Test utils
       run: |
         python -m unittest tests/test_utils.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
 
     - name: Test DataGeneratorNew2
       if: always()
       run: |
         python -m unittest tests/test_datagenerator.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
 
     - name: Test DataLoaderNew
       if: always()
       run: |
         python -m unittest tests/test_dataloader.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
 
-    - name: Test basic model creation
+    - name: Test model creation
       if: always()
       run: |
         python -m unittest tests/test_model_creation.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
