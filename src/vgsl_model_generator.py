@@ -56,7 +56,7 @@ class VGSLModelGenerator:
         self.inputs = self.make_input_layer(self.selected_model_vgsl_spec[0],
                                             channels)
 
-        for index, layer in enumerate(self.selected_model_vgsl_spec):
+        for index, layer in enumerate(self.selected_model_vgsl_spec[1:]):
             logging.debug(layer)
             if layer.startswith('C'):
                 setattr(self, f"conv2d{index}", self.conv2d_generator(layer))
@@ -85,10 +85,10 @@ class VGSLModelGenerator:
                 setattr(self, f"avgpool{index}", self.avgpool_generator(layer))
                 self.history.append(f"avgpool{index}")
             elif layer.startswith('RB'):
-                setattr(self, f"resblock{index}",
-                        self.resblock_generator(layer))
-                self.history.append(f"resblock{index}")
-            elif layer.startswith('Do'):
+                setattr(self, f"resLrock{index}",
+                        self.resLrock_generator(layer))
+                self.history.append(f"resLrock{index}")
+            elif layer.startswith('D'):
                 setattr(self, f"dropout{index}", self.dropout_generator(layer))
                 self.history.append(f"dropout{index}")
             elif layer.startswith('R'):
@@ -97,6 +97,8 @@ class VGSLModelGenerator:
                 setattr(self, f"output{index}",
                         self.get_output_layer(layer, output_classes))
                 self.history.append(f"output{index}")
+            else:
+                raise ValueError("The current layer: ", layer, " is not recognised, please check for correct formatting in the VGSL-Spec")
 
     def build(self):
         """ Loop through attributes and call forward pass """
@@ -124,40 +126,44 @@ class VGSLModelGenerator:
         model_library = {
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-                 "Fc64 Do2 Bld128 Bld64 O1s92"),
+                 "Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92"),
             "model10":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 "
+                 "Grs256 Grs256 O1s92"),
+            "model9":
+                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Lrs256 D20 Lrs256 D20 Lrs256 D20"
+                 "Lrs256 D20 Lrs256 D20 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 "
-                 "Bg256 Fe1024 O1s92"),
+                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Grs256 Grs256 Grs256 Grs256 "
+                 "Grs256 Fe1024 O1s92"),
             "model12":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
+                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 Grs256 Grs256 "
                  "O1s92"),
             "model13":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-                 "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Bn Rc Grs256 Grs256 Grs256 Grs256 Grs256 O1s92"),
             "model14":
                 ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
-                 "Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Grs256 "
+                 "Grs256 Grs256 Grs256 Grs256 O1s92"),
             "model15":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Grs256 Grs256 Grs256 Grs256 Grs256 "
                  "O1s92"),
             "model16":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfxs128 Gfxs128 Gfxs128 Gfxs128 "
-                 "Gfxs128 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfs128 Gfs128 Gfs128 Gfs128 "
+                 "Gfs128 O1s92"),
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Bl128 "
-                 "Bl128 Bl128 Bl128 Bl128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lr128 "
+                 "Lr128 Lr128 Lr128 Lr128 O1s92")
         }
 
         return model_library
@@ -223,29 +229,40 @@ class VGSLModelGenerator:
 
     def conv2d_generator(self, layer):
         """
-        C(s|t|r|l|m)<y>,<x>,<d> Convolves using a y,x window, with no shrinkage
+        C(s|t|r|l|m)<x>,<y>,<s_x>,<s_y>,<d> Convolves using a x,y window, with stride s_x, s_y and d units
         """
         activation = self.get_activation_function(layer[1])
-        x, y, d = [int(match) for match in re.findall(r'\d+', layer)]
-        return layers.Conv2D(d,
-                             kernel_size=(y, x),
-                             strides=(1, 1),
-                             padding='same',
-                             activation=activation,
-                             kernel_initializer=self.initializer)
+        conv_filter_params = [int(match) for match in re.findall(r'\d+', layer)]
+        if len(conv_filter_params) == 3:
+            x, y, d = [int(match) for match in re.findall(r'\d+', layer)]
+            logging.warning("No stride provided, setting default stride of (1,1)")
+            return layers.Conv2D(d,
+                                 kernel_size=(y, x),
+                                 strides=(1, 1),
+                                 padding='same',
+                                 activation=activation,
+                                 kernel_initializer=self.initializer)
+        elif len(conv_filter_params) == 5:
+            x, y, s_x, s_y, d = [int(match) for match in re.findall(r'\d+', layer)]
+            return layers.Conv2D(d,
+                                 kernel_size=(y, x),
+                                 strides=(s_x, s_y),
+                                 padding='same',
+                                 activation=activation,
+                                 kernel_initializer=self.initializer)
+        else:
+            raise ValueError("Conv layer"+ layer +" not specified correctly")
 
     def maxpool_generator(self, layer):
         """ MaxPooling2D with pool_size and stride """
-        pool_x, pool_y, stride_x, stride_y = [
-            int(match) for match in re.findall(r'\d+', layer)]
+        pool_x, pool_y, stride_x, stride_y = [int(match) for match in re.findall(r'\d+', layer)]
         return layers.MaxPooling2D(pool_size=(pool_x, pool_y),
                                    strides=(stride_x, stride_y),
                                    padding='same')
 
     def avgpool_generator(self, layer):
         """ MaxPooling2D with pool_size and stride """
-        pool_x, pool_y, stride_x, stride_y = [
-            int(match) for match in re.findall(r'\d+', layer)]
+        pool_x, pool_y, stride_x, stride_y = [int(match) for match in re.findall(r'\d+', layer)]
         return layers.AvgPool2D(pool_size=(pool_x, pool_y),
                                 strides=(stride_x, stride_y),
                                 padding='same')
@@ -273,85 +290,78 @@ class VGSLModelGenerator:
         input depth, and leaves the input image size as-is, use a 1x1
         convolution (eg. Cr1,1,64 instead of Fr64).
         """
-        activation, n = self.get_activation_function(
-            layer[1]), int(re.search(r'\d+$', layer).group())
+        activation, n = self.get_activation_function(layer[1]), int(re.search(r'\d+$', layer).group())
         return layers.Dense(n,
                             activation=activation,
                             kernel_initializer=self.initializer)
 
     def lstm_generator(self, layer):
         """
-        L(f|r|b)(x|y)[s]<n> LSTM cell with n outputs.
+        L(f|r|b)[s]<n> LSTM cell with n outputs.
         The LSTM must have one of:
             f runs the LSTM forward only.
             r runs the LSTM reversed only.
-            b runs the LSTM bidirectionally.
-        It will operate on either the x- or y-dimension, treating the other
-        dimension independently (as if part of the batch).
         s (optional) summarizes the output in the requested dimension,
         outputting only the final step, collapsing the dimension to a single
         element.
         """
-        direction, axis, summarize, n = layer[1], layer[2], 's' in layer, int(
-            re.search(r'\d+$', layer).group())
-
-        if axis == 'x':
-            rnn_layer = layers.LSTM if direction != 'b' else\
-                layers.Bidirectional(layers.LSTM)
-        elif axis == 'y':
-            rnn_layer = layers.LSTM if direction != 'b' else\
-                layers.Bidirectional(layers.LSTM, merge_mode='sum')
+        direction = layer[1]
+        summarize = 's' in layer
+        n = int(re.search(r'\d+$', layer).group())
 
         kwargs = {
             "units": n,
-            "return_sequences": summarize and (axis == 'x'),
+            "return_sequences": summarize,
             "go_backwards": direction == 'r',
-            "kernel_initializer": self.initializer
+             "kernel_initializer": self.initializer
         }
 
+        rnn_layer = layers.GRU
         return rnn_layer(**kwargs)
 
     def gru_generator(self, layer):
-        direction, axis, summarize, n = layer[1], layer[2], 's' in layer, int(
-            re.search(r'\d+$', layer).group())
-
-        if axis == 'x':
-            rnn_layer = layers.GRU if direction != 'b' else\
-                layers.Bidirectional(layers.GRU)
-        elif axis == 'y':
-            rnn_layer = layers.GRU if direction != 'b' else\
-                layers.Bidirectional(layers.GRU, merge_mode='sum')
+        """
+        G(f|r|b)[s]<n> GRU cell with n outputs
+        """
+        direction = layer[1]
+        summarize = 's' in layer
+        n = int(re.search(r'\d+$', layer).group())
 
         kwargs = {
             "units": n,
-            "return_sequences": summarize and (axis == 'x'),
+            "return_sequences": summarize,
             "go_backwards": direction == 'r',
-            "kernel_initializer": self.initializer
+             "kernel_initializer": self.initializer
         }
 
+        rnn_layer = layers.GRU
         return rnn_layer(**kwargs)
 
     def bidirectional_generator(self, layer):
         """
-        Create a Bidirectional layer with either a LSTM or GRU inside of it
-        Optionally a 0.5 Dropout can be added
+        Create a Bidirectional layer with either a LSTM or GRU as the RNN layer
+        Example Grs256 Bidirectional gru with 256 units
         """
-        layer_type, use_dropout, units = layer[1], 'd' in layer, int(
-            re.search(r'\d+$', layer).group())
-        rnn_layer = layers.LSTM if layer_type == 'l' else layers.GRU
+        units_match = re.search(r'\d+$', layer)
+        units = int(units_match.group())
+
+        layer_type = layer[1]
+        if layer_type == "l":
+            rnn_layer = layers.LSTM
+        elif layer_type == "g":
+            rnn_layer = layers.GRU
+        else:
+            raise ValueError("Rnn layer type not found")
+
         rnn_params = {
             "units": units,
             "return_sequences": True,
             "kernel_initializer": self.initializer
         }
 
-        if use_dropout:
-            rnn_params["dropout"] = 0.25
+        return layers.Bidirectional(rnn_layer(**rnn_params), merge_mode='concat')
 
-        return layers.Bidirectional(rnn_layer(**rnn_params),
-                                    merge_mode='concat')
-
-    def resblock_generator(self, layer):
+    def resLrock_generator(self, layer):
         """
         Create a Residual Block with Conv2D layers and an elu BatchNorm, RB
         """
@@ -361,11 +371,15 @@ class VGSLModelGenerator:
 
     def dropout_generator(self, layer):
         """Dropout layer with probability"""
-        return layers.Dropout(float(layer[2])/10)
+        dropout = int(re.search(r'\d+$', layer).group())
+        if dropout >= 100:
+            raise ValueError("Provided dropout is too high in " + layer + ", select a dropout < 100%")
+
+        return layers.Dropout(dropout/100)
 
     def get_output_layer(self, layer, output_classes):
         """O(2|1|0)(l|s|c)n output layer with n classes.
-          2 (heatmap) Output is a 2-d vector map of the input (possibly at
+          2 (heatmap) Output is a 2-d vector map of the input (possiLry at
             different scale). (Not yet supported.)
           1 (sequence) Output is a 1-d sequence of vector values.
           0 (category) Output is a 0-d single vector value.
@@ -375,12 +389,10 @@ class VGSLModelGenerator:
           c uses a softmax with CTC. Can only be used with s (sequence).
           NOTE Only O1s and O1c are currently supported. [01s for us]
         """
-        _, linearity, classes = layer[1], layer[2], int(
-            re.search(r'\d+$', layer).group())
+        _, linearity, classes = layer[1], layer[2], int(re.search(r'\d+$', layer).group())
 
         if output_classes and classes != output_classes:
-            logging.warning("Overwriting output classes from input string. "
-                            "Was: %s, now: %s", classes, output_classes)
+            logging.warning("Overwriting output classes from input string. ""Was: %s, now: %s", classes, output_classes)
             classes = output_classes
             self.selected_model_vgsl_spec[-1] = f"O1{linearity}{classes}"
 
