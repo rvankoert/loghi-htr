@@ -250,18 +250,20 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Error handling tests
         # Test unexpected format
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator("None,64,None,1 R O1s10")
+            vgsl_spec_string = "None,64,None,1 R O1s10"
+            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
             model = model_generator.build()
-
         self.assertEqual(str(context.exception),
                          "Reshape layer R is of unexpected format. Expected "
                          "format: Rc.")
 
         # Test incorrectly specified reshape layer
         with self.assertRaises(ValueError) as context:
-            self.VGSLModelGenerator("None,64,None,1 Rx O1s10")
+            vgsl_spec_string = "None,64,None,1 Rx O1s10"
+            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            model = model_generator.build()
         self.assertEqual(str(context.exception),
-                         "Reshape layer Rx not specified correctly")
+                         "Reshape operation Rx is not supported.")
 
     def test_fully_connected_layer(self):
         vgsl_spec_string = "None,64,None,1 Fs128 O1s10"

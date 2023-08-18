@@ -10,6 +10,7 @@ from custom_layers import CTCLayer, ResidualBlock
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow.keras import layers, models, initializers, Input
+from tensorflow.keras import backend as K
 
 
 class VGSLModelGenerator:
@@ -197,11 +198,7 @@ class VGSLModelGenerator:
                 setattr(self, f"dropout{index}", self.dropout_generator(layer))
                 self.history.append(f"dropout{index}")
             elif layer.startswith('R'):
-                prev_layer = self.inputs if not self.history else getattr(
-                    self, self.history[-1])
-                setattr(self, f"reshape{index}",
-                        self.reshape_generator(layer, prev_layer))
-                self.history.append(f"reshape{index}")
+                self.history.append(f"reshape{index}_{layer}")
             elif layer.startswith('O'):
                 setattr(self, f"output{index}",
                         self.get_output_layer(layer, output_classes))
@@ -224,7 +221,10 @@ class VGSLModelGenerator:
         logging.info("Building model for: %s", self.selected_model_vgsl_spec)
         x = self.inputs
         for index, layer in enumerate(self.history):
-            x = getattr(self, layer)(x)
+            if layer.startswith("reshape"):
+                x = self.reshape_generator(layer.split("_")[1], x)(x)
+            else:
+                x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
 
         logging.info("Model has been built\n")
@@ -251,7 +251,7 @@ class VGSLModelGenerator:
         model_library = {
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-                 "Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92"),
+                 "Fl64 D20 Lrs128 D20 Lrs64 D20 O1s92"),
             "model10":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
                  "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 "
@@ -287,8 +287,8 @@ class VGSLModelGenerator:
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lr128 "
-                 "Lr128 Lr128 Lr128 Lr128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lrs128 "
+                 "Lrs128 Lrs128 Lrs128 Lrs128 O1s92")
         }
 
         return model_library
@@ -643,15 +643,10 @@ class VGSLModelGenerator:
                              "Expected format: Rc.")
 
         if layer[1] == 'c':
-            # Ensure previous layer has a valid shape
-            if len(prev_layer.shape) < 3:
-                raise ValueError("Previous layer does not have a valid 2D "
-                                 f"shape. Got shape: {prev_layer.shape}.")
-
             prev_layer_y, prev_layer_x = prev_layer.shape[-2:]
             return layers.Reshape((-1, prev_layer_y * prev_layer_x))
         else:
-            raise ValueError(f"Reshape layer {layer} not specified correctly")
+            raise ValueError(f"Reshape operation {layer} is not supported.")
 
     def fc_generator(self,
                      layer: str) -> tf.keras.layers.Dense:
