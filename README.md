@@ -60,3 +60,57 @@ During inferencing specific parameters must match those of the training phase: u
 Docker images containing trained models are available via (to be inserted). Make sure to install nvidia-docker:
 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 
+
+# [VGSL-Spec Manual](https://github.com/mldbai/tensorflow-models/blob/master/street/g3doc/vgslspecs.md)
+Variable-size Graph Specification Language (VGSL) enables the specification of a TensorFlow graph, composed of convolutions and LSTMs, that can process variable-sized images, from a very short definition string, for example:
+
+`[None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92]`
+
+Our current VGSL-Specs implementation supports the following layer types:
+
+### Base layers:
+### Input:
+tf.keras.layers.Input layer, according to the standard TF tensor dimensions<br>
+    **`[batch, height, width, depth]`** <br><br>
+    Example: "None,64,None,1" <br>
+    _Creates a tf.layers.Input with a variable batch size, height of 64, variable width and a depth of 1 (input channels)_
+<br><br>  
+### Conv2D:
+Convolves using a x,y window, with stride s_x, s_y and d units<br>
+    **`C(s|t|r|l|m)<x>,<y>,<s_x>,<s_y>,<d>`** <br><br>
+    Example: "Cr3,3,1,1" <br>
+    _Creates a Conv2D layer with a Relu activation function a 3x3 filter and 1,1 stride (if s_x and s_y are not provided, set to (1,1) default)_
+<br><br>  
+
+* **Dens (Fully-connected layer)**:
+<br><br>
+
+* **LSTM**:
+<br><br>
+
+* **GRU**:
+<br><br>
+
+* **Bidirectional**:
+<br><br>
+
+* **BatchNormalization**:
+<br><br>
+
+* **MaxPooling2D**:
+<br><br>
+
+* **AvgPooling2D**:
+<br><br>
+
+* **Dropout**:
+<br><br>
+
+
+### Custom blocks:
+* **ResidualBlock**:
+<br><br>
+
+* **CTCLayer**:
+<br><br>
+
