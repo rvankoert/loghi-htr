@@ -124,10 +124,10 @@ class VGSLModelGenerator:
                 # TODO: Add model_name argument to arg_parser.py
                 self.model_name = "custom_model"
 
-            except Exception:
-                raise ValueError("Something is wrong with the input string, "
-                                 "please check the VGSL-spec formatting "
-                                 "with the documentation.")
+            except (TypeError, AttributeError) as e:
+                raise ("Something is wrong with the input string, "
+                       "please check the VGSL-spec formatting "
+                       "with the documentation.") from e
 
     def init_model_from_string(self,
                                vgsl_spec_string: str,
@@ -197,8 +197,12 @@ class VGSLModelGenerator:
                 setattr(self, f"dropout{index}", self.dropout_generator(layer))
                 self.history.append(f"dropout{index}")
             elif layer.startswith('R'):
-                self.history.append("reshape"+str(index)+"_"+(layer))
-            elif layer.startswith('O1'):
+                prev_layer = self.inputs if not self.history else getattr(
+                    self, self.history[-1])
+                setattr(self, f"reshape{index}",
+                        self.reshape_generator(layer, prev_layer))
+                self.history.append(f"reshape{index}")
+            elif layer.startswith('O'):
                 setattr(self, f"output{index}",
                         self.get_output_layer(layer, output_classes))
                 self.history.append(f"output{index}")
@@ -220,10 +224,7 @@ class VGSLModelGenerator:
         logging.info("Building model for: %s", self.selected_model_vgsl_spec)
         x = self.inputs
         for index, layer in enumerate(self.history):
-            if (layer.startswith("reshape")):
-                x = self.reshape_generator(layer.split("_")[1], x)(x)
-            else:
-                x = getattr(self, layer)(x)
+            x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
 
         logging.info("Model has been built\n")
@@ -359,11 +360,12 @@ class VGSLModelGenerator:
 
         mapping = {'s': 'sigmoid', 't': 'tanh', 'r': 'relu',
                    'e': 'elu', 'l': 'linear', 'm': 'softmax'}
-        activation = mapping.get(nonlinearity)
-        if activation is None:
+
+        if nonlinearity not in mapping:
             raise ValueError(
-                f"Unsupported nonlinearity {nonlinearity} provided.")
-        return activation
+                f"Unsupported nonlinearity '{nonlinearity}' provided.")
+
+        return mapping[nonlinearity]
 
     def make_input_layer(self,
                          inputs: str,
@@ -446,15 +448,26 @@ class VGSLModelGenerator:
         <class 'keras.src.layers.convolutional.conv2d.Conv2D'>
         """
 
-        # Get activation function
-        activation = self.get_activation_function(layer[1])
-        if not activation:
-            raise ValueError(
-                f"Invalid activation function specified in {layer}")
-
         # Extract convolutional parameters
         conv_filter_params = [int(match)
                               for match in re.findall(r'\d+', layer)]
+
+        # Check if the layer format is as expected
+        if len(conv_filter_params) < 3:
+            raise ValueError(f"Conv layer {layer} has too few parameters. "
+                             "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>"
+                             ",<s_y>,<d>")
+        elif len(conv_filter_params) > 5:
+            raise ValueError(f"Conv layer {layer} has too many parameters. "
+                             "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>,"
+                             "<s_y>,<d>")
+
+        # Get activation function
+        try:
+            activation = self.get_activation_function(layer[1])
+        except ValueError:
+            raise ValueError(
+                f"Invalid activation function specified in {layer}")
 
         # Check parameter length and generate corresponding Conv2D layer
         if len(conv_filter_params) == 3:
@@ -475,16 +488,6 @@ class VGSLModelGenerator:
                                  padding='same',
                                  activation=activation,
                                  kernel_initializer=self._initializer)
-
-        # Error handling
-        if len(conv_filter_params) < 3:
-            raise ValueError(f"Conv layer {layer} has too few parameters. "
-                             "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>"
-                             ",<s_y>,<d>")
-        else:
-            raise ValueError(f"Conv layer {layer} has too many parameters. "
-                             "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>,"
-                             "<s_y>,<d>")
 
     def maxpool_generator(self,
                           layer: str) -> tf.keras.layers.MaxPooling2D:
@@ -520,7 +523,7 @@ class VGSLModelGenerator:
 
         # Extract pooling and stride parameters
         pool_stride_params = [int(match)
-                              for match in re.findall(r'\d+', layer)]
+                              for match in re.findall(r'-?\d+', layer)]
 
         # Check if the parameters are as expected
         if len(pool_stride_params) != 4:
@@ -573,13 +576,13 @@ class VGSLModelGenerator:
 
         # Extract pooling and stride parameters
         pool_stride_params = [int(match)
-                              for match in re.findall(r'\d+', layer)]
+                              for match in re.findall(r'-?\d+', layer)]
 
         # Check if the parameters are as expected
         if len(pool_stride_params) != 4:
             raise ValueError(f"AvgPool layer {layer} does not have the "
                              "expected number of parameters. Expected format: "
-                             "Mp<pool_x>,<pool_y>,<stride_x>,<stride_y>")
+                             "Ap<pool_x>,<pool_y>,<stride_x>,<stride_y>")
 
         pool_x, pool_y, stride_x, stride_y = pool_stride_params
 
@@ -635,7 +638,7 @@ class VGSLModelGenerator:
         """
 
         # Check if the layer format is as expected
-        if not layer or len(layer) < 2:
+        if len(layer) < 2:
             raise ValueError(f"Reshape layer {layer} is of unexpected format. "
                              "Expected format: Rc.")
 
@@ -662,7 +665,7 @@ class VGSLModelGenerator:
             VGSL specification for the fully connected layer. Expected format:
             `F(s|t|r|l|m)<d>`
             - `(s|t|r|l|m)`: Non-linearity type. One of sigmoid, tanh, relu,
-            elu, or none.
+            linear, or softmax.
             - `<d>`: Number of outputs.
 
         Returns
@@ -695,30 +698,27 @@ class VGSLModelGenerator:
         """
 
         # Ensure the layer string format is as expected
-        if not layer or len(layer) < 2:
+        if not re.match(r'^F[a-z]-?\d+$', layer):
             raise ValueError(
                 f"Dense layer {layer} is of unexpected format. Expected "
-                "format: F(s|t|r|l|m)<d>.")
-
-        activation = self.get_activation_function(layer[1])
+                "format: F(s|t|r|l|m)<d>."
+            )
 
         # Check if the activation function is valid
         # or any other supported activations
-        if activation not in ['sigmoid', 'tanh', 'relu', 'linear', 'softmax']:
-            raise ValueError(
-                f"Invalid activation {activation} for Dense layer {layer}.")
-
         try:
-            n = int(re.search(r'\d+$', layer).group())
-        except (AttributeError, ValueError):
+            activation = self.get_activation_function(layer[1])
+        except ValueError:
             raise ValueError(
-                "Failed to extract the number of neurons from Dense layer "
+                f"Invalid activation '{layer[1]}' for Dense layer "
                 f"{layer}.")
 
-        # Check if the number of neurons is valid
+        # Extract the number of neurons
+        n = int(layer[2:])
         if n <= 0:
             raise ValueError(
-                f"Invalid number of neurons {n} for Dense layer {layer}.")
+                f"Invalid number of neurons {n} for Dense layer {layer}."
+            )
 
         return layers.Dense(n,
                             activation=activation,
@@ -758,26 +758,15 @@ class VGSLModelGenerator:
         <class 'keras.src.layers.rnn.lstm.LSTM'>
         """
 
-        # Ensure the layer string format is as expected
-        if not layer or len(layer) < 2:
+        # Extract direction, summarization, and units
+        match = re.match(r'L([fr])(s?)(-?\d+)$', layer)
+        if not match:
             raise ValueError(
                 f"LSTM layer {layer} is of unexpected format. Expected "
                 "format: L(f|r)[s]<n>.")
 
-        direction = layer[1]
-
-        # Validate direction
-        if direction not in ['f', 'r']:
-            raise ValueError(
-                f"Invalid direction {direction} for LSTM layer {layer}. "
-                "Expected 'f' (forward) or 'r' (reverse).")
-
-        try:
-            n = int(re.search(r'\d+$', layer).group())
-        except (AttributeError, ValueError):
-            raise ValueError(
-                "Failed to extract the number of units from LSTM layer "
-                f"{layer}.")
+        direction, summarize, n = match.groups()
+        n = int(n)
 
         # Check if the number of units is valid
         if n <= 0:
@@ -828,26 +817,17 @@ class VGSLModelGenerator:
         <class 'keras.src.layers.rnn.gru.GRU'>
         """
 
-        # Ensure the layer string format is as expected
-        if not layer or len(layer) < 2:
+        # Extract direction, summarization, and units
+        match = re.match(r'G([fr])(s?)(-?\d+)$', layer)
+        if not match:
             raise ValueError(
                 f"GRU layer {layer} is of unexpected format. Expected "
                 "format: G(f|r)[s]<n>.")
 
-        direction = layer[1]
+        direction, summarize, n = match.groups()
 
-        # Validate direction
-        if direction not in ['f', 'r']:
-            raise ValueError(
-                f"Invalid direction {direction} for GRU layer {layer}. "
-                "Expected 'f' (forward) or 'r' (reverse).")
-
-        try:
-            n = int(re.search(r'\d+$', layer).group())
-        except (AttributeError, ValueError):
-            raise ValueError(
-                "Failed to extract the number of units from GRU layer "
-                f"{layer}.")
+        # Convert n to integer
+        n = int(n)
 
         # Check if the number of units is valid
         if n <= 0:
@@ -856,7 +836,7 @@ class VGSLModelGenerator:
 
         gru_params = {
             "units": n,
-            "return_sequences": 's' in layer,
+            "return_sequences": bool(summarize),
             "go_backwards": direction == 'r',
             "kernel_initializer": self._initializer
         }
@@ -904,34 +884,24 @@ class VGSLModelGenerator:
         runs it in both forward and backward directions.
         """
 
-        # Ensure the layer string format is as expected
-        if not layer or len(layer) < 3:
+        # Extract layer type and units
+        match = re.match(r'B([gl])(-?\d+)$', layer)
+        if not match:
             raise ValueError(f"Layer {layer} is of unexpected format. "
-                             "Expected format: B(g|l)<n> where 'l' stands for "
-                             "LSTM, 'g' stands for GRU, and 'n' is the number "
+                             "Expected format: B(g|l)<n> where 'g' stands for "
+                             "GRU, 'l' stands for LSTM, and 'n' is the number "
                              "of units.")
 
-        # Extract and validate units
-        units_match = re.search(r'\d+$', layer)
-        if not units_match:
-            raise ValueError(
-                f"Failed to extract the number of units from layer {layer}.")
+        layer_type, units = match.groups()
+        units = int(units)
 
-        units = int(units_match.group())
+        # Check if the number of units is valid
         if units <= 0:
             raise ValueError(
                 f"Invalid number of units {units} for layer {layer}.")
 
-        # Determine and validate the RNN layer type
-        layer_type = layer[1]
-        if layer_type == "l":
-            rnn_layer = layers.LSTM
-        elif layer_type == "g":
-            rnn_layer = layers.GRU
-        else:
-            raise ValueError(
-                f"Invalid RNN layer type {layer_type} in layer {layer}. "
-                "Expected 'l' for LSTM or 'g' for GRU.")
+        # Determine the RNN layer type
+        rnn_layer = layers.LSTM if layer_type == 'l' else layers.GRU
 
         rnn_params = {
             "units": units,
@@ -951,7 +921,9 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the Residual Block. Expected format:
-            `RB<x>,<y>,<d>`
+            `RB[d]<x>,<y>,<d>`
+            - `[d]`: Optional downsample flag. If provided, the block will
+            downsample the input.
             - `<x>`, `<y>`: Kernel sizes in the x and y dimensions
             respectively.
             - `<d>`: Depth of the Conv2D layers within the Residual Block.
@@ -975,29 +947,22 @@ class VGSLModelGenerator:
         <class 'custom_layers.ResidualBlock'>
         """
 
-        # Ensure the layer string format is as expected
-        if not layer:
-            raise ValueError(f"Layer {layer} is of unexpected format.")
+        match = re.match(r'RB([d]?)(-?\d+),(-?\d+),(-?\d+)$', layer)
+        if not match:
+            raise ValueError(
+                f"Layer {layer} is of unexpected format. Expected format: "
+                "RB[d]<x>,<y>,<d>.")
 
-        # Extract convolution parameters
-        conv_params = [int(match) for match in re.findall(r'\d+', layer)]
+        downsample, x, y, d = match.groups()
+        x, y, d = map(int, (x, y, d))
 
-        if len(conv_params) != 3:
-            raise ValueError(f"Layer {layer} is expected to contain 3 integer "
-                             "parameters: x, y, and d.")
-
-        x, y, d = conv_params
-
-        # Validate the extracted parameters
+        # Validate parameters
         if any(val <= 0 for val in [x, y, d]):
-            raise ValueError(f"Invalid parameters x={x}, y={y}, d={d} in "
-                             f"layer {layer}. All values should be positive "
-                             "integers.")
+            raise ValueError(
+                f"Invalid parameters x={x}, y={y}, d={d} in layer {layer}. "
+                "All values should be positive integers.")
 
-        # Check for downsampling
-        downsample = 'd' in layer
-
-        return ResidualBlock(d, x, y, self._initializer, downsample)
+        return ResidualBlock(d, x, y, self._initializer, bool(downsample))
 
     def dropout_generator(self,
                           layer: str) -> tf.keras.layers.Dropout:
@@ -1008,8 +973,8 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the Dropout layer. Expected format:
-            `Do<dropout>`
-            - `<dropout>`: Dropout percentage (0-100).
+            `D<rate>`
+            - `<rate>`: Dropout percentage (0-100).
 
         Returns
         -------
@@ -1030,21 +995,20 @@ class VGSLModelGenerator:
         <class 'keras.src.layers.regularization.dropout.Dropout'>
         """
 
-        # Ensure the layer string format is as expected
-        if not layer:
-            raise ValueError(f"Layer {layer} is of unexpected format.")
+        # Validate layer format and extract dropout rate
+        match = re.match(r'D(-?\d+)$', layer)
+        if not match:
+            raise ValueError(
+                f"Layer {layer} is of unexpected format. Expected format: "
+                "D<rate> where rate is between 0 and 100.")
 
-        # Extract and validate the dropout rate
-        dropout_match = re.search(r'\d+$', layer)
-        if not dropout_match:
-            raise ValueError("Could not extract dropout rate from layer "
-                             f"{layer}.")
+        dropout_rate = int(match.group(1))
 
-        dropout = int(dropout_match.group())
-        if dropout < 0 or dropout > 100:
+        # Validate dropout rate
+        if dropout_rate < 0 or dropout_rate > 100:
             raise ValueError("Dropout rate must be in the range [0, 100].")
 
-        return layers.Dropout(dropout / 100)
+        return layers.Dropout(dropout_rate / 100)
 
     def get_output_layer(self,
                          layer: str,
@@ -1056,9 +1020,9 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the output layer. Expected format:
-            `O(2|1|0)(l|s|c)<n>`
+            `O(2|1|0)(l|s)<n>`
             - `(2|1|0)`: Dimensionality of the output.
-            - `(l|s|c)`: Non-linearity type.
+            - `(l|s)`: Non-linearity type.
             - `<n>`: Number of output classes.
         output_classes : int
             Number of output classes to overwrite the classes defined in the
@@ -1083,23 +1047,22 @@ class VGSLModelGenerator:
         <class 'keras.src.layers.core.dense.Dense'>
         """
 
-        # Check the layer format
-        if not re.match(r'O[210][lsc]\d+$', layer):
-            raise ValueError(f"Layer {layer} is of unexpected format.")
+        # Validate layer format
+        match = re.match(r'O([210])([a-z])(\d+)$', layer)
+        if not match:
+            raise ValueError(
+                f"Layer {layer} is of unexpected format. Expected format: "
+                "O[210](l|s)<n>.")
 
-        # Extract necessary components
-        dimensionality, linearity, classes_str = layer[1], layer[2], layer[3:]
+        dimensionality, linearity, classes = match.groups()
+        classes = int(classes)
 
-        try:
-            classes = int(classes_str)
-        except ValueError:
-            raise ValueError("Could not extract number of classes from layer "
-                             f"{layer}.")
-
+        # Handle potential mismatch in specified classes and provided
+        # output_classes
         if output_classes and classes != output_classes:
             logging.warning(
-                "Overwriting output classes from input string. "
-                "Was: %s, now: %s", classes, output_classes)
+                "Overwriting output classes from input string. Was: %s, now: "
+                "%s", classes, output_classes)
             classes = output_classes
             self.selected_model_vgsl_spec[-1] = (f"O{dimensionality}"
                                                  f"{linearity}{classes}")
@@ -1108,9 +1071,10 @@ class VGSLModelGenerator:
             return layers.Dense(classes,
                                 activation='softmax',
                                 kernel_initializer=self._initializer)
-        elif linearity == "c":
-            return CTCLayer(name='ctc_loss')
-
+        elif linearity == "l":
+            return layers.Dense(classes,
+                                activation='linear',
+                                kernel_initializer=self._initializer)
         else:
-            raise ValueError(f"Output layer linearity {linearity} is not "
-                             "supported.")
+            raise ValueError(
+                f"Output layer linearity {linearity} is not supported.")
