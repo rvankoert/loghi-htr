@@ -10,8 +10,6 @@ from custom_layers import CTCLayer, ResidualBlock
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow.keras import layers, models, initializers, Input
-from tensorflow.keras import backend as K
-
 
 class VGSLModelGenerator:
     """
@@ -786,9 +784,8 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the GRU layer. Expected format:
-            `G(f|r|b)[s]<n>`
-            - `(f|r|b)`: Direction of GRU. 'f' for forward, 'r' for reversed,
-            and 'b' for bidirectional.
+            `G(f|r)[s]<n>`
+            - `(f|r)`: Direction of GRU. 'f' for forward, 'r' for reversed
             - `[s]`: (Optional) Summarizes the output, outputting only the
             final step.
             - `<n>`: Number of outputs.
