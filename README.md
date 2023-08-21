@@ -113,7 +113,7 @@ _Creates a Conv2D layer with a Relu activation function a 3x3 filter and 1,1 str
 <br><br>  
 
 ### **Dense (Fully-connected layer)**:
-<u>Spec</u>: **`F(s|t|r|l|m)<d>`** <br>
+<u>Spec</u>: **`F(s|t|r|e|l|m)<d>`** <br>
 Fully-connected(FC)) with `s|t|r|e|l|m` non-linearity and `d` outputs <br>
 Example: `Fs64` <br>
 _Creates a FC layer with softmax non-linearity and 64 outputs_
