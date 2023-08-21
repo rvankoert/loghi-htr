@@ -73,22 +73,22 @@ The user can decide the type of non-linearity function for certain specified lay
 The current VGSL-Specs implementation supports the following layers:
 ## Overview Sheet
 
-| **Layer**          | **Spec**                                       | **Example**      | **Description**                                                      |
-|--------------------|------------------------------------------------|------------------|----------------------------------------------------------------------|
-| Input              | `[batch, height, width, depth]`                | `None,64,None,1` | Input layer with variable batch_size & width, depth of 1 channel     |
-| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`          | Dense layer with a 1D sequence as with 10 output classes and softmax |
-| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr,3,3,1,1`     | Conv2D layer with Relu, a 3x3 filter and 1,1 stride                  |
-| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`           | Dense layer with softmax and 64 units                                |
-| LSTM               | `L(f\|r)[s]<n>`                                | `Lf64`           | Forward-only LSTM cell with 64 units                                 |
-| GRU                | `G(f\|r)[s]<n>`                                | `Gr64`           | Reverse-only GRU cell with 64 units                                  |
-| Bidirectional      | `B(g\|l)<n>`                                   | `Bl256`          | Bidirectional layer wrapping a LSTM RNN with 256 units               |
-| BatchNormalization | `Bn`                                           | `Bn`             | BatchNormalization layer                                             |
-| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`      | MaxPooling2D layer with 2,2 pool size and 1,1 strides                |
-| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`      | AveragePooling2D layer with 2,2 pool size and 1,1 strides            |
-| Dropout            | `D<rate>`                                      | `Do25`           | Dropout layer with `dropout` = 0.25                                  |
-| ------------------ | ------------------------------------           |------------------|----------------------------------------------------------------------|
-| ResidualBlock      | `TODO`                                         |                  |                                                                      |
-| CTCLayer           | `TODO`                                         |                  |                                                                      |
+| **Layer**          | **Spec**                                       | **Example**        | **Description**                                                        |
+|--------------------|------------------------------------------------|--------------------|------------------------------------------------------------------------|
+| Input              | `[batch, height, width, depth]`                | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel       |
+| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax   |
+| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr,3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters        |
+| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                  |
+| LSTM               | `L(f\|r)[s]<n>`                                | `Lf64`             | Forward-only LSTM cell with 64 units                                   |
+| GRU                | `G(f\|r)[s]<n>`                                | `Gr64`             | Reverse-only GRU cell with 64 units                                    |
+| Bidirectional      | `B(g\|l)<n>`                                   | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                 |
+| BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                               |
+| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                  |
+| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 1x1 strides              |
+| Dropout            | `D<rate>`                                      | `Do25`             | Dropout layer with `dropout` = 0.25                                    |
+| ------------------ | ------------------------------------           | ------------------ | ---------------------------------------------------------------------- |
+| ResidualBlock      | `TODO`                                         |                    |                                                                        |
+| CTCLayer           | `TODO`                                         |                    |                                                                        |
 
 ## Layer Details
 ### Input:
@@ -107,37 +107,39 @@ _Creates a Dense layer with a 1D sequence as output with 10 classes and softmax_
 
 ### Conv2D:
 <u>Spec</u>: **`C(s|t|r|e|l|m)<x>,<y>,[<s_x>,<s_y>,]<d>`** <br>
-Convolves using a `x`,`y` window and `d` units. Optionally, the stride window can be set with (`s_x`, `s_y`) <br>
-Example: `Cr3,3,1,1` <br>
-_Creates a Conv2D layer with a Relu activation function a 3x3 filter and 1,1 stride (if s_x and s_y are not provided, set to (1,1) default)_
+Convolves using a `x`,`y` window and `d` filters. Optionally, the stride window can be set with (`s_x`, `s_y`) <br>
+Example_1: `Cr3,3,64` <br>
+_Creates a Conv2D layer with a Relu activation function a 3x3 filter, 1x1 stride (if s_x and s_y are not provided, set to (1,1) default) and 64 filters_
+Example_2: `Cr3,3,1,3,128` <br>
+_Creates a Conv2D layer with a Relu activation function a 3x3 filter, 1x3 strides and 128 filters_
 <br><br>  
 
 ### **Dense (Fully-connected layer)**:
 <u>Spec</u>: **`F(s|t|r|e|l|m)<d>`** <br>
-Fully-connected(FC)) with `s|t|r|e|l|m` non-linearity and `d` outputs <br>
+Fully-connected(FC)) with `s|t|r|e|l|m` non-linearity and `d` units <br>
 Example: `Fs64` <br>
-_Creates a FC layer with softmax non-linearity and 64 outputs_
+_Creates a FC layer with softmax non-linearity and 64 units_
 <br><br>  
 
 ### **LSTM**:
 <u>Spec</u>: **`L(f|r)[s]<n>`** <br>
-LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` outputs. Optionally, summarization of the output at the final step can be added by providing a Boolean `d` (corresponds with the return_sequences)<br>
+LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, summarization of the output at the final step can be added by providing a Boolean `d` (corresponds with the return_sequences)<br>
 Example: `Lf64` <br>
-_Creates a forward-only LSTM cell with 64 outputs_
+_Creates a forward-only LSTM cell with 64 units_
 <br><br>  
 
 ### **GRU**:
 <u>Spec</u>: **`G(f|r)[s]<n>`** <br>
-GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` outputs. Optionally, summarization of the output at the final step can be added by providing a Boolean `d` (corresponds with the return_sequences)<br>
+GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, summarization of the output at the final step can be added by providing a Boolean `d` (corresponds with the return_sequences)<br>
 Example: `Gf64` <br>
-_Creates a forward-only GRU cell with 64 outputs_
+_Creates a forward-only GRU cell with 64 units_
 <br><br>  
 
 ### **Bidirectional**:
 <u>Spec</u>: **`B(g|l)<n>`** <br>
-Bidirectional layer which wraps either a LSTM (`l`) or GRU (`g`) RNN layer and runs it in both forward and backward directions. <br>
+Bidirectional layer which wraps either a LSTM (`l`) or GRU (`g`) RNN layer and runs it in both forward and backward directions with `n` units. <br>
 Example: `Bl256` <br>
-_Creates a Bidirectional RNN layer using a LSTM Cell with 256 outputs_
+_Creates a Bidirectional RNN layer using a LSTM Cell with 256 units_
 <br><br>  
 
 ### **BatchNormalization**:
@@ -149,24 +151,24 @@ Applies a transformation that maintains the mean output close to 0 and the outpu
 <br><br>  
 
 ### **MaxPooling2D**:
+<u>Spec</u>: **`Mp<x>,<y>,<s_x>,<s_y>`** <br>
 Downsampling technique along the height and width of a 2D image by taking the maximum value over the input window `x`,`y` and is shifted by strides along each dimension (`s_x`, `s_y`). `padding` is always set to "same".<br>
-    <u>Spec</u>: **`Mp<x>,<y>,<s_x>,<s_y>`** <br>
-    Example: `Mp2,2,2,2` <br>
-    _Creates a MaxPooling2D layer with pool size (2,2) and strides of (2,2)_
+Example: `Mp2,2,2,2` <br>
+_Creates a MaxPooling2D layer with pool size (2,2) and strides of (2,2)_
 <br><br>
 
 ### **AvgPooling2D**:
+<u>Spec</u>: **`Ap<x>,<y>,<s_x>,<s_y>`** <br>
 Downsampling technique along the height and width of a 2D image by taking the average value over the input window x,y and is shifted by strides along each dimension (s_x, s_y). `padding` is always set to "same".<br>
-    <u>Spec</u>: **`Ap<x>,<y>,<s_x>,<s_y>`** <br>
-    Example: `Ap2,2,2,2` <br>
-    _Creates a AveragePooling2D layer with pool size (2,2) and strides of (2,2)_
+Example: `Ap2,2,2,2` <br>
+_Creates a AveragePooling2D layer with pool size (2,2) and strides of (2,2)_
 <br><br>  
 
 ### **Dropout**:
-Regularization layer that randomly sets input units to 0 with a frequency of `rate` at each step during training time. Used to prevent overfitting.    
 <u>Spec</u>: **`D<rate>`** <br>
-    Example: `Do50` <br>
-    _Creates a Dropout layer with a dropout rate of 0.5 (`D`/100)_
+Regularization layer that randomly sets input units to 0 with a frequency of `rate` at each step during training time. Used to prevent overfitting.
+Example: `Do50` <br>
+_Creates a Dropout layer with a dropout rate of 0.5 (`D`/100)_
 <br><br> 
 
 ---
