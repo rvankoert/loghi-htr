@@ -172,10 +172,8 @@ Regularization layer that randomly sets input units to 0 with a frequency of `ra
 ---
 
 ### Custom blocks:
-* **ResidualBlock**:
+* **ResidualBlock**: TODO
 <br><br>
 
-* **CTCLayer**:
+* **CTCLayer**: TODO
 <br><br>
-
-# CHEAT SHEET TABLE
