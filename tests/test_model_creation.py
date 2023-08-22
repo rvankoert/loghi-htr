@@ -20,18 +20,36 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         1. `test_create_simple_model`: Test model creation with a simple
             VGSL-spec string.
         2. `test_conv2d_layer`: Test model creation with a Conv2D layer.
-        3. `test_maxpool_layer`: Test model creation with a MaxPooling2D layer.
-        4. `test_avgpool_layer`: Test model creation with a AvgPool2D layer.
-        5. `test_reshape_layer`: Test model creation with a Reshape layer.
-        6. `test_fully_connected_layer`: Test model creation with a Fully
-            connected layer.
-        7. `test_lstm_layer`: Test model creation with a LSTM layer.
-        8. `test_gru_layer`: Test model creation with a GRU layer.
-        9. `test_bidirectional_layer`: Test model creation with a Bidirectional
+        3. `test_conv2d_error_handling`: Test error handling for Conv2D layer.
+        4. `test_maxpool_layer`: Test model creation with a MaxPooling2D layer.
+        5. `test_maxpool_error_handling`: Test error handling for
+            MaxPooling2D layer.
+        6. `test_avgpool_layer`: Test model creation with a AvgPool2D layer.
+        7. `test_avgpool_error_handling`: Test error handling for
+            AvgPool2D layer.
+        8. `test_reshape_layer`: Test model creation with a Reshape layer.
+        9. `test_reshape_error_handling`: Test error handling for Reshape
             layer.
-        10. `test_residual_block`: Test model creation with a Residual block.
-        11. `test_dropout_layer`: Test model creation with a Dropout layer.
-        12. `test_output_layer`: Test model creation with an Output layer.
+        10. `test_fully_connected_layer`: Test model creation with a Fully
+            connected layer.
+        11. `test_fully_connected_error_handling`: Test error handling for
+            Fully connected layer.
+        12. `test_lstm_layer`: Test model creation with a LSTM layer.
+        13. `test_lstm_error_handling`: Test error handling for LSTM layer.
+        14. `test_gru_layer`: Test model creation with a GRU layer.
+        15. `test_gru_error_handling`: Test error handling for GRU layer.
+        16. `test_bidirectional_layer`: Test model creation with a
+            Bidirectional layer.
+        17. `test_bidirectional_error_handling`: Test error handling for
+            Bidirectional layer.
+        18. `test_residual_block`: Test model creation with a Residual block.
+        19. `test_residual_block_error_handling`: Test error handling for
+            Residual block.
+        20. `test_dropout_layer`: Test model creation with a Dropout layer.
+        21. `test_dropout_error_handling`: Test error handling for Dropout
+            layer.
+        22. `test_output_layer`: Test model creation with an Output layer.
+        23. `test_output_error_handling`: Test error handling for Output layer.
     """
 
     @classmethod
@@ -111,18 +129,18 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[4].activation, activations.linear)
         self.assertEqual(model.layers[5].activation, activations.softmax)
 
-        # Error handling tests
+    def test_conv2d_error_handling(self):
         # Check that an error is raised when an invalid number of parameters
         # is specified
         vgsl_spec_string = "None,64,None,1 C3,32 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertIn("Conv layer C3,32 has too few parameters.",
                       str(context.exception))
 
         vgsl_spec_string = "None,64,None,1 C3,3,2,2,32,4 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertIn(
             "Conv layer C3,3,2,2,32,4 has too many parameters.",
             str(context.exception))
@@ -131,7 +149,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # specified
         vgsl_spec_string = "None,64,None,1 Cz3,3,32 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual("Invalid activation function specified in Cz3,3,32",
                          str(context.exception))
 
@@ -162,12 +180,12 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(height, output_dimension)
         self.assertEqual(width, output_dimension)
 
-        # Error handling tests
+    def test_maxpool_error_handling(self):
         # Check that an error is raised when an invalid number of parameters
         # is specified
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 Mp2,2,2 O1s10"
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
 
         self.assertEqual(str(context.exception),
                          "MaxPooling layer Mp2,2,2 does not have the expected "
@@ -177,7 +195,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Check that an error is raised when an invalid value is specified
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 Mp-2,2,2,2 O1s10"
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
 
         self.assertEqual(str(context.exception),
                          "Invalid values for pooling or stride in Mp-2,2,2,2. "
@@ -208,12 +226,12 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(height, output_dimension)
         self.assertEqual(width, output_dimension)
 
-        # Error handling tests
+    def test_avgpool_error_handling(self):
         # Check that an error is raised when an invalid number of parameters
         # is specified
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 Ap2,2,2 O1s10"
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
 
         self.assertEqual(str(context.exception),
                          "AvgPool layer Ap2,2,2 does not have the expected "
@@ -223,7 +241,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Check that an error is raised when an invalid value is specified
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 Ap-2,2,2,2 O1s10"
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
 
         self.assertEqual(str(context.exception),
                          "Invalid values for pooling or stride in Ap-2,2,2,2. "
@@ -247,12 +265,12 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         actual_shape = reshape_output.shape
         self.assertEqual(actual_shape, expected_shape)
 
-        # Error handling tests
+    def test_reshape_error_handling(self):
         # Test unexpected format
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 R O1s10"
             model_generator = self.VGSLModelGenerator(vgsl_spec_string)
-            model = model_generator.build()
+            model_generator.build()
         self.assertEqual(str(context.exception),
                          "Reshape layer R is of unexpected format. Expected "
                          "format: Rc.")
@@ -261,7 +279,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             vgsl_spec_string = "None,64,None,1 Rx O1s10"
             model_generator = self.VGSLModelGenerator(vgsl_spec_string)
-            model = model_generator.build()
+            model_generator.build()
         self.assertEqual(str(context.exception),
                          "Reshape operation Rx is not supported.")
 
@@ -286,19 +304,19 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[4].activation, activations.linear)
         self.assertEqual(model.layers[5].activation, activations.softmax)
 
-        # Error handling tests
+    def test_fully_connected_error_handling(self):
         # Test for malformed VGSL specification string for the dense layer
         # No activation
         vgsl_spec_string = "None,64,None,1 F128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Dense layer F128 is of unexpected format. Expected "
                          "format: F(s|t|r|l|m)<d>.")
         # No neurons
         vgsl_spec_string = "None,64,None,1 Fs O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Dense layer Fs is of unexpected format. Expected "
                          "format: F(s|t|r|l|m)<d>.")
@@ -306,14 +324,14 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Test for invalid activation function
         vgsl_spec_string = "None,64,None,1 Fz128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid activation 'z' for Dense layer Fz128.")
 
         # Test for invalid number of neurons (<= 0)
         vgsl_spec_string = "None,64,None,1 Fs-100 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of neurons -100 for Dense layer "
                          "Fs-100.")
@@ -337,11 +355,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].go_backwards, True)
         self.assertEqual(model.layers[2].return_sequences, False)
 
-        # Error handling tests
+    def test_lstm_error_handling(self):
         # Missing direction
         vgsl_spec_string = "None,64,None,1 L128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer L128 is of unexpected format. Expected "
                          "format: L(f|r)[s]<n>.")
@@ -349,7 +367,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid direction
         vgsl_spec_string = "None,64,None,1 Lx128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer Lx128 is of unexpected format. Expected "
                          "format: L(f|r)[s]<n>.")
@@ -357,7 +375,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Missing number of units
         vgsl_spec_string = "None,64,None,1 Lf O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer Lf is of unexpected format. Expected "
                          "format: L(f|r)[s]<n>.")
@@ -365,7 +383,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Lf-128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for LSTM layer Lf-128.")
 
@@ -388,11 +406,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].go_backwards, True)
         self.assertEqual(model.layers[2].return_sequences, False)
 
-        # Error handling tests
+    def test_gru_error_handling(self):
         # Missing direction
         vgsl_spec_string = "None,64,None,1 G128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "GRU layer G128 is of unexpected format. Expected "
                          "format: G(f|r)[s]<n>.")
@@ -400,7 +418,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid direction
         vgsl_spec_string = "None,64,None,1 Gx128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "GRU layer Gx128 is of unexpected format. Expected "
                          "format: G(f|r)[s]<n>.")
@@ -408,7 +426,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Gf-128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for GRU layer Gf-128.")
 
@@ -427,11 +445,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertIsInstance(model.layers[2].layer, layers.LSTM)
         self.assertEqual(model.layers[2].layer.units, 128)
 
-        # Error handling tests
+    def test_bidirectional_error_handling(self):
         # Invalid format
         vgsl_spec_string = "None,64,None,1 Rc B128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer B128 is of unexpected format. Expected "
                          "format: B(g|l)<n> where 'g' stands for GRU, 'l' "
@@ -440,7 +458,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid RNN layer type
         vgsl_spec_string = "None,64,None,1 Rc Bx128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer Bx128 is of unexpected format. Expected "
                          "format: B(g|l)<n> where 'g' stands for GRU, 'l' "
@@ -449,7 +467,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Rc Bg-128 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for layer Bg-128.")
 
@@ -479,11 +497,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Check that conv1 also has strides of 2
         self.assertEqual(model.layers[1].conv1.strides, (2, 2))
 
-        # Error handling tests
+    def test_residual_block_error_handling(self):
         # Invalid format
         vgsl_spec_string = "None,64,None,1 RBd O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer RBd is of unexpected format. Expected format: "
                          "RB[d]<x>,<y>,<d>.")
@@ -491,7 +509,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid parameters (negative values)
         vgsl_spec_string = "None,64,None,1 RB-3,3,-16 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid parameters x=-3, y=3, d=-16 in layer "
                          "RB-3,3,-16. All values should be positive integers.")
@@ -499,7 +517,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Missing parameters
         vgsl_spec_string = "None,64,None,1 RB3,3 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer RB3,3 is of unexpected format. Expected "
                          "format: RB[d]<x>,<y>,<d>.")
@@ -511,11 +529,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertIsInstance(model.layers[1], layers.Dropout)
         self.assertEqual(model.layers[1].rate, 0.5)
 
-        # Error handling tests
+    def test_dropout_error_handling(self):
         # Invalid format
         vgsl_spec_string = "None,64,None,1 D O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer D is of unexpected format. Expected format: "
                          "D<rate> where rate is between 0 and 100.")
@@ -523,14 +541,14 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Invalid dropout rate (negative value)
         vgsl_spec_string = "None,64,None,1 D-50 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Dropout rate must be in the range [0, 100].")
 
         # Invalid dropout rate (value greater than 100)
         vgsl_spec_string = "None,64,None,1 D101 O1s10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Dropout rate must be in the range [0, 100].")
 
@@ -552,18 +570,19 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         # Check that the output layer has the correct number of units
         self.assertEqual(model.layers[-2].units, 5)
 
-        # Error handling tests
+    def test_output_error_handling(self):
         # Invalid format
         vgsl_spec_string = "None,64,None,1 OXs10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
-                         "Layer OXs10 is of unexpected format. Expected format: O[210](l|s)<n>.")
+                         "Layer OXs10 is of unexpected format. Expected "
+                         "format: O[210](l|s)<n>.")
 
         # Invalid linearity
         vgsl_spec_string = "None,64,None,1 O1x10"
         with self.assertRaises(ValueError) as context:
-            model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+            self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Output layer linearity x is not supported.")
 
