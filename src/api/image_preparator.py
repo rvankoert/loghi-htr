@@ -9,8 +9,8 @@ import os
 import tensorflow as tf
 
 # Only use CPU
+# This might produce a warning, but it's fine
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 def image_preparation_worker(request_queue: multiprocessing.Queue,
@@ -60,6 +60,7 @@ def image_preparation_worker(request_queue: multiprocessing.Queue,
             request_queue.task_done()
 
             logger.debug(f"Finished processing image {identifier}")
+            logger.debug(f"{prepared_queue.qsize()} images ready for batch")
 
     except KeyboardInterrupt:
         logger.warning(

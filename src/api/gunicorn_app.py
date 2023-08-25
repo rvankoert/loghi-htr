@@ -3,14 +3,10 @@
 # > Standard library
 import os
 
-# > Local dependencies
-from flask_app import create_app
-from app_utils import get_env_variable, setup_logging
-
 # > Third-party dependencies
 from gunicorn.app.base import BaseApplication
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 class GunicornApp(BaseApplication):
@@ -70,6 +66,11 @@ class GunicornApp(BaseApplication):
 
 
 if __name__ == "__main__":
+    # > Standard library
+    # Import here to set TF_CPP_MIN_LOG_LEVEL before importing TensorFlow
+    from flask_app import create_app
+    from app_utils import get_env_variable, setup_logging
+
     # Set up logging
     logging_level = get_env_variable("LOGGING_LEVEL", "INFO")
     logger = setup_logging(logging_level)

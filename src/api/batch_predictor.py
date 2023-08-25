@@ -4,17 +4,15 @@
 import logging
 import multiprocessing
 from multiprocessing.queues import Empty
+import os
 import sys
 from typing import Callable, List, Tuple
-import os
 
 # > Local dependencies
 
 # > Third-party dependencies
 import tensorflow as tf
 from tensorflow.keras.utils import get_custom_objects
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 def batch_prediction_worker(batch_size: int,
@@ -56,9 +54,11 @@ def batch_prediction_worker(batch_size: int,
 
     # Only use the specified GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
+
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     if physical_devices:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+        for device in physical_devices:
+            tf.config.experimental.set_memory_growth(device, True)
 
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))
@@ -108,7 +108,7 @@ def batch_prediction_worker(batch_size: int,
                     wait_count = 0
                 except Empty:
                     wait_count += 1
-                    logger.debug("Time without new images:"
+                    logger.debug("Time without new images: "
                                  f"{wait_count * TIMEOUT_DURATION} seconds")
 
                     # If we've waited more than the maximum allowed time
@@ -146,7 +146,10 @@ def batch_prediction_worker(batch_size: int,
 
             # Update the total number of predictions made
             total_predictions += len(predictions)
-            logger.debug(f"Predictions: {predictions}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Predictions:")
+                for prediction in predictions:
+                    logger.debug(prediction)
 
             logger.info(
                 f"Made {len(batch_images)} predictions")
@@ -201,6 +204,7 @@ def create_model(model_path: str,
     logger.info("Loading model...")
     model = tf.keras.saving.load_model(model_path)
     logger.info("Model loaded successfully")
+    logger.debug(model.summary())
 
     with open(charlist_path) as file:
         charlist = list(char for char in file.read())
