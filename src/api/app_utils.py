@@ -125,4 +125,6 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
             f"Environment variable {var_name} not set. Using default value: "
             f"{default_value}")
         return default_value
+
+    logger.debug(f"Environment variable {var_name} set to {value}")
     return value

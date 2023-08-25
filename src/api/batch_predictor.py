@@ -7,6 +7,7 @@ from multiprocessing.queues import Empty
 import os
 import sys
 from typing import Callable, List, Tuple
+import gc
 
 # > Local dependencies
 
@@ -20,6 +21,7 @@ def batch_prediction_worker(batch_size: int,
                             model_path: str,
                             charlist_path: str,
                             output_path: str,
+                            num_channels: int,
                             gpus: str = '0'):
     """
     Worker process for batch prediction on images.
@@ -41,6 +43,10 @@ def batch_prediction_worker(batch_size: int,
         Path to the character list file.
     output_path : str
         Path where predictions should be saved.
+    num_channels : int
+        Number of channels desired for the input images (e.g., 1 for grayscale,
+        3 for RGB). This is used to verify that the preparation uses the
+        correct format.
     gpus : str, optional
         IDs of GPUs to be used (comma-separated). Default is '0'.
 
@@ -52,13 +58,19 @@ def batch_prediction_worker(batch_size: int,
     - Logs various messages regarding the batch processing status.
     """
 
+    logger = logging.getLogger(__name__)
+    logger.info("Batch Prediction Worker process started")
+
     # Only use the specified GPU
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
+    logger.debug("Num GPUs Available: ", len(
+        tf.config.experimental.list_physical_devices('GPU')))
 
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     if physical_devices:
         for device in physical_devices:
             tf.config.experimental.set_memory_growth(device, True)
+            logger.debug(device)
 
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))
@@ -68,11 +80,13 @@ def batch_prediction_worker(batch_size: int,
 
     from utils import decode_batch_predictions, normalize_confidence
 
-    logger = logging.getLogger(__name__)
-    logger.info("Batch Prediction Worker process started")
-
-    model, utils = create_model(model_path, charlist_path)
-    logger.info("Model created and utilities initialized")
+    try:
+        model, utils = create_model(model_path, charlist_path, num_channels)
+        logger.info("Model created and utilities initialized")
+    except Exception as e:
+        logger.error(e)
+        logger.error("Error creating model. Exiting...")
+        return
 
     TIMEOUT_DURATION = 1
     MAX_WAIT_COUNT = 3
@@ -155,10 +169,16 @@ def batch_prediction_worker(batch_size: int,
                     logger.debug(prediction)
 
             logger.info(
-                f"Made {len(batch_images)} predictions")
+                f"Made {len(predictions)} predictions")
             logger.info(f"Total predictions: {total_predictions}")
             logger.info(
                 f"{prepared_queue.qsize()} images waiting on prediction")
+
+            # Clear the batch images to free up memory
+            logger.debug("Clearing batch images and predictions")
+            del batch_images
+            del predictions
+            gc.collect()
 
     except KeyboardInterrupt:
         logger.warning(
@@ -166,7 +186,8 @@ def batch_prediction_worker(batch_size: int,
 
 
 def create_model(model_path: str,
-                 charlist_path: str) -> Tuple[tf.keras.Model, object]:
+                 charlist_path: str,
+                 num_channels: int) -> Tuple[tf.keras.Model, object]:
     """
     Load a pre-trained model and create utility methods.
 
@@ -176,6 +197,9 @@ def create_model(model_path: str,
         Path to the pre-trained model file.
     charlist_path : str
         Path to the character list file.
+    num_channels : int
+        Number of channels desired for the input images (e.g., 1 for grayscale,
+        3 for RGB).
 
     Returns
     -------
@@ -207,6 +231,12 @@ def create_model(model_path: str,
     logger.info("Loading model...")
     model = tf.keras.saving.load_model(model_path)
     logger.info("Model loaded successfully")
+
+    model_channels = model.input_shape[3]
+    if model_channels != num_channels:
+        raise ValueError(
+            f"Model expects {model_channels} channels, but {num_channels} "
+            "were provided")
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(model.summary())
@@ -282,6 +312,11 @@ def batch_predict(model: tf.keras.Model,
     logger.info("Making predictions...")
     encoded_predictions = model(images)
     logger.debug("Predictions made")
+
+    # Clear the session to free up memory
+    logger.debug("Clearing session...")
+    tf.keras.backend.clear_session()
+    logger.debug("Session cleared")
 
     logger.debug("Decoding predictions...")
     decoded_predictions = decoder(encoded_predictions, utils)[0]

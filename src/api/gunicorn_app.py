@@ -89,6 +89,7 @@ if __name__ == "__main__":
     num_channels = int(get_env_variable("LOGHI_MODEL_CHANNELS"))
     batch_size = int(get_env_variable("LOGHI_BATCH_SIZE", "256"))
     output_path = get_env_variable("LOGHI_OUTPUT_PATH")
+    max_queue_size = int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000"))
 
     # Get GPU options from environment variables
     logger.info("Getting GPU options from environment variables")
@@ -110,7 +111,8 @@ if __name__ == "__main__":
             batch_size,
             output_path,
             gpus,
-            num_channels),
+            num_channels,
+            max_queue_size),
         options)
 
     gunicorn_app.run()

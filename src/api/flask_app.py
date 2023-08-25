@@ -20,7 +20,8 @@ def create_app(model_path: str,
                batch_size: int,
                output_path: str,
                gpus: str,
-               num_channels: int) -> Flask:
+               num_channels: int,
+               max_queue_size: int) -> Flask:
     """
     Create and configure a Flask app for image prediction.
 
@@ -43,6 +44,9 @@ def create_app(model_path: str,
     num_channels : int
         Number of channels desired for the input images (e.g., 1 for grayscale,
         3 for RGB).
+    max_queue_size : int
+        Maximum number of images to be stored in the request queue. Increasing
+        this number will increase the memory usage.
 
     Returns
     -------
@@ -63,6 +67,7 @@ def create_app(model_path: str,
 
     # Register error handler
     app.register_error_handler(ValueError, errors.handle_invalid_usage)
+    app.register_error_handler(405, errors.method_not_allowed)
 
     # Register blueprints
     app.register_blueprint(main)
@@ -70,8 +75,8 @@ def create_app(model_path: str,
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
     manager = Manager()
-    app.request_queue = manager.JoinableQueue()
-    app.prepared_queue = manager.JoinableQueue()
+    app.request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+    app.prepared_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
@@ -86,7 +91,7 @@ def create_app(model_path: str,
     app.prediction_process = Process(
         target=batch_prediction_worker,
         args=(batch_size, app.prepared_queue, model_path,
-              charlist_path, output_path, gpus),
+              charlist_path, output_path, num_channels, gpus),
         name="Batch Prediction Process")
     app.prediction_process.start()
 
@@ -95,7 +100,7 @@ def create_app(model_path: str,
 
 if __name__ == '__main__':
     # Set up logging
-    logger = setup_logging(logging.DEBUG)
+    logger = setup_logging("INFO")
 
     # Get Loghi-HTR options from environment variables
     logger.info("Getting Loghi-HTR options from environment variables")
@@ -103,10 +108,19 @@ if __name__ == '__main__':
     charlist_path = get_env_variable("LOGHI_CHARLIST_PATH")
     batch_size = int(get_env_variable("LOGHI_BATCH_SIZE", "256"))
     output_path = get_env_variable("LOGHI_OUTPUT_PATH")
+    max_queue_size = int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000"))
+    num_channels = int(get_env_variable("LOGHI_MODEL_CHANNELS"))
 
     # Get GPU options from environment variables
     logger.info("Getting GPU options from environment variables")
     gpus = get_env_variable("LOGHI_GPUS", "0")
 
-    app = create_app(model_path, charlist_path, batch_size, output_path, gpus)
+    app = create_app(
+        model_path,
+        charlist_path,
+        batch_size,
+        output_path,
+        gpus,
+        num_channels,
+        max_queue_size)
     app.run(debug=True)

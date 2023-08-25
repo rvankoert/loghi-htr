@@ -2,18 +2,20 @@
 
 # > Standard library
 import datetime
+from multiprocessing.queues import Full
 
 # > Local dependencies
 from app_utils import extract_request_data
 
 # > Third party dependencies
+import flask
 from flask import Blueprint, jsonify, current_app as app
 
 main = Blueprint('main', __name__)
 
 
 @main.route('/predict', methods=['POST'])
-def predict():
+def predict() -> flask.Response:
     """
     Endpoint to receive image data and queue it for prediction.
 
@@ -47,14 +49,36 @@ def predict():
     app.logger.debug(f"Data received: {group_id}, {identifier}")
 
     app.logger.debug(f"Adding {identifier} to queue")
-    app.request_queue.put((image_file, group_id, identifier))
+
+    try:
+        app.request_queue.put((image_file, group_id, identifier), block=True,
+                              timeout=30)
+    except Full:
+        response = jsonify({
+            "status": "error",
+            "code": 503,
+            "message": "The server is currently processing a high volume of "
+                       "requests. Please try again later.",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "group_id": group_id,
+            "identifier": identifier,
+        })
+
+        response.status_code = 503
+
+        app.logger.error("Request queue is full.")
+
+        return response
 
     response = jsonify({
         "status": "Request received",
+        "code": 202,
         "message": "Your request is being processed",
         "timestamp": datetime.datetime.now().isoformat(),
         "group_id": group_id,
-        "identifier": identifier
+        "identifier": identifier,
     })
 
-    return response, 202
+    response.status_code = 202
+
+    return response
