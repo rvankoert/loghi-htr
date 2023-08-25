@@ -142,6 +142,9 @@ def batch_prediction_worker(batch_size: int,
             except Exception as e:
                 logger.error(e)
                 logger.error("Error making predictions. Skipping batch.")
+                logger.error("Failed batch:")
+                for image in batch_images:
+                    logger.error(image[2])
                 predictions = []
 
             # Update the total number of predictions made
@@ -204,7 +207,9 @@ def create_model(model_path: str,
     logger.info("Loading model...")
     model = tf.keras.saving.load_model(model_path)
     logger.info("Model loaded successfully")
-    logger.debug(model.summary())
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(model.summary())
 
     with open(charlist_path) as file:
         charlist = list(char for char in file.read())
