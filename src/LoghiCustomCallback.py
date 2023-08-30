@@ -21,16 +21,6 @@ class LoghiCustomCallback(keras.callbacks.Callback):
             with open(os.path.join(outputdir, 'config.json'), 'w') as file:
                 file.write(json.dumps(self.metadata))
 
-    # def on_train_batch_end(self, batch, logs=None):
-    #     print(
-    #         "Up to batch {}, the average loss is {:7.2f}.".format(batch, logs["loss"])
-    #     )
-
-    # def on_test_batch_end(self, batch, logs=None):
-    #     print(
-    #         "Up to batch {}, the average loss is {:7.2f}.".format(batch, logs["loss"])
-    #     )
-
     def on_epoch_end(self, epoch, logs=None):
         print(
             "The average loss for epoch {} is {:7.2f} "

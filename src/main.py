@@ -12,7 +12,7 @@ import uuid
 # > Local dependencies
 from arg_parser import get_args
 from DataLoaderNew import DataLoaderNew
-from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
+from Model import replace_final_layer, replace_recurrent_layer, train_batch
 from utils import Utils, normalize_confidence, decode_batch_predictions
 from vgsl_model_generator import VGSLModelGenerator
 
@@ -203,9 +203,6 @@ def main():
                     elif args.freeze_dense_layers and layer.name.startswith("dense"):
                         print(layer.name)
                         layer.trainable = False
-
-            if args.reset_dropout:
-                set_dropout(model, args.set_dropout)
 
         else:
             # save characters of model for inference mode

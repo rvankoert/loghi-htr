@@ -4,8 +4,6 @@ from __future__ import print_function
 import random
 import numpy as np
 import cv2
-import tensorflow as tf
-
 
 def noisy(image):
 	row,col = image.shape
@@ -20,19 +18,6 @@ def noisy(image):
 		coords = [np.random.randint(0, i - 1, int(num_salt))
 		for i in image.shape]
 		out[tuple(coords)] = np.random.randint(0,255)
-
-
-#	# Salt mode
-#	num_salt = np.ceil(amount * image.size * s_vs_p)
-#	coords = [np.random.randint(0, i - 1, int(num_salt))
-#	for i in image.shape]
-#	out[coords] = 255
-#
- #     # Pepper mode
-#	num_pepper = np.ceil(amount* image.size * (1. - s_vs_p))
-#	coords = [np.random.randint(0, i - 1, int(num_pepper))
-#	for i in image.shape]
-#	out[coords] = 0
 	return out
 
 def preprocess(img, imgSize, dataAugmentation=False):
@@ -79,31 +64,17 @@ def preprocess(img, imgSize, dataAugmentation=False):
 	img = img / s if s>0 else img
 
 	xoffset, yoffset = newSize
-#	xoffset = int(random.random() * (wt-xoffset))
-#	yoffset = int(random.random() * (ht-yoffset))
 	target = np.ones([ht, wt]) * 255
-#	yoffset = 0
-#	print (yoffset)
+
 	yoffset = int(0.5 * (ht-yoffset))
-#	print (ht)
-#	print (yoffset)
-	xoffset = int((wt-xoffset)/2) # center in the middle
 	xoffset = 0
-#	yoffset = 0
 	if dataAugmentation:
 		img = noisy(img)
 		target[yoffset:newSize[1]+yoffset, xoffset:newSize[0]+xoffset] = img
-#		target[0:newSize[1], 0:newSize[0]] = img
 	else:
-#		xoffset, yoffset = newSize
-#		xoffset = int( (wt-xoffset)/2)
-#		yoffset = int((ht-yoffset)/2)
-
-#		target[yoffset:newSize[1]+yoffset, xoffset:newSize[0]+xoffset] = img
 		target[0:newSize[1], 0:newSize[0]] = img
 	# transpose for TF
 	target = cv2.transpose(target)
-#	target = tf.transpose(target, perm=[1, 0])
 	print (target.shape)
 	return target
 

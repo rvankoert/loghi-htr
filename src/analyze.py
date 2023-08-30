@@ -41,7 +41,6 @@ def analyzePixelRelevance():
 
     # read image and specify ground-truth text
     img = cv2.imread(Constants.fnAnalyze, cv2.IMREAD_GRAYSCALE)
-    # img = preprocess(cv2.imread(Constants.fnAnalyze, cv2.IMREAD_GRAYSCALE), Model.imgSize)
     (wt, ht) = Model.imgSize
     (h, w) = img.shape
     fx = w / wt
@@ -50,14 +49,8 @@ def analyzePixelRelevance():
     newSize = (max(min(wt, int(w / f)), 1),
                max(min(ht, int(h / f)), 1))  # scale according to f (result at least 1 and at most wt or ht)
     img = cv2.resize(img, newSize)
-    #       xoffset, yoffset = newSize
-    #       xoffset = int(random.random() * (wt-xoffset))
-    #       yoffset = int(random.random() * (ht-yoffset))
     target = np.ones([ht, wt]) * 255
 
-    #       if dataAugmentation:
-    #               target[yoffset:newSize[1]+yoffset, xoffset:newSize[0]+xoffset] = img
-    #       else:
     target[0:newSize[1], 0:newSize[0]] = img
     img = target
 
