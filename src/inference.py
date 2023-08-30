@@ -2,7 +2,13 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
+import argparse
+import cv2
+import editdistance
+from Model import Model, CERMetric, WERMetric
 from DataLoader import DataLoader
+from SamplePreprocessor import preprocess
 import numpy as np
 import tensorflow.keras as keras
 import tensorflow as tf
@@ -90,6 +96,15 @@ def main():
             # for i in range(16):
             print(orig_texts[i].strip())
             print(pred_texts[i].strip())
+
+
+# 		img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
+# 		img = img.T
+# 		title = f"Prediction: {pred_texts[i].strip()}"
+# 		ax[i // 4, i % 4].imshow(img, cmap="gray")
+# 		ax[i // 4, i % 4].set_title(title)
+# 		ax[i // 4, i % 4].axis("off")
+# plt.show()
 
 if __name__ == '__main__':
     main()
