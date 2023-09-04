@@ -346,9 +346,6 @@ def main():
         counter = 0
         pred_counter = 0
 
-        #Init lists to keep track of CER metrics across training
-        totalcer_history, totalcerlower_history, totalcersimple_history  = [],[],[]
-
         wbs = None
         if args.corpus_file:
             if not os.path.exists(args.corpus_file):
@@ -478,21 +475,26 @@ def main():
         totalcer = totaleditdistance / float(totallength)
         totalcerlower = totaleditdistance_lower / float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
+        certainty = 95
         if wbs:
             totalcerwbssimple = totaleditdistance_wbs_simple / \
                 float(totallength_simple)
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
 
-        print('totalcer: ' + str(totalcer) + " ("+str(round(calc_confidence_interval(totalcer,pred_counter),4))
-              +" conf. radius, lower limit = "+ str(round(totalcer-(calc_confidence_interval(totalcer,pred_counter)),4))
-              +" upper limit = " +str(round(totalcer+(calc_confidence_interval(totalcer,pred_counter)),4)) + ")")
-        print('totalcerlower: ' + str(totalcerlower) + " (+-"+str(round(calc_confidence_interval(totalcerlower,pred_counter),4))
-              +" conf. radius, lower limit = "+ str(round(totalcerlower-(calc_confidence_interval(totalcerlower,pred_counter)),4))
-              +" upper limit = " +str(round(totalcerlower+(calc_confidence_interval(totalcerlower,pred_counter)),4)) + ")")
-        print('totalcersimple: ' + str(totalcersimple) + " (+-"+str(round(calc_confidence_interval(totalcersimple,pred_counter),4))
-              +" conf. radius, lower limit = "+ str(round(totalcersimple-(calc_confidence_interval(totalcersimple,pred_counter)),4))
-              +" upper limit = " +str(round(totalcersimple+(calc_confidence_interval(totalcersimple,pred_counter)),4)) + ")")
+        totalcer_lower = round(totalcer-(calc_confidence_interval(totalcer,pred_counter, certainty)),4)
+        totalcer_upper = round(totalcer+(calc_confidence_interval(totalcer,pred_counter, certainty)),4)
+        totalcerlower_lower = round(totalcerlower-(calc_confidence_interval(totalcerlower,pred_counter, certainty)),4)
+        totalcerlower_upper = round(totalcerlower+(calc_confidence_interval(totalcerlower,pred_counter, certainty)),4)
+        totalcersimple_lower = round(totalcersimple-(calc_confidence_interval(totalcersimple,pred_counter, certainty)),4)
+        totalcersimple_upper = round(totalcersimple+(calc_confidence_interval(totalcersimple,pred_counter, certainty)),4)
+
+        print('totalcer: ' + str(totalcer) + "("+ str(certainty)+"%"+" certainty that totalcer is between "
+              + str(totalcer_lower) +" and " +str(totalcer_upper) + ")")
+        print('totalcerlower: ' + str(totalcerlower) + "("+ str(certainty)+"%"+" certainty that totalcerlower is between "
+              + str(totalcerlower_lower) +" and " +str(totalcerlower_upper) + ")")
+        print('totalcersimple: ' + str(totalcersimple) + "("+ str(certainty)+"%"+" certainty that totalcersimple is between "
+              + str(totalcersimple_lower)+" and " +str(totalcersimple_upper) + ")")
 
         if wbs:
             print('totalcerwbs: ' + str(totalcerwbs))
