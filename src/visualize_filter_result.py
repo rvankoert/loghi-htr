@@ -149,7 +149,7 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
+    if not layer.name.lower().startswith("conv") and not layer.name.startswith("add"):
         continue
     feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
     # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
@@ -178,7 +178,6 @@ for layerId in range(len(submodel.layers)):
     training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
     inference_dataset = inference_generator
-
     batch_counter = 0
     for batch in inference_dataset:
         if batch_counter > 10:
