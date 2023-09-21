@@ -2,7 +2,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-from DataLoader import DataLoader
+from data_loader import DataLoader
 import numpy as np
 import tensorflow.keras as keras
 import tensorflow as tf

@@ -9,8 +9,8 @@ import copy
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from Model import Model
-from SamplePreprocessor import preprocess
+from model import Model
+from sample_processor import preprocess
 
 
 # constants like filepaths

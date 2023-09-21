@@ -2,7 +2,7 @@ import math
 import os
 
 import utils
-from Model import CTCLoss, CERMetric, WERMetric
+from model import CTCLoss, CERMetric, WERMetric
 from utils import *
 
 
@@ -84,6 +84,7 @@ MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
 MODEL_PATH = "../model-all-val_loss-22.38509"
 MODEL_PATH = "../model-new7-128-batch32"
 MODEL_PATH = "../model-current"
+MODEL_PATH = "/home/luke/ai_development/public-models/loghi-htr/float32-generic-2023-02-15"
 
 
 if args.existing_model:

@@ -1,6 +1,0 @@
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l2.png	lem in de korte veerstraat, ons vervoegt
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l4.png	wonende meede binnen deze Stad in de g
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l8.png	verzogt betaling van de vorenstaande
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l11.png	„zelve binnen een maand voldoen„
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l10.png	gaf, ik ben nu niet bij kas maar zal de
-test/files/testset/NL-HlmNHA_1617_1604_0384/NL-HlmNHA_1617_1604_0384.xml-r1l13.png	boven wel expresselyk hebben geprotesteer

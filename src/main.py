@@ -11,8 +11,8 @@ import uuid
 
 # > Local dependencies
 from arg_parser import get_args
-from DataLoaderNew import DataLoaderNew
-from Model import replace_final_layer, replace_recurrent_layer, train_batch
+from data_loader import DataLoader
+from model import replace_final_layer, replace_recurrent_layer, train_batch
 from utils import Utils, normalize_confidence, decode_batch_predictions
 from vgsl_model_generator import VGSLModelGenerator
 
@@ -49,7 +49,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
-    from Model import CERMetric, WERMetric, CTCLoss
+    from model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
     strategy = tf.distribute.MirroredStrategy()
@@ -113,7 +113,7 @@ def main():
                 with open(charlist_location) as file:
                     char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
-        loader = DataLoaderNew(args.batch_size, img_size,
+        loader = DataLoader(args.batch_size, img_size,
                                train_list=args.train_list,
                                validation_list=args.validation_list,
                                test_list=args.test_list,
@@ -130,11 +130,6 @@ def main():
                                distort_jpeg=args.distort_jpeg,
                                replace_final_layer=args.replace_final_layer,
                                normalize_text=args.normalize_text,
-                               use_lmdb=args.use_lmdb,
-                               reuse_old_lmdb_train=args.reuse_old_lmdb_train,
-                               reuse_old_lmdb_val=args.reuse_old_lmdb_val,
-                               reuse_old_lmdb_test=args.reuse_old_lmdb_test,
-                               reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
                                use_mask=args.use_mask,
                                do_random_shear=args.do_random_shear
                                )
@@ -504,7 +499,7 @@ def main():
     if args.do_inference:
         print('inferencing')
         print(char_list)
-        loader = DataLoaderNew(args.batch_size,
+        loader = DataLoader(args.batch_size,
                                img_size,
                                char_list,
                                inference_list=args.inference_list,

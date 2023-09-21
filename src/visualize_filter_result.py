@@ -4,12 +4,10 @@ import os
 from config import *
 import utils
 
-from DataLoaderNew import DataLoaderNew
-from Model import CERMetric, WERMetric, CTCLoss
-from DataGenerator import DataGenerator
+from data_loader import DataLoaderNew
+from model import CERMetric, WERMetric, CTCLoss
 from utils import *
 import tensorflow.keras as keras
-import tensorflow.keras.backend as K
 
 import numpy as np
 import tensorflow as tf
@@ -149,7 +147,7 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
         continue
     feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
     # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
@@ -165,6 +163,10 @@ for layerId in range(len(submodel.layers)):
         all_imgs.append(img)
 
     char_list = None
+    # char_list_path = MODEL_PATH+"/charlist.txt"
+    # with open(char_list_path) as f:
+    #     char_list = f.readlines()
+
     maxTextLen = 128
     loader = DataLoaderNew(args.batch_size, imgSize,
                            train_list=None,
@@ -185,21 +187,9 @@ for layerId in range(len(submodel.layers)):
             print('breaking')
             break
         item = batch[0]
-        # print(item)
-        # item = dataGenerator.encode_single_sample_clean(item, "none")
-        # item = tf.expand_dims(
-        #     item, 0
-        # )
-
-        # print (item)
         i = i + 1
 
         X = item
-        # X = tf.transpose(X, perm=[1, 0, 2])
-
-        # Rendering
-        # img1 = tf.keras.preprocessing.image.array_to_img(X[0])
-
         maps = get_feature_maps(submodel, layerId, X[0])
 
         # Normalised [0,1]
