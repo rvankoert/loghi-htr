@@ -215,7 +215,7 @@ def create_model(model_path: str,
     - Logs various messages regarding the model and utility initialization.
     """
 
-    from Model import CERMetric, WERMetric, CTCLoss
+    from model import CERMetric, WERMetric, CTCLoss
     from utils import Utils
 
     logger = logging.getLogger(__name__)

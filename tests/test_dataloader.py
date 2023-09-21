@@ -17,14 +17,14 @@ class DataLoaderTest(unittest.TestCase):
 
     Test Coverage:
         1. `test_initialization`: Checks the correct instantiation of the
-        DataLoaderNew class and its default values.
+        DataLoader class and its default values.
         2. `test_create_data_simple`: Checks if the create_data function
         works as expected.
         3. `test_missing_files`: Tests the behavior when data lists contain
         references to non-existent files.
         4. `test_unsupported_chars`: Validates the handling of labels with
         unsupported characters.
-        5. `test_inference_mode`: Checks the DataLoaderNew"s behavior in
+        5. `test_inference_mode`: Checks the DataLoader"s behavior in
         inference mode.
         6. `test_text_normalization`: Verifies the correct normalization of
         text labels.
@@ -72,8 +72,8 @@ class DataLoaderTest(unittest.TestCase):
                                        cls.sample_labels):
                 f.write(f"{img_path}.png\t{label}\n")
 
-        from DataLoaderNew import DataLoaderNew
-        cls.DataLoader = DataLoaderNew
+        from data_loader import DataLoader
+        cls.DataLoader = DataLoader
 
         from utils import Utils
         cls.Utils = Utils
@@ -106,9 +106,9 @@ class DataLoaderTest(unittest.TestCase):
                               "DataLoader not instantiated correctly")
 
         # Check the values
-        self.assertEqual(data_loader.batchSize, batch_size,
-                         f"batchSize not set correctly. Expected: "
-                         f"{batch_size}, got: {data_loader.batchSize}")
+        self.assertEqual(data_loader.batch_size, batch_size,
+                         f"batch_size not set correctly. Expected: "
+                         f"{batch_size}, got: {data_loader.batch_size}")
         self.assertEqual(data_loader.imgSize, img_size,
                          f"imgSize not set correctly. Expected: "
                          f"{img_size}, got: {data_loader.imgSize}")
