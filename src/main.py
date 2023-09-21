@@ -194,10 +194,10 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.startswith("Conv"):
+                    elif args.freeze_conv_layers and layer.name.startswith("conv"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional_"):
+                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional"):
                         print(layer.name)
                         layer.trainable = False
                     elif args.freeze_dense_layers and layer.name.startswith("dense"):

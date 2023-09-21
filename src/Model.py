@@ -251,7 +251,7 @@ def replace_recurrent_layer(model, number_characters, use_mask=False, use_gru=Fa
     initializer = tf.keras.initializers.GlorotNormal()
     last_layer = ""
     for layer in model.layers:
-        if layer.name.startswith('bidirectional_'):
+        if layer.name.startswith('bidirectional'):
             break
         last_layer = layer.name
 
@@ -311,8 +311,9 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
     initializer = tf.keras.initializers.GlorotNormal()
     last_layer = ""
     for layer in model.layers:
-        if layer.name == "dense3":
-            break
+        if layer.name.startswith("dense") or \
+                layer.name.startswith("activation"):
+            continue
         last_layer = layer.name
 
     prediction_model = keras.models.Model(
@@ -320,10 +321,10 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
             name=last_layer).output
     )
     if use_mask:
-        x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+        x = layers.Dense(number_characters + 2, activation="softmax", name="dense_replaced",
                          kernel_initializer=initializer)(prediction_model.output)
     else:
-        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense_replaced",
                          kernel_initializer=initializer)(prediction_model.output)
     output = layers.Activation('linear', dtype=tf.float32)(x)
     model = keras.models.Model(
