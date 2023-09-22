@@ -40,7 +40,7 @@ python3 -m pip install .
 
 ```bash
 git clone https://github.com/rvankoert/loghi-htr.git
-cd loghi-htr/src/
+cd loghi-htr
 python3 -m pip install -r requirements.txt
 ```
 
@@ -117,8 +117,8 @@ python3 main.py
 ```bash
 CUDA_VISIBLE_DEVICES=0 
 python3 main.py 
---existing_model path/to/existing/model 
---charlist path/to/existing/model/charlist.txt
+--existing_model /path/to/existing/model 
+--charlist /path/to/existing/model/charlist.txt
 --do_inference 
 --inference_list "inference_lines_1.txt"
 --height 64 
