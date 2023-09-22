@@ -10,9 +10,8 @@ from loghi_custom_callback import LoghiCustomCallback
 import keras.backend as K
 from keras.callbacks import ReduceLROnPlateau
 import tensorflow as tf
-from tensorflow import keras, Tensor
+from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.layers import Add, Conv2D, ELU, BatchNormalization
 from tensorflow.python.ops import math_ops, array_ops, ctc_ops
 from tensorflow.python.framework import dtypes as dtypes_module
 from tensorflow.python.keras import backend_config
@@ -23,37 +22,6 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 epsilon = backend_config.epsilon
-
-
-def elu_bn(inputs: Tensor) -> Tensor:
-    elu = ELU()(inputs)
-    bn = BatchNormalization()(elu)
-    return bn
-
-
-def residual_block(x, downsample, filters, kernel_size, initializer) -> Tensor:
-    y = Conv2D(kernel_size=kernel_size,
-               strides=((1, 1) if not downsample else (2, 2)),
-               filters=filters,
-               padding="same",
-               activation='elu',
-               kernel_initializer=initializer)(x)
-    y = Conv2D(kernel_size=kernel_size,
-               strides=(1, 1),
-               filters=filters,
-               padding="same",
-               activation='elu',
-               kernel_initializer=initializer)(y)
-    if downsample:
-        x = Conv2D(kernel_size=(1, 1),
-                   strides=(2, 2),
-                   filters=filters,
-                   padding="same",
-                   activation='elu',
-                   kernel_initializer=initializer)(x)
-    out = Add()([x, y])
-    out = elu_bn(out)
-    return out
 
 
 def ctc_batch_cost(y_true, y_pred, input_length, label_length):
@@ -88,6 +56,7 @@ def ctc_batch_cost(y_true, y_pred, input_length, label_length):
             sequence_length=input_length,
             ignore_longer_outputs_than_inputs=True),
         1)
+
 
 class CERMetric(tf.keras.metrics.Metric):
     """
@@ -277,6 +246,8 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
     return model
 
 # # Train the model
+
+
 def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                 early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
                 metadata=None, charlist=None):
