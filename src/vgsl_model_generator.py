@@ -102,7 +102,6 @@ class VGSLModelGenerator:
         self._initializer = initializers.GlorotNormal(seed=42)
         self._channel_axis = -1
         self.model_library = VGSLModelGenerator.get_model_libary()
-        self.model_name = name if name else model
 
         if model is None:
             raise ValueError("No model provided. Please provide a model name "
@@ -115,6 +114,8 @@ class VGSLModelGenerator:
                 self.init_model_from_string(model_string,
                                             channels,
                                             output_classes)
+                self.model_name = name if name else model
+
             except KeyError:
                 raise KeyError("Model not found in model library")
         else:
@@ -123,9 +124,7 @@ class VGSLModelGenerator:
                 self.init_model_from_string(model,
                                             channels,
                                             output_classes)
-
-                # TODO: Add model_name argument to arg_parser.py
-                self.model_name = "custom_model"
+                self.model_name = name if name else "custom_model"
 
             except (TypeError, AttributeError) as e:
                 raise ("Something is wrong with the input string, "

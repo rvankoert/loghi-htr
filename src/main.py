@@ -205,6 +205,7 @@ def main():
             print("creating new model")
             model_generator = VGSLModelGenerator(
                 model=args.model,
+                name=args.model_name,
                 channels=model_channels,
                 output_classes=len(char_list) + 2
                 if args.use_mask else len(char_list) + 1
