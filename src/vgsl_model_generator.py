@@ -99,11 +99,14 @@ class VGSLModelGenerator:
             operations.
         """
 
-        super().__init__()
         self._initializer = initializers.GlorotNormal(seed=42)
         self._channel_axis = -1
         self.model_library = VGSLModelGenerator.get_model_libary()
         self.model_name = name if name else model
+
+        if model is None:
+            raise ValueError("No model provided. Please provide a model name "
+                             "from the model library or a VGSL-spec string.")
 
         if model.startswith("model"):
             try:

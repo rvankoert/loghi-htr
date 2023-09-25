@@ -9,6 +9,7 @@ Loghi HTR also works on machine printed text.
 1. [Installation](#installation)
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
+4. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
 
@@ -73,9 +74,9 @@ The command-line options include, but are not limited to:
 - `--do_train`: Enable the training stage.
 - `--do_validate`: Enable the validation stage.
 - `--do_inference`: Perform inference.
-- `--train_list`: List of files containing training data. Format: `path/to/textline/image <TAB> transcription`.
-- `--validation_list`: List of files containing validation data. Format: `path/to/textline/image <TAB> transcription`.
-- `--inference_list`: List of files containing data to perform inference on. Format: `path/to/textline/image`.
+- `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
+- `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
+- `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
 - `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
 - `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
 - `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
@@ -84,6 +85,8 @@ The command-line options include, but are not limited to:
 - `--use_mask`: Enable when using `batch_size` > 1.
 - `--results_file`: The inference results are aggregated in this file.
 - `--config_file_output`: The output location of the config.
+- `--replace_recurrent_layer`: Specifies the [VGSL string](#variable-size-graph-specification-language-vgsl) to define the architecture of the recurrent layers that will replace the recurrent layers of an existing model. This argument is required when you want to modify the recurrent layers of a model specified by `--existing_model`. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lf64" describes two LSTM layers with 128 and 64 units respectively. When using this argument, ensure that `--existing_model` is also provided to specify the model whose recurrent layers you want to replace.
+- `--replace_final_layer`: Enables the replacement of the final dense layer of an existing model. This is useful when you want to adjust the number of output characters or change the masking option without modifying the rest of the model. When this argument is used, the model specified by `--existing_model` will have its final dense layer replaced with a new one. The number of output units will be adjusted based on the value of `number_characters` and whether the `--use_mask` option is enabled.
 
 For detailed options and configurations, you can also refer to the help command:
 
@@ -253,4 +256,25 @@ In this example, the string defines a neural network with input layers, convolut
 #### Custom blocks:
 - **ResidualBlock**: Documentation in progress.
 - **CTCLayer**: Documentation in progress.
+
+## FAQ
+
+If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
+
+### How do I use `replace_recurrent_layer`?
+
+The `replace_recurrent_layer` is a feature that allows you to replace the recurrent layers of an existing model with a new architecture defined by a VGSL string. To use it:
+
+1. Specify the model you want to modify using the `--existing_model` argument.
+2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
+3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
+4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
+
+### I'm getting the following error when I want to use `replace_recurrent_layer`: `Input 0 of layer "lstm_1" is incompatible with the layer: expected ndim=3, found ndim=2.` What do I do?
+
+This error usually indicates that there is a mismatch in the expected input dimensions of the LSTM layer. Often, this is because the VGSL spec for the recurrent layers is missing the `[s]` argument, which signifies that the layer should return sequences.
+
+To resolve this:
+- Ensure that your VGSL string for the LSTM layer has an `s` in it, which will make the layer return sequences. For instance, instead of "Lf128", use "Lfs128".
+- Re-run the script or command with the corrected VGSL string.
 
