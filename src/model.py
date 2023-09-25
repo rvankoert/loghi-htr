@@ -1,10 +1,12 @@
 # Imports
 
 # > Standard library
+import logging
 import os
 
 # > Local dependencies
 from loghi_custom_callback import LoghiCustomCallback
+from vgsl_model_generator import VGSLModelGenerator
 
 # > Third party dependencies
 import keras.backend as K
@@ -16,6 +18,7 @@ from tensorflow.python.ops import math_ops, array_ops, ctc_ops
 from tensorflow.python.framework import dtypes as dtypes_module
 from tensorflow.python.keras import backend_config
 
+logger = logging.getLogger(__name__)
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 for gpu in gpus:
@@ -162,60 +165,88 @@ def CTCLoss(y_true, y_pred):
     return loss
 
 
-def replace_recurrent_layer(model, number_characters, use_mask=False, use_gru=False,
-                            rnn_layers=2, rnn_units=256, use_rnn_dropout=True, dropout_rnn=0.5):
+def replace_recurrent_layer(model: keras.Model,
+                            number_characters: int,
+                            vgsl_string: str,
+                            use_mask: bool = False) -> keras.Model:
+    """
+    Replace recurrent layers in a given Keras model with new layers specified
+    by a VGSL string.
+
+    Parameters
+    ----------
+    model : keras.Model
+        The original Keras model in which recurrent layers need to be replaced.
+    number_characters : int
+        The number of characters/classes for the Dense layer before the
+        activation.
+    vgsl_string : str
+        The VGSL spec string that defines the new layers to replace the
+        recurrent ones.
+    use_mask : bool, optional
+        Whether to use masking for the Dense layer. If True, an additional unit
+        is added.
+        Default is False.
+
+    Returns
+    -------
+    keras.Model
+        A new Keras model with the recurrent layers replaced by those specified
+        in the VGSL string.
+
+    Raises
+    ------
+    ValueError:
+        If no recurrent layers are found in the given model.
+    """
+
+    logging.info("Starting the replacement of recurrent layers in the model.")
+
     initializer = tf.keras.initializers.GlorotNormal()
-    last_layer = ""
+
+    # Identify layers up to the first recurrent layer
+    last_layer = None
     for layer in model.layers:
-        if layer.name.startswith('bidirectional_'):
+        if isinstance(layer, (layers.GRU, layers.LSTM, layers.Bidirectional)):
             break
-        last_layer = layer.name
+        last_layer = layer
 
-    prediction_model = keras.models.Model(
-        model.get_layer(name="image").input, model.get_layer(
-            name=last_layer).output
-    )
-    if not use_rnn_dropout:
-        dropout_rnn = 0
-    x = prediction_model.output
-    for i in range(1, rnn_layers + 1):
-        if use_gru:
-            recurrent = layers.GRU(
-                units=rnn_units,
-                # activation=activation,
-                recurrent_activation="sigmoid",
-                recurrent_dropout=0,
-                unroll=False,
-                use_bias=True,
-                return_sequences=True,
-                kernel_initializer=initializer,
-                reset_after=True,
-                name=f"gru_{i}",
-                dropout=dropout_rnn,
-            )
-        else:
-            recurrent = layers.LSTM(rnn_units,
-                                    # activation=activation,
-                                    return_sequences=True,
-                                    kernel_initializer=initializer,
-                                    name=f"lstm_{i}",
-                                    dropout=dropout_rnn,
-                                    )
+    if last_layer is None:
+        logging.error("No recurrent layers found in the model.")
+        raise ValueError("No recurrent layers found in the model.")
 
-        x = layers.Bidirectional(
-            recurrent, name=f"bidirectional_{i}", merge_mode="concat"
-        )(x)
+    # Generate new layers using VGSLModelGenerator
+    logging.info("Generating new layers using VGSLModelGenerator.")
+    vgsl_gen = VGSLModelGenerator(vgsl_string)
 
+    logging.debug(f"VGSLModelGenerator history: {vgsl_gen.history}")
+
+    # Add the new layers to the model
+    x = last_layer.output
+    for layer_name in vgsl_gen.history:
+        new_layer = getattr(vgsl_gen, layer_name)
+        x = new_layer(x)
+
+    dense_layer_name = model.layers[-2].name
     if use_mask:
-        x = layers.Dense(number_characters + 2, activation="softmax", name="dense3",
+        x = layers.Dense(number_characters + 2,
+                         activation="softmax",
+                         name=dense_layer_name,
                          kernel_initializer=initializer)(x)
     else:
-        x = layers.Dense(number_characters + 1, activation="softmax", name="dense3",
+        x = layers.Dense(number_characters + 1,
+                         activation="softmax",
+                         name=dense_layer_name,
                          kernel_initializer=initializer)(x)
     output = layers.Activation('linear', dtype=tf.float32)(x)
+
+    old_model_name = model.name
     model = keras.models.Model(
-        inputs=prediction_model.inputs, outputs=output, name="model_new8"
+        inputs=model.input, outputs=output, name=old_model_name
     )
+
+    logging.info(
+        f"Recurrent layers replaced successfully in model: {old_model_name}.")
 
     return model
 

@@ -11,6 +11,7 @@ from custom_layers import CTCLayer, ResidualBlock
 import tensorflow as tf
 from tensorflow.keras import layers, models, initializers, Input
 
+
 class VGSLModelGenerator:
     """
     Generates a VGSL (Variable-size Graph Specification Language) model based
@@ -157,10 +158,19 @@ class VGSLModelGenerator:
         logging.info("Initializing model")
         self.history = []
         self.selected_model_vgsl_spec = vgsl_spec_string.split()
-        self.inputs = self.make_input_layer(self.selected_model_vgsl_spec[0],
-                                            channels)
 
-        for index, layer in enumerate(self.selected_model_vgsl_spec[1:]):
+        # Check if the first layer is an input layer
+        pattern = r'^(None|\d+),(None|\d+),(None|\d+),(None|\d+)$'
+        if re.match(pattern, self.selected_model_vgsl_spec[0]):
+            self.inputs = self.make_input_layer(
+                self.selected_model_vgsl_spec[0], channels)
+            starting_index = 1
+        else:
+            self.inputs = None
+            starting_index = 0
+
+        for index, layer in \
+                enumerate(self.selected_model_vgsl_spec[starting_index:]):
             logging.debug(layer)
             if layer.startswith('C'):
                 setattr(self, f"conv2d{index}", self.conv2d_generator(layer))
@@ -217,6 +227,10 @@ class VGSLModelGenerator:
         """
 
         logging.info("Building model for: %s", self.selected_model_vgsl_spec)
+        if self.inputs is None:
+            raise ValueError("No input layer found. Please check the "
+                             "VGSL-spec string.")
+
         x = self.inputs
         for index, layer in enumerate(self.history):
             if layer.startswith("reshape"):

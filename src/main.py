@@ -34,6 +34,7 @@ def set_deterministic(args):
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
+
 def main():
     # Set up logging
     logging.basicConfig(
@@ -114,25 +115,25 @@ def main():
                     char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
         loader = DataLoader(args.batch_size, img_size,
-                               train_list=args.train_list,
-                               validation_list=args.validation_list,
-                               test_list=args.test_list,
-                               inference_list=args.inference_list,
-                               char_list=char_list,
-                               do_binarize_sauvola=args.do_binarize_sauvola,
-                               do_binarize_otsu=args.do_binarize_otsu,
-                               multiply=args.multiply,
-                               augment=args.augment,
-                               elastic_transform=args.elastic_transform,
-                               random_crop=args.random_crop,
-                               random_width=args.random_width,
-                               check_missing_files=args.check_missing_files,
-                               distort_jpeg=args.distort_jpeg,
-                               replace_final_layer=args.replace_final_layer,
-                               normalize_text=args.normalize_text,
-                               use_mask=args.use_mask,
-                               do_random_shear=args.do_random_shear
-                               )
+                            train_list=args.train_list,
+                            validation_list=args.validation_list,
+                            test_list=args.test_list,
+                            inference_list=args.inference_list,
+                            char_list=char_list,
+                            do_binarize_sauvola=args.do_binarize_sauvola,
+                            do_binarize_otsu=args.do_binarize_otsu,
+                            multiply=args.multiply,
+                            augment=args.augment,
+                            elastic_transform=args.elastic_transform,
+                            random_crop=args.random_crop,
+                            random_width=args.random_width,
+                            check_missing_files=args.check_missing_files,
+                            distort_jpeg=args.distort_jpeg,
+                            replace_final_layer=args.replace_final_layer,
+                            normalize_text=args.normalize_text,
+                            use_mask=args.use_mask,
+                            do_random_shear=args.do_random_shear
+                            )
 
         print("creating generators")
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
@@ -168,12 +169,8 @@ def main():
             if args.replace_recurrent_layer:
                 model = replace_recurrent_layer(model,
                                                 len(char_list),
-                                                use_mask=args.use_mask,
-                                                use_gru=args.use_gru,
-                                                rnn_layers=args.rnn_layers,
-                                                rnn_units=args.rnn_units,
-                                                use_rnn_dropout=args.use_rnn_dropout,
-                                                dropout_rnn=args.dropout_rnn)
+                                                args.replace_recurrent_layer,
+                                                use_mask=args.use_mask)
 
             if args.replace_final_layer:
                 with open(output_charlist_location, 'w') as chars_file:
@@ -477,19 +474,25 @@ def main():
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
 
-        totalcer_lower = round(totalcer-(calc_confidence_interval(totalcer,pred_counter, certainty)),4)
-        totalcer_upper = round(totalcer+(calc_confidence_interval(totalcer,pred_counter, certainty)),4)
-        totalcerlower_lower = round(totalcerlower-(calc_confidence_interval(totalcerlower,pred_counter, certainty)),4)
-        totalcerlower_upper = round(totalcerlower+(calc_confidence_interval(totalcerlower,pred_counter, certainty)),4)
-        totalcersimple_lower = round(totalcersimple-(calc_confidence_interval(totalcersimple,pred_counter, certainty)),4)
-        totalcersimple_upper = round(totalcersimple+(calc_confidence_interval(totalcersimple,pred_counter, certainty)),4)
+        totalcer_lower = round(
+            totalcer-(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
+        totalcer_upper = round(
+            totalcer+(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
+        totalcerlower_lower = round(
+            totalcerlower-(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
+        totalcerlower_upper = round(
+            totalcerlower+(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
+        totalcersimple_lower = round(
+            totalcersimple-(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+        totalcersimple_upper = round(
+            totalcersimple+(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
 
-        print('totalcer: ' + str(totalcer) + "("+ str(certainty)+"%"+" certainty that totalcer is between "
-              + str(totalcer_lower) +" and " +str(totalcer_upper) + ")")
-        print('totalcerlower: ' + str(totalcerlower) + "("+ str(certainty)+"%"+" certainty that totalcerlower is between "
-              + str(totalcerlower_lower) +" and " +str(totalcerlower_upper) + ")")
-        print('totalcersimple: ' + str(totalcersimple) + "("+ str(certainty)+"%"+" certainty that totalcersimple is between "
-              + str(totalcersimple_lower)+" and " +str(totalcersimple_upper) + ")")
+        print('totalcer: ' + str(totalcer) + "(" + str(certainty)+"%"+" certainty that totalcer is between "
+              + str(totalcer_lower) + " and " + str(totalcer_upper) + ")")
+        print('totalcerlower: ' + str(totalcerlower) + "(" + str(certainty)+"%"+" certainty that totalcerlower is between "
+              + str(totalcerlower_lower) + " and " + str(totalcerlower_upper) + ")")
+        print('totalcersimple: ' + str(totalcersimple) + "(" + str(certainty)+"%"+" certainty that totalcersimple is between "
+              + str(totalcersimple_lower)+" and " + str(totalcersimple_upper) + ")")
 
         if wbs:
             print('totalcerwbs: ' + str(totalcerwbs))
@@ -500,13 +503,13 @@ def main():
         print('inferencing')
         print(char_list)
         loader = DataLoader(args.batch_size,
-                               img_size,
-                               char_list,
-                               inference_list=args.inference_list,
-                               check_missing_files=args.check_missing_files,
-                               normalize_text=args.normalize_text,
-                               use_mask=args.use_mask
-                               )
+                            img_size,
+                            char_list,
+                            inference_list=args.inference_list,
+                            check_missing_files=args.check_missing_files,
+                            normalize_text=args.normalize_text,
+                            use_mask=args.use_mask
+                            )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Get the prediction model by taking the last dense layer of the full
@@ -595,6 +598,7 @@ def store_info(args, model):
     with open(config_file_output, 'w') as configuration_file:
         json.dump(config, configuration_file)
 
+
 def calc_confidence_interval(cer_metric, n, certainty=95):
     """ Calculates the binomial confidence radius of the given metric
     based on the num of samples (n) and a provided certainty number (either 90/95/98/99) out of 100
@@ -607,8 +611,9 @@ def calc_confidence_interval(cer_metric, n, certainty=95):
         95: 1.96,
         98: 2.33,
         99: 2.58
-        }
+    }
     return sig_levels.get(certainty) * ((cer_metric*(1-cer_metric))/n) ** 0.5
+
 
 if __name__ == '__main__':
     main()
