@@ -206,12 +206,14 @@ def replace_recurrent_layer(model: keras.Model,
 
     # Identify layers up to the first recurrent layer
     last_layer = None
+    found_rnn = False
     for layer in model.layers:
         if isinstance(layer, (layers.GRU, layers.LSTM, layers.Bidirectional)):
+            found_rnn = True
             break
         last_layer = layer
 
-    if last_layer is None:
+    if not found_rnn:
         logging.error("No recurrent layers found in the model.")
         raise ValueError("No recurrent layers found in the model.")
 
