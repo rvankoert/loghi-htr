@@ -9,6 +9,7 @@ Loghi HTR also works on machine printed text.
 1. [Installation](#installation)
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
+4. [API Usage Guide](#api-usage-guide)
 4. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
@@ -256,6 +257,80 @@ In this example, the string defines a neural network with input layers, convolut
 #### Custom blocks:
 - **ResidualBlock**: Documentation in progress.
 - **CTCLayer**: Documentation in progress.
+
+## API Usage Guide
+
+This guide walks you through the process of setting up and running the API, as well as how to interact with it.
+
+### 1. Setting up the API
+
+Navigate to the `src/api` directory in your project:
+
+```bash
+cd src/api
+```
+
+#### Starting the API
+
+You have the choice to run the API using either `gunicorn` (recommended) or `flask`. To start the server:
+
+Using `gunicorn`:
+
+```bash
+python3 gunicorn_app.py
+```
+
+Or using `flask`:
+
+```bash
+python3 flask_app.py
+```
+
+#### Environment Variables Configuration
+
+Before running the app, you must set several environment variables. The app fetches configurations from these variables:
+
+**Gunicorn Options:**
+
+```bash
+GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
+GUNICORN_WORKERS         # Default: "1": Number of worker processes.
+GUNICORN_THREADS         # Default: "1": Number of threads per worker.
+GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
+```
+
+**Loghi-HTR Options:**
+
+```bash
+LOGHI_MODEL_PATH         # Path to the model.
+LOGHI_CHARLIST_PATH      # Path to the character list.
+LOGHI_MODEL_CHANNELS     # Number of channels in the model.
+LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
+LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
+LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+```
+
+**GPU Options:**
+
+```bash
+LOGHI_GPUS               # Default: "0": GPU configuration.
+```
+
+You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh`.
+
+### 2. Interacting with the running API
+
+Once the API is up and running, you can send HTR requests using curl. Here's how:
+
+```bash
+curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
+```
+
+Replace `$input_path`, `$group_id`, and `$filename` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
+
+---
+
+This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
 
 ## FAQ
 
