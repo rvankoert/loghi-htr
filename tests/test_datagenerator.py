@@ -5,7 +5,7 @@ import numpy as np
 
 # > Standard library
 import logging
-import os
+from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch, ANY
@@ -36,14 +36,8 @@ class TestDataGenerator(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        # Determine the directory of this file
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
-
-        # Assuming the tests directory is at the root of your project,
-        # get the project root
-        project_root = os.path.abspath(os.path.join(current_file_dir, ".."))
-        src_dir = os.path.join(project_root, "src")
-        sys.path.append(src_dir)
+        # Add the src directory to the path
+        sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
         from data_generator import DataGenerator
         cls.DataGenerator = DataGenerator

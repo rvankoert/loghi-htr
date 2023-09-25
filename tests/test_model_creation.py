@@ -9,6 +9,7 @@ from tensorflow.keras import activations
 # > Standard library
 import logging
 import unittest
+from pathlib import Path
 import sys
 
 
@@ -54,7 +55,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        sys.path.append("./src")
+        sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
         # Set up logging
         logging.basicConfig(

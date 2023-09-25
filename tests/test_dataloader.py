@@ -3,6 +3,7 @@
 # > Standard library
 import logging
 import os
+from pathlib import Path
 import sys
 import tempfile
 import unittest
@@ -44,16 +45,19 @@ class DataLoaderTest(unittest.TestCase):
         )
 
         # Determine the directory of this file
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
+        current_file_dir = Path(__file__).resolve().parent
 
-        # Assuming the tests directory is at the root of your project,
-        # get the project root
-        project_root = os.path.abspath(os.path.join(current_file_dir, ".."))
-        src_dir = os.path.join(project_root, "src")
-        sys.path.append(src_dir)
+        # Get the project root
+        if current_file_dir.name == "tests":
+            project_root = current_file_dir.parent
+        else:
+            project_root = current_file_dir
+
+        # Add 'src' directory to sys.path
+        sys.path.append(str(project_root / 'src'))
 
         # Set paths for data and model directories
-        cls.data_dir = os.path.join(project_root, "tests", "data")
+        cls.data_dir = project_root / "tests" / "data"
 
         cls.sample_image_paths = [os.path.join(
             cls.data_dir, f"test-image{i+1}") for i in range(3)]
@@ -292,7 +296,7 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.test_list = self._create_temp_file()
         data_loader.inference_list = self._create_temp_file()
 
-        training_generator, validation_generator, test_generator,\
+        training_generator, validation_generator, test_generator, \
             inference_generator, utils, train_batches\
             = data_loader.generators()
 

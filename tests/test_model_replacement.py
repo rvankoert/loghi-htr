@@ -6,16 +6,46 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 # > Standard library
+from pathlib import Path
 import sys
 import logging
 import unittest
 
 
 class TestReplaceLayers(unittest.TestCase):
+    """
+    Tests for the `replace_recurrent_layer` function in the `model` module.
+
+    The tests are designed to check that the function correctly replaces RNN
+    layers in a model with the layers specified in the VGSL string. The
+    function should also correctly handle dropout layers specified in the VGSL
+    string.
+
+    Test coverage:
+        1. `test_rnn_replacement_simple`: Test that the function correctly
+            replaces a simple LSTM layer with the layers specified in the VGSL
+            string.
+        2. `test_rnn_replacement_gru`: Test that the function correctly
+            replaces a GRU layer with the layers specified in the VGSL string.
+        3. `test_rnn_replacement_lstm`: Test that the function correctly
+            replaces a LSTM layer with the layers specified in the VGSL string.
+        4. `test_rnn_replacement_bidirectional`: Test that the function
+            correctly replaces a Bidirectional LSTM layer with the layers
+            specified in the VGSL string.
+        5. `test_rnn_replacement_multiple`: Test that the function correctly
+            replaces multiple RNN layers with the layers specified in the VGSL
+            string.
+        6. `test_rnn_replacement_with_dropout`: Test that the function
+            correctly replaces RNN layers with the layers specified in the VGSL
+            string, and also correctly handles dropout layers.
+        7. `test_no_rnn_error_handling`: Test that the function correctly
+            raises a ValueError when no RNN layers are found in the model.
+    """
+
     @classmethod
     def setUpClass(cls):
         # Add the path to the project to the system path
-        sys.path.append("./src")
+        sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
         # Set up logging
         logging.basicConfig(
