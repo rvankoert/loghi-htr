@@ -6,18 +6,11 @@
 
 # import the necessary packages
 import os
-from keras.applications import ResNet50
-from tensorflow.keras.utils import img_to_array
-from keras.applications import imagenet_utils
-from PIL import Image
-import numpy as np
 import flask
-import io
 import tensorflow as tf
 import keras
-from Model import Model, CERMetric, WERMetric, CTCLoss
+from Model import CERMetric, WERMetric, CTCLoss
 from tensorflow.keras.utils import get_custom_objects
-from DataGeneratorNew import DataGeneratorNew
 from utils import Utils
 from utils import decode_batch_predictions
 from utils import normalize_confidence
@@ -39,18 +32,20 @@ app = flask.Flask(__name__)
 # app = app()
 
 model = None
-modelPath = '/home/rutger/src/loghi-htr-models/generic_new_17_2023_05_25_4channel'
-charlist_path = '/home/rutger/src/loghi-htr-models/generic_new_17_2023_05_25_4channel/charlist.txt'
+modelPath = '/home/tim/Documents/loghi-models/generic-2023-02-15/'
+charlist_path = '/home/tim/Documents/loghi-models/generic-2023-02-15/charlist.txt'
 beam_width = 10
 greedy = True
 app_locker = AppLocker()
 batch_size = 64
 COUNT = 0
-output_path = '/tmp/output/loghi-htr'
+output_path = '/home/tim/Downloads/temp/'
+
 
 def increment():
     global COUNT
     COUNT = COUNT+1
+
 
 def load_model():
     global model
@@ -132,7 +127,8 @@ def process(line_queue):
         batch = tf.convert_to_tensor(batch)
     predictions = model.predict_on_batch(batch)
     with app_locker._lock3:
-        predicted_texts = decode_batch_predictions(predictions, AppLocker.utils, greedy, beam_width)
+        predicted_texts = decode_batch_predictions(
+            predictions, AppLocker.utils, greedy, beam_width)
     # print('processing')
     text = ""
     for prediction in predicted_texts:
@@ -202,7 +198,7 @@ def predict():
             # if request.files.get("image"):
             image = request.files["image"].read()
             image = tf.io.decode_jpeg(image, channels=CHANNELS)
-            
+
             # preprocess the image and prepare it for classification
             # print(image.shape)
             # while line_queue.qsize() > batch_size:
@@ -211,7 +207,6 @@ def predict():
 
             image = prepare_image(identifier, image)
             result = line_queue.put((group_id, identifier, image))
-
 
             # indicate that the request was a success
             data["success"] = True
@@ -226,6 +221,7 @@ def get_environment_var(name, default):
         return os.environ[name]
     else:
         return default
+
 
 def read_environment():
     global modelPath

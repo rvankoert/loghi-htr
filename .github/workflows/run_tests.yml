@@ -1,0 +1,51 @@
+name: Run Tests
+
+on: [push, pull_request]
+
+jobs:
+  unittests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.8
+
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-glx
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r src/requirements.txt
+
+    - name: Test utils
+      run: |
+        python -m unittest tests/test_utils.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
+    - name: Test DataGeneratorNew2
+      if: always()
+      run: |
+        python -m unittest tests/test_datagenerator.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
+    - name: Test DataLoaderNew
+      if: always()
+      run: |
+        python -m unittest tests/test_dataloader.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
+    - name: Test model creation
+      if: always()
+      run: |
+        python -m unittest tests/test_model_creation.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'

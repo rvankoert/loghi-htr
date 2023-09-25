@@ -1,224 +1,34 @@
-from __future__ import division
-from __future__ import print_function
+# Imports
 
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# > Standard library
+from __future__ import division, print_function
 import json
-
-from matplotlib import use
-from word_beam_search import WordBeamSearch
-from DataLoaderNew import DataLoaderNew
-from utils import decode_batch_predictions
-from utils import normalize_confidence
-import re
-
-import numpy as np
+import logging
 import random
-import argparse
-import editdistance
+import re
 import subprocess
-import matplotlib.pyplot as plt
-from utils import Utils
 import uuid
 
-def get_arg_parser():
-    parser = argparse.ArgumentParser(
-        description='Loghi HTR Core. Provides deep learning for Handwritten Text Recognition.')
-    parser.add_argument('--seed', metavar='seed', type=int, default=42,
-                        help='random seed to be used')
-    parser.add_argument('--gpu', metavar='gpu', type=str, default=-1,
-                        help='gpu to be used, use -1 for CPU')
-    parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.0003,
-                        help='learning_rate to be used, default 0.0003')
-    parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
-                        help='epochs to be used, default 40')
-    parser.add_argument('--batch_size', metavar='batch_size', type=int, default=4,
-                        help='batch_size to be used, default 4')
-    # parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
-    #                     help='num_workers')
-    parser.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
-                        help='max_queue_size')
-    parser.add_argument('--height', metavar='height', type=int, default=64,
-                        help='rescale everything to this height before training, default 64')
-    parser.add_argument('--width', metavar='width', type=int, default=65536,
-                        help='maximum width to be used. This should be a high number and generally does not need to '
-                             'be changed')
-    parser.add_argument('--channels', metavar='channels', type=int, default=3,
-                        help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
-                             '4 for png\'s with transparency')
-    # parser.add_argument('--memory_limit', metavar='memory_limit ', type=int, default=0,
-    #                     help='deprecated: memory_limit for gpu in MB. Default 0 for unlimited, in general keep this 0')
+# > Local dependencies
+from arg_parser import get_args
+from DataLoaderNew import DataLoaderNew
+from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
+from utils import Utils, normalize_confidence, decode_batch_predictions
+from vgsl_model_generator import VGSLModelGenerator
 
-    parser.add_argument('--do_train', help='enable the training. Use this flag if you want to train.',
-                        action='store_true')
-    parser.add_argument('--do_validate', help='if enabled a separate validation run will be done', action='store_true')
-    parser.add_argument('--do_inference', help='inference', action='store_true')
+# > Third party dependencies
+import editdistance
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
+from word_beam_search import WordBeamSearch
 
-    parser.add_argument('--output', metavar='output', type=str, default='output',
-                        help='base output to be used')
-    parser.add_argument('--train_list', metavar='train_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for training. You can use '
-                             'multiple input files quoted and space separated "training_file1.txt '
-                             'training_file2.txt"to combine training sets.')
-    parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for validation. You can use '
-                             'multiple input files quoted and space separated "validation_file1.txt '
-                             'validation_file2.txt"to combine validation sets.')
-    parser.add_argument('--test_list', metavar='test_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for testing. You can use '
-                             'multiple input files quoted and space separated "test_file1.txt test_file2.txt"to '
-                             'combine testing sets.')
-    parser.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
-                        help='use this file containing textline location+transcription for inferencing. You can use '
-                             'multiple input files quoted and space separated "inference_file1.txt '
-                             'inference_file2.txt"to combine inferencing sets.')
-
-    parser.add_argument('--existing_model', metavar='existing_model ', type=str, default=None,
-                        help='continue training/validation/testing/inferencing from this model as a starting point.')
-    parser.add_argument('--model_name', metavar='model_name ', type=str, default=None,
-                        help='use model_name in the output')
-    parser.add_argument('--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
-    parser.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
-                        action='store_true')
-    parser.add_argument('--results_file', metavar='results_file', type=str, default='output/results.txt',
-                        help='results_file. When inferencing the results are stored at this location.')
-    parser.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
-                        help='config_file_output')
-
-    parser.add_argument('--greedy', help='use greedy ctc decoding. beam_width will be ignored', action='store_true')
-    parser.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
-                        help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
-                             'slower. Default 10')
-    parser.add_argument('--decay_steps', metavar='decay_steps', type=int, default=-1,
-                        help='decay_steps. default -1. After this number of iterations the learning rate will '
-                             'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches / 1 epoch')
-    parser.add_argument('--decay_rate', type=float, default=0.99,
-                        help='beta: decay_rate. Default 0.99. disables learning rate decay when set to 0')
-
-    parser.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
-                        help='steps_per_epoch. default None')
-    parser.add_argument('--model', metavar='model ', type=str, default=None,
-                        help='Model to use')
-    parser.add_argument('--batch_normalization', help='batch_normalization', action='store_true')
-    parser.add_argument('--charlist', metavar='charlist ', type=str, default=None,
-                        help='Charlist to use')
-    parser.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
-                        help='output_charlist to use')
-    parser.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new '
-                                              'model', action='store_true')
-    parser.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model '
-                                                  'if creating a new model', action='store_true')
-    parser.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=5,
-                        help='number of rnn layers to use in the recurrent part. default 5')
-    parser.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=256,
-                        help='numbers of units in each rnn_layer. default 256')
-    parser.add_argument('--do_binarize_otsu', action='store_true',
-                        help='beta: do_binarize_otsu')
-    parser.add_argument('--do_binarize_sauvola', action='store_true',
-                        help='beta: do_binarize_sauvola')
-    parser.add_argument('--multiply', metavar='multiply ', type=int, default=1,
-                        help='multiply training data, default 1')
-
-    parser.add_argument('--replace_final_layer', action='store_true',
-                        help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
-                             'using an existing model')
-    parser.add_argument('--replace_recurrent_layer', action='store_true',
-                        help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. '
-                             'Additionally replaces final layer as well.')
-    parser.add_argument('--thaw', action='store_true',
-                        help='beta: thaw. thaws conv layers, only usable with existing_model')
-    parser.add_argument('--freeze_conv_layers', action='store_true',
-                        help='beta: freeze_conv_layers. Freezes conv layers, only usable with existing_model')
-    parser.add_argument('--freeze_recurrent_layers', action='store_true',
-                        help='beta: freeze_recurrent_layers. Freezes recurrent layers, only usable with existing_model')
-    parser.add_argument('--freeze_dense_layers', action='store_true',
-                        help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
-    parser.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
-                        help='optimizer.')
-
-    parser.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
-                        help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in '
-                             'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
-    parser.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
-                        help='beta: corpus_file to use, enables WordBeamSearch')
-    parser.add_argument('--wbs_smoothing', metavar='corpus_file ', type=float, default=0.1,
-                        help='beta: smoothing to use when using word beam search')
-    # Data augmentations
-    parser.add_argument('--elastic_transform', action='store_true',
-                        help='beta: elastic_transform, currently disabled')
-    parser.add_argument('--random_crop', action='store_true',
-                        help='beta: broken. random_crop')
-    parser.add_argument('--random_width', action='store_true',
-                        help='data augmentation option: random_width, stretches the textline horizontally to random width')
-    parser.add_argument('--distort_jpeg', action='store_true',
-                        help='beta: distort_jpeg')
-    parser.add_argument('--do_random_shear', action='store_true',
-                        help='beta: do_random_shear')
-
-    parser.add_argument('--augment', action='store_true',
-                        help='beta: apply data augmentation to training set. In general this is a good idea')
-
-    parser.add_argument('--dropout_rnn', type=float, default=0.5,
-                        help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
-    parser.add_argument('--dropout_recurrent_dropout', type=float, default=0,
-                        help='beta: dropout_recurrent_dropout. Default 0. This is terribly slow on GPU as there is no support in cuDNN RNN ops')
-    parser.add_argument('--reset_dropout', action='store_true',
-                        help='beta: reset_dropout')
-    parser.add_argument('--set_dropout', type=float, default=0.5,
-                        help='beta: set_dropout')
-    parser.add_argument('--dropout_dense', type=float, default=0.5,
-                        help='beta: dropout_dense')
-    parser.add_argument('--dropoutconv', type=float, default=0.0,
-                        help='beta: set_dropout')
-    parser.add_argument('--ignore_lines_unknown_character', action='store_true',
-                        help='beta: ignore_lines_unknown_character. Ignores during training/validation lines that '
-                             'contain characters that are not in charlist.')
-    parser.add_argument('--check_missing_files', action='store_true',
-                        help='beta: check_missing_files')
-    parser.add_argument('--use_float32', action='store_true',
-                        help='beta: use_float32')
-    parser.add_argument('--early_stopping_patience', type=int, default=20,
-                        help='beta: early_stopping_patience')
-    parser.add_argument('--normalize_text', action='store_true',
-                        help='')
-    parser.add_argument('--use_lmdb', action='store_true',
-                        help='use lmdb to store images, this might be faster for more epochs')
-    parser.add_argument('--reuse_old_lmdb_train', type=str, help='path of the folder of lmdb for training data')
-    parser.add_argument('--reuse_old_lmdb_val', type=str, help='path of the folder of lmdb for validation data')
-    parser.add_argument('--reuse_old_lmdb_test', type=str, help='path of the folder of lmdb for test data')
-    parser.add_argument('--reuse_old_lmdb_inference', type=str, help='path of the folder of lmdb for inference data')
-    parser.add_argument('--deterministic', action='store_true',
-                        help='beta: deterministic mode (reproducible results')
-    parser.add_argument('--output_checkpoints', action='store_true',
-                        help='Continuously output checkpoints after each epoch. Default only best_val is saved')
-    parser.add_argument('--no_auto', action='store_true',
-                        help='No Auto disabled automatic "fixing" of certain parameters')
-    parser.add_argument('--cnn_multiplier', type=int, default=4,
-                        help='beta: cnn_multiplier')
-    return parser
+# > Environment
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-def fix_args(args):
-    if not args.no_auto and args.train_list:
-        print('do_train implied by providing a train_list')
-        args.__dict__['do_train'] = True
-    if not args.no_auto and args.batch_size > 1:
-        print('batch_size > 1, setting use_mask=True')
-        args.__dict__['use_mask'] = True
-
-
-def get_args():
-    parser = get_arg_parser()
-    args = parser.parse_args()
-    # TODO: use config
-    dictionary = args.__dict__
-    fix_args(args)
-    print(dictionary)
-
-    return args
-
-
-def set_deterministic():
+def set_deterministic(args):
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -226,23 +36,25 @@ def set_deterministic():
 
 
 def main():
+    # Set up logging
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%d/%m/%Y %H:%M:%S",
+        level=logging.INFO,
+    )
 
     args = get_args()
     if args.deterministic:
-        set_deterministic()
+        set_deterministic(args)
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
-    from Model import Model, CERMetric, WERMetric, CTCLoss
+    from Model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
-    import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
-    if args.gpu != '-1':
-        gpus = tf.config.experimental.list_physical_devices('GPU')
 
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
@@ -287,139 +99,39 @@ def main():
             get_custom_objects().update({"CTCLoss": CTCLoss})
 
             model = keras.models.load_model(args.existing_model)
+
+            if args.use_float32 or args.gpu == '-1':
+                # Recreate the exact same model but with float32
+                config = model.get_config()
+
+                # Set the dtype policy for each layer in the configuration
+                for layer_config in config['layers']:
+                    if 'dtype' in layer_config['config']:
+                        layer_config['config']['dtype'] = 'float32'
+                    if 'dtype_policy' in layer_config['config']:
+                        layer_config['config']['dtype_policy'] = {
+                            'class_name': 'Policy',
+                            'config': {'name': 'float32'}}
+
+                # Create a new model from the modified configuration
+                model_new = keras.Model.from_config(config)
+                model_new.set_weights(model.get_weights())
+
+                model = model_new
+
+                # Verify float32
+                for layer in model.layers:
+                    assert layer.dtype_policy.name == 'float32'
+
             if not args.replace_final_layer:
                 model_channels = model.layers[0].input_shape[0][3]
 
-            if False:
-                policy = tf.keras.mixed_precision.Policy('float32')
-                tf.keras.mixed_precision.set_global_policy(policy)
-                print(model.summary())
-                previouslayer = None
-                inputs = None
-                counter = 0
-                dictionary = {}
-                for layer in model.layers:
-                    counter += 1
-                    if layer.name == 'image':
-                        model_channels = model.layers[0].input_shape[0][3]
-                        model_height = model.layers[0].input_shape[0][2]
-                        model_width = model.layers[0].input_shape[0][1]
-                        new_layer = tf.keras.layers.Input(
-                            shape=(model_width, model_height, model_channels), name="image"
-                        )
-
-                        inputs = new_layer
-                    elif layer.name.startswith('bidirectional'):
-
-                        # print('bidirectional')
-                        recurrent = None
-                        if layer.layer.name.startswith('lstm'):
-                            recurrent = tf.keras.layers.LSTM(layer.layer.units,
-                                               activation=layer.layer.activation,
-                                               return_sequences=layer.layer.return_sequences,
-                                               kernel_initializer=layer.layer.kernel_initializer,
-                                               name=layer.layer.name,
-                                               dropout=layer.layer.dropout,
-                                               recurrent_dropout=layer.layer.recurrent_dropout
-                                               )
-                        else:
-                            print(layer.layer.name)
-
-                        new_layer = tf.keras.layers.Bidirectional(
-                            recurrent, name=layer.name, merge_mode=layer.merge_mode
-                        )(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        # print(layer.layer.name)
-                    elif layer.name.startswith('dropout'):
-                        # print('dropout')
-                        new_layer = tf.keras.layers.Dropout(layer.rate, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                    elif layer.name.startswith('reshape'):
-                        new_layer = tf.keras.layers.Reshape(target_shape=layer.target_shape, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                        # print('reshape')
-                    elif layer.name.startswith('dense3'):
-                        new_layer = tf.keras.layers.Dense(layer.units, activation=layer.activation, name=layer.name,
-                                     kernel_initializer=layer.kernel_initializer)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        # print('dense3')
-                    elif layer.name.startswith('conv2d'):
-                        # print('conv2d')
-                        new_layer = tf.keras.layers.Conv2D(kernel_size=layer.kernel_size,
-                                                           strides=layer.strides,
-                                                           filters=layer.filters,
-                                                           padding=layer.padding,
-                                                           activation=layer.activation,
-                                                           name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                    elif layer.name.startswith('elu'):
-                        # print('elu')
-                        new_layer = tf.keras.layers.ELU(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-
-                    elif layer.name.startswith('batch_normalization'):
-                        # print(model.get_layer(layer.name).name.split('/')[0])
-                        # print(model.get_layer(layer.name).input[0].name)
-                        # print(model.get_layer(layer.name).input.name.split('/')[0])
-                        # input = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
-                        # print(input)
-                        new_layer = tf.keras.layers.BatchNormalization(name=model.get_layer(layer.name).name.split('/')[0])(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                    elif layer.name.startswith('add'):
-                        # print(layer.get_config())
-                        # print(layer.submodules)
-                        # print(model.get_layer(layer.name).input[0].name.split('/')[0])
-                        input1 = dictionary[model.get_layer(layer.name).input[0].name.split('/')[0]]
-                        input2 = dictionary[model.get_layer(layer.name).input[1].name.split('/')[0]]
-                        new_layer = tf.keras.layers.Add()([input1, input2])
-                        # print('add')
-                    elif layer.name.startswith('activation'):
-                        # print('activation')
-                        new_layer = tf.keras.layers.Activation('linear', dtype=tf.float32, name=layer.name)(dictionary[model.get_layer(layer.name).input.name.split('/')[0]])
-                        output = new_layer
-                    else:
-                        print(layer)
-                        print(layer.compute_dtype)
-                        print(layer.name)
-                        print(layer.input_spec)
-                        exit()
-                    print(layer.compute_dtype)
-
-                    dictionary[new_layer.name.split('/')[0]] = new_layer
-                    # print(dictionary)
-                    # print(layer.name)
-                    # print(new_layer.name)
-                    # if not previouslayer is None:
-                    #     new_layer = new_layer(previouslayer)
-                    previouslayer = new_layer
-
-                    # if layer.compute_dtype =='float16':
-                    #     layer.
-
-                new_model = keras.models.Model(
-                    inputs=inputs, outputs=output, name=model.name
-                )
-
-                print(new_model.summary())
-                new_model.set_weights(model.get_weights())
-                print('saved as 32 bit')
-
-                new_model.save('/tmp/testmodel')
-                exit()
-                modelClass = Model()
-                new_model = modelClass.build_model_new10((64, None, 1), 455,
-                                                         use_mask=True,
-                                                         use_gru=False,
-                                                         rnn_units=512,
-                                                         rnn_layers=5,
-                                                         batch_normalization=True,
-                                                         dropout=True,
-                                                         use_rnn_dropout=False)
-                new_model.set_weights(model.get_weights())
-                new_model.save('/tmp/testmodel')
-                print('saved as 32 bit')
-
-
             model_height = model.layers[0].input_shape[0][2]
             if args.height != model_height:
-                print('input height differs from model channels. use --height ' + str(model_height))
+                print(
+                    'input height differs from model channels. use --height ' + str(model_height))
                 print('resetting height to: ' + str(model_height))
-                args.__dict__['height']=model_height
+                args.__dict__['height'] = model_height
                 if args.no_auto:
                     exit(1)
             if not args.replace_final_layer:
@@ -456,34 +168,6 @@ def main():
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Testing
-        if False:
-            for run in range(1):
-                print("testing dataloader " + str(run))
-                training_generator.set_charlist(char_list, True, num_oov_indices=args.num_oov_indices)
-
-                no_batches = training_generator.__len__()
-                for i in range(10):
-                    # if i%10 == 0:
-                    print(i)
-                    item = training_generator.__getitem__(i)
-                training_generator.random_width = True
-                training_generator.random_crop = True
-                # training_generator.augment = True
-                training_generator.elastic_transform = True
-                training_generator.distort_jpeg = True
-                training_generator.do_binarize_sauvola = False
-                training_generator.do_binarize_otsu = False
-                training_generator.on_epoch_end()
-                for i in range(10):
-                    # if i%10 == 0:
-                    print(i)
-                    batch = training_generator.__getitem__(i)
-                    item = tf.image.convert_image_dtype(-0.5 - batch[0][1], dtype=tf.uint8)
-                    gtImageEncoded = tf.image.encode_png(item)
-                    tf.io.write_file("/tmp/test-" + str(i) + ".png", gtImageEncoded)
-
-            exit()
-        modelClass = Model()
         print(len(loader.charList))
 
         if args.decay_rate > 0 and args.decay_steps > 0:
@@ -493,7 +177,8 @@ def main():
                 decay_rate=args.decay_rate)
         elif args.decay_rate > 0 and args.decay_steps == -1 and args.do_train:
             if training_generator is None:
-                print('training, but training_generator is None. Did you provide a train_list?')
+                print(
+                    'training, but training_generator is None. Did you provide a train_list?')
                 exit(1)
             lr_schedule = keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=learning_rate,
@@ -511,44 +196,40 @@ def main():
             # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
-                model = modelClass.replace_recurrent_layer(model, len(char_list), use_mask=args.use_mask,
-                                                           use_gru=args.use_gru,
-                                                           rnn_layers=args.rnn_layers, rnn_units=args.rnn_units,
-                                                           use_rnn_dropout=args.use_rnn_dropout,
-                                                           dropout_rnn=args.dropout_rnn)
+                model = replace_recurrent_layer(model,
+                                                len(char_list),
+                                                use_mask=args.use_mask,
+                                                use_gru=args.use_gru,
+                                                rnn_layers=args.rnn_layers,
+                                                rnn_units=args.rnn_units,
+                                                use_rnn_dropout=args.use_rnn_dropout,
+                                                dropout_rnn=args.dropout_rnn)
 
             if args.replace_final_layer:
                 with open(output_charlist_location, 'w') as chars_file:
                     chars_file.write(str().join(loader.charList))
                 char_list = loader.charList
 
-                model = modelClass.replace_final_layer(model, len(char_list), model.name, use_mask=args.use_mask)
-            if args.thaw:
-                for layer in model.layers:
-                    layer.trainable = True
+                model = replace_final_layer(model, len(
+                    char_list), model.name, use_mask=args.use_mask)
 
-            if args.freeze_conv_layers:
+            if any([args.thaw, args.freeze_conv_layers,
+                    args.freeze_recurrent_layers, args.freeze_dense_layers]):
                 for layer in model.layers:
-                    if layer.name.startswith("Conv"):
+                    if args.thaw:
+                        layer.trainable = True
+                    elif args.freeze_conv_layers and layer.name.startswith("conv"):
                         print(layer.name)
                         layer.trainable = False
-            if args.freeze_recurrent_layers:
-                for layer in model.layers:
-                    if layer.name.startswith("bidirectional_"):
+                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional"):
                         print(layer.name)
                         layer.trainable = False
-            if args.freeze_dense_layers:
-                for layer in model.layers:
-                    if layer.name.startswith("dense"):
+                    elif args.freeze_dense_layers and layer.name.startswith("dense"):
                         print(layer.name)
                         layer.trainable = False
+
             if args.reset_dropout:
-                modelClass.set_dropout(model, args.set_dropout)
-
-            # if True:
-            #     for layer in model.layers:
-            #         print(layer.name)
-            #         layer.trainable = True
+                set_dropout(model, args.set_dropout)
 
         else:
             # save characters of model for inference mode
@@ -556,194 +237,33 @@ def main():
                 chars_file.write(str().join(loader.charList))
 
             char_list = loader.charList
-            print("creating new model")
-            if 'new2' == args.model:
-                model = modelClass.build_model_new2(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            elif 'new3' == args.model:
-                model = modelClass.build_model_new3(img_size, len(char_list))  # (loader.charList, keep_prob=0.8)
-            elif 'new4' == args.model:
-                model = modelClass.build_model_new4(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    batch_normalization=args.batch_normalization)
-            elif 'new5' == args.model:
-                model = modelClass.build_model_new5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=5,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout)
-            elif 'new6' == args.model:
-                model = modelClass.build_model_new6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=2,
-                                                    batch_normalization=args.batch_normalization)
-            elif 'new7' == args.model:
-                model = modelClass.build_model_new7(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout)
-            elif 'new8' == args.model:
-                model = modelClass.build_model_new8(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout,
-                                                    use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new9' == args.model:
-                model = modelClass.build_model_new9(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru,
-                                                    rnn_units=args.rnn_units,
-                                                    rnn_layers=args.rnn_layers,
-                                                    batch_normalization=args.batch_normalization,
-                                                    dropout=args.use_dropout,
-                                                    use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new10' == args.model:
-                model = modelClass.build_model_new10(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout)
-            elif 'new11' == args.model:
-                model = modelClass.build_model_new11(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new12' == args.model:
-                model = modelClass.build_model_new12(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new13' == args.model:
-                model = modelClass.build_model_new13(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropoutconv=args.dropoutconv)
-            elif 'new14' == args.model:
-                model = modelClass.build_model_new14(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     dropout=args.use_dropout,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense)
-            elif 'new15' == args.model:
-                model = modelClass.build_model_new15(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense,
-                                                     multiplier=args.cnn_multiplier)
-            elif 'new16' == args.model:
-                model = modelClass.build_model_new16(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense,
-                                                     multiplier=args.cnn_multiplier)
-            elif 'new17' == args.model:
-                model = modelClass.build_model_new17(img_size, len(char_list),
-                                                     use_mask=args.use_mask,
-                                                     use_gru=args.use_gru,
-                                                     rnn_units=args.rnn_units,
-                                                     rnn_layers=args.rnn_layers,
-                                                     batch_normalization=args.batch_normalization,
-                                                     use_rnn_dropout=args.use_rnn_dropout,
-                                                     dropout_rnn=args.dropout_rnn,
-                                                     dropout_recurrent_dropout=args.dropout_recurrent_dropout,
-                                                     dropout_conv=args.dropoutconv,
-                                                     dropout_dense=args.dropout_dense)
-            elif 'old6' == args.model:
-                model = modelClass.build_model_old6(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            elif 'old5' == args.model:
-                model = modelClass.build_model_old5(img_size, len(char_list),
-                                                    use_mask=args.use_mask,
-                                                    use_gru=args.use_gru)  # (loader.charList, keep_prob=0.8)
-            else:
-                print(
-                    'no model supplied. Existing or new ... Are you sure this is correct? use --model MODEL_HERE or --existing_model MODEL_HERE')
-                exit()
 
-        if args.optimizer == 'adam':
-            model.compile(
-                keras.optimizers.Adam(learning_rate=lr_schedule, ), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adamw':
-            model.compile(
-                tf.keras.optimizers.experimental.AdamW(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adadelta':
-            model.compile(
-                keras.optimizers.Adadelta(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adagrad':
-            model.compile(
-                keras.optimizers.Adagrad(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adamax':
-            model.compile(
-                keras.optimizers.Adamax(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'adafactor':
-            model.compile(
-                tf.keras.optimizers.experimental.Adafactor(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
-        elif args.optimizer == 'nadam':
-            model.compile(
-                keras.optimizers.Nadam(learning_rate=lr_schedule), loss=CTCLoss,
-                metrics=[CERMetric(greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
+            print("creating new model")
+            model_generator = VGSLModelGenerator(
+                model=args.model,
+                channels=model_channels,
+                output_classes=len(char_list) + 2
+                if args.use_mask else len(char_list) + 1
+            )
+
+            model = model_generator.build()
+
+        optimizers = {
+            "adam": keras.optimizers.Adam,
+            "adamw": keras.optimizers.experimental.AdamW,
+            "adadelta": keras.optimizers.Adadelta,
+            "adagrad": keras.optimizers.Adagrad,
+            "adamax": keras.optimizers.Adamax,
+            "adafactor": keras.optimizers.Adafactor,
+            "nadam": keras.optimizers.Nadam
+        }
+
+        if args.optimizer in optimizers:
+            model.compile(optimizers[args.optimizer](learning_rate=lr_schedule),
+                          loss=CTCLoss,
+                          metrics=[CERMetric(greedy=args.greedy,
+                                             beam_width=args.beam_width),
+                                   WERMetric()])
         else:
             print('wrong optimizer')
             exit()
@@ -752,13 +272,13 @@ def main():
 
     model_channels = model.layers[0].input_shape[0][3]
     if args.channels != model_channels:
-        print('input channels differs from model channels. use --channels ' + str(model_channels))
+        print('input channels differs from model channels. use --channels ' +
+              str(model_channels))
         if args.no_auto:
             exit()
         else:
-            args.__dict__['channels']=model_channels
+            args.__dict__['channels'] = model_channels
             print('setting correct number of channels: ' + str(model_channels))
-
 
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
@@ -783,7 +303,7 @@ def main():
         print('batches ' + str(training_dataset.__len__()))
         # try:
         metadata = get_config(args, model)
-        history = Model().train_batch(
+        history = train_batch(
             model,
             training_dataset,
             validation_dataset,
@@ -828,25 +348,19 @@ def main():
         print("do_validate")
         utilsObject = Utils(char_list, args.use_mask)
         validation_dataset = validation_generator
-        # Get the prediction model by extracting layers till the output layer
+
+        # Get the prediction model by taking the last dense layer of the full
+        # model
+        last_dense_layer = None
+        for layer in reversed(model.layers):
+            if layer.name.startswith('dense'):
+                last_dense_layer = layer
+                break
+
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="dense3").output
+            model.get_layer(name="image").input, last_dense_layer.output
         )
         prediction_model.summary(line_length=110)
-
-        # weights = model.get_layer(name="dense3").get_weights()
-        # prediction_model = keras.models.Model(
-        #     model.get_layer(name="image").input, model.get_layer(name="bidirectional_3").output
-        # )
-        # # print(weights)
-        # new_column = np.random.uniform(-0.5, 0.5, size=(512, 1))
-        # weights[0] = np.append(weights[0], new_column, axis=1)
-        # new_column = np.random.uniform(-0.5, 0.5, 1)[0]
-        # weights[1] = np.append(weights[1], new_column)
-        # dense3 = Dense(148, activation='softmax', weights=weights, name='dense3')(prediction_model.output)
-        # # output = Dense(148, activation='softmax')(dense3)
-        # prediction_model = keras.Model(inputs=prediction_model.inputs, outputs=dense3)
-        # prediction_model.summary(line_length=120)
 
         totalcer = 0.
         totaleditdistance = 0
@@ -915,8 +429,6 @@ def main():
             # print(char_str[0])
             # return label_str[0], char_str[0]
 
-            # if True:
-            #     exit(1)
             if wbs:
                 print('computing wbs...')
                 label_str = wbs.compute(predsbeam)
@@ -932,7 +444,8 @@ def main():
             counter += 1
             orig_texts = []
             for label in batch[1]:
-                label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
+                label = tf.strings.reduce_join(
+                    utilsObject.num_to_char(label)).numpy().decode("utf-8")
                 orig_texts.append(label.strip())
 
             for prediction in predicted_texts:
@@ -942,22 +455,30 @@ def main():
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
-                    current_editdistance = editdistance.eval(original_text, predicted_text)
-                    current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
+                    current_editdistance = editdistance.eval(
+                        original_text, predicted_text)
+                    current_editdistance_lower = editdistance.eval(
+                        original_text.lower(), predicted_text.lower())
 
                     pattern = re.compile('[\W_]+')
-                    ground_truth_simple = pattern.sub('', original_text).lower()
+                    ground_truth_simple = pattern.sub(
+                        '', original_text).lower()
                     predicted_simple = pattern.sub('', predicted_text).lower()
-                    current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
+                    current_editdistance_simple = editdistance.eval(
+                        ground_truth_simple, predicted_simple)
                     if wbs:
-                        predicted_wbs_simple = pattern.sub('', char_str[i]).lower()
-                        current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
-                        current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                        predicted_wbs_simple = pattern.sub(
+                            '', char_str[i]).lower()
+                        current_editdistance_wbs_simple = editdistance.eval(
+                            ground_truth_simple, predicted_wbs_simple)
+                        current_editdistance_wbs = editdistance.eval(
+                            original_text, char_str[i].strip())
                         current_editdistance_wbslower = editdistance.eval(original_text.lower(),
                                                                           char_str[i].strip().lower())
                     cer = current_editdistance / float(len(original_text))
                     if cer > 0.0:
-                        filename = loader.get_item('validation', (batch_no * args.batch_size) + i)
+                        filename = loader.get_item(
+                            'validation', (batch_no * args.batch_size) + i)
                         print('\n' + filename)
                         # print(predicted_simple)
                         print(original_text)
@@ -981,13 +502,18 @@ def main():
                               + ' total_pred: ' + str(len(predicted_text))
                               + ' errors: ' + str(current_editdistance))
                         # print(cer)
-                        print("avg editdistance: " + str(totaleditdistance / float(totallength)))
-                        print("avg editdistance lower: " + str(totaleditdistance_lower / float(totallength)))
+                        print("avg editdistance: " +
+                              str(totaleditdistance / float(totallength)))
+                        print("avg editdistance lower: " +
+                              str(totaleditdistance_lower / float(totallength)))
                         if totallength_simple > 0:
-                            print("avg editdistance simple: " + str(totaleditdistance_simple / float(totallength_simple)))
+                            print("avg editdistance simple: " +
+                                  str(totaleditdistance_simple / float(totallength_simple)))
                         if wbs:
-                            print("avg editdistance wbs: " + str(totaleditdistance_wbs / float(totallength)))
-                            print("avg editdistance wbs lower: " + str(totaleditdistance_wbs_lower / float(totallength)))
+                            print("avg editdistance wbs: " +
+                                  str(totaleditdistance_wbs / float(totallength)))
+                            print("avg editdistance wbs lower: " +
+                                  str(totaleditdistance_wbs_lower / float(totallength)))
                             if totallength_simple > 0:
                                 print("avg editdistance wbs_simple: " + str(
                                     totaleditdistance_wbs_simple / float(totallength_simple)))
@@ -999,7 +525,8 @@ def main():
         totalcerlower = totaleditdistance_lower / float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
         if wbs:
-            totalcerwbssimple = totaleditdistance_wbs_simple / float(totallength_simple)
+            totalcerwbssimple = totaleditdistance_wbs_simple / \
+                float(totallength_simple)
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
         print('totalcer: ' + str(totalcer))
@@ -1029,9 +556,19 @@ def main():
                                use_mask=args.use_mask
                                )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
+
+        # Get the prediction model by taking the last dense layer of the full
+        # model
+        last_dense_layer = None
+        for layer in reversed(model.layers):
+            if layer.name.startswith('dense'):
+                last_dense_layer = layer
+                break
+
         prediction_model = keras.models.Model(
-            model.get_layer(name="image").input, model.get_layer(name="dense3").output
+            model.get_layer(name="image").input, last_dense_layer.output
         )
+
         prediction_model.summary(line_length=110)
 
         inference_dataset = inference_generator
@@ -1043,24 +580,30 @@ def main():
 
             for batch in inference_dataset:
                 predictions = prediction_model.predict_on_batch(batch[0])
-                predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width)
+                predicted_texts = decode_batch_predictions(
+                    predictions, utilsObject, args.greedy, args.beam_width)
                 orig_texts = []
                 for label in batch[1]:
-                    label = tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8")
+                    label = tf.strings.reduce_join(
+                        utilsObject.num_to_char(label)).numpy().decode("utf-8")
                     orig_texts.append(label.strip())
                 for prediction in predicted_texts:
                     for i in range(len(prediction)):
                         confidence = prediction[i][0]
                         predicted_text = prediction[i][1]
-                        filename = loader.get_item('inference', (batch_counter * args.batch_size) + i)
+                        filename = loader.get_item(
+                            'inference', (batch_counter * args.batch_size) + i)
                         original_text = orig_texts[i].strip().replace('', '')
                         predicted_text = predicted_text.strip().replace('', '')
 
-                        confidence = normalize_confidence(confidence, predicted_text)
+                        confidence = normalize_confidence(
+                            confidence, predicted_text)
 
                         print(original_text)
-                        print(filename + "\t" + str(confidence) + "\t" + predicted_text)
-                        text_file.write(filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
+                        print(filename + "\t" + str(confidence) +
+                              "\t" + predicted_text)
+                        text_file.write(
+                            filename + "\t" + str(confidence) + "\t" + predicted_text + "\n")
 
                     batch_counter += 1
                     text_file.flush()
@@ -1072,9 +615,11 @@ def get_config(args, model):
             version_info = file.read()
     else:
         bash_command = 'git log --format="%H" -n 1'
-        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(
+            bash_command.split(), stdout=subprocess.PIPE)
         output, errors = process.communicate()
-        version_info = output.decode('utf8', errors='strict').strip().replace('"', '')
+        version_info = output.decode(
+            'utf8', errors='strict').strip().replace('"', '')
 
     model_layers = []
     model.summary(print_fn=lambda x: model_layers.append(x))
