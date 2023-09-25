@@ -109,6 +109,16 @@ def get_arg_parser():
     model_args.add_argument('--replace_recurrent_layer', action='store_true',
                             help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. '
                             'Additionally replaces final layer as well.')
+    model_args.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
+                            action='store_true')
+    model_args.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model '
+                            'if creating a new model', action='store_true')
+    model_args.add_argument('--dropout_rnn', type=float, default=0.5,
+                            help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
+    model_args.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=5,
+                            help='number of rnn layers to use in the recurrent part. default 5')
+    model_args.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=256,
+                            help='numbers of units in each rnn_layer. default 256')
     model_args.add_argument('--thaw', action='store_true',
                             help='beta: thaw. thaws conv layers, only usable with existing_model')
     model_args.add_argument('--freeze_conv_layers', action='store_true',
