@@ -265,35 +265,35 @@ class VGSLModelGenerator:
         model_library = {
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-                 "Fl64 D20 Lrs128 D20 Lrs64 D20 O1s92"),
+                 "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
             "model10":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 "
-                 "Grs256 Grs256 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
+                 "Bg256 Bg256 O1s92"),
             "model9":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Lrs256 D20 Lrs256 D20 "
-                 "Lrs256 D20 Lrs256 D20 Lrs256 D20 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 D20 Bl256 D20 "
+                 "Bl256 D20 Bl256 D20 Bl256 D20 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Grs256 Grs256 Grs256 "
-                 "Grs256 Grs256 Fe1024 O1s92"),
+                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 "
+                 "Bg256 Bg256 Fe1024 O1s92"),
             "model12":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 Grs256 Grs256 "
+                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
                  "O1s92"),
             "model13":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-                 "Bn Rc Grs256 Grs256 Grs256 Grs256 Grs256 O1s92"),
+                 "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model14":
                 ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Grs256 "
-                 "Grs256 Grs256 Grs256 Grs256 O1s92"),
+                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
+                 "Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model15":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Grs256 Grs256 Grs256 Grs256 "
-                 "Grs256 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 "
+                 "Bg256 O1s92"),
             "model16":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfs128 Gfs128 Gfs128 Gfs128 "
@@ -301,8 +301,8 @@ class VGSLModelGenerator:
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lrs128 "
-                 "Lrs128 Lrs128 Lrs128 Lrs128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Gl128 "
+                 "Gl128 Gl128 Gl128 Gl128 O1s92")
         }
 
         return model_library
