@@ -155,25 +155,11 @@ class WERMetric(tf.keras.metrics.Metric):
 
 @tf.function
 def CTCLoss(y_true, y_pred):
-    # # Compute the training-time loss value
-    # y_true = tf.where(tf.equal(y_true, 01), tf.ones_like(y_true), y_true)
-    # y_true = tf.replace(y_true, tf.not_equal(y_true, -1))
-    # y_true = tf.sparse.retain(y_true, tf.not_equal(y_true, 0))
-    # y_pred = tf.sparse.retain(y_pred, tf.not_equal(y_pred.values, 0))
-    # y_pred = tf.where(tf.equal(y_pred, -1), tf.zeros_like(y_pred), y_pred)
-    # total_length = tf.size(y_true.values)
-
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
     input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
-    # input_length = tf.math.count_nonzero(y_pred, axis=-1, keepdims=True)
-    # label_length = tf.cast(tf.shape(y_true)[1], dtype="int64")
     label_length = tf.math.count_nonzero(y_true, axis=-1, keepdims=True)
 
-    # https://stackoverflow.com/questions/64321779/how-to-use-tf-ctc-loss-with-variable-length-features-and-labels
-    # tf.print(input_length)
-    # tf.print(label_length)
     input_length = input_length * tf.ones(shape=(batch_len, 1), dtype="int64")
-    # label_length = label_length * tf.ones(shape=(batch_len, 1), dtype="int64")
 
     loss = ctc_batch_cost(y_true, y_pred, input_length, label_length)
     return loss
@@ -294,18 +280,7 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
     return model
 
 
-def set_dropout(model, dropout=0.5):
-    initializer = tf.keras.initializers.GlorotNormal()
-    last_layer = ""
-    for layer in model.layers:
-        if layer.name.startswith('dropout'):
-            layer.rate = dropout
-
-    return model
-
-
 # # Train the model
-
 
 def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                 early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
@@ -330,16 +305,9 @@ def train_batch(model, train_dataset, validation_dataset, epochs, output, model_
     else:
         mcp_save = ModelCheckpoint(output + '/best_train/', save_best_only=True, monitor='CER_metric',
                                    mode='min', verbose=1)
-    # checkpoint = ModelCheckpoint(filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='min')
     reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
                                        verbose=1, min_delta=1e-4, mode='min')
     callbacks.append(history)
-    # callbacks.append(mcp_save)
-    # if output_checkpoints:
-    #     filepath = output + '/checkpoints/' + model_name + "-saved-model-{epoch:02d}-{loss:.4f}"
-    #     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=False, mode='max')
-    #     callbacks.append(checkpoint)
-
     callbacks.append(LoghiCustomCallback(save_best=True, save_checkpoint=output_checkpoints, output=output,
                                          charlist=charlist, metadata=metadata))
     filename = os.path.join(output, 'log.csv')
@@ -351,7 +319,6 @@ def train_batch(model, train_dataset, validation_dataset, epochs, output, model_
         train_dataset,
         validation_data=validation_dataset,
         epochs=epochs,
-        # batch_size=1,
         callbacks=callbacks,
         shuffle=True,
         workers=num_workers,
