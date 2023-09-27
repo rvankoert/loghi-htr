@@ -99,6 +99,30 @@ def main():
             get_custom_objects().update({"CTCLoss": CTCLoss})
 
             model = keras.models.load_model(args.existing_model)
+
+            if args.use_float32 or args.gpu == '-1':
+                # Recreate the exact same model but with float32
+                config = model.get_config()
+
+                # Set the dtype policy for each layer in the configuration
+                for layer_config in config['layers']:
+                    if 'dtype' in layer_config['config']:
+                        layer_config['config']['dtype'] = 'float32'
+                    if 'dtype_policy' in layer_config['config']:
+                        layer_config['config']['dtype_policy'] = {
+                            'class_name': 'Policy',
+                            'config': {'name': 'float32'}}
+
+                # Create a new model from the modified configuration
+                model_new = keras.Model.from_config(config)
+                model_new.set_weights(model.get_weights())
+
+                model = model_new
+
+                # Verify float32
+                for layer in model.layers:
+                    assert layer.dtype_policy.name == 'float32'
+
             if not args.replace_final_layer:
                 model_channels = model.layers[0].input_shape[0][3]
 
@@ -185,10 +209,10 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.startswith("Conv"):
+                    elif args.freeze_conv_layers and layer.name.startswith("conv"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional_"):
+                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional"):
                         print(layer.name)
                         layer.trainable = False
                     elif args.freeze_dense_layers and layer.name.startswith("dense"):

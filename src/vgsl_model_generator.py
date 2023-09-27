@@ -175,44 +175,47 @@ class VGSLModelGenerator:
                 enumerate(self.selected_model_vgsl_spec[starting_index:]):
             logging.debug(layer)
             if layer.startswith('C'):
-                setattr(self, f"conv2d{index}", self.conv2d_generator(layer))
-                self.history.append(f"conv2d{index}")
+                setattr(self, f"conv2d_{index}", self.conv2d_generator(layer))
+                self.history.append(f"conv2d_{index}")
             elif layer.startswith('Bn'):
-                setattr(self, f"batchnorm{index}", layers.BatchNormalization(
+                setattr(self, f"batchnorm_{index}", layers.BatchNormalization(
                     axis=self._channel_axis))
-                self.history.append(f"batchnorm{index}")
+                self.history.append(f"batchnorm_{index}")
             elif layer.startswith('L'):
-                setattr(self, f"lstm{index}", self.lstm_generator(layer))
-                self.history.append(f"lstm{index}")
+                setattr(self, f"lstm_{index}", self.lstm_generator(layer))
+                self.history.append(f"lstm_{index}")
             elif layer.startswith('F'):
                 setattr(self, f"dense{index}", self.fc_generator(layer))
                 self.history.append(f"dense{index}")
             elif layer.startswith('B'):
-                setattr(self, f"bidirectional{index}",
+                setattr(self, f"bidirectional_{index}",
                         self.bidirectional_generator(layer))
-                self.history.append(f"bidirectional{index}")
+                self.history.append(f"bidirectional_{index}")
             elif layer.startswith('G'):
-                setattr(self, f"gru{index}", self.gru_generator(layer))
-                self.history.append(f"gru{index}")
+                setattr(self, f"gru_{index}", self.gru_generator(layer))
+                self.history.append(f"gru_{index}")
             elif layer.startswith('Mp'):
-                setattr(self, f"maxpool{index}", self.maxpool_generator(layer))
-                self.history.append(f"maxpool{index}")
+                setattr(self, f"maxpool_{index}",
+                        self.maxpool_generator(layer))
+                self.history.append(f"maxpool_{index}")
             elif layer.startswith('Ap'):
-                setattr(self, f"avgpool{index}", self.avgpool_generator(layer))
-                self.history.append(f"avgpool{index}")
+                setattr(self, f"avgpool_{index}",
+                        self.avgpool_generator(layer))
+                self.history.append(f"avgpool_{index}")
             elif layer.startswith('RB'):
-                setattr(self, f"ResidualBlock{index}",
+                setattr(self, f"ResidualBlock_{index}",
                         self.residual_block_generator(layer))
-                self.history.append(f"ResidualBlock{index}")
+                self.history.append(f"ResidualBlock_{index}")
             elif layer.startswith('D'):
-                setattr(self, f"dropout{index}", self.dropout_generator(layer))
-                self.history.append(f"dropout{index}")
+                setattr(self, f"dropout_{index}",
+                        self.dropout_generator(layer))
+                self.history.append(f"dropout_{index}")
             elif layer.startswith('R'):
-                self.history.append(f"reshape{index}_{layer}")
+                self.history.append(f"reshape_{index}_{layer}")
             elif layer.startswith('O'):
-                setattr(self, f"output{index}",
+                setattr(self, f"output_{index}",
                         self.get_output_layer(layer, output_classes))
-                self.history.append(f"output{index}")
+                self.history.append(f"output_{index}")
             else:
                 raise ValueError(f"The current layer: {layer} is not "
                                  "recognised, please check for correct "
@@ -236,7 +239,7 @@ class VGSLModelGenerator:
         x = self.inputs
         for index, layer in enumerate(self.history):
             if layer.startswith("reshape"):
-                x = self.reshape_generator(layer.split("_")[1], x)(x)
+                x = self.reshape_generator(layer.split("_")[2], x)(x)
             else:
                 x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)

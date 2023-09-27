@@ -53,7 +53,8 @@ def main():
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
-        model.get_layer(name="image").input, model.get_layer(name="dense3").output
+        model.get_layer(name="image").input, model.get_layer(
+            name="dense3").output
     )
     prediction_model.summary()
 
@@ -63,12 +64,13 @@ def main():
         # Use greedy search. For complex tasks, you can use beam search
         pred = tf.dtypes.cast(pred, tf.float32)
         results = keras.backend.ctc_decode(pred, input_length=input_len, greedy=True)[0][0][
-                  :, :maxTextLen
-                  ]
+            :, :maxTextLen
+        ]
         # Iterate over the results and get back the text
         output_text = []
         for res in results:
-            res = tf.strings.reduce_join(loader.num_to_char(res)).numpy().decode("utf-8")
+            res = tf.strings.reduce_join(
+                loader.num_to_char(res)).numpy().decode("utf-8")
             output_text.append(res)
         return output_text
 
@@ -82,7 +84,8 @@ def main():
 
         orig_texts = []
         for label in batch_labels:
-            label = tf.strings.reduce_join(loader.num_to_char(label)).numpy().decode("utf-8")
+            label = tf.strings.reduce_join(
+                loader.num_to_char(label)).numpy().decode("utf-8")
             orig_texts.append(label.strip())
 
         _, ax = plt.subplots(4, 4, figsize=(15, 5))
@@ -90,6 +93,15 @@ def main():
             # for i in range(16):
             print(orig_texts[i].strip())
             print(pred_texts[i].strip())
+
+
+# 		img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
+# 		img = img.T
+# 		title = f"Prediction: {pred_texts[i].strip()}"
+# 		ax[i // 4, i % 4].imshow(img, cmap="gray")
+# 		ax[i // 4, i % 4].set_title(title)
+# 		ax[i // 4, i % 4].axis("off")
+# plt.show()
 
 if __name__ == '__main__':
     main()

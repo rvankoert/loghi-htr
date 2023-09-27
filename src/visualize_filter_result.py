@@ -1,3 +1,4 @@
+from tensorflow.keras.utils import get_custom_objects
 import os
 
 
@@ -19,7 +20,6 @@ import tensorflow_addons as tfa
 # disable GPU for now, because it is already running on my dev machine
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
-from tensorflow.keras.utils import get_custom_objects
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -147,9 +147,10 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
-    feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
+    feature_extractor = keras.Model(
+        inputs=submodel.inputs, outputs=layer.output)
     # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
 
     all_imgs = []
@@ -180,7 +181,6 @@ for layerId in range(len(submodel.layers)):
     training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
     inference_dataset = inference_generator
-
     batch_counter = 0
     for batch in inference_dataset:
         if batch_counter > 10:
@@ -220,8 +220,10 @@ for layerId in range(len(submodel.layers)):
         # plt.show()  # finally, render the plot
 
         # plt.show()
-        filename = loader.get_item('inference', (batch_counter * args.batch_size))
+        filename = loader.get_item(
+            'inference', (batch_counter * args.batch_size))
         plt.tight_layout()
-        plt.savefig('results/{}-{}'.format(layerId, os.path.basename(filename)))
+        plt.savefig('results/{}-{}'.format(layerId,
+                    os.path.basename(filename)))
         plt.close()
         batch_counter = batch_counter + 1
