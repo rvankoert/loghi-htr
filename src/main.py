@@ -11,8 +11,8 @@ import uuid
 
 # > Local dependencies
 from arg_parser import get_args
-from DataLoaderNew import DataLoaderNew
-from Model import replace_final_layer, replace_recurrent_layer, set_dropout, train_batch, build_model_new17
+from data_loader import DataLoader
+from model import replace_final_layer, replace_recurrent_layer, train_batch
 from utils import Utils, normalize_confidence, decode_batch_predictions
 from vgsl_model_generator import VGSLModelGenerator
 
@@ -50,7 +50,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
-    from Model import CERMetric, WERMetric, CTCLoss
+    from model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
     strategy = tf.distribute.MirroredStrategy()
@@ -138,31 +138,26 @@ def main():
                 with open(charlist_location) as file:
                     char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
-        loader = DataLoaderNew(args.batch_size, img_size,
-                               train_list=args.train_list,
-                               validation_list=args.validation_list,
-                               test_list=args.test_list,
-                               inference_list=args.inference_list,
-                               char_list=char_list,
-                               do_binarize_sauvola=args.do_binarize_sauvola,
-                               do_binarize_otsu=args.do_binarize_otsu,
-                               multiply=args.multiply,
-                               augment=args.augment,
-                               elastic_transform=args.elastic_transform,
-                               random_crop=args.random_crop,
-                               random_width=args.random_width,
-                               check_missing_files=args.check_missing_files,
-                               distort_jpeg=args.distort_jpeg,
-                               replace_final_layer=args.replace_final_layer,
-                               normalize_text=args.normalize_text,
-                               use_lmdb=args.use_lmdb,
-                               reuse_old_lmdb_train=args.reuse_old_lmdb_train,
-                               reuse_old_lmdb_val=args.reuse_old_lmdb_val,
-                               reuse_old_lmdb_test=args.reuse_old_lmdb_test,
-                               reuse_old_lmdb_inference=args.reuse_old_lmdb_inference,
-                               use_mask=args.use_mask,
-                               do_random_shear=args.do_random_shear
-                               )
+        loader = DataLoader(args.batch_size, img_size,
+                            train_list=args.train_list,
+                            validation_list=args.validation_list,
+                            test_list=args.test_list,
+                            inference_list=args.inference_list,
+                            char_list=char_list,
+                            do_binarize_sauvola=args.do_binarize_sauvola,
+                            do_binarize_otsu=args.do_binarize_otsu,
+                            multiply=args.multiply,
+                            augment=args.augment,
+                            elastic_transform=args.elastic_transform,
+                            random_crop=args.random_crop,
+                            random_width=args.random_width,
+                            check_missing_files=args.check_missing_files,
+                            distort_jpeg=args.distort_jpeg,
+                            replace_final_layer=args.replace_final_layer,
+                            normalize_text=args.normalize_text,
+                            use_mask=args.use_mask,
+                            do_random_shear=args.do_random_shear
+                            )
 
         print("creating generators")
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
@@ -198,12 +193,8 @@ def main():
             if args.replace_recurrent_layer:
                 model = replace_recurrent_layer(model,
                                                 len(char_list),
-                                                use_mask=args.use_mask,
-                                                use_gru=args.use_gru,
-                                                rnn_layers=args.rnn_layers,
-                                                rnn_units=args.rnn_units,
-                                                use_rnn_dropout=args.use_rnn_dropout,
-                                                dropout_rnn=args.dropout_rnn)
+                                                args.replace_recurrent_layer,
+                                                use_mask=args.use_mask)
 
             if args.replace_final_layer:
                 with open(output_charlist_location, 'w') as chars_file:
@@ -228,9 +219,6 @@ def main():
                         print(layer.name)
                         layer.trainable = False
 
-            if args.reset_dropout:
-                set_dropout(model, args.set_dropout)
-
         else:
             # save characters of model for inference mode
             with open(output_charlist_location, 'w') as chars_file:
@@ -241,6 +229,7 @@ def main():
             print("creating new model")
             model_generator = VGSLModelGenerator(
                 model=args.model,
+                name=args.model_name,
                 channels=model_channels,
                 output_classes=len(char_list) + 2
                 if args.use_mask else len(char_list) + 1
@@ -372,6 +361,7 @@ def main():
         totallength = 0
         totallength_simple = 0
         counter = 0
+        pred_counter = 0
 
         wbs = None
         if args.corpus_file:
@@ -380,11 +370,8 @@ def main():
                 exit(1)
 
             with open(args.corpus_file) as f:
-                # # corpus = f.read()
                 corpus = ''
-                # # chars = set()
                 for line in f:
-                    # chars = chars.union(set(char for label in line for char in label))
                     if args.normalize_text:
                         line = loader.normalize(line)
                     corpus += line
@@ -394,10 +381,6 @@ def main():
             chars = '' + ''.join(sorted(list(char_list)))
 
             print('using corpus file: ' + str(args.corpus_file))
-            # NGramsForecast
-            # Words
-            # NGrams
-            # NGramsForecastAndSample
             wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing, corpus.encode('utf8'), chars.encode('utf8'),
                                  word_chars.encode('utf8'))
             print('Created WordBeamSearcher')
@@ -405,29 +388,12 @@ def main():
         batch_no = 0
         #  Let's check results on some validation samples
         for batch in validation_dataset:
-            # batch_images = batch["image"]
-            # batch_labels = batch["label"]
             predictions = prediction_model.predict(batch[0])
-            # preds = prediction_model.predict_on_batch(batch[0])
             predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
                                                        args.num_oov_indices)
 
             # preds = utils.softmax(preds)
             predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
-            # wbs = WordBeamSearch(25, 'Words', 0.0, corpus.encode('utf8'), chars.encode('utf8'),
-            #                      word_chars.encode('utf8'))
-            # label_str = wbs.compute(mat)
-            #
-            # # result is string of labels terminated by blank
-            # char_str = []
-            # for curr_label_str in label_str:
-            #     s = ''
-            #     for label in curr_label_str:
-            #         s += chars[label]  # map label to char
-            #     char_str.append(s)
-            # print(label_str[0])
-            # print(char_str[0])
-            # return label_str[0], char_str[0]
 
             if wbs:
                 print('computing wbs...')
@@ -476,6 +442,7 @@ def main():
                         current_editdistance_wbslower = editdistance.eval(original_text.lower(),
                                                                           char_str[i].strip().lower())
                     cer = current_editdistance / float(len(original_text))
+
                     if cer > 0.0:
                         filename = loader.get_item(
                             'validation', (batch_no * args.batch_size) + i)
@@ -519,42 +486,55 @@ def main():
                                     totaleditdistance_wbs_simple / float(totallength_simple)))
                     else:
                         print('.', end='')
+                    pred_counter += 1
             batch_no += 1
 
         totalcer = totaleditdistance / float(totallength)
         totalcerlower = totaleditdistance_lower / float(totallength)
         totalcersimple = totaleditdistance_simple / float(totallength_simple)
+        certainty = 95
         if wbs:
             totalcerwbssimple = totaleditdistance_wbs_simple / \
                 float(totallength_simple)
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
-        print('totalcer: ' + str(totalcer))
-        print('totalcerlower: ' + str(totalcerlower))
-        print('totalcersimple: ' + str(totalcersimple))
+
+        totalcer_lower = round(
+            totalcer-(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
+        totalcer_upper = round(
+            totalcer+(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
+        totalcerlower_lower = round(
+            totalcerlower-(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
+        totalcerlower_upper = round(
+            totalcerlower+(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
+        totalcersimple_lower = round(
+            totalcersimple-(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+        totalcersimple_upper = round(
+            totalcersimple+(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+
+        print('totalcer: ' + str(totalcer) + "(" + str(certainty)+"%"+" certainty that totalcer is between "
+              + str(totalcer_lower) + " and " + str(totalcer_upper) + ")")
+        print('totalcerlower: ' + str(totalcerlower) + "(" + str(certainty)+"%"+" certainty that totalcerlower is between "
+              + str(totalcerlower_lower) + " and " + str(totalcerlower_upper) + ")")
+        print('totalcersimple: ' + str(totalcersimple) + "(" + str(certainty)+"%"+" certainty that totalcersimple is between "
+              + str(totalcersimple_lower)+" and " + str(totalcersimple_upper) + ")")
+
         if wbs:
             print('totalcerwbs: ' + str(totalcerwbs))
             print('totalcerwbslower: ' + str(totalcerwbslower))
             print('totalcerwbssimple: ' + str(totalcerwbssimple))
-    #            img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
-    #            img = img.T
-    #            title = f"Prediction: {pred_texts[i].strip()}"
-    #            ax.imshow(img, cmap="gray")
-    #            ax.set_title(title)
-    #            ax.axis("off")
-    #            plt.show()
 
     if args.do_inference:
         print('inferencing')
         print(char_list)
-        loader = DataLoaderNew(args.batch_size,
-                               img_size,
-                               char_list,
-                               inference_list=args.inference_list,
-                               check_missing_files=args.check_missing_files,
-                               normalize_text=args.normalize_text,
-                               use_mask=args.use_mask
-                               )
+        loader = DataLoader(args.batch_size,
+                            img_size,
+                            char_list,
+                            inference_list=args.inference_list,
+                            check_missing_files=args.check_missing_files,
+                            normalize_text=args.normalize_text,
+                            use_mask=args.use_mask
+                            )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Get the prediction model by taking the last dense layer of the full
@@ -642,6 +622,22 @@ def store_info(args, model):
         config_file_output = os.path.join(args.output, 'config.json')
     with open(config_file_output, 'w') as configuration_file:
         json.dump(config, configuration_file)
+
+
+def calc_confidence_interval(cer_metric, n, certainty=95):
+    """ Calculates the binomial confidence radius of the given metric
+    based on the num of samples (n) and a provided certainty number (either 90/95/98/99) out of 100
+    E.g. cer_metric = 0.10, certainty = 95 and n= 5500 samples -->
+    conf_radius = 1.96 * ((0.1*(1-0.1))/5500)) ** 0.5 = 0.008315576
+    This means with 95% certainty we can say that the True CER of the model is between 0.0917 and 0.1083 (4-dec rounded)
+    """
+    sig_levels = {
+        90: 1.64,
+        95: 1.96,
+        98: 2.33,
+        99: 2.58
+    }
+    return sig_levels.get(certainty) * ((cer_metric*(1-cer_metric))/n) ** 0.5
 
 
 if __name__ == '__main__':

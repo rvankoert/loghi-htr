@@ -3,6 +3,7 @@
 # > Standard library
 import logging
 import os
+from pathlib import Path
 import sys
 import tempfile
 import unittest
@@ -17,14 +18,14 @@ class DataLoaderTest(unittest.TestCase):
 
     Test Coverage:
         1. `test_initialization`: Checks the correct instantiation of the
-        DataLoaderNew class and its default values.
+        DataLoader class and its default values.
         2. `test_create_data_simple`: Checks if the create_data function
         works as expected.
         3. `test_missing_files`: Tests the behavior when data lists contain
         references to non-existent files.
         4. `test_unsupported_chars`: Validates the handling of labels with
         unsupported characters.
-        5. `test_inference_mode`: Checks the DataLoaderNew"s behavior in
+        5. `test_inference_mode`: Checks the DataLoader"s behavior in
         inference mode.
         6. `test_text_normalization`: Verifies the correct normalization of
         text labels.
@@ -44,16 +45,19 @@ class DataLoaderTest(unittest.TestCase):
         )
 
         # Determine the directory of this file
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
+        current_file_dir = Path(__file__).resolve().parent
 
-        # Assuming the tests directory is at the root of your project,
-        # get the project root
-        project_root = os.path.abspath(os.path.join(current_file_dir, ".."))
-        src_dir = os.path.join(project_root, "src")
-        sys.path.append(src_dir)
+        # Get the project root
+        if current_file_dir.name == "tests":
+            project_root = current_file_dir.parent
+        else:
+            project_root = current_file_dir
+
+        # Add 'src' directory to sys.path
+        sys.path.append(str(project_root / 'src'))
 
         # Set paths for data and model directories
-        cls.data_dir = os.path.join(project_root, "tests", "data")
+        cls.data_dir = project_root / "tests" / "data"
 
         cls.sample_image_paths = [os.path.join(
             cls.data_dir, f"test-image{i+1}") for i in range(3)]
@@ -72,8 +76,8 @@ class DataLoaderTest(unittest.TestCase):
                                        cls.sample_labels):
                 f.write(f"{img_path}.png\t{label}\n")
 
-        from DataLoaderNew import DataLoaderNew
-        cls.DataLoader = DataLoaderNew
+        from data_loader import DataLoader
+        cls.DataLoader = DataLoader
 
         from utils import Utils
         cls.Utils = Utils
@@ -106,9 +110,9 @@ class DataLoaderTest(unittest.TestCase):
                               "DataLoader not instantiated correctly")
 
         # Check the values
-        self.assertEqual(data_loader.batchSize, batch_size,
-                         f"batchSize not set correctly. Expected: "
-                         f"{batch_size}, got: {data_loader.batchSize}")
+        self.assertEqual(data_loader.batch_size, batch_size,
+                         f"batch_size not set correctly. Expected: "
+                         f"{batch_size}, got: {data_loader.batch_size}")
         self.assertEqual(data_loader.imgSize, img_size,
                          f"imgSize not set correctly. Expected: "
                          f"{img_size}, got: {data_loader.imgSize}")
@@ -292,7 +296,7 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.test_list = self._create_temp_file()
         data_loader.inference_list = self._create_temp_file()
 
-        training_generator, validation_generator, test_generator,\
+        training_generator, validation_generator, test_generator, \
             inference_generator, utils, train_batches\
             = data_loader.generators()
 

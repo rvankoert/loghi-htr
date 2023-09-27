@@ -9,8 +9,8 @@ import copy
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from Model import Model
-from SamplePreprocessor import preprocess
+from model import Model
+from sample_processor import preprocess
 
 
 # constants like filepaths
@@ -37,11 +37,11 @@ def analyzePixelRelevance():
     "simplified implementation of paper: Zintgraf et al - Visualizing Deep Neural Network Decisions: Prediction Difference Analysis"
 
     # setup model
-    model = Model(open(Constants.fnCharList).read(), DecoderType.BestPath, mustRestore=True)
+    model = Model(open(Constants.fnCharList).read(),
+                  DecoderType.BestPath, mustRestore=True)
 
     # read image and specify ground-truth text
     img = cv2.imread(Constants.fnAnalyze, cv2.IMREAD_GRAYSCALE)
-    # img = preprocess(cv2.imread(Constants.fnAnalyze, cv2.IMREAD_GRAYSCALE), Model.imgSize)
     (wt, ht) = Model.imgSize
     (h, w) = img.shape
     fx = w / wt
@@ -50,14 +50,8 @@ def analyzePixelRelevance():
     newSize = (max(min(wt, int(w / f)), 1),
                max(min(ht, int(h / f)), 1))  # scale according to f (result at least 1 and at most wt or ht)
     img = cv2.resize(img, newSize)
-    #       xoffset, yoffset = newSize
-    #       xoffset = int(random.random() * (wt-xoffset))
-    #       yoffset = int(random.random() * (ht-yoffset))
     target = np.ones([ht, wt]) * 255
 
-    #       if dataAugmentation:
-    #               target[yoffset:newSize[1]+yoffset, xoffset:newSize[0]+xoffset] = img
-    #       else:
     target[0:newSize[1], 0:newSize[0]] = img
     img = target
 
@@ -92,13 +86,16 @@ def analyzePixelRelevance():
                 imgsMarginalized.append(preprocess(imgChanged, Model.imgSize))
 
             # put them all into one batch
-            batch = Batch([Constants.gtText] * len(imgsMarginalized), imgsMarginalized)
+            batch = Batch([Constants.gtText] *
+                          len(imgsMarginalized), imgsMarginalized)
 
             # compute probabilities
-            (_, probs) = model.inferBatch(batch, calcProbability=True, probabilityOfGT=True)
+            (_, probs) = model.inferBatch(
+                batch, calcProbability=True, probabilityOfGT=True)
 
             # marginalize over pixel value (assume uniform distribution)
-            margProb = sum([probs[i] * pixelProb[i] for i in range(len(grayValues))])
+            margProb = sum([probs[i] * pixelProb[i]
+                           for i in range(len(grayValues))])
 
             pixelRelevance[x, y] = weightOfEvidence(origProb, margProb)
 
@@ -109,7 +106,8 @@ def analyzePixelRelevance():
 
 def analyzeTranslationInvariance():
     # setup model
-    model = Model(open(Constants.fnCharList).read(), DecoderType.BestPath, mustRestore=True)
+    model = Model(open(Constants.fnCharList).read(),
+                  DecoderType.BestPath, mustRestore=True)
 
     # read image and specify ground-truth text
     img = cv2.imread(Constants.fnAnalyze, cv2.IMREAD_GRAYSCALE)
@@ -126,7 +124,8 @@ def analyzeTranslationInvariance():
     batch = Batch([Constants.gtText] * len(imgList), imgList)
 
     # compute probabilities
-    (texts, probs) = model.inferBatch(batch, calcProbability=True, probabilityOfGT=True)
+    (texts, probs) = model.inferBatch(
+        batch, calcProbability=True, probabilityOfGT=True)
 
     # save results to file
     f = open(Constants.fnTranslationInvarianceTexts, 'wb')

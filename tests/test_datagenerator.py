@@ -5,7 +5,7 @@ import numpy as np
 
 # > Standard library
 import logging
-import os
+from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch, ANY
@@ -13,7 +13,7 @@ from unittest.mock import patch, ANY
 
 class TestDataGenerator(unittest.TestCase):
     """
-    Tests for the DataGeneratorNew2 class.
+    Tests for the data_generator class.
 
     Test coverage:
         1. `test_initialization` tests that the instance variables are
@@ -36,27 +36,21 @@ class TestDataGenerator(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        # Determine the directory of this file
-        current_file_dir = os.path.dirname(os.path.realpath(__file__))
+        # Add the src directory to the path
+        sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
-        # Assuming the tests directory is at the root of your project,
-        # get the project root
-        project_root = os.path.abspath(os.path.join(current_file_dir, ".."))
-        src_dir = os.path.join(project_root, "src")
-        sys.path.append(src_dir)
-
-        from DataGeneratorNew2 import DataGeneratorNew2
-        cls.DataGenerator = DataGeneratorNew2
+        from data_generator import DataGenerator
+        cls.DataGenerator = DataGenerator
 
         from utils import Utils
         cls.utils = Utils
 
     def test_initialization(self):
         utils = self.utils(chars="ABC", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batchSize=32, height=128)
+        dg = self.DataGenerator(utils=utils, batch_size=32, height=128)
 
         # Verify that the instance variables are initialized correctly.
-        self.assertEqual(dg.batchSize, 32)
+        self.assertEqual(dg.batch_size, 32)
         self.assertEqual(dg.height, 128)
         self.assertEqual(dg.do_binarize_sauvola, False)
         self.assertEqual(dg.do_binarize_otsu, False)
@@ -72,7 +66,7 @@ class TestDataGenerator(unittest.TestCase):
     def test_elastic_transform(self, mock_deform_grid, mock_random_normal):
         # Create an instance of DataGeneratorNew2
         utils = self.utils(chars="ABC", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batchSize=32, height=128)
+        dg = self.DataGenerator(utils=utils, batch_size=32, height=128)
 
         # Mock return value for tf.random.normal
         mock_random_normal.return_value = np.zeros((2, 3, 3))
@@ -101,7 +95,7 @@ class TestDataGenerator(unittest.TestCase):
         utils = self.utils(chars="mock", use_mask=False)
 
         height = 128
-        dg = self.DataGenerator(utils=utils, batchSize=32,
+        dg = self.DataGenerator(utils=utils, batch_size=32,
                                 height=height, distort_jpeg=True)
 
         # Call the function
@@ -129,7 +123,7 @@ class TestDataGenerator(unittest.TestCase):
         # Create an instance of DataGeneratorNew2
         height = 128
         utils = self.utils(chars="mock", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batchSize=32,
+        dg = self.DataGenerator(utils=utils, batch_size=32,
                                 height=height, random_width=True)
 
         # Call the function

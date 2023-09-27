@@ -103,22 +103,10 @@ def get_arg_parser():
                             help='continue training/validation/testing/inferencing from this model as a starting point.')
     model_args.add_argument('--model_name', metavar='model_name ', type=str, default=None,
                             help='use model_name in the output')
-    model_args.add_argument('--use_gru', help='use GRU Gated Recurrent Units instead of LSTM in the recurrent layers',
-                            action='store_true')
-    model_args.add_argument('--batch_normalization',
-                            help='batch_normalization', action='store_true')
-    model_args.add_argument('--use_dropout', help='if enabled some dropout will be added to the model if creating a new '
-                            'model', action='store_true')
-    model_args.add_argument('--use_rnn_dropout', help='if enabled some dropout will be added to rnn layers of the model '
-                            'if creating a new model', action='store_true')
-    model_args.add_argument('--rnn_layers', metavar='rnn_layers ', type=int, default=5,
-                            help='number of rnn layers to use in the recurrent part. default 5')
-    model_args.add_argument('--rnn_units', metavar='rnn_units ', type=int, default=256,
-                            help='numbers of units in each rnn_layer. default 256')
     model_args.add_argument('--replace_final_layer', action='store_true',
                             help='beta: replace_final_layer. You can do this to extend/decrease the character set when '
                             'using an existing model')
-    model_args.add_argument('--replace_recurrent_layer', action='store_true',
+    model_args.add_argument('--replace_recurrent_layer', action='store',
                             help='beta: replace_recurrent_layer. Set new recurrent layer using an existing model. '
                             'Additionally replaces final layer as well.')
     model_args.add_argument('--thaw', action='store_true',
@@ -129,20 +117,6 @@ def get_arg_parser():
                             help='beta: freeze_recurrent_layers. Freezes recurrent layers, only usable with existing_model')
     model_args.add_argument('--freeze_dense_layers', action='store_true',
                             help='beta: freeze_dense_layers. Freezes dense layers, only usable with existing_model')
-    model_args.add_argument('--dropout_rnn', type=float, default=0.5,
-                            help='beta: dropout_rnn. Default 0.5. Only used when use_dropout_rnn is enabled')
-    model_args.add_argument('--dropout_recurrent_dropout', type=float, default=0,
-                            help='beta: dropout_recurrent_dropout. Default 0. This is terribly slow on GPU as there is no support in cuDNN RNN ops')
-    model_args.add_argument('--reset_dropout', action='store_true',
-                            help='beta: reset_dropout')
-    model_args.add_argument('--set_dropout', type=float, default=0.5,
-                            help='beta: set_dropout')
-    model_args.add_argument('--dropout_dense', type=float, default=0.5,
-                            help='beta: dropout_dense')
-    model_args.add_argument('--dropoutconv', type=float, default=0.0,
-                            help='beta: set_dropout')
-    model_args.add_argument('--cnn_multiplier', type=int, default=4,
-                            help='beta: cnn_multiplier')
 
     # Data augmentation args
     augmentation_args = parser.add_argument_group('Augmentation arguments')
@@ -177,8 +151,6 @@ def get_arg_parser():
     # Miscellaneous
     misc_args = parser.add_argument_group('Miscellaneous arguments')
 
-    # parser.add_argument('--num_workers', metavar='num_workers ', type=int, default=20,
-    #                     help='num_workers')
     misc_args.add_argument('--do_binarize_otsu', action='store_true',
                            help='beta: do_binarize_otsu')
     misc_args.add_argument('--do_binarize_sauvola', action='store_true',
@@ -190,16 +162,6 @@ def get_arg_parser():
                            help='beta: check_missing_files')
     misc_args.add_argument('--normalize_text', action='store_true',
                            help='')
-    misc_args.add_argument('--use_lmdb', action='store_true',
-                           help='use lmdb to store images, this might be faster for more epochs')
-    misc_args.add_argument('--reuse_old_lmdb_train', type=str,
-                           help='path of the folder of lmdb for training data')
-    misc_args.add_argument('--reuse_old_lmdb_val', type=str,
-                           help='path of the folder of lmdb for validation data')
-    misc_args.add_argument('--reuse_old_lmdb_test', type=str,
-                           help='path of the folder of lmdb for test data')
-    misc_args.add_argument('--reuse_old_lmdb_inference', type=str,
-                           help='path of the folder of lmdb for inference data')
     misc_args.add_argument('--deterministic', action='store_true',
                            help='beta: deterministic mode (reproducible results')
     misc_args.add_argument('--no_auto', action='store_true',

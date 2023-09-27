@@ -1,6 +1,3 @@
-# import the necessary packages
-import os
-
 
 class config:
     def __init__(self, **kwargs):

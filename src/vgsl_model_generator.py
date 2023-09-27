@@ -99,11 +99,13 @@ class VGSLModelGenerator:
             operations.
         """
 
-        super().__init__()
         self._initializer = initializers.GlorotNormal(seed=42)
         self._channel_axis = -1
         self.model_library = VGSLModelGenerator.get_model_libary()
-        self.model_name = name if name else model
+
+        if model is None:
+            raise ValueError("No model provided. Please provide a model name "
+                             "from the model library or a VGSL-spec string.")
 
         if model.startswith("model"):
             try:
@@ -112,6 +114,8 @@ class VGSLModelGenerator:
                 self.init_model_from_string(model_string,
                                             channels,
                                             output_classes)
+                self.model_name = name if name else model
+
             except KeyError:
                 raise KeyError("Model not found in model library")
         else:
@@ -120,9 +124,7 @@ class VGSLModelGenerator:
                 self.init_model_from_string(model,
                                             channels,
                                             output_classes)
-
-                # TODO: Add model_name argument to arg_parser.py
-                self.model_name = "custom_model"
+                self.model_name = name if name else "custom_model"
 
             except (TypeError, AttributeError) as e:
                 raise ("Something is wrong with the input string, "
@@ -158,10 +160,19 @@ class VGSLModelGenerator:
         logging.info("Initializing model")
         self.history = []
         self.selected_model_vgsl_spec = vgsl_spec_string.split()
-        self.inputs = self.make_input_layer(self.selected_model_vgsl_spec[0],
-                                            channels)
 
-        for index, layer in enumerate(self.selected_model_vgsl_spec[1:]):
+        # Check if the first layer is an input layer
+        pattern = r'^(None|\d+),(None|\d+),(None|\d+),(None|\d+)$'
+        if re.match(pattern, self.selected_model_vgsl_spec[0]):
+            self.inputs = self.make_input_layer(
+                self.selected_model_vgsl_spec[0], channels)
+            starting_index = 1
+        else:
+            self.inputs = None
+            starting_index = 0
+
+        for index, layer in \
+                enumerate(self.selected_model_vgsl_spec[starting_index:]):
             logging.debug(layer)
             if layer.startswith('C'):
                 setattr(self, f"conv2d_{index}", self.conv2d_generator(layer))
@@ -221,6 +232,10 @@ class VGSLModelGenerator:
         """
 
         logging.info("Building model for: %s", self.selected_model_vgsl_spec)
+        if self.inputs is None:
+            raise ValueError("No input layer found. Please check the "
+                             "VGSL-spec string.")
+
         x = self.inputs
         for index, layer in enumerate(self.history):
             if layer.startswith("reshape"):
@@ -253,35 +268,35 @@ class VGSLModelGenerator:
         model_library = {
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-                 "Fl64 D20 Lrs128 D20 Lrs64 D20 O1s92"),
+                 "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
             "model10":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 "
-                 "Grs256 Grs256 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
+                 "Bg256 Bg256 O1s92"),
             "model9":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Lrs256 D20 Lrs256 D20 "
-                 "Lrs256 D20 Lrs256 D20 Lrs256 D20 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 D20 Bl256 D20 "
+                 "Bl256 D20 Bl256 D20 Bl256 D20 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Grs256 Grs256 Grs256 "
-                 "Grs256 Grs256 Fe1024 O1s92"),
+                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 "
+                 "Bg256 Bg256 Fe1024 O1s92"),
             "model12":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Grs256 Grs256 Grs256 Grs256 Grs256 "
+                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
                  "O1s92"),
             "model13":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-                 "Bn Rc Grs256 Grs256 Grs256 Grs256 Grs256 O1s92"),
+                 "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model14":
                 ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Grs256 "
-                 "Grs256 Grs256 Grs256 Grs256 O1s92"),
+                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
+                 "Bg256 Bg256 Bg256 Bg256 O1s92"),
             "model15":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Grs256 Grs256 Grs256 Grs256 "
-                 "Grs256 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 "
+                 "Bg256 O1s92"),
             "model16":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfs128 Gfs128 Gfs128 Gfs128 "
@@ -289,8 +304,8 @@ class VGSLModelGenerator:
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lrs128 "
-                 "Lrs128 Lrs128 Lrs128 Lrs128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Gl128 "
+                 "Gl128 Gl128 Gl128 Gl128 O1s92")
         }
 
         return model_library
