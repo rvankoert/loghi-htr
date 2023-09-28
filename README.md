@@ -22,10 +22,10 @@ Ensure you have the following prerequisites installed or set up:
 
 - Ubuntu or a similar Linux-based operating system. The provided commands are tailored for such systems.
 
-### Steps
-
 > [!IMPORTANT]
 > The requirements listed in `requirements.txt` require a Python version > 3.8. It should be possible to run in Python <= 3.8, but one would have to downgrade some packages (such as NumPy and Tensorflow).
+
+### Steps
 
 1. **Install Python 3**
 
@@ -177,8 +177,7 @@ In this example, the string defines a neural network with input layers, convolut
 | AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 1x1 strides                                                    |
 | Dropout            | `D<rate>`                                      | `Do25`             | Dropout layer with `dropout` = 0.25                                                                          |
 | Reshape            | `Rc`                                           | `Rc`               | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs |
-| ResidualBlock      | **TODO**                                       | **TODO**           | **TODO**                                                                                                     |
-| CTCLayer           | **TODO**                                       | **TODO**           | **TODO**                                                                                                     |
+| ResidualBlock      | `RB[d]<x>,<y>,<d>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <d>. If [d] is provided, the block will downsample the input |
 
 ### Layer Details
 #### Input
@@ -255,11 +254,10 @@ In this example, the string defines a neural network with input layers, convolut
 - **Description**: Reshapes the output tensor from the previous layer, making it compatible with RNN layers.
 - **Example**: `Rc` applies a specific transformation: `layers.Reshape((-1, prev_layer_y * prev_layer_x))`.
 
----
-
-#### Custom blocks:
-- **ResidualBlock**: Documentation in progress.
-- **CTCLayer**: Documentation in progress.
+#### ResidualBlock
+- **Spec**: `RB[d]<x>,<y>,<d>`
+- **Description**: A Residual Block with a kernel size of <x>,<y> and a depth of <d>. If [d] is provided, the block will downsample the input. Residual blocks are used to allow for deeper networks by adding skip connections, which helps in preventing the vanishing gradient problem.
+- **Example**: `RB3,3,64` creates a Residual Block with a 3x3 kernel size and a depth of 64 filters.
 
 ## API Usage Guide
 
