@@ -53,9 +53,9 @@ def main():
 
     # Get the prediction model by extracting layers till the output layer
     prediction_model = keras.models.Model(
-        model.get_layer(name="image").input, model.get_layer(-2).output
+        model.get_layer(name="image").input, model.get_layer(-1).output
     )
-    print(model.get_layer(-2).name)
+    print(model.get_layer(-1).name)
     prediction_model.summary()
 
     # A utility function to decode the output of the network
