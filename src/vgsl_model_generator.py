@@ -269,43 +269,43 @@ class VGSLModelGenerator:
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
                  "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
-            "model10":
-                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 O1s92"),
             "model9":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 D20 Bl256 D20 "
-                 "Bl256 D20 Bl256 D20 Bl256 D20 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+            "model10":
+                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 Fe1024 O1s92"),
+                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bl256 Bl256 Bl256 "
+                 "Bl256 Bl256 Fe1024 O1s92"),
             "model12":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
+                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 Bl256 Bl256 Bl256 Bl256 "
                  "O1s92"),
             "model13":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-                 "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Bn Rc Bl256 Bl256 Bl256 Bl256 Bl256 O1s92"),
             "model14":
                 ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
-                 "Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
             "model15":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 "
-                 "Bg256 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256,D50 Bg256,D50 Bg256,D50 Bg256,D50 "
+                 "Bg256,D50 O1s92"),
             "model16":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfs128 Gfs128 Gfs128 Gfs128 "
-                 "Gfs128 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+                 "Lfs128,D50 O1s92"),
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Gl128 "
-                 "Gl128 Gl128 Gl128 Gl128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Lfs128,D50 "
+                 "Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 O1s92")
         }
 
         return model_library
@@ -745,11 +745,13 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the LSTM layer. Expected format:
-            `L(f|r)[s]<n>`
+            `L(f|r)[s]<n>[,D<rate>,Rd<rate>]`
             - `(f|r)`: Direction of LSTM. 'f' for forward, 'r' for reversed.
             - `[s]`: (Optional) Summarizes the output, outputting only the
             final step.
             - `<n>`: Number of outputs.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
 
         Returns
         -------
@@ -771,13 +773,24 @@ class VGSLModelGenerator:
         """
 
         # Extract direction, summarization, and units
-        match = re.match(r'L([fr])(s?)(-?\d+)$', layer)
+        match = re.match(r'L([fr])(s?)(-?\d+),?(D\d+)?,?(Rd\d+)?$', layer)
         if not match:
             raise ValueError(
                 f"LSTM layer {layer} is of unexpected format. Expected "
-                "format: L(f|r)[s]<n>.")
+                "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-        direction, summarize, n = match.groups()
+        direction, summarize, n, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D',""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
+
         n = int(n)
 
         # Check if the number of units is valid
@@ -789,7 +802,9 @@ class VGSLModelGenerator:
             "units": n,
             "return_sequences": 's' in layer,
             "go_backwards": direction == 'r',
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout/100 if recurrent_dropout > 0 else 0
         }
 
         return layers.LSTM(**lstm_params)
@@ -803,11 +818,14 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the GRU layer. Expected format:
-            `G(f|r)[s]<n>`
+            `G(f|r)[s]<n>[,D<rate>,Rd<rate>]`
             - `(f|r)`: Direction of GRU. 'f' for forward, 'r' for reversed
             - `[s]`: (Optional) Summarizes the output, outputting only the
             final step.
             - `<n>`: Number of outputs.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
+
 
         Returns
         -------
@@ -829,13 +847,23 @@ class VGSLModelGenerator:
         """
 
         # Extract direction, summarization, and units
-        match = re.match(r'G([fr])(s?)(-?\d+)$', layer)
+        match = re.match(r'G([fr])(s?)(-?\d+),?(D\d+)?,?(Rd\d+)?$', layer)
         if not match:
             raise ValueError(
                 f"GRU layer {layer} is of unexpected format. Expected "
-                "format: G(f|r)[s]<n>.")
+                "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-        direction, summarize, n = match.groups()
+        direction, summarize, n, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D',""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
 
         # Convert n to integer
         n = int(n)
@@ -849,7 +877,9 @@ class VGSLModelGenerator:
             "units": n,
             "return_sequences": bool(summarize),
             "go_backwards": direction == 'r',
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout/100 if recurrent_dropout > 0 else 0
         }
 
         return layers.GRU(**gru_params)
@@ -865,9 +895,13 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the Bidirectional layer. Expected format:
-            `B(g|l)<n>`
+            `B(g|l)<n>[,D<rate>,Rd<rate>]`
             - `(g|l)`: Type of RNN layer. 'g' for GRU and 'l' for LSTM.
             - `<n>`: Number of units in the RNN layer.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
+
+
 
         Returns
         -------
@@ -896,14 +930,25 @@ class VGSLModelGenerator:
         """
 
         # Extract layer type and units
-        match = re.match(r'B([gl])(-?\d+)$', layer)
+        match = re.match(r'B([gl])(-?\d+),?(D\d+)?,?(Rd\d+)?$', layer)
         if not match:
             raise ValueError(f"Layer {layer} is of unexpected format. "
-                             "Expected format: B(g|l)<n> where 'g' stands for "
-                             "GRU, 'l' stands for LSTM, and 'n' is the number "
-                             "of units.")
+                             "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                             "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                             "(recurrent) dropout rate.")
 
-        layer_type, units = match.groups()
+        layer_type, units, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D',""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
+
         units = int(units)
 
         # Check if the number of units is valid
@@ -917,7 +962,9 @@ class VGSLModelGenerator:
         rnn_params = {
             "units": units,
             "return_sequences": True,
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout/100 if recurrent_dropout > 0 else 0
         }
 
         return layers.Bidirectional(rnn_layer(**rnn_params),

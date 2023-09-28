@@ -356,6 +356,30 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].go_backwards, True)
         self.assertEqual(model.layers[2].return_sequences, False)
 
+        # Check dropout 0.5 LSTM with recurrent_dropout of 0
+        vgsl_spec_string = "None,64,None,1 Rc Lr128,D50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0.50)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0)
+
+        # Check recurrent dropout 0.5 LSTM with dropout of 0
+        vgsl_spec_string = "None,64,None,1 Rc Lr128,Rd50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0.50)
+
+        # Check recurrent dropout 0.5 LSTM and dropout of 0.5
+        vgsl_spec_string = "None,64,None,1 Rc Lr128,D42,Rd34 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0.42)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0.34)
+
     def test_lstm_error_handling(self):
         # Missing direction
         vgsl_spec_string = "None,64,None,1 L128 O1s10"
@@ -363,7 +387,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer L128 is of unexpected format. Expected "
-                         "format: L(f|r)[s]<n>.")
+                         "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         # Invalid direction
         vgsl_spec_string = "None,64,None,1 Lx128 O1s10"
@@ -371,7 +395,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer Lx128 is of unexpected format. Expected "
-                         "format: L(f|r)[s]<n>.")
+                         "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         # Missing number of units
         vgsl_spec_string = "None,64,None,1 Lf O1s10"
@@ -379,7 +403,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "LSTM layer Lf is of unexpected format. Expected "
-                         "format: L(f|r)[s]<n>.")
+                         "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Lf-128 O1s10"
@@ -387,6 +411,37 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for LSTM layer Lf-128.")
+
+        # Invalid dropout
+        vgsl_spec_string = "None,64,None,1 Lf128,D 20 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "LSTM layer Lf128,D is of unexpected format. Expected "
+                         "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
+
+
+        # Invalid dropout rate (value greater than 100)
+        vgsl_spec_string = "None,64,None,1 Lf128,D101 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Dropout rate must be in the range [0, 100].")
+
+        # Invalid recurrent dropout rate (value greater than 100)
+        vgsl_spec_string = "None,64,None,1 Lf128,Rd101 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Recurrent dropout rate must be in the range [0, 100].")
+
+        # Invalid order of dropouts ("regular dropout" should come before recurrent dropout)
+        vgsl_spec_string = "None,64,None,1 Lf128,Rd24,D40 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "LSTM layer Lf128,Rd24,D40 is of unexpected format. Expected "
+                         "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
     def test_gru_layer(self):
         vgsl_spec_string = "None,64,None,1 Rc Gfs128 O1s10"
@@ -407,6 +462,30 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertEqual(model.layers[2].go_backwards, True)
         self.assertEqual(model.layers[2].return_sequences, False)
 
+        # Check dropout 0.5 Gru with recurrent_dropout of 0
+        vgsl_spec_string = "None,64,None,1 Rc Gr128,D50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0.50)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0)
+
+        # Check recurrent dropout Gru 0.5 with dropout of 0
+        vgsl_spec_string = "None,64,None,1 Rc Gr128,Rd50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0.50)
+
+        # Check recurrent dropout Gru 0.5 and dropout of 0.5
+        vgsl_spec_string = "None,64,None,1 Rc Gr128,D42,Rd34 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].dropout, 0.42)
+        self.assertEqual(model.layers[2].recurrent_dropout, 0.34)
+
     def test_gru_error_handling(self):
         # Missing direction
         vgsl_spec_string = "None,64,None,1 G128 O1s10"
@@ -414,7 +493,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "GRU layer G128 is of unexpected format. Expected "
-                         "format: G(f|r)[s]<n>.")
+                         "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         # Invalid direction
         vgsl_spec_string = "None,64,None,1 Gx128 O1s10"
@@ -422,7 +501,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "GRU layer Gx128 is of unexpected format. Expected "
-                         "format: G(f|r)[s]<n>.")
+                         "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Gf-128 O1s10"
@@ -430,6 +509,44 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for GRU layer Gf-128.")
+
+        # Invalid dropout
+        vgsl_spec_string = "None,64,None,1 Gf128,D 20 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "GRU layer Gf128,D is of unexpected format. Expected "
+                         "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
+
+        # Invalid dropout rate (negative value)
+        vgsl_spec_string = "None,64,None,1 Gf128,D-50 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "GRU layer Gf128,D-50 is of unexpected format. Expected "
+                         "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
+
+        # Invalid dropout rate (value greater than 100)
+        vgsl_spec_string = "None,64,None,1 Gf128,D101 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Dropout rate must be in the range [0, 100].")
+
+        # Invalid recurrent dropout rate (value greater than 100)
+        vgsl_spec_string = "None,64,None,1 Gf128,Rd101 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Recurrent dropout rate must be in the range [0, 100].")
+
+        # Invalid order of dropouts ("regular dropout" should come before recurrent dropout)
+        vgsl_spec_string = "None,64,None,1 Gf128,Rd24,D40 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "GRU layer Gf128,Rd24,D40 is of unexpected format. Expected "
+                         "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
     def test_bidirectional_layer(self):
         vgsl_spec_string = "None,64,None,1 Rc Bg128 O1s10"
@@ -446,24 +563,47 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         self.assertIsInstance(model.layers[2].layer, layers.LSTM)
         self.assertEqual(model.layers[2].layer.units, 128)
 
+        vgsl_spec_string = "None,64,None,1 Rc Bl128,D50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].layer.dropout, 0.50)
+        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0)
+
+        vgsl_spec_string = "None,64,None,1 Rc Bl128,Rd50 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].layer.dropout, 0)
+        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0.50)
+
+        vgsl_spec_string = "None,64,None,1 Rc Bl128,D42,Rd34 O1s10"
+        model_generator = self.VGSLModelGenerator(vgsl_spec_string)
+        model = model_generator.build()
+
+        self.assertEqual(model.layers[2].layer.dropout, 0.42)
+        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0.34)
+
     def test_bidirectional_error_handling(self):
         # Invalid format
         vgsl_spec_string = "None,64,None,1 Rc B128 O1s10"
         with self.assertRaises(ValueError) as context:
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
-                         "Layer B128 is of unexpected format. Expected "
-                         "format: B(g|l)<n> where 'g' stands for GRU, 'l' "
-                         "stands for LSTM, and 'n' is the number of units.")
+                         "Layer B128 is of unexpected format. "
+                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                        "(recurrent) dropout rate.")
 
         # Invalid RNN layer type
         vgsl_spec_string = "None,64,None,1 Rc Bx128 O1s10"
         with self.assertRaises(ValueError) as context:
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
-                         "Layer Bx128 is of unexpected format. Expected "
-                         "format: B(g|l)<n> where 'g' stands for GRU, 'l' "
-                         "stands for LSTM, and 'n' is the number of units.")
+                         "Layer Bx128 is of unexpected format. "
+                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                        "(recurrent) dropout rate.")
 
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Rc Bg-128 O1s10"
@@ -471,6 +611,43 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Invalid number of units -128 for layer Bg-128.")
+
+        # Invalid dropout
+        vgsl_spec_string = "None,64,None,1 Bl128,D 20 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Layer Bl128,D is of unexpected format. "
+                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                        "(recurrent) dropout rate.")
+
+        # Invalid dropout rate (negative value)
+        vgsl_spec_string = "None,64,None,1 Bl128,D-50 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Layer Bl128,D-50 is of unexpected format. "
+                         "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                         "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                         "(recurrent) dropout rate.")
+
+        # Invalid dropout rate (value greater than 100)
+        vgsl_spec_string = "None,64,None,1 Bl128,D101 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Dropout rate must be in the range [0, 100].")
+
+        # Invalid order of dropouts ("regular dropout" should come before recurrent dropout)
+        vgsl_spec_string = "None,64,None,1 Bl128,Rd24,D40 O1s10"
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator(vgsl_spec_string)
+        self.assertEqual(str(context.exception),
+                         "Layer Bl128,Rd24,D40 is of unexpected format. "
+                         "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                         "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                         "(recurrent) dropout rate.")
 
     def test_residual_block(self):
         vgsl_spec_string = "None,64,None,1 RB3,3,16 O1s10"

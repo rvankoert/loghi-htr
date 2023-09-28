@@ -166,9 +166,9 @@ In this example, the string defines a neural network with input layers, convolut
 | Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
 | Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr,3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
 | Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
-| LSTM               | `L(f\|r)[s]<n>`                                | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
-| GRU                | `G(f\|r)[s]<n>`                                | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
-| Bidirectional      | `B(g\|l)<n>`                                   | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
+| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
+| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
+| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
 | BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                                                                     |
 | MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                        |
 | AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 1x1 strides                                                    |
@@ -206,20 +206,20 @@ In this example, the string defines a neural network with input layers, convolut
 
 #### LSTM
 
-- **Spec**: `L(f|r)[s]<n>`
-- **Description**: LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units.
+- **Spec**: `L(f|r)[s]<n>,[D<rate>,Rd<rate>]`
+- **Description**: LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Lf64` creates a forward-only LSTM cell with 64 units.
 
 #### GRU
 
-- **Spec**: `G(f|r)[s]<n>`
-- **Description**: GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units.
+- **Spec**: `G(f|r)[s]<n>,[D<rate>,Rd<rate>]`
+- **Description**: GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Gf64` creates a forward-only GRU cell with 64 units.
 
 #### Bidirectional
 
-- **Spec**: `B(g|l)<n>`
-- **Description**: Bidirectional layer wrapping either a LSTM (`l`) or GRU (`g`) RNN layer, running in both directions, with `n` units.
+- **Spec**: `B(g|l)<n>,[D<rate>,Rd<rate>]`
+  - **Description**: Bidirectional layer wrapping either a LSTM (`l`) or GRU (`g`) RNN layer, running in both directions, with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Bl256` creates a Bidirectional RNN layer using a LSTM Cell with 256 units.
 
 #### BatchNormalization
