@@ -24,6 +24,9 @@ Ensure you have the following prerequisites installed or set up:
 
 ### Steps
 
+> [!IMPORTANT]
+> The requirements listed in `requirements.txt` require a Python version > 3.8. It should be possible to run in Python <= 3.8, but one would have to downgrade some packages (such as NumPy and Tensorflow).
+
 1. **Install Python 3**
 
 ```bash
