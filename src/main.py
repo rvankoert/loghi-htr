@@ -34,6 +34,12 @@ def set_deterministic(args):
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
+def remove_tags(text):
+    text = text.replace('␃', '') #     public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
+    text = text.replace('␅', '') #    public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
+    text = text.replace('␄', '') #    public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
+    text = text.replace('␆', '') #    public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
+    return text
 
 def main():
     # Set up logging
@@ -421,6 +427,8 @@ def main():
                     # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
+                    original_text = remove_tags(original_text)
+                    predicted_text = remove_tags(predicted_text)
                     current_editdistance = editdistance.eval(
                         original_text, predicted_text)
                     current_editdistance_lower = editdistance.eval(
