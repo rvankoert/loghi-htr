@@ -10,7 +10,7 @@ Loghi HTR also works on machine printed text.
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
 4. [API Usage Guide](#api-usage-guide)
-4. [Frequently Asked Questions (FAQ)](#FAQ)
+5. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
 
