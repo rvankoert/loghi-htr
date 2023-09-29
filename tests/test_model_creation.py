@@ -3,6 +3,7 @@
 # > Third party dependencies
 import numpy as np
 
+import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import activations
 
@@ -420,7 +421,6 @@ class VGSLModelGeneratorTest(unittest.TestCase):
                          "LSTM layer Lf128,D is of unexpected format. Expected "
                          "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-
         # Invalid dropout rate (value greater than 100)
         vgsl_spec_string = "None,64,None,1 Lf128,D101 O1s10"
         with self.assertRaises(ValueError) as context:
@@ -591,9 +591,9 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer B128 is of unexpected format. "
-                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
-                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
-                        "(recurrent) dropout rate.")
+                         "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                         "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                         "(recurrent) dropout rate.")
 
         # Invalid RNN layer type
         vgsl_spec_string = "None,64,None,1 Rc Bx128 O1s10"
@@ -601,9 +601,9 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer Bx128 is of unexpected format. "
-                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
-                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
-                        "(recurrent) dropout rate.")
+                         "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                         "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                         "(recurrent) dropout rate.")
 
         # Invalid number of units (negative)
         vgsl_spec_string = "None,64,None,1 Rc Bg-128 O1s10"
@@ -618,9 +618,9 @@ class VGSLModelGeneratorTest(unittest.TestCase):
             self.VGSLModelGenerator(vgsl_spec_string)
         self.assertEqual(str(context.exception),
                          "Layer Bl128,D is of unexpected format. "
-                        "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
-                        "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
-                        "(recurrent) dropout rate.")
+                         "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] where 'g' stands for "
+                         "GRU, 'l' stands for LSTM, 'n' is the number of units, 'rate' is the"
+                         "(recurrent) dropout rate.")
 
         # Invalid dropout rate (negative value)
         vgsl_spec_string = "None,64,None,1 Bl128,D-50 O1s10"

@@ -337,6 +337,101 @@ class VGSLModelGenerator:
     #   Helper functions   #
     ########################
 
+    @staticmethod
+    def model_to_vgsl(model):
+        def get_dropout(dropout, recurrent_dropout=0):
+            """Helper function to generate dropout specifications."""
+
+            dropout_spec = f",D{int(dropout*100)}" if dropout > 0 else ""
+            recurrent_dropout_spec = f",Rd{int(recurrent_dropout*100)}" \
+                if recurrent_dropout > 0 else ""
+
+            return f"{dropout_spec}{recurrent_dropout_spec}"
+
+        def get_stride_spec(strides):
+            """Helper function to generate stride specifications."""
+
+            return f",{strides[0]},{strides[1]}" if strides != (1, 1) else ""
+
+        vgsl_parts = []
+        activation_map = {'sigmoid': 's', 'tanh': 't', 'relu': 'r',
+                          'elu': 'e', 'linear': 'l', 'softmax': 'm'}
+
+        # Map Input layer
+        if isinstance(model.layers[0], tf.keras.layers.InputLayer):
+            input_shape = model.layers[0].input_shape[0]
+            start_idx = 1
+        else:
+            input_shape = model.layers[0].input_shape
+            start_idx = 0
+        vgsl_parts.append(
+            f"{input_shape[0]},{input_shape[2]},{input_shape[1]},"
+            f"{input_shape[3]}")
+
+        for idx in range(start_idx, len(model.layers)):
+            layer = model.layers[idx]
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                act = activation_map[layer.get_config()["activation"]]
+
+                vgsl_parts.append(
+                    f"C{act}{layer.kernel_size[0]},{layer.kernel_size[1]},"
+                    f"{layer.filters}{get_stride_spec(layer.strides)}")
+
+            elif isinstance(layer, tf.keras.layers.Dense):
+                act = activation_map[layer.get_config()["activation"]]
+                prefix = "O1" if idx == len(model.layers) - 1 or isinstance(
+                    model.layers[idx + 1], tf.keras.layers.Activation) else "F"
+
+                vgsl_parts.append(f"{prefix}{act}{layer.units}")
+
+            elif isinstance(layer, (tf.keras.layers.LSTM,
+                                    tf.keras.layers.GRU)):
+                act = 'L' if isinstance(layer, tf.keras.layers.LSTM) else 'G'
+                direction = 'r' if layer.go_backwards else 'f'
+                return_sequences = "s" if layer.return_sequences else ""
+
+                vgsl_parts.append(
+                    f"{act}{direction}{return_sequences}{layer.units}"
+                    f"{get_dropout(layer.dropout, layer.recurrent_dropout)}")
+
+            elif isinstance(layer, layers.Bidirectional):
+                wrapped_layer = layer.layer
+                cell_type = 'l' if isinstance(
+                    wrapped_layer, tf.keras.layers.LSTM) else 'g'
+                dropout = get_dropout(wrapped_layer.dropout,
+                                      wrapped_layer.recurrent_dropout)
+
+                vgsl_parts.append(
+                    f"B{cell_type}{wrapped_layer.units}{dropout}")
+
+            elif isinstance(layer, layers.BatchNormalization):
+                vgsl_parts.append("Bn")
+
+            elif isinstance(layer, layers.MaxPooling2D):
+                vgsl_parts.append(
+                    f"Mp{layer.pool_size[0]},{layer.pool_size[1]},"
+                    f"{layer.strides[0]},{layer.strides[1]}")
+
+            elif isinstance(layer, layers.AveragePooling2D):
+                vgsl_parts.append(
+                    f"Ap{layer.pool_size[0]},{layer.pool_size[1]},"
+                    f"{layer.strides[0]},{layer.strides[1]}")
+
+            elif isinstance(layer, layers.Dropout):
+                vgsl_parts.append(f"D{int(layer.rate*100)}")
+
+            elif isinstance(layer, layers.Reshape):
+                vgsl_parts.append("Rc")
+
+            elif isinstance(layer, ResidualBlock):
+                downsample_spec = "d" if layer.downsample else ""
+
+                vgsl_parts.append(
+                    f"RB{downsample_spec}{layer.conv1.kernel_size[0]},"
+                    f"{layer.conv1.kernel_size[1]},{layer.conv1.filters}")
+
+        return " ".join(vgsl_parts)
+
     @ staticmethod
     def get_units_or_outputs(layer: str) -> int:
         """
@@ -780,8 +875,9 @@ class VGSLModelGenerator:
                 "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         direction, summarize, n, dropout, recurrent_dropout = match.groups()
-        dropout = 0 if dropout is None else int(dropout.replace('D',""))
-        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
 
         # Check if the dropout is valid
         if dropout < 0 or dropout > 100:
@@ -789,7 +885,8 @@ class VGSLModelGenerator:
 
         # Check if the recurrent dropout is valid
         if recurrent_dropout < 0 or recurrent_dropout > 100:
-            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
 
         n = int(n)
 
@@ -854,8 +951,9 @@ class VGSLModelGenerator:
                 "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
         direction, summarize, n, dropout, recurrent_dropout = match.groups()
-        dropout = 0 if dropout is None else int(dropout.replace('D',""))
-        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
 
         # Check if the dropout is valid
         if dropout < 0 or dropout > 100:
@@ -863,7 +961,8 @@ class VGSLModelGenerator:
 
         # Check if the recurrent dropout is valid
         if recurrent_dropout < 0 or recurrent_dropout > 100:
-            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
 
         # Convert n to integer
         n = int(n)
@@ -938,8 +1037,9 @@ class VGSLModelGenerator:
                              "(recurrent) dropout rate.")
 
         layer_type, units, dropout, recurrent_dropout = match.groups()
-        dropout = 0 if dropout is None else int(dropout.replace('D',""))
-        recurrent_dropout = 0 if recurrent_dropout is None else int(recurrent_dropout.replace("Rd",""))
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
 
         # Check if the dropout is valid
         if dropout < 0 or dropout > 100:
@@ -947,7 +1047,8 @@ class VGSLModelGenerator:
 
         # Check if the recurrent dropout is valid
         if recurrent_dropout < 0 or recurrent_dropout > 100:
-            raise ValueError("Recurrent dropout rate must be in the range [0, 100].")
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
 
         units = int(units)
 
@@ -1127,7 +1228,7 @@ class VGSLModelGenerator:
 
         if linearity == "s":
             return layers.Dense(classes,
-                                activation='softmax',
+                                activation='sigmoid',
                                 kernel_initializer=self._initializer)
         elif linearity == "l":
             return layers.Dense(classes,
