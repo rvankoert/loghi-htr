@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard library
+import argparse
 import re
 import logging
 
@@ -1295,3 +1296,28 @@ class VGSLModelGenerator:
         else:
             raise ValueError(
                 f"Output layer linearity {linearity} is not supported.")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Get the VGSL spec for a given Keras model.')
+
+    parser.add_argument('--model_dir', type=str,
+                        help='Path to the directory containing the saved '
+                             'model.')
+
+    args = parser.parse_args()
+
+    from model import CERMetric, WERMetric, CTCLoss
+
+    # Load the model
+    model = tf.keras.models.load_model(args.model_dir,
+                                       custom_objects={
+                                           "CERMetric": CERMetric,
+                                           "WERMetric": WERMetric,
+                                           "CTCLoss": CTCLoss})
+
+    # Get the VGSL spec
+    vgsl_spec = VGSLModelGenerator.model_to_vgsl(model)
+
+    print(f"VGSL Spec: {vgsl_spec}")

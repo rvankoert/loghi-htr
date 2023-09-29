@@ -157,7 +157,7 @@ Variable-size Graph Specification Language (VGSL) is a powerful tool that enable
 
 VGSL operates through short definition strings. For instance:
 
-`[None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92]`
+`None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92`
 
 In this example, the string defines a neural network with input layers, convolutional layers, pooling, reshaping, fully connected layers, LSTM and output layers. Each segment of the string corresponds to a specific layer or operation in the neural network. Moreover, VGSL provides the flexibility to specify the type of activation function for certain layers, enhancing customization.
 
@@ -165,26 +165,26 @@ In this example, the string defines a neural network with input layers, convolut
 
 | **Layer**          | **Spec**                                       | **Example**        | **Description**                                                                                              |
 |--------------------|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------------------------------|
-| Input              | `[batch, height, width, depth]`                | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
+| Input              | `batch,height,width,depth]`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
 | Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
-| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr,3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
+| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
 | Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
 | LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
 | GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
 | Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
 | BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                                                                     |
 | MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                        |
-| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 1x1 strides                                                    |
-| Dropout            | `D<rate>`                                      | `Do25`             | Dropout layer with `dropout` = 0.25                                                                          |
+| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                    |
+| Dropout            | `D<rate>`                                      | `D25`             | Dropout layer with `dropout` = 0.25                                                                          |
 | Reshape            | `Rc`                                           | `Rc`               | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs |
-| ResidualBlock      | `RB[d]<x>,<y>,<d>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <d>. If [d] is provided, the block will downsample the input |
+| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
 
 ### Layer Details
 #### Input
 
-- **Spec**: `[batch, height, width, depth]`
+- **Spec**: `batch,height,width,depth`
 - **Description**: Represents the input layer in TensorFlow, based on standard TF tensor dimensions.
-- **Example**: `None,64,None,1` creates a tf.layers.Input with a variable batch size, height of 64, variable width and a depth of 1 (input channels)
+- **Example**: `None,64,None,1` creates a `tf.layers.Input` with a variable batch size, height of 64, variable width and a depth of 1 (input channels)
 
 #### Output
 
@@ -194,7 +194,7 @@ In this example, the string defines a neural network with input layers, convolut
 
 #### Conv2D
 
-- **Spec**: `C(s|t|r|e|l|m)<x>,<y>,[<s_x>,<s_y>],<d>`
+- **Spec**: `C(s|t|r|e|l|m)<x>,<y>[,<s_x>,<s_y>],<d>`
 - **Description**: Convolutional layer using a `x`,`y` window and `d` filters. Optionally, the stride window can be set with (`s_x`, `s_y`).
 - **Examples**: 
   - `Cr3,3,64` creates a Conv2D layer with a Relu activation function, a 3x3 filter, 1x1 stride, and 64 filters.
@@ -208,19 +208,19 @@ In this example, the string defines a neural network with input layers, convolut
 
 #### LSTM
 
-- **Spec**: `L(f|r)[s]<n>,[D<rate>,Rd<rate>]`
+- **Spec**: `L(f|r)[s]<n>[,D<rate>,Rd<rate>]`
 - **Description**: LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Lf64` creates a forward-only LSTM cell with 64 units.
 
 #### GRU
 
-- **Spec**: `G(f|r)[s]<n>,[D<rate>,Rd<rate>]`
+- **Spec**: `G(f|r)[s]<n>[,D<rate>,Rd<rate>]`
 - **Description**: GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Gf64` creates a forward-only GRU cell with 64 units.
 
 #### Bidirectional
 
-- **Spec**: `B(g|l)<n>,[D<rate>,Rd<rate>]`
+- **Spec**: `B(g|l)<n>[,D<rate>,Rd<rate>]`
   - **Description**: Bidirectional layer wrapping either a LSTM (`l`) or GRU (`g`) RNN layer, running in both directions, with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
 - **Example**: `Bl256` creates a Bidirectional RNN layer using a LSTM Cell with 256 units.
 
@@ -246,7 +246,7 @@ In this example, the string defines a neural network with input layers, convolut
 
 - **Spec**: `D<rate>`
 - **Description**: Regularization layer that sets input units to 0 at a rate of `rate` during training. Used to prevent overfitting.
-- **Example**: `Do50` creates a Dropout layer with a dropout rate of 0.5 (`D`/100).
+- **Example**: `D50` creates a Dropout layer with a dropout rate of 0.5 (`D`/100).
 
 #### Reshape
 
@@ -255,8 +255,8 @@ In this example, the string defines a neural network with input layers, convolut
 - **Example**: `Rc` applies a specific transformation: `layers.Reshape((-1, prev_layer_y * prev_layer_x))`.
 
 #### ResidualBlock
-- **Spec**: `RB[d]<x>,<y>,<d>`
-- **Description**: A Residual Block with a kernel size of <x>,<y> and a depth of <d>. If [d] is provided, the block will downsample the input. Residual blocks are used to allow for deeper networks by adding skip connections, which helps in preventing the vanishing gradient problem.
+- **Spec**: `RB[d]<x>,<y>,<z>`
+- **Description**: A Residual Block with a kernel size of <x>,<y> and a depth of <z>. If [d] is provided, the block will downsample the input. Residual blocks are used to allow for deeper networks by adding skip connections, which helps in preventing the vanishing gradient problem.
 - **Example**: `RB3,3,64` creates a Residual Block with a 3x3 kernel size and a depth of 64 filters.
 
 ## API Usage Guide
@@ -336,6 +336,38 @@ This guide should help you get started with the API. For advanced configurations
 ## FAQ
 
 If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
+
+### How can I determine the VGSL spec of a model I previously used?
+
+If you've used one of our older models and would like to know its VGSL specification, follow these steps:
+
+**For Docker users:**
+
+1. If your Docker container isn't already running with the model directory mounted, start it and bind mount your model directory:
+
+```bash
+docker run -it -v /path/on/host/to/your/model_directory:/path/in/container/to/model_directory loghi/docker.htr
+```
+
+Replace `/path/on/host/to/your/model_directory` with the path to your model directory on your host machine, and `/path/in/container/to/model_directory` with the path where you want to access it inside the container.
+
+2. Once inside the container, run the VGSL spec generator:
+
+```bash
+python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+```
+
+Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
+
+**For Python users:**
+
+1. Run the VGSL spec generator:
+
+```bash
+python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+```
+
+Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.
 
 ### How do I use `replace_recurrent_layer`?
 
