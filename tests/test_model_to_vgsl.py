@@ -12,6 +12,39 @@ import sys
 
 
 class TestModelToVGSL(unittest.TestCase):
+    """
+    Test for the model_to_vgsl function in the VGSLModelGenerator class.
+
+    The model_to_vgsl function takes a Keras model and returns a VGSL
+    specification string. This test suite checks that the function returns the
+    correct VGSL specification string for a given Keras model.
+
+    Test coverage:
+        1. `test_input_layer_to_vgsl`: Test the conversion of an input layer
+        2. `test_input_layer_error`: Test the conversion of an input layer with
+            an invalid input shape
+        3. `test_output_layer_to_vgsl`: Test the conversion of an output layer
+        4. `test_conv2d_layer_to_vgsl`: Test the conversion of a Conv2D layer
+        5. `test_dense_layer_to_vgsl`: Test the conversion of a Dense layer
+        6. `test_lstm_layer_to_vgsl`: Test the conversion of an LSTM layer
+        7. `test_gru_layer_to_vgsl`: Test the conversion of a GRU layer
+        8. `test_bidirectional_layer_to_vgsl`: Test the conversion of a
+            Bidirectional layer
+        9. `test_batch_normalization_to_vgsl`: Test the conversion of a
+            BatchNormalization layer
+        10. `test_max_pooling_2d_to_vgsl`: Test the conversion of a
+            MaxPooling2D layer
+        11. `test_avg_pooling_2d_to_vgsl`: Test the conversion of an
+            AveragePooling2D layer
+        12. `test_dropout_to_vgsl`: Test the conversion of a Dropout layer
+        13. `test_residual_block_to_vgsl`: Test the conversion of a Residual
+            Block layer
+        14. `test_functional_combination_to_vgsl`: Test the conversion of a
+            model defined using the functional API
+        15. `test_sequential_combination_to_vgsl`: Test the conversion of a
+            model defined using the sequential API
+    """
+
     @classmethod
     def setUpClass(cls):
         sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
@@ -38,6 +71,20 @@ class TestModelToVGSL(unittest.TestCase):
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
         self.assertEqual(vgsl_spec, "None,64,None,1 O1s10")
+
+    def test_input_layer_error(self):
+        # Basic input layer
+        model = tf.keras.Sequential([
+            layers.Input(shape=(64, 1)),
+            layers.Dense(10, activation='softmax')
+        ])
+
+        with self.assertRaises(ValueError) as context:
+            self.VGSLModelGenerator.model_to_vgsl(model)
+
+        self.assertEqual(
+            str(context.exception), "Invalid input shape (None, 64, 1). Input "
+            "shape must be of the form (None, height, width, channels).")
 
     def test_output_layer_to_vgsl(self):
         # Basic output layer
