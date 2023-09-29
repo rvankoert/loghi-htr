@@ -354,8 +354,8 @@ class VGSLModelGenerator:
             return f",{strides[0]},{strides[1]}" if strides != (1, 1) else ""
 
         vgsl_parts = []
-        activation_map = {'sigmoid': 's', 'tanh': 't', 'relu': 'r',
-                          'elu': 'e', 'linear': 'l', 'softmax': 'm'}
+        activation_map = {'softmax': 's', 'tanh': 't', 'relu': 'r',
+                          'elu': 'e', 'linear': 'l', 'sigmoid': 'm'}
 
         # Map Input layer
         if isinstance(model.layers[0], tf.keras.layers.InputLayer):
@@ -470,8 +470,8 @@ class VGSLModelGenerator:
             Activation function.
         """
 
-        mapping = {'s': 'sigmoid', 't': 'tanh', 'r': 'relu',
-                   'e': 'elu', 'l': 'linear', 'm': 'softmax'}
+        mapping = {'s': 'softmax', 't': 'tanh', 'r': 'relu',
+                   'e': 'elu', 'l': 'linear', 'm': 'sigmoid'}
 
         if nonlinearity not in mapping:
             raise ValueError(
@@ -1228,7 +1228,7 @@ class VGSLModelGenerator:
 
         if linearity == "s":
             return layers.Dense(classes,
-                                activation='sigmoid',
+                                activation='softmax',
                                 kernel_initializer=self._initializer)
         elif linearity == "l":
             return layers.Dense(classes,
