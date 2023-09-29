@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard library
+import argparse
 import re
 import logging
 
@@ -269,43 +270,44 @@ class VGSLModelGenerator:
             "modelkeras":
                 ("None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
                  "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
-            "model10":
-                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 O1s92"),
             "model9":
                 ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 D20 Bl256 D20 "
-                 "Bl256 D20 Bl256 D20 Bl256 D20 O1s92"),
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+            "model10":
+                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+                 "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
             "model11":
                 ("None,64,None,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bg256 Bg256 Bg256 "
-                 "Bg256 Bg256 Fe1024 O1s92"),
+                 "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bl256 Bl256 Bl256 "
+                 "Bl256 Bl256 Fe1024 O1s92"),
             "model12":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bg256 Bg256 Bg256 Bg256 Bg256 "
+                 "Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 Bl256 Bl256 Bl256 Bl256 "
                  "O1s92"),
             "model13":
                 ("None,64,None,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
                  "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-                 "Bn Rc Bg256 Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Bn Rc Bl256 Bl256 Bl256 Bl256 Bl256 O1s92"),
             "model14":
                 ("None,64,None,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bg256 "
-                 "Bg256 Bg256 Bg256 Bg256 O1s92"),
+                 "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bl256,D50 "
+                 "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
             "model15":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256 Bg256 Bg256 Bg256 "
-                 "Bg256 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256,D50 Bg256,D50 Bg256,D50 "
+                 "Bg256,D50 Bg256,D50 O1s92"),
             "model16":
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Gfs128 Gfs128 Gfs128 Gfs128 "
-                 "Gfs128 O1s92"),
+                 "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+                 "Lfs128,D50 Lfs128,D50 O1s92"),
             "model17":
                 ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc Gl128 "
-                 "Gl128 Gl128 Gl128 Gl128 O1s92")
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
+                 "Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+                 "O1s92")
         }
 
         return model_library
@@ -336,6 +338,154 @@ class VGSLModelGenerator:
     ########################
     #   Helper functions   #
     ########################
+
+    @staticmethod
+    def model_to_vgsl(model: tf.keras.models.Model) -> str:
+        """
+        Convert a Keras model to a VGSL spec string.
+
+        Parameters
+        ----------
+        model : tf.keras.models.Model
+            Keras model to be converted.
+
+        Returns
+        -------
+        str
+            VGSL spec string.
+
+        Raises
+        ------
+        ValueError
+            If the model contains unsupported layers.
+        """
+
+        def get_dropout(dropout: float, recurrent_dropout: int = 0) -> str:
+            """Helper function to generate dropout specifications."""
+
+            dropout_spec = f",D{int(dropout*100)}" if dropout > 0 else ""
+            recurrent_dropout_spec = f",Rd{int(recurrent_dropout*100)}" \
+                if recurrent_dropout > 0 else ""
+
+            return f"{dropout_spec}{recurrent_dropout_spec}"
+
+        def get_stride_spec(strides: tuple) -> str:
+            """Helper function to generate stride specifications."""
+
+            return f",{strides[0]},{strides[1]}" if strides != (1, 1) else ""
+
+        vgsl_parts = []
+        activation_map = {'softmax': 's', 'tanh': 't', 'relu': 'r',
+                          'elu': 'e', 'linear': 'l', 'sigmoid': 'm'}
+
+        # Map Input layer
+        # If the first layer is an InputLayer, get the input shape from the
+        # second layer
+        # This is only the case where we have a model created with the Keras
+        # functional API
+        if isinstance(model.layers[0], tf.keras.layers.InputLayer):
+            input_shape = model.layers[0].input_shape[0]
+            start_idx = 1
+        else:
+            input_shape = model.layers[0].input_shape
+            start_idx = 0
+
+        if not (len(input_shape) == 4 and
+                all(isinstance(dim, (int, type(None)))
+                    for dim in input_shape)):
+            raise ValueError(f"Invalid input shape {input_shape}. Input shape "
+                             "must be of the form (None, height, width, "
+                             "channels).")
+
+        vgsl_parts.append(
+            f"{input_shape[0]},{input_shape[2]},{input_shape[1]},"
+            f"{input_shape[3]}")
+
+        # Loop through and map the rest of the layers
+        for idx in range(start_idx, len(model.layers)):
+            layer = model.layers[idx]
+            if isinstance(layer, tf.keras.layers.Conv2D):
+                act = activation_map[layer.get_config()["activation"]]
+                if act is None:
+                    raise ValueError(
+                        "Unsupported activation function "
+                        f"{layer.get_config()['activation']} in layer "
+                        f"{type(layer).__name__} at position {idx}.")
+
+                vgsl_parts.append(
+                    f"C{act}{layer.kernel_size[0]},{layer.kernel_size[1]},"
+                    f"{layer.filters}{get_stride_spec(layer.strides)}")
+
+            elif isinstance(layer, tf.keras.layers.Dense):
+                act = activation_map[layer.get_config()["activation"]]
+                if act is None:
+                    raise ValueError(
+                        "Unsupported activation function "
+                        f"{layer.get_config()['activation']} in layer "
+                        f"{type(layer).__name__} at position {idx}.")
+                prefix = "O1" if idx == len(model.layers) - 1 or isinstance(
+                    model.layers[idx + 1], tf.keras.layers.Activation) else "F"
+
+                vgsl_parts.append(f"{prefix}{act}{layer.units}")
+
+            elif isinstance(layer, (tf.keras.layers.LSTM,
+                                    tf.keras.layers.GRU)):
+                act = 'L' if isinstance(layer, tf.keras.layers.LSTM) else 'G'
+                direction = 'r' if layer.go_backwards else 'f'
+                return_sequences = "s" if layer.return_sequences else ""
+
+                vgsl_parts.append(
+                    f"{act}{direction}{return_sequences}{layer.units}"
+                    f"{get_dropout(layer.dropout, layer.recurrent_dropout)}")
+
+            elif isinstance(layer, layers.Bidirectional):
+                wrapped_layer = layer.layer
+                cell_type = 'l' if isinstance(
+                    wrapped_layer, tf.keras.layers.LSTM) else 'g'
+                dropout = get_dropout(wrapped_layer.dropout,
+                                      wrapped_layer.recurrent_dropout)
+
+                vgsl_parts.append(
+                    f"B{cell_type}{wrapped_layer.units}{dropout}")
+
+            elif isinstance(layer, layers.BatchNormalization):
+                vgsl_parts.append("Bn")
+
+            elif isinstance(layer, layers.MaxPooling2D):
+                vgsl_parts.append(
+                    f"Mp{layer.pool_size[0]},{layer.pool_size[1]},"
+                    f"{layer.strides[0]},{layer.strides[1]}")
+
+            elif isinstance(layer, layers.AveragePooling2D):
+                vgsl_parts.append(
+                    f"Ap{layer.pool_size[0]},{layer.pool_size[1]},"
+                    f"{layer.strides[0]},{layer.strides[1]}")
+
+            elif isinstance(layer, layers.Dropout):
+                vgsl_parts.append(f"D{int(layer.rate*100)}")
+
+            elif isinstance(layer, layers.Reshape):
+                vgsl_parts.append("Rc")
+
+            elif isinstance(layer, ResidualBlock):
+                downsample_spec = "d" if layer.downsample else ""
+
+                vgsl_parts.append(
+                    f"RB{downsample_spec}{layer.conv1.kernel_size[0]},"
+                    f"{layer.conv1.kernel_size[1]},{layer.conv1.filters}")
+
+            elif isinstance(layer, layers.Activation):
+                # Activation layers are not included in the VGSL spec
+                # but is handled in the output layer
+                continue
+
+            else:
+                # If an unsupported layer type is encountered
+                raise ValueError(
+                    f"Unsupported layer type {type(layer).__name__} at "
+                    f"position {idx}.")
+
+        return " ".join(vgsl_parts)
 
     @ staticmethod
     def get_units_or_outputs(layer: str) -> int:
@@ -375,8 +525,8 @@ class VGSLModelGenerator:
             Activation function.
         """
 
-        mapping = {'s': 'sigmoid', 't': 'tanh', 'r': 'relu',
-                   'e': 'elu', 'l': 'linear', 'm': 'softmax'}
+        mapping = {'s': 'softmax', 't': 'tanh', 'r': 'relu',
+                   'e': 'elu', 'l': 'linear', 'm': 'sigmoid'}
 
         if nonlinearity not in mapping:
             raise ValueError(
@@ -745,11 +895,13 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the LSTM layer. Expected format:
-            `L(f|r)[s]<n>`
+            `L(f|r)[s]<n>[,D<rate>,Rd<rate>]`
             - `(f|r)`: Direction of LSTM. 'f' for forward, 'r' for reversed.
             - `[s]`: (Optional) Summarizes the output, outputting only the
             final step.
             - `<n>`: Number of outputs.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
 
         Returns
         -------
@@ -771,13 +923,26 @@ class VGSLModelGenerator:
         """
 
         # Extract direction, summarization, and units
-        match = re.match(r'L([fr])(s?)(-?\d+)$', layer)
+        match = re.match(r'L([fr])(s?)(-?\d+),?(D\d+)?,?(Rd\d+)?$', layer)
         if not match:
             raise ValueError(
                 f"LSTM layer {layer} is of unexpected format. Expected "
-                "format: L(f|r)[s]<n>.")
+                "format: L(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-        direction, summarize, n = match.groups()
+        direction, summarize, n, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
+
         n = int(n)
 
         # Check if the number of units is valid
@@ -789,7 +954,10 @@ class VGSLModelGenerator:
             "units": n,
             "return_sequences": 's' in layer,
             "go_backwards": direction == 'r',
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout / 100
+            if recurrent_dropout > 0 else 0,
         }
 
         return layers.LSTM(**lstm_params)
@@ -803,11 +971,14 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the GRU layer. Expected format:
-            `G(f|r)[s]<n>`
+            `G(f|r)[s]<n>[,D<rate>,Rd<rate>]`
             - `(f|r)`: Direction of GRU. 'f' for forward, 'r' for reversed
             - `[s]`: (Optional) Summarizes the output, outputting only the
             final step.
             - `<n>`: Number of outputs.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
+
 
         Returns
         -------
@@ -829,13 +1000,25 @@ class VGSLModelGenerator:
         """
 
         # Extract direction, summarization, and units
-        match = re.match(r'G([fr])(s?)(-?\d+)$', layer)
+        match = re.match(r'G([fr])(s?)(-?\d+),?(D-?\d+)?,?(Rd-?\d+)?$', layer)
         if not match:
             raise ValueError(
                 f"GRU layer {layer} is of unexpected format. Expected "
-                "format: G(f|r)[s]<n>.")
+                "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-        direction, summarize, n = match.groups()
+        direction, summarize, n, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
 
         # Convert n to integer
         n = int(n)
@@ -849,7 +1032,10 @@ class VGSLModelGenerator:
             "units": n,
             "return_sequences": bool(summarize),
             "go_backwards": direction == 'r',
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout/100
+            if recurrent_dropout > 0 else 0
         }
 
         return layers.GRU(**gru_params)
@@ -865,9 +1051,13 @@ class VGSLModelGenerator:
         ----------
         layer : str
             VGSL specification for the Bidirectional layer. Expected format:
-            `B(g|l)<n>`
+            `B(g|l)<n>[,D<rate>,Rd<rate>]`
             - `(g|l)`: Type of RNN layer. 'g' for GRU and 'l' for LSTM.
             - `<n>`: Number of units in the RNN layer.
+            - `D<rate>` : Dropout rate. Should be between 0 and 100.
+            - `Rd<rate>`: Recurrent dropout rate. Should be between 0 and 100.
+
+
 
         Returns
         -------
@@ -896,14 +1086,28 @@ class VGSLModelGenerator:
         """
 
         # Extract layer type and units
-        match = re.match(r'B([gl])(-?\d+)$', layer)
+        match = re.match(r'B([gl])(-?\d+),?(D-?\d+)?,?(Rd-?\d+)?$', layer)
         if not match:
             raise ValueError(f"Layer {layer} is of unexpected format. "
-                             "Expected format: B(g|l)<n> where 'g' stands for "
-                             "GRU, 'l' stands for LSTM, and 'n' is the number "
-                             "of units.")
+                             "Expected format: B(g|l)<n>[,D<rate>,Rd<rate>] "
+                             "where 'g' stands for GRU, 'l' stands for LSTM, "
+                             "'n' is the number of units, 'rate' is the "
+                             "(recurrent) dropout rate.")
 
-        layer_type, units = match.groups()
+        layer_type, units, dropout, recurrent_dropout = match.groups()
+        dropout = 0 if dropout is None else int(dropout.replace('D', ""))
+        recurrent_dropout = 0 if recurrent_dropout is None else int(
+            recurrent_dropout.replace("Rd", ""))
+
+        # Check if the dropout is valid
+        if dropout < 0 or dropout > 100:
+            raise ValueError("Dropout rate must be in the range [0, 100].")
+
+        # Check if the recurrent dropout is valid
+        if recurrent_dropout < 0 or recurrent_dropout > 100:
+            raise ValueError(
+                "Recurrent dropout rate must be in the range [0, 100].")
+
         units = int(units)
 
         # Check if the number of units is valid
@@ -917,7 +1121,10 @@ class VGSLModelGenerator:
         rnn_params = {
             "units": units,
             "return_sequences": True,
-            "kernel_initializer": self._initializer
+            "kernel_initializer": self._initializer,
+            "dropout": dropout/100 if dropout > 0 else 0,
+            "recurrent_dropout": recurrent_dropout/100
+            if recurrent_dropout > 0 else 0
         }
 
         return layers.Bidirectional(rnn_layer(**rnn_params),
@@ -1089,3 +1296,28 @@ class VGSLModelGenerator:
         else:
             raise ValueError(
                 f"Output layer linearity {linearity} is not supported.")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Get the VGSL spec for a given Keras model.')
+
+    parser.add_argument('--model_dir', type=str,
+                        help='Path to the directory containing the saved '
+                             'model.')
+
+    args = parser.parse_args()
+
+    from model import CERMetric, WERMetric, CTCLoss
+
+    # Load the model
+    model = tf.keras.models.load_model(args.model_dir,
+                                       custom_objects={
+                                           "CERMetric": CERMetric,
+                                           "WERMetric": WERMetric,
+                                           "CTCLoss": CTCLoss})
+
+    # Get the VGSL spec
+    vgsl_spec = VGSLModelGenerator.model_to_vgsl(model)
+
+    print(f"VGSL Spec: {vgsl_spec}")

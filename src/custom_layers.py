@@ -11,7 +11,7 @@ from tensorflow.keras import layers
 
 
 class ResidualBlock(layers.Layer):
-    def __init__(self, filters, x, y, initializer, downsample):
+    def __init__(self, filters, x, y, initializer=tf.initializers.GlorotNormal, downsample=False):
         super().__init__()
         self.downsample = downsample
         self.conv1 = layers.Conv2D(filters,
@@ -40,6 +40,20 @@ class ResidualBlock(layers.Layer):
         # ELU and BatchNormalization layers
         self.elu_layer = layers.ELU()
         self.bn_layer = layers.BatchNormalization()
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'filters': self.conv1.filters,
+            'x': self.conv1.kernel_size[0],
+            'y': self.conv1.kernel_size[1],
+
+            # Serializing the initializer
+            'initializer': tf.keras.initializers.serialize(
+                self.conv1.kernel_initializer),
+            'downsample': self.downsample
+        })
+        return config
 
     def call(self, x, training=False):
         y = self.conv1(x)
