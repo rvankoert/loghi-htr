@@ -3,7 +3,6 @@
 # > Third party dependencies
 import numpy as np
 
-import tensorflow as tf
 from tensorflow.keras import layers
 from tensorflow.keras import activations
 
@@ -125,11 +124,11 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         model = model_generator.build()
 
         # Check that the Conv2D layers have the correct activation functions
-        self.assertEqual(model.layers[1].activation, activations.sigmoid)
+        self.assertEqual(model.layers[1].activation, activations.softmax)
         self.assertEqual(model.layers[2].activation, activations.tanh)
         self.assertEqual(model.layers[3].activation, activations.relu)
         self.assertEqual(model.layers[4].activation, activations.linear)
-        self.assertEqual(model.layers[5].activation, activations.softmax)
+        self.assertEqual(model.layers[5].activation, activations.sigmoid)
 
     def test_conv2d_error_handling(self):
         # Check that an error is raised when an invalid number of parameters
@@ -300,7 +299,7 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         model = model_generator.build()
 
         # Check that the Dense layers have the correct activation functions
-        self.assertEqual(model.layers[1].activation, activations.sigmoid)
+        self.assertEqual(model.layers[1].activation, activations.softmax)
         self.assertEqual(model.layers[2].activation, activations.tanh)
         self.assertEqual(model.layers[3].activation, activations.relu)
         self.assertEqual(model.layers[4].activation, activations.linear)

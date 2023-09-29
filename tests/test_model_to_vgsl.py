@@ -33,7 +33,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Basic input layer
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            layers.Dense(10, activation='sigmoid')
+            layers.Dense(10, activation='softmax')
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -43,7 +43,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Basic output layer
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            layers.Dense(10, activation='sigmoid')
+            layers.Dense(10, activation='softmax')
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -52,7 +52,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Alternative output layer
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            layers.Dense(3, activation='softmax')
+            layers.Dense(3, activation='sigmoid')
         ])
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
         self.assertEqual(vgsl_spec, "None,64,None,1 O1m3")
@@ -70,7 +70,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Alternative conv2d layer
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            layers.Conv2D(128, (2, 2), activation='softmax'),
+            layers.Conv2D(128, (2, 2), activation='sigmoid'),
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -81,7 +81,7 @@ class TestModelToVGSL(unittest.TestCase):
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
             layers.Dense(64, activation='relu'),
-            layers.Dense(10, activation='sigmoid')
+            layers.Dense(10, activation='softmax')
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -91,7 +91,7 @@ class TestModelToVGSL(unittest.TestCase):
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
             layers.Dense(16, activation='tanh'),
-            layers.Dense(10, activation='sigmoid')
+            layers.Dense(10, activation='softmax')
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -264,7 +264,7 @@ class TestModelToVGSL(unittest.TestCase):
         x = layers.GRU(64, return_sequences=True, go_backwards=True)(x)
         x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
         x = layers.Bidirectional(layers.GRU(256, return_sequences=True))(x)
-        x = layers.Dense(10, activation='sigmoid')(x)
+        x = layers.Dense(10, activation='softmax')(x)
         output_tensor = layers.Activation('linear')(x)
         model = tf.keras.Model(inputs=input_tensor, outputs=output_tensor)
 
@@ -295,7 +295,7 @@ class TestModelToVGSL(unittest.TestCase):
             layers.GRU(64, return_sequences=True, go_backwards=True),
             layers.Bidirectional(layers.LSTM(256, return_sequences=True)),
             layers.Bidirectional(layers.GRU(256, return_sequences=True)),
-            layers.Dense(10, activation='sigmoid'),
+            layers.Dense(10, activation='softmax'),
             layers.Activation('linear')
         ])
 
@@ -349,3 +349,7 @@ class TestModelToVGSL(unittest.TestCase):
                              generated_config,
                              "Configuration mismatch in "
                              f"{type(original_layer).__name__}")
+
+
+if __name__ == '__main__':
+    unittest.main()
