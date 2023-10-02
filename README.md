@@ -165,7 +165,7 @@ In this example, the string defines a neural network with input layers, convolut
 
 | **Layer**          | **Spec**                                       | **Example**        | **Description**                                                                                              |
 |--------------------|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------------------------------|
-| Input              | `batch,height,width,depth]`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
+| Input              | `batch,height,width,depth`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
 | Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
 | Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
 | Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
