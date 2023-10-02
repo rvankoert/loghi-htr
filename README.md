@@ -44,7 +44,7 @@ python3 -m pip install .
 3. **Clone the HTR repository and install its requirements**
 
 ```bash
-git clone https://github.com/rvankoert/loghi-htr.git
+git clone https://github.com/knaw-huc/loghi-htr.git
 cd loghi-htr
 python3 -m pip install -r requirements.txt
 ```
