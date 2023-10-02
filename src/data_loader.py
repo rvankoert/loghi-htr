@@ -1,0 +1,252 @@
+# Imports
+
+# > Standard library
+from __future__ import division
+from __future__ import print_function
+
+# > Local dependencies
+from data_generator import DataGenerator
+from utils import Utils
+
+# > Third party dependencies
+import tensorflow as tf
+from tensorflow.data import AUTOTUNE
+import numpy as np
+
+# > Environment
+import os
+
+class DataLoader:
+    DTYPE = 'float32'
+    currIdx = 0
+    charList = []
+    samples = []
+    validation_dataset = []
+
+    @staticmethod
+    def normalize(input):
+        output = input.replace(',,', '„') \
+            .replace(' ,', ',') \
+            .replace(',', ', ') \
+             .replace(' .', '.') \
+            .replace('.', '. ') \
+            .replace('  ', ' ') \
+            .replace('`', '\'') \
+            .replace('´', '\'') \
+            .replace('ʼ', '\'') \
+            .replace('‘', '\'') \
+            .replace('’', '\'') \
+            .replace('“', '"') \
+            .replace('”', '"') \
+            .replace('·', '.') \
+            .strip()
+        return output
+
+    def init_data_generator(self, files, params, is_training=False, deterministic= False):
+        data_generator = DataGenerator(**params)
+        num_batches = np.ceil(len(files) / self.batch_size)
+        generator = tf.data.Dataset.from_tensor_slices(files)
+        if is_training:
+            #Add additional repeat and shuffle for training
+            generator = generator.repeat().shuffle(len(files))
+        generator = (generator
+                     .map(data_generator.load_images,
+                                    num_parallel_calls=AUTOTUNE,
+                                    deterministic=deterministic)
+                    .padded_batch(self.batch_size,
+                        padded_shapes=([None, None, self.channels], [None]),
+                        padding_values=(
+                        tf.constant(-10, dtype=tf.float32),
+                        tf.constant(0, dtype=tf.int64)))
+                    .prefetch(AUTOTUNE)
+                    ).apply(tf.data.experimental.assert_cardinality(num_batches))
+        return generator
+
+    def generators(self):
+        chars = set()
+        partition = {'train': [], 'validation': [], 'test': [], 'inference': []}
+        labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
+
+        if self.train_list:
+            chars, train_files = self.create_data(chars, labels, partition, 'train', self.train_list, use_multiply=True)
+
+        if self.validation_list:
+            chars, validation_files = self.create_data(chars, labels, partition, 'validation', self.validation_list)
+
+        if self.test_list:
+            chars, test_files = self.create_data(chars, labels, partition, 'test', self.test_list,
+                                                 include_unsupported_chars=True)
+        if self.inference_list:
+            chars, inference_files = self.create_data(chars, labels, partition, 'inference', self.inference_list,
+                                                      include_unsupported_chars=True, include_missing_files=True,
+                                                      is_inference=True)
+
+        # list of all chars in dataset
+        if self.injected_charlist and not self.replace_final_layer:
+            print('using injected charlist')
+            self.charList = self.injected_charlist
+        else:
+            self.charList = sorted(list(chars))
+
+        self.utils = Utils(self.charList, self.use_mask)
+
+        train_params = {'utils': self.utils,
+                       'height': self.height,
+                       'batch_size': self.batch_size,
+                       'channels': self.channels,
+                       'do_binarize_sauvola': self.do_binarize_sauvola,
+                       'do_binarize_otsu': self.do_binarize_otsu,
+                       'do_elastic_transform': self.elastic_transform,
+                       'random_crop': self.random_crop,
+                       'random_width': self.random_width,
+                       'distort_jpeg': self.distort_jpeg,
+                       'do_random_shear': self.do_random_shear
+                       }
+        non_train_params = {'utils': self.utils,
+                            'batch_size': self.batch_size,
+                            'height': self.height,
+                            'channels' : self.channels,
+                            'do_binarize_sauvola':self.do_binarize_sauvola,
+                            'do_binarize_otsu':self.do_binarize_otsu
+                            }
+
+        training_generator = None
+        validation_generator = None
+        test_generator = None
+        inference_generator = None
+        train_batches = 0
+        if self.train_list:
+            training_generator = self.init_data_generator(train_files, train_params, is_training=True)
+            #Explicitly set train batches otherwise training is not initialised
+            train_batches = np.ceil(len(train_files) / self.batch_size)
+        if self.validation_list:
+            validation_generator = self.init_data_generator(validation_files, non_train_params, deterministic=True)
+        if self.test_list:
+            test_generator = self.init_data_generator(test_files, non_train_params, deterministic=True)
+        if self.inference_list:
+            inference_generator = self.init_data_generator(inference_files, non_train_params, deterministic=True)
+
+        self.partition = partition
+        return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
+
+    def __init__(self,
+                 batch_size,
+                 img_size,
+                 char_list=None,
+                 train_list='',
+                 validation_list='',
+                 test_list='',
+                 inference_list='',
+                 do_binarize_sauvola=False,
+                 do_binarize_otsu=False,
+                 normalize_text=False,
+                 multiply=1,
+                 augment=True,
+                 elastic_transform=False,
+                 num_oov_indices=0,
+                 random_crop=False,
+                 random_width=False,
+                 check_missing_files=True,
+                 distort_jpeg=False,
+                 replace_final_layer=False,
+                 use_mask=False,
+                 do_random_shear=False
+                 ):
+        """loader for dataset at given location, preprocess images and text according to parameters"""
+        self.currIdx = 0
+        self.batch_size = batch_size
+        self.imgSize = img_size
+        self.samples = []
+        self.height = img_size[0]
+        self.width = img_size[1]
+        self.channels = img_size[2]
+        self.partition = []
+        self.injected_charlist = char_list
+        self.train_list = train_list
+        self.validation_list = validation_list
+        self.test_list = test_list
+        self.inference_list = inference_list
+        self.do_binarize_sauvola = do_binarize_sauvola
+        self.do_binarize_otsu = do_binarize_otsu
+        self.normalize_text = normalize_text
+        self.multiply = multiply
+        self.dataAugmentation = augment
+        self.elastic_transform = elastic_transform
+        self.num_oov_indices = num_oov_indices
+        self.random_crop = random_crop
+        self.random_width = random_width
+        self.check_missing_files = check_missing_files
+        self.distort_jpeg = distort_jpeg
+        self.replace_final_layer = replace_final_layer
+        self.use_mask = use_mask
+        self.do_random_shear = do_random_shear
+
+    def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
+                    include_missing_files=False, is_inference=False, use_multiply=False):
+        files = []
+        for sublist in data_file_list.split():
+            if not os.path.exists(sublist):
+                print(sublist + "does not exist, enter a valid filename. exiting...")
+                exit(1)
+            with open(sublist) as f:
+                counter = 0
+                for line in f:
+                    if not line or line[0] == '#':
+                        continue
+                    lineSplit = line.strip().split('\t')
+                    if not is_inference and len(lineSplit) == 1:
+                        continue
+
+                    # filename
+                    fileName = lineSplit[0]
+                    if not include_missing_files and self.check_missing_files and not os.path.exists(fileName):
+                        print("missing: " + fileName)
+                        continue
+                    if is_inference:
+                        gtText = 'to be determined'
+                    elif self.normalize_text:
+                        gtText = self.normalize(lineSplit[1])
+                    else:
+                        gtText = lineSplit[1]
+                    ignoreLine = False
+                    if not include_unsupported_chars and self.injected_charlist and not self.replace_final_layer:
+                        for char in gtText:
+                            if char not in self.injected_charlist:
+                                print('a ignoring line: ' + gtText)
+                                ignoreLine = True
+                                break
+                    if ignoreLine or len(gtText) == 0:
+                        print(line)
+                        continue
+                    counter = counter + 1
+                    if use_multiply:
+                        for i in range(0, self.multiply):
+                            partition[partition_name].append(fileName)
+                            labels[partition_name].append(gtText)
+                            files.append([fileName, gtText])
+                    else:
+                        partition[partition_name].append(fileName)
+                        labels[partition_name].append(gtText)
+                        files.append([fileName, gtText])
+                    if not self.injected_charlist or self.replace_final_layer:
+                        chars = chars.union(set(char for label in gtText for char in label))
+                print('found ' + str(counter) + ' lines suitable for ' + partition_name)
+        return chars, files
+
+    @staticmethod
+    def truncate_label(text, max_text_len):
+        # ctc_loss can't compute loss if it cannot find a mapping between text label and input
+        # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
+        # If a too-long label is provided, ctc_loss returns an infinite gradient
+        cost = 0
+        for i in range(len(text)):
+            if i != 0 and text[i] == text[i - 1]:
+                cost += 2
+            else:
+                cost += 1
+            if cost > max_text_len:
+                return text[:i]
+        return text
+
+    def get_item(self, partition, item_id):
+        return self.partition[partition][item_id]

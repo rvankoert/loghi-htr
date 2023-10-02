@@ -1,10 +1,17 @@
-from config import *
+# Imports
+
+# > Standard Library
 import metrics
-from matplotlib import pyplot as plt
-from tf_keras_vis.utils import num_of_gpus
+import argparse
+
+# > Local dependencies
+
+
+# > Third party libraries
 import tensorflow.keras as keras
 import tensorflow as tf
-import argparse
+from matplotlib import pyplot as plt
+from tf_keras_vis.utils import num_of_gpus
 from keras.utils.generic_utils import get_custom_objects
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""

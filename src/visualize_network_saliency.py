@@ -1,24 +1,29 @@
-import metrics
-from datagenerator import DataGenerator
+# Imports
+
+# > Standard Library
+import random
+import argparse
+
+# > Local dependencies
 from config import *
+
+
+# > Third party libraries
 import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 import numpy as np
 import tensorflow as tf
-import random
-import argparse
 from matplotlib import pyplot as plt
 from tf_keras_vis.saliency import Saliency
 from tf_keras_vis.utils import normalize
 from tensorflow.keras.preprocessing.image import load_img
-from keras.utils.generic_utils import get_custom_objects
 
-from dataset_ecodices import DatasetEcodices
-from dataset_iisg import DatasetIISG
-from dataset_medieval import DatasetMedieval
-from dataset_medieval_30percent import DatasetMedieval30Percent
-from dataset_medieval_30percent_sample import DatasetMedieval30PercentSample
-from dataset_place_century_script import DatasetPlaceCenturyScript
+# from dataset_ecodices import DatasetEcodices
+# from dataset_iisg import DatasetIISG
+# from dataset_medieval import DatasetMedieval
+# from dataset_medieval_30percent import DatasetMedieval30Percent
+# from dataset_medieval_30percent_sample import DatasetMedieval30PercentSample
+# from dataset_place_century_script import DatasetPlaceCenturyScript
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -105,8 +110,8 @@ print("[INFO] loading DiFor dataset...")
 # model = keras.models.load_model(MODEL_PATH)
 # keras.losses.custom_loss = metrics.contrastive_loss
 
-get_custom_objects().update({"contrastive_loss": metrics.contrastive_loss})
-get_custom_objects().update({"average": metrics.average})
+# get_custom_objects().update({"contrastive_loss": metrics.contrastive_loss})
+# get_custom_objects().update({"average": metrics.average})
 model = keras.models.load_model(MODEL_PATH)
 # model = keras.models.load_model('/home/rutger/src/siamesenew/output.92percent/siamese_model/')
 

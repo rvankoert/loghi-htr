@@ -1,23 +1,25 @@
+# Imports
+
+# > Standard Library
 import math
 import os
+import random
+import argparse
 
-import utils
-from Model import CTCLoss, CERMetric, WERMetric
+# > Local dependencies
+from model import CTCLoss, CERMetric, WERMetric
 from utils import *
-
-
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ['TF_DETERMINISTIC_OPS'] = '1'
-
 from config import *
+
+# > Third party libraries
 import tensorflow.keras as keras
 import numpy as np
 import tensorflow as tf
-import random
-import argparse
 import tensorflow_addons as tfa
 from tensorflow.keras.utils import get_custom_objects
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 def compute_loss(input_image, filter_index):
     activation = feature_extractor(input_image)
@@ -52,9 +54,9 @@ def visualize_filter(filter_index):
     img = initialize_image()
     for iteration in range(iterations):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)
-
+    img = tf.transpose(img[0].numpy(), perm=[1, 0, 2])
     # Decode the resulting input image
-    img = deprocess_image(img[0].numpy())
+    img = deprocess_image(img)
     return loss, img
 
 
@@ -84,6 +86,7 @@ MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
 MODEL_PATH = "../model-all-val_loss-22.38509"
 MODEL_PATH = "../model-new7-128-batch32"
 MODEL_PATH = "../model-current"
+MODEL_PATH = "/home/luke/ai_development/public-models/loghi-htr/float32-generic-2023-02-15"
 
 
 if args.existing_model:
@@ -120,7 +123,7 @@ layer_name = "conv3_block4_out"
 submodel = model
 print(submodel.summary())
 for layer in submodel.layers:
-    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("Conv") and not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
     # print(layer.name)
     # continue

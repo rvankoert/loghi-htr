@@ -1,27 +1,27 @@
-import os
+# Imports
 
-
-from config import *
-import utils
-
-from DataLoaderNew import DataLoaderNew
-from Model import CERMetric, WERMetric, CTCLoss
-from DataGenerator import DataGenerator
-from utils import *
-import tensorflow.keras as keras
-import tensorflow.keras.backend as K
-
-import numpy as np
-import tensorflow as tf
+# > Standard Library
 import random
 import argparse
+import os
+
+# > Local dependencies
+from data_loader import DataLoader
+from model import CERMetric, WERMetric, CTCLoss
+from utils import *
+from config import *
+
+# > Third party libraries
+import tensorflow.keras as keras
+import numpy as np
+import tensorflow as tf
 from matplotlib import pyplot as plt
-import tensorflow_addons as tfa
+from tensorflow.keras.utils import get_custom_objects
+
 
 # disable GPU for now, because it is already running on my dev machine
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_DETERMINISTIC_OPS'] = '1'
-from tensorflow.keras.utils import get_custom_objects
+os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('--seed', metavar='seed', type=int, default=42,
@@ -149,9 +149,10 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
-    feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
+    feature_extractor = keras.Model(
+        inputs=submodel.inputs, outputs=layer.output)
     # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
 
     all_imgs = []
@@ -165,6 +166,10 @@ for layerId in range(len(submodel.layers)):
         all_imgs.append(img)
 
     char_list = None
+    # char_list_path = MODEL_PATH+"/charlist.txt"
+    # with open(char_list_path) as f:
+    #     char_list = f.readlines()
+
     maxTextLen = 128
     loader = DataLoaderNew(args.batch_size, imgSize,
                            train_list=None,
@@ -178,28 +183,15 @@ for layerId in range(len(submodel.layers)):
     training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
     inference_dataset = inference_generator
-
     batch_counter = 0
     for batch in inference_dataset:
-        # if i > 10:
-        #     print('breaking')
-        #     break
+        if batch_counter > 10:
+            print('breaking')
+            break
         item = batch[0]
-        # print(item)
-        # item = dataGenerator.encode_single_sample_clean(item, "none")
-        # item = tf.expand_dims(
-        #     item, 0
-        # )
-
-        # print (item)
         i = i + 1
 
         X = item
-        # X = tf.transpose(X, perm=[1, 0, 2])
-
-        # Rendering
-        # img1 = tf.keras.preprocessing.image.array_to_img(X[0])
-
         maps = get_feature_maps(submodel, layerId, X[0])
 
         # Normalised [0,1]
@@ -230,8 +222,10 @@ for layerId in range(len(submodel.layers)):
         # plt.show()  # finally, render the plot
 
         # plt.show()
-        filename = loader.get_item('inference', (batch_counter * args.batch_size))
+        filename = loader.get_item(
+            'inference', (batch_counter * args.batch_size))
         plt.tight_layout()
-        plt.savefig('results/{}-{}'.format(layerId, os.path.basename(filename)))
+        plt.savefig('results/{}-{}'.format(layerId,
+                    os.path.basename(filename)))
         plt.close()
         batch_counter = batch_counter + 1
