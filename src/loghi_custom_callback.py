@@ -1,7 +1,12 @@
-import os
-from tensorflow import keras
-import json
+# Imports
 
+# > Standard Library
+import os
+import json
+# > Local dependencies
+
+# > Third party libraries
+from tensorflow import keras
 
 class LoghiCustomCallback(keras.callbacks.Callback):
 

@@ -143,7 +143,6 @@ class WERMetric(tf.keras.metrics.Metric):
 
         self.wer_accumulator.assign_add(correct_words_amount)
         self.counter.assign_add(K.cast(len(y_true), 'float32'))
-        # self.counter.assign_add(10)
 
     def result(self):
         return tf.math.divide_no_nan(self.wer_accumulator, self.counter)

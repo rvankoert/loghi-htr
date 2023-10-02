@@ -1,8 +1,12 @@
-# import the necessary packages
+# Imports
 
-# from helpers import benchmark
-import tensorflow as tf
+# > Standard Library
 import random
+
+# > Local dependencies
+
+# > Third party libraries
+import tensorflow as tf
 import elasticdeform.tf as etf
 import tensorflow_addons as tfa
 

@@ -1,17 +1,22 @@
-import metrics
+# Imports
+
+# > Standard Library
+import random
+import argparse
+
+# > Local dependencies
 from config import *
+
+
+# > Third party libraries
 import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 import numpy as np
 import tensorflow as tf
-import random
-import argparse
 from matplotlib import pyplot as plt
 from tf_keras_vis.saliency import Saliency
 from tf_keras_vis.utils import normalize
 from tensorflow.keras.preprocessing.image import load_img
-# from keras.utils.generic_utils import get_custom_objects
-from tensorflow.keras.utils import get_custom_objects
 
 # from dataset_ecodices import DatasetEcodices
 # from dataset_iisg import DatasetIISG

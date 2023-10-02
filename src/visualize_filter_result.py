@@ -1,21 +1,23 @@
-from tensorflow.keras.utils import get_custom_objects
-import os
+# Imports
 
-
-from config import *
-import utils
-
-from data_loader import DataLoaderNew
-from model import CERMetric, WERMetric, CTCLoss
-from utils import *
-import tensorflow.keras as keras
-
-import numpy as np
-import tensorflow as tf
+# > Standard Library
 import random
 import argparse
+import os
+
+# > Local dependencies
+from data_loader import DataLoader
+from model import CERMetric, WERMetric, CTCLoss
+from utils import *
+from config import *
+
+# > Third party libraries
+import tensorflow.keras as keras
+import numpy as np
+import tensorflow as tf
 from matplotlib import pyplot as plt
-import tensorflow_addons as tfa
+from tensorflow.keras.utils import get_custom_objects
+
 
 # disable GPU for now, because it is already running on my dev machine
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"

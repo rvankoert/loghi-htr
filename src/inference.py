@@ -38,8 +38,6 @@ def main():
     batchSize = 1
     imgSize = (1024, 32, 1)
     maxTextLen = 128
-    epochs = 10
-    learning_rate = 0.0001
     # load training data, create TF model
     charlist = open(FilePaths.fnCharList).read()
     print(charlist)
@@ -90,18 +88,8 @@ def main():
 
         _, ax = plt.subplots(4, 4, figsize=(15, 5))
         for i in range(len(pred_texts)):
-            # for i in range(16):
             print(orig_texts[i].strip())
             print(pred_texts[i].strip())
-
-
-# 		img = (batch_images[i, :, :, 0] * 255).numpy().astype(np.uint8)
-# 		img = img.T
-# 		title = f"Prediction: {pred_texts[i].strip()}"
-# 		ax[i // 4, i % 4].imshow(img, cmap="gray")
-# 		ax[i // 4, i % 4].set_title(title)
-# 		ax[i // 4, i % 4].axis("off")
-# plt.show()
 
 if __name__ == '__main__':
     main()

@@ -1,3 +1,10 @@
+# Imports
+
+# > Standard Library
+
+# > Local dependencies
+
+# > Third party libraries
 import tensorflow as tf
 import numpy as np
 from keras.models import Model

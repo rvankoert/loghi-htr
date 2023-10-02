@@ -1,17 +1,22 @@
-from __future__ import division
-from __future__ import print_function
+# Imports
 
+# > Standard Library
 import os
 import sys
 import math
 import pickle
 import copy
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
+from __future__ import division
+from __future__ import print_function
+
+# > Local dependencies
 from model import Model
 from sample_processor import preprocess
 
+# > Third party libraries
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 # constants like filepaths
 class Constants:

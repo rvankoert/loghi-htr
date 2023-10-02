@@ -1,5 +1,11 @@
+# Imports
+
+# > Standard Library
 import argparse
 
+# > Local dependencies
+
+# > Third party libraries
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(

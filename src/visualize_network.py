@@ -1,23 +1,25 @@
+# Imports
+
+# > Standard Library
 import math
 import os
+import random
+import argparse
 
-import utils
+# > Local dependencies
 from model import CTCLoss, CERMetric, WERMetric
 from utils import *
-
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_DETERMINISTIC_OPS'] = '0'
-
 from config import *
+
+# > Third party libraries
 import tensorflow.keras as keras
 import numpy as np
 import tensorflow as tf
-import random
-import argparse
 import tensorflow_addons as tfa
 from tensorflow.keras.utils import get_custom_objects
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 def compute_loss(input_image, filter_index):
     activation = feature_extractor(input_image)

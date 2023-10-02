@@ -96,7 +96,6 @@ def main():
                 exit(1)
             with open(charlist_location) as file:
                 char_list = list(char for char in file.read())
-            # char_list = sorted(list(char_list))
             print("using charlist")
             print("length charlist: " + str(len(char_list)))
             print(char_list)
@@ -194,7 +193,6 @@ def main():
 
         if args.existing_model:
             print('using existing model as base: ' + args.existing_model)
-            # if not args.replace_final_layer:
 
             if args.replace_recurrent_layer:
                 model = replace_recurrent_layer(model,
@@ -306,7 +304,6 @@ def main():
             output=args.output,
             model_name='encoder12',
             steps_per_epoch=args.steps_per_epoch,
-            # num_workers=args.num_workers,
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,
             output_checkpoints=args.output_checkpoints,
@@ -397,18 +394,13 @@ def main():
             predictions = prediction_model.predict(batch[0])
             predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
                                                        args.num_oov_indices)
-
-            # preds = utils.softmax(preds)
             predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
 
             if wbs:
                 print('computing wbs...')
                 label_str = wbs.compute(predsbeam)
                 char_str = []  # decoded texts for batch
-                # print(len(label_str))
-                # print(label_str)
                 for curr_label_str in label_str:
-                    # print(len(curr_label_str))
                     s = ''.join([chars[label] for label in curr_label_str])
                     char_str.append(s)
                     print(s)
@@ -424,7 +416,6 @@ def main():
                 for i in range(len(prediction)):
                     confidence = prediction[i][0]
                     predicted_text = prediction[i][1]
-                    # for i in range(16):
                     original_text = orig_texts[i].strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
                     original_text = remove_tags(original_text)
@@ -455,7 +446,6 @@ def main():
                         filename = loader.get_item(
                             'validation', (batch_no * args.batch_size) + i)
                         print('\n' + filename)
-                        # print(predicted_simple)
                         print(original_text)
                         print(predicted_text)
                         if wbs:
@@ -476,7 +466,6 @@ def main():
                               + ' total_orig: ' + str(len(original_text))
                               + ' total_pred: ' + str(len(predicted_text))
                               + ' errors: ' + str(current_editdistance))
-                        # print(cer)
                         print("avg editdistance: " +
                               str(totaleditdistance / float(totallength)))
                         print("avg editdistance lower: " +

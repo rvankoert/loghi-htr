@@ -1,7 +1,13 @@
+# Imports
+
+# > Standard Library
 from __future__ import division
 from __future__ import print_function
-
 import random
+
+# > Local dependencies
+
+# > Third party libraries
 import numpy as np
 import cv2
 
