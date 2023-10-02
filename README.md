@@ -31,6 +31,11 @@ If you instead want to build the dockers yourself with the latest code:
 git submodule update --init --recursive
 cd docker
 ./buildAll.sh
+=======
+git clone https://github.com/knaw-huc/loghi-htr.git
+cd loghi-htr
+python3 -m pip install -r requirements.txt
+
 ```
 This also allows you to have a look at the source code inside the dockers. The source code is available in the submodules.
 
@@ -81,6 +86,100 @@ Save the file and run it:
 replace /PATH_TO_FOLDER_CONTAINING_IMAGES with a valid directory containing images (.jpg is preferred/tested) directly below it.
 
 The file should run for a short while if you have a good nvidia GPU and nvidia-docker setup. It might be a long while if you just have CPU available. It should work either way, just a lot slower on CPU.
+=======
+_Note_: During inferencing, certain parameters, such as use_mask, height, and channels, must match the parameters used during the training phase.
+
+### Typical setup
+
+
+Docker images containing trained models are available via (to be inserted). Make sure to install nvidia-docker:
+https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+
+
+## Variable-size Graph Specification Language (VGSL)
+
+Variable-size Graph Specification Language (VGSL) is a powerful tool that enables the creation of TensorFlow graphs, comprising convolutions and LSTMs, tailored for variable-sized images. This concise definition string simplifies the process of defining complex neural network architectures. For a detailed overview of VGSL, also refer to the [official documentation](https://github.com/mldbai/tensorflow-models/blob/master/street/g3doc/vgslspecs.md).
+
+**Disclaimer:** _The base models provided in the `VGSLModelGenerator.model_library` were only tested on pre-processed HTR images with a height of 64 and variable width._
+
+### How VGSL works
+
+VGSL operates through short definition strings. For instance:
+
+`None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92`
+
+In this example, the string defines a neural network with input layers, convolutional layers, pooling, reshaping, fully connected layers, LSTM and output layers. Each segment of the string corresponds to a specific layer or operation in the neural network. Moreover, VGSL provides the flexibility to specify the type of activation function for certain layers, enhancing customization.
+
+### Supported Layers and Their Specifications
+
+| **Layer**          | **Spec**                                       | **Example**        | **Description**                                                                                              |
+|--------------------|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------------------------------|
+| Input              | `batch,height,width,depth`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
+| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
+| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
+| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
+| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
+| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
+| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
+| BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                                                                     |
+| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                        |
+| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                    |
+| Dropout            | `D<rate>`                                      | `D25`             | Dropout layer with `dropout` = 0.25                                                                          |
+| Reshape            | `Rc`                                           | `Rc`               | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs |
+| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
+
+### Layer Details
+#### Input
+
+- **Spec**: `batch,height,width,depth`
+- **Description**: Represents the input layer in TensorFlow, based on standard TF tensor dimensions.
+- **Example**: `None,64,None,1` creates a `tf.layers.Input` with a variable batch size, height of 64, variable width and a depth of 1 (input channels)
+
+#### Output
+
+- **Spec**: `O(2|1|0)(l|s)<n>`
+- **Description**: Output layer providing either a 2D vector (heat) map of the input (`2`), a 1D sequence of vector values (`1`) or a 0D single vector value (`0`) with `n` classes. Currently, only a 1D sequence of vector values is supported. 
+- **Example**: `O1s10` creates a Dense layer with a 1D sequence as output with 10 classes and softmax.
+
+#### Conv2D
+
+- **Spec**: `C(s|t|r|e|l|m)<x>,<y>[,<s_x>,<s_y>],<d>`
+- **Description**: Convolutional layer using a `x`,`y` window and `d` filters. Optionally, the stride window can be set with (`s_x`, `s_y`).
+- **Examples**: 
+  - `Cr3,3,64` creates a Conv2D layer with a Relu activation function, a 3x3 filter, 1x1 stride, and 64 filters.
+  - `Cr3,3,1,3,128` creates a Conv2D layer with a Relu activation function, a 3x3 filter, 1x3 strides, and 128 filters.
+
+#### Dense (Fully-connected layer)
+
+- **Spec**: `F(s|t|r|e|l|m)<d>`
+- **Description**: Fully-connected layer with `s|t|r|e|l|m` non-linearity and `d` units.
+- **Example**: `Fs64` creates a FC layer with softmax non-linearity and 64 units.
+
+#### LSTM
+
+- **Spec**: `L(f|r)[s]<n>[,D<rate>,Rd<rate>]`
+- **Description**: LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
+- **Example**: `Lf64` creates a forward-only LSTM cell with 64 units.
+
+#### GRU
+
+- **Spec**: `G(f|r)[s]<n>[,D<rate>,Rd<rate>]`
+- **Description**: GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
+- **Example**: `Gf64` creates a forward-only GRU cell with 64 units.
+
+#### Bidirectional
+
+- **Spec**: `B(g|l)<n>[,D<rate>,Rd<rate>]`
+  - **Description**: Bidirectional layer wrapping either a LSTM (`l`) or GRU (`g`) RNN layer, running in both directions, with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
+- **Example**: `Bl256` creates a Bidirectional RNN layer using a LSTM Cell with 256 units.
+
+#### BatchNormalization
+
+- **Spec**: `Bn`
+- **Description**: A technique often used to standardize the inputs to a layer for each mini-batch. Helps stabilize the learning process.
+- **Example**: `Bn` applies a transformation maintaining mean output close to 0 and output standard deviation close to 1.
+
+#### MaxPooling2D
 
 When it finishes without errors a new folder called "page" should be created in the directory with the images. This contains the PageXML output.
 
