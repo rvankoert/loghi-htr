@@ -1,92 +1,143 @@
-# Loghi
+# Loghi-core HTR
 
-Loghi is a set of tools for Handwritten Text Recognition. 
+Loghi HTR is a system to generate text from images. It's part of the Loghi framework, which consists of several tools for layout analysis and HTR (Handwritten Text Recogntion).
 
-Two sample scripts are provided to make starting everything a little bit easier. 
-na-pipeline.sh: for transcribing scans
-na-pipeline-train.sh: for training new models. 
+Loghi HTR also works on machine printed text.
 
-## Quick start
+## Table of Contents
 
-Install Loghi so that you can use its pipeline script.
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
+4. [API Usage Guide](#api-usage-guide)
+5. [Frequently Asked Questions (FAQ)](#FAQ)
+
+## Installation
+
+This section provides a step-by-step guide to installing Loghi HTR and its dependencies.
+
+### Prerequisites
+
+Ensure you have the following prerequisites installed or set up:
+
+- Ubuntu or a similar Linux-based operating system. The provided commands are tailored for such systems.
+
+> [!IMPORTANT]
+> The requirements listed in `requirements.txt` require a Python version > 3.8. It should be possible to run in Python <= 3.8, but one would have to downgrade some packages (such as NumPy and Tensorflow).
+
+### Steps
+
+1. **Install Python 3**
+
 ```bash
-git clone git@github.com:knaw-huc/loghi.git
-cd loghi
+sudo apt-get install python3
 ```
 
-## Use the docker images
-The easiest method to run Loghi is to use the default dockers images on [Docker Hub](https://hub.docker.com/u/loghi).
-The docker images are usually pulled automatically when running [`na-pipeline.sh`](na-pipeline.sh) mentioned later in this document, but you can pull them separately with the following commands:
+2. **Clone and install CTCWordBeamSearch**
 
 ```bash
-docker pull loghi/docker.laypa
-docker pull loghi/docker.htr
-docker pull loghi/docker.loghi-tooling
+git clone https://github.com/githubharald/CTCWordBeamSearch
+cd CTCWordBeamSearch
+python3 -m pip install .
 ```
 
-If you do not have Docker installed follow [these instructions](https://docs.docker.com/engine/install/) to install it on your local machine.
+3. **Clone the HTR repository and install its requirements**
 
-If you instead want to build the dockers yourself with the latest code:
 ```bash
-git submodule update --init --recursive
-cd docker
-./buildAll.sh
-=======
 git clone https://github.com/knaw-huc/loghi-htr.git
 cd loghi-htr
 python3 -m pip install -r requirements.txt
+```
+
+With these steps, you should have Loghi HTR and all its dependencies installed and ready to use.
+
+## Usage
+
+### Setting Up
+
+1. **(Optional) Organize Text Line Images**
+
+    While not mandatory, for better organization, you can place your text line images in a 'textlines' folder or any desired location. The crucial point is that the paths mentioned in 'lines.txt' should be valid and point to the respective images.
+
+2. **Generate a 'lines.txt' File**
+
+    This file should contain the locations of the image files and their respective transcriptions. Separate each location and transcription with a tab.
+
+Example of 'lines.txt' content:
 
 ```
-This also allows you to have a look at the source code inside the dockers. The source code is available in the submodules.
+/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-0e54d043-4bab-40d7-9458-59aae79ed8a8.png	This is a ground truth transcription
+/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-f3d8b3cb-ab90-4b64-8360-d46a81ab1dbc.png	It can be generated from PageXML
+/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-700de0f9-56e9-45f9-a184-a4acbe6ed4cf.png	And another textline
+```
 
+### Command-Line Options:
 
-## Inference
+The command-line options include, but are not limited to:
 
-But first go to:
-https://surfdrive.surf.nl/files/index.php/s/YA8HJuukIUKznSP
-and download a laypa model (for detection of baselines) and a loghi-htr model (for HTR).
+- `--do_train`: Enable the training stage.
+- `--do_validate`: Enable the validation stage.
+- `--do_inference`: Perform inference.
+- `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
+- `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
+- `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
+- `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
+- `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
+- `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
+- `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
+- `--height`: Height to scale the textline image. Internal processing requires images of the same height. 64 is recommended for handwriting.
+- `--use_mask`: Enable when using `batch_size` > 1.
+- `--results_file`: The inference results are aggregated in this file.
+- `--config_file_output`: The output location of the config.
+- `--replace_recurrent_layer`: Specifies the [VGSL string](#variable-size-graph-specification-language-vgsl) to define the architecture of the recurrent layers that will replace the recurrent layers of an existing model. This argument is required when you want to modify the recurrent layers of a model specified by `--existing_model`. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lf64" describes two LSTM layers with 128 and 64 units respectively. When using this argument, ensure that `--existing_model` is also provided to specify the model whose recurrent layers you want to replace.
+- `--replace_final_layer`: Enables the replacement of the final dense layer of an existing model. This is useful when you want to adjust the number of output characters or change the masking option without modifying the rest of the model. When this argument is used, the model specified by `--existing_model` will have its final dense layer replaced with a new one. The number of output units will be adjusted based on the value of `number_characters` and whether the `--use_mask` option is enabled.
 
-suggestion for laypa:
-- general
-
-suggestion for loghi-htr that should give some results:
-- generic-2023-02-15
-
-It is not perfect, but a good starting point. It should work ok on 17th and 18th century handwritten dutch. For best results always finetune on your own specific data.
-
-edit the [`na-pipeline.sh`](na-pipeline.sh) using vi, nano, other whatever editor you prefer. We'll use nano in this example
+For detailed options and configurations, you can also refer to the help command:
 
 ```bash
-nano na-pipeline.sh
+python3 main.py --help
 ```
-Look for the following lines:
-```
-LAYPAMODEL=INSERT_FULL_PATH_TO_YAML_HERE
-LAYPAMODELWEIGHTS=INSERT_FULLPATH_TO_PTH_HERE
-HTRLOGHIMODEL=INSERT_FULL_PATH_TO_LOGHI_HTR_MODEL_HERE
-```
-and update those paths with the location of the files you just downloaded. If you downloaded a zip: you should unzip it first.
 
-if you do not have a NVIDIA-GPU and nvidia-docker setup additionally change
+### Usage Examples
 
-```text
-GPU=0
-```
-to
-```text
-GPU=-1
-```
-It will then run on CPU, which will be very slow. If you are using the pretrained model and run on CPU: please make sure to download the Loghi-htr model starting with "float32-". This will run faster on CPU than the default mixed_float16 models.
+**Note**: Ensure that the value of `CUDA_VISIBLE_DEVICES` matches the value provided to `--gpu`. For instance, if you set `CUDA_VISIBLE_DEVICES=0`, then `--gpu` should also be set to 0. If you explicitely want to use CPU (not recommended), make sure to set this value to -1.
 
+**Training on GPU**
 
-Save the file and run it:
 ```bash
-./na-pipeline.sh /PATH_TO_FOLDER_CONTAINING_IMAGES
+CUDA_VISIBLE_DEVICES=0 
+python3 main.py 
+--model model14
+--do_train 
+--train_list "train_lines_1.txt train_lines_2.txt" 
+--do_validate 
+--validation_list "validation_lines_1.txt" 
+--height 64 
+--channels 4 
+--learning_rate 0.0001 
+--use_mask 
+--gpu 0 
 ```
-replace /PATH_TO_FOLDER_CONTAINING_IMAGES with a valid directory containing images (.jpg is preferred/tested) directly below it.
 
-The file should run for a short while if you have a good nvidia GPU and nvidia-docker setup. It might be a long while if you just have CPU available. It should work either way, just a lot slower on CPU.
-=======
+**Inference on GPU**
+
+```bash
+CUDA_VISIBLE_DEVICES=0 
+python3 main.py 
+--existing_model /path/to/existing/model 
+--charlist /path/to/existing/model/charlist.txt
+--do_inference 
+--inference_list "inference_lines_1.txt"
+--height 64 
+--channels 4 
+--beam_width 10
+--use_mask 
+--gpu 0 
+--batch_size 10 
+--results_file results.txt 
+--config_file_output config.txt 
+```
+
 _Note_: During inferencing, certain parameters, such as use_mask, height, and channels, must match the parameters used during the training phase.
 
 ### Typical setup
@@ -181,87 +232,156 @@ In this example, the string defines a neural network with input layers, convolut
 
 #### MaxPooling2D
 
-When it finishes without errors a new folder called "page" should be created in the directory with the images. This contains the PageXML output.
+- **Spec**: `Mp<x>,<y>,<s_x>,<s_y>`
+- **Description**: Downsampling technique using a `x`,`y` window. The window is shifted by strides `s_x`, `s_y`.
+- **Example**: `Mp2,2,2,2` creates a MaxPooling2D layer with pool size (2,2) and strides of (2,2).
 
-## Training an HTR model
+#### AvgPooling2D
 
-### Input data
+- **Spec**: `Ap<x>,<y>,<s_x>,<s_y>`
+- **Description**: Downsampling technique using a `x`,`y` window. The window is shifted by strides `s_x`, `s_y`.
+- **Example**: `Ap2,2,2,2` creates an AveragePooling2D layer with pool size (2,2) and strides of (2,2).
 
-Expected structure
-```text
-training_data_folder
-|- training_all_train.txt
-|- training_all_val.txt
-|- image1_snippets
-    |-snippet1.png
-    |-snippet2.png
-```
+#### Dropout
 
-`training_all_train.txt` should look something something like:
-```text
-/path/to/training_data_folder/image1_snippets/snippet1.png	textual representation of snippet 1
-/path/to/training_data_folder/image1_snippets//snippet2.png text on snippet 2
-```
-n.b. path to image and textual representation should be separated by a tab.
+- **Spec**: `D<rate>`
+- **Description**: Regularization layer that sets input units to 0 at a rate of `rate` during training. Used to prevent overfitting.
+- **Example**: `D50` creates a Dropout layer with a dropout rate of 0.5 (`D`/100).
 
-##### Create training data
-You can create training data with the following command:
-```bash
-./create_train_data.sh /full/path/to/input /full/path/to/output
-```
-`/full/path/to/output` is `/full/path/to/training_data_folder` in this example
-`/full/path/to/input` is expected to look like:
-```text
-input
-|- image1.png
-|- image2.png
-|- page
-    |- image1.xml
-    |- image2.xml
-```
-`page/image1.xml` should contain information about the baselines and should have the textual representation of the text lines.  
+#### Reshape
 
-### Change script
-Edit the [`na-pipeline-train.sh`](na-pipeline-train.sh) script using your favorite editor:
+- **Spec**: `Rc`
+- **Description**: Reshapes the output tensor from the previous layer, making it compatible with RNN layers.
+- **Example**: `Rc` applies a specific transformation: `layers.Reshape((-1, prev_layer_y * prev_layer_x))`.
+
+#### ResidualBlock
+- **Spec**: `RB[d]<x>,<y>,<z>`
+- **Description**: A Residual Block with a kernel size of <x>,<y> and a depth of <z>. If [d] is provided, the block will downsample the input. Residual blocks are used to allow for deeper networks by adding skip connections, which helps in preventing the vanishing gradient problem.
+- **Example**: `RB3,3,64` creates a Residual Block with a 3x3 kernel size and a depth of 64 filters.
+
+## API Usage Guide
+
+This guide walks you through the process of setting up and running the API, as well as how to interact with it.
+
+### 1. Setting up the API
+
+Navigate to the `src/api` directory in your project:
 
 ```bash
-nano na-pipeline-train.sh
+cd src/api
 ```
 
-Find the following lines:
-```text
-listdir=INSERT_FULL_PATH_TO_TRAINING_DATA_FOLDER
-trainlist=INSERT_FULL_PATH_TO_TRAINING_DATA_LIST
-validationlist=INSERT_FULL_PATH_TO_VALIDATION_DATA_LIST
-```
-In this example: 
-```text
-listdir=/full/path/to/training_data_folder
-trainlist=/full/path/to/training_data_folder/train_list.txt
-validationlist=/full/path/to/training_data_folder/val_list.txt
-```
+#### Starting the API
 
-if you do not have a NVIDIA-GPU and nvidia-docker setup additionally change:
+You have the choice to run the API using either `gunicorn` (recommended) or `flask`. To start the server:
 
-```text
-GPU=0
-```
-to
-```text
-GPU=-1
-```
-It will then run on CPU, which will be very slow.
-
-
-### Run script
-Finally, to run the HTR training run the script:
+Using `gunicorn`:
 
 ```bash
-./na-pipeline-train.sh
+python3 gunicorn_app.py
 ```
 
-## For later updates use:
-To update the submodules to the head of their branch (the latest/possibly unstable version) run the following command:
+Or using `flask`:
+
 ```bash
-git submodule update --recursive --remote
+python3 flask_app.py
 ```
+
+#### Environment Variables Configuration
+
+Before running the app, you must set several environment variables. The app fetches configurations from these variables:
+
+**Gunicorn Options:**
+
+```bash
+GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
+GUNICORN_WORKERS         # Default: "1": Number of worker processes.
+GUNICORN_THREADS         # Default: "1": Number of threads per worker.
+GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
+```
+
+**Loghi-HTR Options:**
+
+```bash
+LOGHI_MODEL_PATH         # Path to the model.
+LOGHI_CHARLIST_PATH      # Path to the character list.
+LOGHI_MODEL_CHANNELS     # Number of channels in the model.
+LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
+LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
+LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+```
+
+**GPU Options:**
+
+```bash
+LOGHI_GPUS               # Default: "0": GPU configuration.
+```
+
+You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh`.
+
+### 2. Interacting with the running API
+
+Once the API is up and running, you can send HTR requests using curl. Here's how:
+
+```bash
+curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
+```
+
+Replace `$input_path`, `$group_id`, and `$filename` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
+
+---
+
+This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
+
+## FAQ
+
+If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
+
+### How can I determine the VGSL spec of a model I previously used?
+
+If you've used one of our older models and would like to know its VGSL specification, follow these steps:
+
+**For Docker users:**
+
+1. If your Docker container isn't already running with the model directory mounted, start it and bind mount your model directory:
+
+```bash
+docker run -it -v /path/on/host/to/your/model_directory:/path/in/container/to/model_directory loghi/docker.htr
+```
+
+Replace `/path/on/host/to/your/model_directory` with the path to your model directory on your host machine, and `/path/in/container/to/model_directory` with the path where you want to access it inside the container.
+
+2. Once inside the container, run the VGSL spec generator:
+
+```bash
+python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+```
+
+Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
+
+**For Python users:**
+
+1. Run the VGSL spec generator:
+
+```bash
+python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+```
+
+Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.
+
+### How do I use `replace_recurrent_layer`?
+
+The `replace_recurrent_layer` is a feature that allows you to replace the recurrent layers of an existing model with a new architecture defined by a VGSL string. To use it:
+
+1. Specify the model you want to modify using the `--existing_model` argument.
+2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
+3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
+4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
+
+### I'm getting the following error when I want to use `replace_recurrent_layer`: `Input 0 of layer "lstm_1" is incompatible with the layer: expected ndim=3, found ndim=2.` What do I do?
+
+This error usually indicates that there is a mismatch in the expected input dimensions of the LSTM layer. Often, this is because the VGSL spec for the recurrent layers is missing the `[s]` argument, which signifies that the layer should return sequences.
+
+To resolve this:
+- Ensure that your VGSL string for the LSTM layer has an `s` in it, which will make the layer return sequences. For instance, instead of "Lf128", use "Lfs128".
+- Re-run the script or command with the corrected VGSL string.
