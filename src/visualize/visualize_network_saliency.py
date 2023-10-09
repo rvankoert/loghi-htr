@@ -3,6 +3,7 @@
 # > Standard Library
 import random
 import sys
+import os
 
 # Add the above directory to the path
 sys.path.append('..')
@@ -10,6 +11,8 @@ sys.path.append('..')
 # > Local dependencies
 from config import *
 from vis_arg_parser import get_args
+from data_loader import DataLoader
+from model import CERMetric, WERMetric, CTCLoss
 
 
 # > Third party libraries
@@ -21,49 +24,20 @@ from matplotlib import pyplot as plt
 from tf_keras_vis.saliency import Saliency
 from tf_keras_vis.utils import normalize
 from tensorflow.keras.preprocessing.image import load_img
-
-# from dataset_ecodices import DatasetEcodices
-# from dataset_iisg import DatasetIISG
-# from dataset_medieval import DatasetMedieval
-# from dataset_medieval_30percent import DatasetMedieval30Percent
-# from dataset_medieval_30percent_sample import DatasetMedieval30PercentSample
-# from dataset_place_century_script import DatasetPlaceCenturyScript
+from tensorflow.keras.utils import get_custom_objects
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
 args = get_args()
-
 SEED = args.seed
 GPU = args.gpu
-PERCENT_VALIDATION = args.percent_validation
-LEARNING_RATE = args.learning_rate
-config.IMG_SHAPE = (args.height, args.width, args.channels)
-config.BATCH_SIZE = args.batch_size
-config.EPOCHS = args.epochs
-config.BASE_OUTPUT = args.output
 
 if args.existing_model:
     if not os.path.exists(args.existing_model):
         print('cannot find existing model on disk: ' + args.existing_model)
         exit(1)
     MODEL_PATH = args.existing_model
-
-# MODEL_PATH = os.path.sep.join([config.BASE_OUTPUT, "siamese_model"])
-# MODEL_PATH = "checkpoints/difornet13-saved-model-68-0.94.hdf5"
-# MODEL_PATH = "checkpoints/difornet13-saved-model-49-0.94.hdf5"  # iisg
-# MODEL_PATH = "checkpoints/difornet14-saved-model-45-0.97.hdf5"
-# # MODEL_PATH = "checkpoints-iisg/difornet17-saved-model-44-0.92.hdf5"
-# MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-19-0.94.hdf5"
-# MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-98-0.97.hdf5"
-# MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-19-0.94.hdf5"
-# MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-128-0.95.hdf5"
-# MODEL_PATH = "checkpoints/difornet23-best_val_loss"
-# MODEL_PATH = "checkpoints/difornet24-best_val_loss"
-# if args.existing_model:
-#     MODEL_PATH = args.existing_model
-
-PLOT_PATH = os.path.sep.join([config.BASE_OUTPUT, "plot.png"])
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -74,42 +48,41 @@ if GPU >= 0:
         tf.config.experimental.set_virtual_device_configuration(gpus[GPU], [
             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
 
-imgSize = config.IMG_SHAPE
-print("[INFO] loading DiFor dataset...")
+print("[INFO] loading dataset...")
+
+get_custom_objects().update({"CERMetric": CERMetric})
+get_custom_objects().update({"WERMetric": WERMetric})
+get_custom_objects().update({"CTCLoss": CTCLoss})
+
 
 model = keras.models.load_model(MODEL_PATH)
-layer_name = "conv3_block4_out"
+model_channels = model.layers[0].input_shape[0][3]
+img_size = (args.height, args.width, model_channels)
 submodel = model.get_layer(index=2)
 
 # Load images
-img2 = load_img('images/bear.jpg')
+# img2 = load_img('images/bear.jpg')
 
-if args.dataset == 'iisg':
-    training_generator, validation_generator, test_generator = DatasetIISG().generators(args.channels,
-                                                                                        args.do_binarize_otsu,
-                                                                                        args.do_binarize_sauvola)
-if args.dataset == 'ecodices':
-    training_generator, validation_generator, test_generator = DatasetEcodices().generators(args.channels,
-                                                                                            args.do_binarize_otsu,
-                                                                                            args.do_binarize_sauvola)
-if args.dataset == 'medieval':
-    training_generator, validation_generator, test_generator = DatasetMedieval().generators(args.channels,
-                                                                                            args.do_binarize_otsu,
-                                                                                            args.do_binarize_sauvola)
-if args.dataset == 'medieval_small':
-    training_generator, validation_generator, test_generator = DatasetMedieval30Percent().generators(args.channels,
-                                                                                                     args.do_binarize_otsu,
-                                                                                                     args.do_binarize_sauvola)
-if args.dataset == 'medieval_small_sample':
-    training_generator, validation_generator, test_generator = DatasetMedieval30PercentSample().generators(
-        args.channels, args.do_binarize_otsu)
-if args.dataset == 'place_century_script':
-    training_generator, validation_generator, test_generator = DatasetPlaceCenturyScript().generators(args.channels,
-                                                                                                      args.do_binarize_otsu,
-                                                                                                      args.do_binarize_sauvola)
+char_list = None
+if args.validation_list:
+    if not os.path.exists(args.validation_list):
+        print('cannot find validation .txt on disk: ' + args.validation_list)
+        exit(1)
+else:
+    print(
+        'Please provide a path to a .txt containing (validation) images, e.g. the sample_list.txt inside "loghi-htr/tests/data" ')
+    exit(1)
 
-i = 0
+loader = DataLoader(args.batch_size, img_size,
+                    train_list=None,
+                    validation_list=None,
+                    test_list=None,
+                    inference_list=args.validation_list,
+                    char_list=char_list,
+                    check_missing_files=False
+                    )
 
+training_generator, validation_generator, test_generator, inference_generator, utils, train_batches = loader.generators()
 
 def loss(output):
     # 1 is the imagenet index corresponding to Goldfish, 294 to Bear and 413 to Assault Rifle.
@@ -121,13 +94,20 @@ def model_modifier(model):
     return model
 
 
-while i < 100:
-    item = test_generator.__getitem__(i)
-
-    # put sample into list
+# while i < 100:
+batch_counter = 0
+i = 0
+for batch in inference_generator:
+    if batch_counter > 10:
+        print('breaking')
+        break
+    item = batch[0]
     i = i + 1
 
     X = item
+
+    # item = inference_generator.__getitem__(i)
+
     # Rendering
     saliency = Saliency(model,
                         model_modifier=model_modifier,

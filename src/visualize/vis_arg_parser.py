@@ -21,7 +21,7 @@ def get_arg_parser():
                         help='batch_size to be used, when using variable sized input this must be 1')
     parser.add_argument('--height', metavar='height', type=int, default=64,
                         help='height to be used')
-    parser.add_argument('--channels', metavar='channels', type=int, default=3,
+    parser.add_argument('--channels', metavar='channels', type=int, default=4,
                         help='channels to be used')
     parser.add_argument('--width', metavar='width', type=int, default=751,
                         help='width to be used')
@@ -33,6 +33,8 @@ def get_arg_parser():
                         help='learning_rate to be used')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
                         help='epochs to be used')
+    parser.add_argument('--dataloader_img_shape', metavar='dataloader_img_shape', type=tuple, default=(128,128,4),
+                        help='height, width and channels to be used for dataloader')
     # parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
     #                     help='spec')
     # parser.add_argument('--trainset', metavar='trainset', type=str, default='/data/cvl-database-1-1/train.txt',
@@ -43,6 +45,8 @@ def get_arg_parser():
                         help='dataset. ecodices or iisg')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
                         help='validation_list')
+    parser.add_argument('--sample_image', metavar='sample_image', type=str, default="",
+                        help='single png to for saliency plots')
     parser.add_argument('--do_binarize_otsu', action='store_true',
                         help='prefix to use for testing')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
