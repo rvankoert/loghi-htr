@@ -7,6 +7,7 @@ import argparse
 
 # > Third party libraries
 
+
 def get_arg_parser():
     parser = argparse.ArgumentParser(
         description='Loghi HTR Core. Provides deep learning '
@@ -166,8 +167,9 @@ def get_arg_parser():
                            'contain characters that are not in charlist.')
     misc_args.add_argument('--check_missing_files', action='store_true',
                            help='beta: check_missing_files')
-    misc_args.add_argument('--normalize_text', action='store_true',
-                           help='')
+    misc_args.add_argument('--normalization_file', default=None, type=str,
+                           help='The location of a json file that contains the characters to be normalized. The keys '
+                           'are the characters to be replaced, the values are the characters to replace with.')
     misc_args.add_argument('--deterministic', action='store_true',
                            help='beta: deterministic mode (reproducible results')
     misc_args.add_argument('--no_auto', action='store_true',
