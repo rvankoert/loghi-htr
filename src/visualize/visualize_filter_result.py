@@ -4,12 +4,17 @@
 import random
 import argparse
 import os
+import sys
+
+# Add the above directory to the path
+sys.path.append('..')
 
 # > Local dependencies
 from data_loader import DataLoader
 from model import CERMetric, WERMetric, CTCLoss
 from utils import *
 from config import *
+from vis_arg_parser import get_args
 
 # > Third party libraries
 import tensorflow.keras as keras
@@ -24,40 +29,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('--seed', metavar='seed', type=int, default=42,
-                    help='random seed to be used')
-parser.add_argument('--gpu', metavar='gpu', type=int, default=0,
-                    help='gpu to be used')
-parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
-                    help='percent_validation to be used')
-parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.00001,
-                    help='learning_rate to be used')
-parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
-                    help='epochs to be used')
-parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
-                    help='batch_size to be used, when using variable sized input this must be 1')
+args = get_args()
 
-parser.add_argument('--height', metavar='height', type=int, default=64,
-                    help='height to be used')
-parser.add_argument('--width', metavar='width', type=int, default=751,
-                    help='width to be used')
-parser.add_argument('--output', metavar='output', type=str, default='output',
-                    help='base output to be used')
-parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
-                    help='spec')
-parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
-                    help='existing_model')
-parser.add_argument('--dataset', metavar='dataset ', type=str, default='ecodices',
-                    help='dataset. ecodices or iisg')
-parser.add_argument('--do_binarize_otsu', action='store_true',
-                    help='prefix to use for testing')
-parser.add_argument('--do_binarize_sauvola', action='store_true',
-                    help='do_binarize_sauvola')
-
-parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
-                    help='validation_list')
-
-args = parser.parse_args()
+if args.existing_model:
+    if not os.path.exists(args.existing_model):
+        print('cannot find existing model on disk: ' + args.existing_model)
+        exit(1)
+    MODEL_PATH = args.existing_model
 
 SEED = args.seed
 GPU = args.gpu
@@ -66,15 +44,6 @@ LEARNING_RATE = args.learning_rate
 config.BATCH_SIZE = args.batch_size
 config.EPOCHS = args.epochs
 config.BASE_OUTPUT = args.output
-
-MODEL_PATH = "../models/model-val-best/checkpoints/best_val/"
-MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
-MODEL_PATH = "../model-all-val_loss-22.38509"
-MODEL_PATH = "../model-new7-128-batch32"
-
-if args.existing_model:
-    MODEL_PATH = args.existing_model
-
 PLOT_PATH = os.path.sep.join([config.BASE_OUTPUT, "plot.png"])
 
 random.seed(SEED)
@@ -97,15 +66,10 @@ model = keras.models.load_model(MODEL_PATH)
 model_channels = model.layers[0].input_shape[0][3]
 config.IMG_SHAPE = (args.height, args.width, model_channels)
 imgSize = config.IMG_SHAPE
-
-model.summary()
-
 layer_name = "conv3_block4_out"
 
 submodel = model
 print(submodel.summary())
-
-model.summary()
 
 partition = {'train': [], 'validation': [], 'test': []}
 trainLabels = {}
@@ -149,15 +113,13 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
+    if not layer.name.startswith("Conv") and not layer.name.startswith("add"):
         continue
     feature_extractor = keras.Model(
         inputs=submodel.inputs, outputs=layer.output)
-    # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
 
     all_imgs = []
     numFilters = layer.output_shape[3]
-    # numFilters = 6
     i = 0
     for filter_index in range(numFilters):
         print("Processing filter %d" % (filter_index,))
@@ -166,12 +128,8 @@ for layerId in range(len(submodel.layers)):
         all_imgs.append(img)
 
     char_list = None
-    # char_list_path = MODEL_PATH+"/charlist.txt"
-    # with open(char_list_path) as f:
-    #     char_list = f.readlines()
-
     maxTextLen = 128
-    loader = DataLoaderNew(args.batch_size, imgSize,
+    loader = DataLoader(args.batch_size, imgSize,
                            train_list=None,
                            validation_list=None,
                            test_list=None,
@@ -213,18 +171,14 @@ for layerId in range(len(submodel.layers)):
                 img = tf.squeeze(img)
             plt.imshow(img)
             ax.append(fig.add_subplot(rows, columns, j * 2 + 2))
-            # ax[-1].set_title("ax:" + str(j))  # set title
             if model_channels == 1:
                 maps[j - 1] = tf.squeeze(maps[j - 1])
-            # print(maps[j - 1]+0.5)
             plt.imshow(maps[j - 1]+0.5, cmap='gray')
 
-        # plt.show()  # finally, render the plot
-
-        # plt.show()
         filename = loader.get_item(
             'inference', (batch_counter * args.batch_size))
         plt.tight_layout()
+        #Make sure that a "results" directory exists
         plt.savefig('results/{}-{}'.format(layerId,
                     os.path.basename(filename)))
         plt.close()

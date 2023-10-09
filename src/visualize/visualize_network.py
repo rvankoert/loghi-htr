@@ -4,12 +4,16 @@
 import math
 import os
 import random
-import argparse
+import sys
+
+# Add the above directory to the path
+sys.path.append('..')
 
 # > Local dependencies
-from model import CTCLoss, CERMetric, WERMetric
+from model import CERMetric, WERMetric, CTCLoss
 from utils import *
 from config import *
+from vis_arg_parser import get_args
 
 # > Third party libraries
 import tensorflow.keras as keras
@@ -27,7 +31,6 @@ def compute_loss(input_image, filter_index):
     filter_activation = activation[:, 2:-2, 2:-2, filter_index]
     return tf.reduce_mean(filter_activation)
 
-# @tf.function
 def gradient_ascent_step(img, filter_index, learning_rate):
     with tf.GradientTape() as tape:
         tape.watch(img)
@@ -59,39 +62,17 @@ def visualize_filter(filter_index):
     img = deprocess_image(img)
     return loss, img
 
+args = get_args()
 
-parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('--seed', metavar='seed', type=int, default=42,
-                    help='random seed to be used')
-parser.add_argument('--gpu', metavar='gpu', type=int, default=0,
-                    help='gpu to be used')
-parser.add_argument('--height', metavar='height', type=int, default=51,
-                    help='height to be used')
-parser.add_argument('--width', metavar='width', type=int, default=751,
-                    help='width to be used')
-parser.add_argument('--output', metavar='output', type=str, default='output',
-                    help='base output to be used')
-parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
-                    help='existing_model')
-
-args = parser.parse_args()
+if args.existing_model:
+    if not os.path.exists(args.existing_model):
+        print('cannot find existing model on disk: ' + args.existing_model)
+        exit(1)
+    MODEL_PATH = args.existing_model
 
 SEED = args.seed
 GPU = args.gpu
-
 config.BASE_OUTPUT = args.output
-
-MODEL_PATH = "../models/model-val-best/checkpoints/best_val/"
-MODEL_PATH = "../model-republic-gru_mask-cer-0.02128436922850027"
-MODEL_PATH = "../model-all-val_loss-22.38509"
-MODEL_PATH = "../model-new7-128-batch32"
-MODEL_PATH = "../model-current"
-MODEL_PATH = "/home/luke/ai_development/public-models/loghi-htr/float32-generic-2023-02-15"
-
-
-if args.existing_model:
-    MODEL_PATH = args.existing_model
-
 PLOT_PATH = os.path.sep.join([config.BASE_OUTPUT, "plot.png"])
 
 if not os.path.exists(config.BASE_OUTPUT):
@@ -112,27 +93,21 @@ get_custom_objects().update({"CERMetric": CERMetric})
 get_custom_objects().update({"WERMetric": WERMetric})
 get_custom_objects().update({"CTCLoss": CTCLoss})
 
-# model = keras.applications.ResNet50V2(weights="imagenet", include_top=False)
 model = keras.models.load_model(MODEL_PATH)
 model_channels = model.layers[0].input_shape[0][3]
 
 model.summary()
 config.IMG_SHAPE = (64, 64, model_channels)
 layer_name = "conv3_block4_out"
-# submodel=model
 submodel = model
 print(submodel.summary())
 for layer in submodel.layers:
     if not layer.name.startswith("Conv") and not layer.name.startswith("conv") and not layer.name.startswith("add"):
         continue
-    # print(layer.name)
-    # continue
     feature_extractor = keras.Model(inputs=submodel.inputs, outputs=layer.output)
-    # feature_extractor = keras.Model(inputs=model.inputs, outputs=layer.output)
 
     all_imgs = []
     numFilters = layer.output_shape[3]
-    # numFilters = 8
     for filter_index in range(numFilters):
         print("Processing filter %d" % (filter_index,))
         loss, img = visualize_filter(filter_index)

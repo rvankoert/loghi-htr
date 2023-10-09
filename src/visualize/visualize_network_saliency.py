@@ -2,10 +2,14 @@
 
 # > Standard Library
 import random
-import argparse
+import sys
+
+# Add the above directory to the path
+sys.path.append('..')
 
 # > Local dependencies
 from config import *
+from vis_arg_parser import get_args
 
 
 # > Third party libraries
@@ -28,46 +32,7 @@ from tensorflow.keras.preprocessing.image import load_img
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
 
-parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('--seed', metavar='seed', type=int, default=42,
-                    help='random seed to be used')
-parser.add_argument('--gpu', metavar='gpu', type=int, default=0,
-                    help='gpu to be used')
-parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
-                    help='percent_validation to be used')
-parser.add_argument('--learning_rate', metavar='learning_rate', type=float, default=0.00001,
-                    help='learning_rate to be used')
-parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
-                    help='epochs to be used')
-parser.add_argument('--batch_size', metavar='batch_size', type=int, default=1,
-                    help='batch_size to be used, when using variable sized input this must be 1')
-
-parser.add_argument('--height', metavar='height', type=int, default=51,
-                    help='height to be used')
-parser.add_argument('--width', metavar='width', type=int, default=751,
-                    help='width to be used')
-parser.add_argument('--channels', metavar='channels', type=int, default=3,
-                    help='channels to be used')
-parser.add_argument('--output', metavar='output', type=str, default='output',
-                    help='base output to be used')
-parser.add_argument('--trainset', metavar='trainset', type=str, default='/data/cvl-database-1-1/train.txt',
-                    help='trainset to be used')
-parser.add_argument('--testset', metavar='testset', type=str, default='/data/cvl-database-1-1/test.txt',
-                    help='testset to be used')
-parser.add_argument('--use_testset', metavar='use_testset', type=bool, default=False,
-                    help='testset to be used')
-parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
-                    help='spec')
-parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
-                    help='existing_model')
-parser.add_argument('--dataset', metavar='dataset ', type=str, default='ecodices',
-                    help='dataset. ecodices or iisg')
-parser.add_argument('--do_binarize_otsu', action='store_true',
-                    help='prefix to use for testing')
-parser.add_argument('--do_binarize_sauvola', action='store_true',
-                    help='do_binarize_sauvola')
-
-args = parser.parse_args()
+args = get_args()
 
 SEED = args.seed
 GPU = args.gpu
@@ -78,19 +43,25 @@ config.BATCH_SIZE = args.batch_size
 config.EPOCHS = args.epochs
 config.BASE_OUTPUT = args.output
 
-MODEL_PATH = os.path.sep.join([config.BASE_OUTPUT, "siamese_model"])
-MODEL_PATH = "checkpoints/difornet13-saved-model-68-0.94.hdf5"
-MODEL_PATH = "checkpoints/difornet13-saved-model-49-0.94.hdf5"  # iisg
-MODEL_PATH = "checkpoints/difornet14-saved-model-45-0.97.hdf5"
-# MODEL_PATH = "checkpoints-iisg/difornet17-saved-model-44-0.92.hdf5"
-MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-19-0.94.hdf5"
-MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-98-0.97.hdf5"
-MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-19-0.94.hdf5"
-MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-128-0.95.hdf5"
-MODEL_PATH = "checkpoints/difornet23-best_val_loss"
-MODEL_PATH = "checkpoints/difornet24-best_val_loss"
 if args.existing_model:
+    if not os.path.exists(args.existing_model):
+        print('cannot find existing model on disk: ' + args.existing_model)
+        exit(1)
     MODEL_PATH = args.existing_model
+
+# MODEL_PATH = os.path.sep.join([config.BASE_OUTPUT, "siamese_model"])
+# MODEL_PATH = "checkpoints/difornet13-saved-model-68-0.94.hdf5"
+# MODEL_PATH = "checkpoints/difornet13-saved-model-49-0.94.hdf5"  # iisg
+# MODEL_PATH = "checkpoints/difornet14-saved-model-45-0.97.hdf5"
+# # MODEL_PATH = "checkpoints-iisg/difornet17-saved-model-44-0.92.hdf5"
+# MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-19-0.94.hdf5"
+# MODEL_PATH = "checkpoints-iisg/difornet14-saved-model-98-0.97.hdf5"
+# MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-19-0.94.hdf5"
+# MODEL_PATH = "checkpoints-iisg/difornet19-saved-model-128-0.95.hdf5"
+# MODEL_PATH = "checkpoints/difornet23-best_val_loss"
+# MODEL_PATH = "checkpoints/difornet24-best_val_loss"
+# if args.existing_model:
+#     MODEL_PATH = args.existing_model
 
 PLOT_PATH = os.path.sep.join([config.BASE_OUTPUT, "plot.png"])
 
@@ -106,25 +77,11 @@ if GPU >= 0:
 imgSize = config.IMG_SHAPE
 print("[INFO] loading DiFor dataset...")
 
-# model = keras.applications.ResNet50V2(weights="imagenet", include_top=False)
-# model = keras.models.load_model(MODEL_PATH)
-# keras.losses.custom_loss = metrics.contrastive_loss
-
-# get_custom_objects().update({"contrastive_loss": metrics.contrastive_loss})
-# get_custom_objects().update({"average": metrics.average})
 model = keras.models.load_model(MODEL_PATH)
-# model = keras.models.load_model('/home/rutger/src/siamesenew/output.92percent/siamese_model/')
-
-model.summary()
-
-# config.IMG_SHAPE = (180, 180, 3)
 layer_name = "conv3_block4_out"
-
 submodel = model.get_layer(index=2)
-submodel.summary()
 
 # Load images
-# img1 = load_img('images/goldfish.jpg')
 img2 = load_img('images/bear.jpg')
 
 if args.dataset == 'iisg':
@@ -156,7 +113,6 @@ i = 0
 
 def loss(output):
     # 1 is the imagenet index corresponding to Goldfish, 294 to Bear and 413 to Assault Rifle.
-    # return (output[0][1], output[1][1], output[2][1])
     return output[0][0]
 
 
@@ -173,7 +129,6 @@ while i < 100:
 
     X = item
     # Rendering
-
     saliency = Saliency(model,
                         model_modifier=model_modifier,
                         clone=False)
