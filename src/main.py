@@ -34,12 +34,18 @@ def set_deterministic(args):
     np.random.seed(args.seed)
     tf.random.set_seed(args.seed)
 
+
 def remove_tags(text):
-    text = text.replace('␃', '') #     public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
-    text = text.replace('␅', '') #    public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
-    text = text.replace('␄', '') #    public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
-    text = text.replace('␆', '') #    public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
+    # public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
+    text = text.replace('␃', '')
+    # public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
+    text = text.replace('␅', '')
+    # public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
+    text = text.replace('␄', '')
+    # public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
+    text = text.replace('␆', '')
     return text
+
 
 def main():
     # Set up logging
@@ -94,11 +100,12 @@ def main():
             if not os.path.exists(charlist_location) and not args.replace_final_layer:
                 print('cannot find charlist on disk: ' + charlist_location)
                 exit(1)
-            with open(charlist_location) as file:
-                char_list = list(char for char in file.read())
-            print("using charlist")
-            print("length charlist: " + str(len(char_list)))
-            print(char_list)
+            if not args.replace_final_layer:
+                with open(charlist_location) as file:
+                    char_list = list(char for char in file.read())
+                print("using charlist")
+                print("length charlist: " + str(len(char_list)))
+                print(char_list)
             get_custom_objects().update({"CERMetric": CERMetric})
             get_custom_objects().update({"WERMetric": WERMetric})
             get_custom_objects().update({"CTCLoss": CTCLoss})
@@ -159,7 +166,7 @@ def main():
                             check_missing_files=args.check_missing_files,
                             distort_jpeg=args.distort_jpeg,
                             replace_final_layer=args.replace_final_layer,
-                            normalize_text=args.normalize_text,
+                            normalization_file=args.normalization_file,
                             use_mask=args.use_mask,
                             do_random_shear=args.do_random_shear
                             )
@@ -213,13 +220,13 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.startswith("conv"):
+                    elif args.freeze_conv_layers and layer.name.lower().startswith("conv"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional"):
+                    elif args.freeze_recurrent_layers and layer.name.lower().startswith("bidirectional"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_dense_layers and layer.name.startswith("dense"):
+                    elif args.freeze_dense_layers and layer.name.lower().startswith("dense"):
                         print(layer.name)
                         layer.trainable = False
 
@@ -375,7 +382,7 @@ def main():
             with open(args.corpus_file) as f:
                 corpus = ''
                 for line in f:
-                    if args.normalize_text:
+                    if args.normalization_file:
                         line = loader.normalize(line)
                     corpus += line
             word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
@@ -529,7 +536,7 @@ def main():
                             char_list,
                             inference_list=args.inference_list,
                             check_missing_files=args.check_missing_files,
-                            normalize_text=args.normalize_text,
+                            normalization_file=args.normalization_file,
                             use_mask=args.use_mask
                             )
         training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()

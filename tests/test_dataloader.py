@@ -250,7 +250,8 @@ class DataLoaderTest(unittest.TestCase):
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
-                                      normalize_text=True)
+                                      normalization_file=os.path.join(
+                                          self.data_dir, "norm_chars.json"))
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -258,7 +259,7 @@ class DataLoaderTest(unittest.TestCase):
 
         # Asserts
         # last file"s label should be normalized to "Label.'
-        self.assertEqual(files[-1][1], "Label.",
+        self.assertEqual(files[-1][1], "I4831 #",
                          "Text not normalized correctly")
 
         self._remove_temp_file(temp_sample_list_file)
