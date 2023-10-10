@@ -100,11 +100,12 @@ def main():
             if not os.path.exists(charlist_location) and not args.replace_final_layer:
                 print('cannot find charlist on disk: ' + charlist_location)
                 exit(1)
-            with open(charlist_location) as file:
-                char_list = list(char for char in file.read())
-            print("using charlist")
-            print("length charlist: " + str(len(char_list)))
-            print(char_list)
+            if not args.replace_final_layer:
+                with open(charlist_location) as file:
+                    char_list = list(char for char in file.read())
+                print("using charlist")
+                print("length charlist: " + str(len(char_list)))
+                print(char_list)
             get_custom_objects().update({"CERMetric": CERMetric})
             get_custom_objects().update({"WERMetric": WERMetric})
             get_custom_objects().update({"CTCLoss": CTCLoss})
