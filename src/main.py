@@ -219,13 +219,13 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.startswith("conv"):
+                    elif args.freeze_conv_layers and layer.name.lower().startswith("conv"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_recurrent_layers and layer.name.startswith("bidirectional"):
+                    elif args.freeze_recurrent_layers and layer.name.lower().startswith("bidirectional"):
                         print(layer.name)
                         layer.trainable = False
-                    elif args.freeze_dense_layers and layer.name.startswith("dense"):
+                    elif args.freeze_dense_layers and layer.name.lower().startswith("dense"):
                         print(layer.name)
                         layer.trainable = False
 
