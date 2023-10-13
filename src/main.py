@@ -112,6 +112,9 @@ def main():
 
             model = keras.models.load_model(args.existing_model)
 
+            if args.model_name:
+                model._name = args.model_name
+
             if args.use_float32 or args.gpu == '-1':
                 # Recreate the exact same model but with float32
                 config = model.get_config()
