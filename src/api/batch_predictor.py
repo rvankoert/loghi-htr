@@ -14,6 +14,7 @@ import gc
 # > Third-party dependencies
 import tensorflow as tf
 from tensorflow.keras.utils import get_custom_objects
+from tensorflow.keras import mixed_precision
 
 
 def batch_prediction_worker(batch_size: int,
@@ -61,16 +62,40 @@ def batch_prediction_worker(batch_size: int,
     logger = logging.getLogger(__name__)
     logger.info("Batch Prediction Worker process started")
 
-    # Only use the specified GPU
+    # Only use the specified GPUs
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
-    logger.debug("Num GPUs Available: ", len(
-        tf.config.experimental.list_physical_devices('GPU')))
 
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    logger.debug(f"Number of GPUs available: {len(physical_devices)}")
     if physical_devices:
+        all_gpus_support_mixed_precision = True
+
         for device in physical_devices:
             tf.config.experimental.set_memory_growth(device, True)
             logger.debug(device)
+
+            # Get the compute capability of the GPU
+            details = tf.config.experimental.get_device_details(device)
+            major = details.get('compute_capability')[0]
+
+            # Check if the compute capability is less than 7.0
+            if int(major) < 7:
+                all_gpus_support_mixed_precision = False
+                logger.debug(
+                    f"GPU {device} does not support efficient mixed precision."
+                )
+                break
+
+        # If all GPUs support mixed precision, enable it
+        if all_gpus_support_mixed_precision:
+            mixed_precision.set_global_policy('mixed_float16')
+            logger.debug("Mixed precision set to 'mixed_float16'")
+        else:
+            logger.debug(
+                "Not all GPUs support efficient mixed precision. Running in "
+                "standard mode.")
+    else:
+        logger.warning("No GPUs available")
 
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))
@@ -80,8 +105,12 @@ def batch_prediction_worker(batch_size: int,
 
     from utils import decode_batch_predictions, normalize_confidence
 
+    strategy = tf.distribute.MirroredStrategy()
+
     try:
-        model, utils = create_model(model_path, charlist_path, num_channels)
+        with strategy.scope():
+            model, utils = create_model(
+                model_path, charlist_path, num_channels)
         logger.info("Model created and utilities initialized")
     except Exception as e:
         logger.error(e)
