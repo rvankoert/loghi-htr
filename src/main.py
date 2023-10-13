@@ -609,7 +609,7 @@ def get_config(args, model):
     model.summary(print_fn=lambda x: model_layers.append(x))
 
     config = {
-        'git_hash': version_info,
+        'git_hash': version_info.strip(),
         'args': args.__dict__,
         'model': model_layers,
         'notes': ' ',
