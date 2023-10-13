@@ -61,16 +61,17 @@ def batch_prediction_worker(batch_size: int,
     logger = logging.getLogger(__name__)
     logger.info("Batch Prediction Worker process started")
 
-    # Only use the specified GPU
+    # Only use the specified GPUs
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
-    logger.debug("Num GPUs Available: ", len(
-        tf.config.experimental.list_physical_devices('GPU')))
 
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    logger.debug(f"Number of GPUs available: {len(physical_devices)}")
     if physical_devices:
         for device in physical_devices:
             tf.config.experimental.set_memory_growth(device, True)
             logger.debug(device)
+    else:
+        logger.warning("No GPUs available")
 
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))

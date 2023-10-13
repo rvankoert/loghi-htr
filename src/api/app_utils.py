@@ -34,7 +34,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Set up the basic logging configuration
     logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="[%(process)d] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging_levels[level],
     )

@@ -2,6 +2,7 @@
 
 # > Standard library
 import datetime
+import logging
 from multiprocessing.queues import Full
 
 # > Local dependencies
@@ -46,9 +47,11 @@ def predict() -> flask.Response:
     # Add incoming request to queue
     # Here, we're just queuing the raw data.
     image_file, group_id, identifier = extract_request_data()
-    app.logger.debug(f"Data received: {group_id}, {identifier}")
 
-    app.logger.debug(f"Adding {identifier} to queue")
+    logger = logging.getLogger(__name__)
+
+    logger.debug(f"Data received: {group_id}, {identifier}")
+    logger.debug(f"Adding {identifier} to queue")
 
     try:
         app.request_queue.put((image_file, group_id, identifier), block=True,
@@ -66,7 +69,7 @@ def predict() -> flask.Response:
 
         response.status_code = 503
 
-        app.logger.error("Request queue is full.")
+        logger.error("Request queue is full.")
 
         return response
 

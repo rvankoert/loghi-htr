@@ -3,14 +3,9 @@
 # > Standard library
 import logging
 import multiprocessing
-import os
 
 # > Third-party dependencies
 import tensorflow as tf
-
-# Only use CPU
-# This might produce a warning, but it's fine
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
 def image_preparation_worker(request_queue: multiprocessing.Queue,
@@ -40,17 +35,21 @@ def image_preparation_worker(request_queue: multiprocessing.Queue,
     logger = logging.getLogger(__name__)
     logger.info("Image Preparation Worker process started")
 
+    # Disable GPU visibility to prevent memory allocation issues
+    tf.config.set_visible_devices([], 'GPU')
+
     try:
         while True:
             image, group, identifier = request_queue.get()
             logger.debug(f"Retrieved {identifier} from request_queue")
 
             image = prepare_image(identifier, image, num_channels)
+
             logger.debug(
                 f"Prepared image {identifier} with shape: {image.shape}")
 
             # Push the prepared image to the prepared_queue
-            prepared_queue.put((image, group, identifier))
+            prepared_queue.put((image.numpy(), group, identifier))
             logger.debug(
                 f"Pushed prepared image {identifier} to prepared_queue")
             logger.debug(
@@ -94,24 +93,25 @@ def prepare_image(identifier: str,
         Prepared image tensor.
     """
 
-    image = tf.io.decode_jpeg(image_bytes, channels=num_channels)
+    with tf.device('/cpu:0'):
+        image = tf.io.decode_jpeg(image_bytes, channels=num_channels)
 
-    # Resize while preserving aspect ratio
-    target_height = 64
-    image = tf.image.resize(image,
-                            [target_height,
-                             tf.cast(target_height * tf.shape(image)[1]
-                                     / tf.shape(image)[0], tf.int32)],
-                            preserve_aspect_ratio=True)
+        # Resize while preserving aspect ratio
+        target_height = 64
+        image = tf.image.resize(image,
+                                [target_height,
+                                 tf.cast(target_height * tf.shape(image)[1]
+                                         / tf.shape(image)[0], tf.int32)],
+                                preserve_aspect_ratio=True)
 
-    # Normalize the image and something else
-    image = 0.5 - (image / 255)
+        # Normalize the image and something else
+        image = 0.5 - (image / 255)
 
-    # Pad the image
-    image = tf.image.resize_with_pad(
-        image, target_height, tf.shape(image)[1] + 50)
+        # Pad the image
+        image = tf.image.resize_with_pad(
+            image, target_height, tf.shape(image)[1] + 50)
 
-    # Transpose the image
-    image = tf.transpose(image, perm=[1, 0, 2])
+        # Transpose the image
+        image = tf.transpose(image, perm=[1, 0, 2])
 
-    return image
+        return image
