@@ -239,7 +239,7 @@ class DataLoaderTest(unittest.TestCase):
 
     def test_text_normalization(self):
         # Sample data with mixed-case labels
-        additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel ."]
+        additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel      ."]
         temp_sample_list_file = self._create_temp_file(
             additional_lines)
 

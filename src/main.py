@@ -112,6 +112,9 @@ def main():
 
             model = keras.models.load_model(args.existing_model)
 
+            if args.model_name:
+                model._name = args.model_name
+
             if args.use_float32 or args.gpu == '-1':
                 # Recreate the exact same model but with float32
                 config = model.get_config()
@@ -609,7 +612,7 @@ def get_config(args, model):
     model.summary(print_fn=lambda x: model_layers.append(x))
 
     config = {
-        'git_hash': version_info,
+        'git_hash': version_info.strip(),
         'args': args.__dict__,
         'model': model_layers,
         'notes': ' ',

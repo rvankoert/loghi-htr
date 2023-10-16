@@ -15,6 +15,7 @@ import numpy as np
 
 # > Environment
 import json
+import re
 import os
 
 
@@ -49,6 +50,8 @@ class DataLoader:
             replacements = json.load(f)
             for key, value in replacements.items():
                 input = input.replace(key, value)
+
+        input = re.sub(r"\s+", " ", input)
 
         return input.strip()
 
