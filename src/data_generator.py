@@ -86,7 +86,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         image = tf.image.resize_with_pad(image, self.height, image_width+50)
 
-        if self.do_elastic_transform:
+        if self.do_random_shear:
             image = tf.image.resize_with_pad(image, self.height, image_width + 64 + 50)
             random_shear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
 
