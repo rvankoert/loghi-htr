@@ -118,7 +118,7 @@ def batch_prediction_worker(batch_size: int,
         return
 
     TIMEOUT_DURATION = 1
-    MAX_WAIT_COUNT = 3
+    MAX_WAIT_COUNT = 1
 
     total_predictions = 0
 
@@ -322,10 +322,7 @@ def batch_predict(model: tf.keras.Model,
     images, groups, identifiers = map(list, zip(*batch))
 
     # Determine the maximum width of the images in the batch
-    max_width = 0
-    for image in images:
-        if image.shape[0] > max_width:
-            max_width = image.shape[0]
+    max_width = max(image.shape[0] for image in images)
     logger.debug(f"Determined max width: {max_width}")
 
     # Pad the images to the maximum width
@@ -341,11 +338,6 @@ def batch_predict(model: tf.keras.Model,
     logger.info("Making predictions...")
     encoded_predictions = model(images)
     logger.debug("Predictions made")
-
-    # Clear the session to free up memory
-    logger.debug("Clearing session...")
-    tf.keras.backend.clear_session()
-    logger.debug("Session cleared")
 
     logger.debug("Decoding predictions...")
     decoded_predictions = decoder(encoded_predictions, utils)[0]

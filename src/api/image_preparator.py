@@ -93,25 +93,20 @@ def prepare_image(identifier: str,
         Prepared image tensor.
     """
 
-    with tf.device('/cpu:0'):
-        image = tf.io.decode_jpeg(image_bytes, channels=num_channels)
+    image = tf.io.decode_jpeg(image_bytes, channels=num_channels)
 
-        # Resize while preserving aspect ratio
-        target_height = 64
-        image = tf.image.resize(image,
-                                [target_height,
-                                 tf.cast(target_height * tf.shape(image)[1]
-                                         / tf.shape(image)[0], tf.int32)],
-                                preserve_aspect_ratio=True)
+    # Resize while preserving aspect ratio
+    target_height = 64
+    aspect_ratio = tf.shape(image)[1] / tf.shape(image)[0]
+    target_width = tf.cast(target_height * aspect_ratio, tf.int32)
+    image = tf.image.resize(image,
+                            [target_height, target_width],
+                            preserve_aspect_ratio=True)
 
-        # Normalize the image and something else
-        image = 0.5 - (image / 255)
+    # Normalize the image and something else
+    image = 0.5 - (image / 255)
 
-        # Pad the image
-        image = tf.image.resize_with_pad(
-            image, target_height, tf.shape(image)[1] + 50)
+    # Transpose the image
+    image = tf.transpose(image, perm=[1, 0, 2])
 
-        # Transpose the image
-        image = tf.transpose(image, perm=[1, 0, 2])
-
-        return image
+    return image
