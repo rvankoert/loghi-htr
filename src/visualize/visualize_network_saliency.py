@@ -23,7 +23,6 @@ import tensorflow as tf
 from matplotlib import pyplot as plt
 from tf_keras_vis.saliency import Saliency
 from tf_keras_vis.utils import normalize
-from tensorflow.keras.preprocessing.image import load_img
 from tensorflow.keras.utils import get_custom_objects
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
