@@ -3,7 +3,6 @@
 # > Standard library
 import logging
 import multiprocessing
-from multiprocessing.queues import Empty
 import os
 import sys
 from typing import Callable, List, Tuple
@@ -17,8 +16,7 @@ from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras import mixed_precision
 
 
-def batch_prediction_worker(batch_size: int,
-                            prepared_queue: multiprocessing.JoinableQueue,
+def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                             model_path: str,
                             charlist_path: str,
                             output_path: str,
@@ -34,8 +32,6 @@ def batch_prediction_worker(batch_size: int,
 
     Parameters
     ----------
-    batch_size : int
-        Number of images to process in a batch.
     prepared_queue : multiprocessing.JoinableQueue
         Queue from which preprocessed images are fetched.
     model_path : str
@@ -117,77 +113,29 @@ def batch_prediction_worker(batch_size: int,
         logger.error("Error creating model. Exiting...")
         return
 
-    TIMEOUT_DURATION = 1
-    MAX_WAIT_COUNT = 1
-
     total_predictions = 0
 
     try:
         while True:
-            # The goal is to accumulate a batch of images for processing.
-            # However, if there's a delay in receiving images, we don't want to
-            # wait indefinitely. So, we'll use a combination of timeouts and
-            # counters to decide when to process whatever images we have, even
-            # if we don't have a full batch.
+            batch_images, batch_groups, batch_identifiers = \
+                prepared_queue.get()
+            logger.debug(f"Retrieved batch of size {len(batch_images)} from "
+                         "prepared_queue")
 
-            batch_images = []
-            wait_count = 0
-
-            logger.debug("Waiting to accumulate images for processing")
-
-            # Wait until we have enough images for a batch
-            while len(batch_images) < batch_size:
-                logger.debug(
-                    f"Waiting for {batch_size - len(batch_images)} more images"
-                    " to be available")
-
-                try:
-                    # Wait for TIMEOUT_DURATION seconds for an image to be
-                    # available in the queue
-                    prepared_data = prepared_queue.get(
-                        timeout=TIMEOUT_DURATION)
-                    batch_images.append(prepared_data)
-                    prepared_queue.task_done()
-                    wait_count = 0
-                except Empty:
-                    wait_count += 1
-                    logger.debug("Time without new images: "
-                                 f"{wait_count * TIMEOUT_DURATION} seconds")
-
-                    # If we've waited more than the maximum allowed time
-                    # (MAX_WAIT_COUNT * TIMEOUT_DURATION) and we have some
-                    # images in the batch, then process those images.
-                    if wait_count > MAX_WAIT_COUNT and len(batch_images) > 0:
-
-                        # Grab any remaining images in the queue up to the
-                        # batch size
-                        while not prepared_queue.empty()\
-                                and len(batch_images) < batch_size:
-                            prepared_data = prepared_queue.get()
-                            batch_images.append(prepared_data)
-                            prepared_queue.task_done()
-
-                        # Reset the wait_count and break out of the loop
-                        wait_count = 0
-                        break
-
-            logger.info(
-                f"Retrieved batch of size {len(batch_images)}")
-            logger.debug(
-                f"There are {prepared_queue.qsize()} images waiting on "
-                "prediction")
+            batch_info = list(zip(batch_groups, batch_identifiers))
 
             # Here, make the batch prediction
             try:
                 predictions = batch_predict(
-                    model, batch_images, utils, decode_batch_predictions,
-                    output_path, normalize_confidence)
+                    model, batch_images, batch_info, utils,
+                    decode_batch_predictions, output_path,
+                    normalize_confidence)
             except Exception as e:
                 logger.error(e)
                 logger.error("Error making predictions. Skipping batch.")
                 logger.error("Failed batch:")
-                for image in batch_images:
-                    logger.error(image[2])
+                for id in batch_identifiers:
+                    logger.error(id)
                 predictions = []
 
             # Update the total number of predictions made
@@ -201,7 +149,7 @@ def batch_prediction_worker(batch_size: int,
                 f"Made {len(predictions)} predictions")
             logger.info(f"Total predictions: {total_predictions}")
             logger.info(
-                f"{prepared_queue.qsize()} images waiting on prediction")
+                f"{prepared_queue.qsize()} batches waiting on prediction")
 
             # Clear the batch images to free up memory
             logger.debug("Clearing batch images and predictions")
@@ -268,7 +216,7 @@ def create_model(model_path: str,
             "were provided")
 
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(model.summary())
+        model.summary()
 
     with open(charlist_path) as file:
         charlist = list(char for char in file.read())
@@ -279,7 +227,8 @@ def create_model(model_path: str,
 
 
 def batch_predict(model: tf.keras.Model,
-                  batch: List[Tuple[tf.Tensor, str, str]],
+                  images: List[Tuple[tf.Tensor, str, str]],
+                  batch_info: List[Tuple[str, str]],
                   utils: object,
                   decoder: Callable,
                   output_path: str,
@@ -316,24 +265,10 @@ def batch_predict(model: tf.keras.Model,
 
     logger = logging.getLogger(__name__)
 
-    logger.debug(f"Initial batch size: {len(batch)}")
+    logger.debug(f"Initial batch size: {len(images)}")
 
     # Unpack the batch
-    images, groups, identifiers = map(list, zip(*batch))
-
-    # Determine the maximum width of the images in the batch
-    max_width = max(image.shape[0] for image in images)
-    logger.debug(f"Determined max width: {max_width}")
-
-    # Pad the images to the maximum width
-    for i in range(len(images)):
-        images[i] = tf.image.resize_with_pad(images[i], max_width, 64)
-    images = tf.stack(images)
-
-    logger.debug(f"Batch shape after padding: {images.shape}")
-
-    batch = tf.convert_to_tensor(images)
-    logger.debug("Converted batch to tensor")
+    groups, identifiers = zip(*batch_info)
 
     logger.info("Making predictions...")
     encoded_predictions = model(images)

@@ -3,12 +3,15 @@
 # > Standard library
 import logging
 import multiprocessing
+from multiprocessing.queues import Empty
 
 # > Third-party dependencies
+import numpy as np
 import tensorflow as tf
 
 
-def image_preparation_worker(request_queue: multiprocessing.Queue,
+def image_preparation_worker(batch_size: int,
+                             request_queue: multiprocessing.Queue,
                              prepared_queue: multiprocessing.Queue,
                              num_channels: int):
     """
@@ -38,28 +41,59 @@ def image_preparation_worker(request_queue: multiprocessing.Queue,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
+    TIMEOUT_DURATION = 1
+    MAX_WAIT_COUNT = 1
+
+    wait_count = 0
+
     try:
         while True:
-            image, group, identifier = request_queue.get()
-            logger.debug(f"Retrieved {identifier} from request_queue")
+            batch_images, batch_groups, batch_identifiers = [], [], []
 
-            image = prepare_image(identifier, image, num_channels)
+            while len(batch_images) < batch_size:
+                try:
+                    image, group, identifier = request_queue.get(timeout=1)
+                    logger.debug(f"Retrieved {identifier} from request_queue")
 
-            logger.debug(
-                f"Prepared image {identifier} with shape: {image.shape}")
+                    image = prepare_image(identifier, image, num_channels)
 
-            # Push the prepared image to the prepared_queue
-            prepared_queue.put((image.numpy(), group, identifier))
-            logger.debug(
-                f"Pushed prepared image {identifier} to prepared_queue")
+                    logger.debug(
+                        f"Prepared image {identifier} with shape: "
+                        f"{image.shape}")
+
+                    batch_images.append(image.numpy())
+                    batch_groups.append(group)
+                    batch_identifiers.append(identifier)
+
+                    request_queue.task_done()
+                    wait_count = 0
+                except Empty:
+                    wait_count += 1
+                    logger.debug(
+                        "Time without new images: "
+                        f"{wait_count * TIMEOUT_DURATION} seconds")
+
+                    if wait_count > MAX_WAIT_COUNT and len(batch_images) > 0:
+                        break
+
+            # Determine the maximum width among all images in the batch
+            max_width = max(image.shape[0] for image in batch_images)
+
+            # Resize each image in the batch to the maximum width
+            for i in range(len(batch_images)):
+                batch_images[i] = tf.image.resize_with_pad(
+                    batch_images[i], max_width, 64)
+
+            logger.info(f"Prepared batch of {len(batch_images)} images")
+
+            # Push the prepared batch to the prepared_queue
+            prepared_queue.put(
+                (np.array(batch_images), batch_groups, batch_identifiers))
+            logger.debug("Pushed prepared batch to prepared_queue")
             logger.debug(
                 f"{request_queue.qsize()} images waiting to be processed")
-
-            # Indicate that the task is done
-            request_queue.task_done()
-
-            logger.debug(f"Finished processing image {identifier}")
-            logger.debug(f"{prepared_queue.qsize()} images ready for batch")
+            logger.debug(
+                f"{prepared_queue.qsize()} batches ready for prediction")
 
     except KeyboardInterrupt:
         logger.warning(
