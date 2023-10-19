@@ -82,7 +82,8 @@ def create_app(model_path: str,
     logger.info("Starting image preparation process")
     app.preparation_process = Process(
         target=image_preparation_worker,
-        args=(app.request_queue, app.prepared_queue, num_channels),
+        args=(batch_size, app.request_queue,
+              app.prepared_queue, num_channels),
         name="Image Preparation Process")
     app.preparation_process.start()
 
@@ -90,7 +91,7 @@ def create_app(model_path: str,
     logger.info("Starting batch prediction process")
     app.prediction_process = Process(
         target=batch_prediction_worker,
-        args=(batch_size, app.prepared_queue, model_path,
+        args=(app.prepared_queue, model_path,
               charlist_path, output_path, num_channels, gpus),
         name="Batch Prediction Process")
     app.prediction_process.start()
