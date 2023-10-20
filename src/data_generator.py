@@ -25,7 +25,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                  random_width=False,
                  distort_jpeg=False,
                  channels=1,
-                 do_random_shear=False
+                 do_random_shear=False,
+                 do_blur=False,
                  ):
         print(height)
 
@@ -40,6 +41,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.height = height
         self.channels = channels
         self.do_random_shear = do_random_shear
+        self.do_blur = do_blur
 
     def elastic_transform(self, original):
         displacement_val = tf.random.normal([2, 3, 3]) * 5
@@ -63,6 +65,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         otsu_threshold = threshold_otsu(np_array)
 
         return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
+
+    def blur(self, tensor):
+        return tfa.image.gaussian_filter2d(tensor, sigma=[3.0, 20.0], filter_shape=(10, 10))
 
     def load_images(self, image_path):
         image = tf.io.read_file(image_path[0])
@@ -126,6 +131,15 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = tf.concat([image, image, image], axis=2)
                 image = tfa.image.shear_x(image, random_shear, replace=0)
                 image, image, image = tf.split(image, 3, axis=2)
+
+        if self.do_binarize_sauvola:
+            image = self.binarize_sauvola(image)
+
+        if self.do_binarize_otsu:
+            image = self.binarize_otsu(image)
+
+        if self.do_blur:
+            image = self.blur(image)
 
         label = image_path[1]
         encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
