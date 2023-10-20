@@ -6,9 +6,11 @@ import random
 # > Local dependencies
 
 # > Third party libraries
+import cv2
 import tensorflow as tf
 import elasticdeform.tf as etf
 import tensorflow_addons as tfa
+from skimage.filters import threshold_otsu, threshold_sauvola
 
 class DataGenerator(tf.keras.utils.Sequence):
 
@@ -23,7 +25,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                  random_width=False,
                  distort_jpeg=False,
                  channels=1,
-                 do_random_shear=False
+                 do_random_shear=False,
+                 do_blur=False,
                  ):
         print(height)
 
@@ -38,14 +41,36 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.height = height
         self.channels = channels
         self.do_random_shear = do_random_shear
+        self.do_blur = do_blur
 
     def elastic_transform(self, original):
         displacement_val = tf.random.normal([2, 3, 3]) * 5
         X_deformed = etf.deform_grid(original, displacement_val, axis=(0, 1), order=3)
         return X_deformed
 
-    def load_images(self, imagePath):
-        image = tf.io.read_file(imagePath[0])
+    def binarize_sauvola(self, tensor):
+        np_array = tensor.numpy()
+        window_size = 51
+
+        sauvola_thresh = threshold_sauvola(np_array, window_size=window_size)
+        binary_sauvola = (np_array > sauvola_thresh) * 1
+
+        return tf.convert_to_tensor(binary_sauvola)
+
+    def binarize_otsu(self, tensor):
+        np_array = tensor.numpy()
+
+        np_array = cv2.cvtColor(np_array, cv2.COLOR_RGB2GRAY)
+
+        otsu_threshold = threshold_otsu(np_array)
+
+        return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
+
+    def blur(self, tensor):
+        return tfa.image.gaussian_filter2d(tensor, sigma=[3.0, 20.0], filter_shape=(10, 10))
+
+    def load_images(self, image_path):
+        image = tf.io.read_file(image_path[0])
         image = tf.image.decode_png(image, channels=self.channels)
         image = tf.image.resize(image, (self.height, 99999), preserve_aspect_ratio=True) / 255.0
         if self.distort_jpeg:
@@ -86,7 +111,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         image = tf.image.resize_with_pad(image, self.height, image_width+50)
 
-        if self.do_elastic_transform:
+        if self.do_random_shear:
             image = tf.image.resize_with_pad(image, self.height, image_width + 64 + 50)
             random_shear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
 
@@ -107,7 +132,16 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = tfa.image.shear_x(image, random_shear, replace=0)
                 image, image, image = tf.split(image, 3, axis=2)
 
-        label = imagePath[1]
+        if self.do_binarize_sauvola:
+            image = self.binarize_sauvola(image)
+
+        if self.do_binarize_otsu:
+            image = self.binarize_otsu(image)
+
+        if self.do_blur:
+            image = self.blur(image)
+
+        label = image_path[1]
         encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
         label_counter = 0
