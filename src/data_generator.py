@@ -127,7 +127,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = tfa.image.shear_x(image, random_shear, replace=0)
                 image, image, image = tf.split(image, 3, axis=2)
 
-        label = imagePath[1]
+        label = image_path[1]
         encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
         label_counter = 0
