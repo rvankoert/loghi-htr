@@ -92,6 +92,9 @@ def get_arg_parser():
                                help='use this file containing textline location+transcription for testing. You can use '
                                'multiple input files quoted and space separated "test_file1.txt test_file2.txt"to '
                                'combine testing sets.')
+    training_args.add_argument('--training_verbosity_mode', choices=['auto', '0', '1', '2'], default='auto',
+                               help="0 = silent, 1 = progress bar, 2 = one line per epoch. 'auto' becomes 1 for most cases. "
+                                    "default value is 'auto'")
 
     # Inference args
     inference_args = parser.add_argument_group('General inference arguments')

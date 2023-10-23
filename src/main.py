@@ -318,7 +318,8 @@ def main():
             early_stopping_patience=args.early_stopping_patience,
             output_checkpoints=args.output_checkpoints,
             charlist=loader.charList,
-            metadata=metadata
+            metadata=metadata,
+            verbosity_mode=args.training_verbosity_mode
         )
 
         # construct a plot that plots and saves the training history
