@@ -76,7 +76,11 @@ def create_app(model_path: str,
     logger.info("Initializing request queue")
     manager = Manager()
     app.request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
-    app.prepared_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+
+    # Max size of prepared queue is half of the max size of request queue
+    # expressed in number of batches
+    max_prepared_queue_size = max_queue_size // 2 // batch_size
+    app.prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
