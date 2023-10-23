@@ -71,10 +71,25 @@ class DataGenerator(tf.keras.utils.Sequence):
         return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
 
     def invert(self, tensor):
+
         if str(tensor.numpy().dtype).startswith("uint") or str(tensor.numpy().dtype).startswith("int"):
-            return tf.convert_to_tensor(255 - tensor.numpy())
+            max_value = 255
         else:
-            return tf.convert_to_tensor(1 - tensor.numpy())
+            max_value = 1
+
+        if self.channels == 4:
+            channel1, channel2, channel3, alpha = tf.split(tensor, 4, axis=2)
+            channel1 = tf.convert_to_tensor(max_value - channel1.numpy())
+            channel2 = tf.convert_to_tensor(max_value - channel2.numpy())
+            channel3 = tf.convert_to_tensor(max_value - channel3.numpy())
+
+            return tf.concat([channel1, channel2, channel3, alpha], axis=2)
+
+        else:
+            return tf.convert_to_tensor(max_value - tensor.numpy())
+
+
+
 
     def blur(self, tensor):
         return tfa.image.gaussian_filter2d(tensor, sigma=[3.0, 20.0], filter_shape=(10, 10))
