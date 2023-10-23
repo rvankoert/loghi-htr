@@ -22,6 +22,8 @@ def image_preparation_worker(batch_size: int,
 
     Parameters
     ----------
+    batch_size : int
+        Number of images to process in a batch.
     request_queue : multiprocessing.Queue
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
