@@ -69,7 +69,7 @@ if __name__ == "__main__":
     # > Standard library
     # Import here to set TF_CPP_MIN_LOG_LEVEL before importing TensorFlow
     from flask_app import create_app
-    from app_utils import get_env_variable, setup_logging
+    from app_utils import get_env_variable, setup_logging, start_processes
 
     # Set up logging
     logging_level = get_env_variable("LOGGING_LEVEL", "INFO")
@@ -95,6 +95,18 @@ if __name__ == "__main__":
     logger.info("Getting GPU options from environment variables")
     gpus = get_env_variable("LOGHI_GPUS", "0")
 
+    # Start the processing and prediction processes
+    logger.info("Starting processing and prediction processes")
+    request_queue, preparation_process, prediction_process = start_processes(
+        batch_size,
+        max_queue_size,
+        model_path,
+        charlist_path,
+        output_path,
+        num_channels,
+        gpus
+    )
+
     options = {
         'bind': bind,
         'workers': workers,
@@ -105,14 +117,8 @@ if __name__ == "__main__":
 
     logger.info(f"Starting Gunicorn with options: {options}")
     gunicorn_app = GunicornApp(
-        create_app(
-            model_path,
-            charlist_path,
-            batch_size,
-            output_path,
-            gpus,
-            num_channels,
-            max_queue_size),
-        options)
+        create_app(request_queue),
+        options
+    )
 
     gunicorn_app.run()

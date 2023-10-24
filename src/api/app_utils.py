@@ -2,8 +2,13 @@
 
 # > Standard library
 import logging
+from multiprocessing import Process, Manager
 import os
 from typing import Tuple
+
+# > Local dependencies
+from batch_predictor import batch_prediction_worker
+from image_preparator import image_preparation_worker
 
 # > Third-party dependencies
 from flask import request
@@ -143,3 +148,41 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
     logger.debug(f"Environment variable {var_name} set to {value}")
     return value
+
+
+def start_processes(batch_size: int, max_queue_size: int, model_path: str,
+                    charlist_path: str, output_path: str, num_channels: int,
+                    gpus: str):
+    logger = logging.getLogger(__name__)
+
+    # Create a thread-safe Queue
+    logger.info("Initializing request queue")
+    manager = Manager()
+    request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+
+    # Max size of prepared queue is half of the max size of request queue
+    # expressed in number of batches
+    max_prepared_queue_size = max_queue_size // 2 // batch_size
+    prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
+
+    # Start the image preparation process
+    logger.info("Starting image preparation process")
+    preparation_process = Process(
+        target=image_preparation_worker,
+        args=(batch_size, request_queue,
+              prepared_queue, num_channels),
+        name="Image Preparation Process")
+    preparation_process.daemon = True
+    preparation_process.start()
+
+    # Start the batch prediction process
+    logger.info("Starting batch prediction process")
+    prediction_process = Process(
+        target=batch_prediction_worker,
+        args=(prepared_queue, model_path,
+              charlist_path, output_path, num_channels, gpus),
+        name="Batch Prediction Process")
+    prediction_process.daemon = True
+    prediction_process.start()
+
+    return request_queue, preparation_process, prediction_process
