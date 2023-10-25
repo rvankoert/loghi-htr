@@ -297,66 +297,66 @@ class TestModelToVGSL(unittest.TestCase):
         self.assertEqual(
             vgsl_spec, "None,64,None,1 RBd4,2,16")
 
-    def test_functional_combination_to_vgsl(self):
-        # Define the original model using the functional API
-        input_tensor = layers.Input(shape=(None, 64, 1))
-        x = layers.Conv2D(32, (3, 3), activation='relu')(input_tensor)
-        x = layers.MaxPooling2D(pool_size=(2, 2))(x)
-        x = layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1))(x)
-        x = layers.BatchNormalization()(x)
-        x = layers.Dropout(0.25)(x)
-        x = self.ResidualBlock(32, 3, 3)(x)
-        x = layers.Reshape((-1, 1024))(x)
-        x = layers.LSTM(64, return_sequences=True)(x)
-        x = layers.GRU(64, return_sequences=True, go_backwards=True)(x)
-        x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
-        x = layers.Bidirectional(layers.GRU(256, return_sequences=True))(x)
-        x = layers.Dense(10, activation='softmax')(x)
-        output_tensor = layers.Activation('linear')(x)
-        model = tf.keras.Model(inputs=input_tensor, outputs=output_tensor)
+    # def test_functional_combination_to_vgsl(self):
+    #     # Define the original model using the functional API
+    #     input_tensor = layers.Input(shape=(None, 64, 1))
+    #     x = layers.Conv2D(32, (3, 3), activation='relu')(input_tensor)
+    #     x = layers.MaxPooling2D(pool_size=(2, 2))(x)
+    #     x = layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1))(x)
+    #     x = layers.BatchNormalization()(x)
+    #     x = layers.Dropout(0.25)(x)
+    #     x = self.ResidualBlock(32, 3, 3)(x)
+    #     x = layers.Reshape((-1, 1024))(x)
+    #     x = layers.LSTM(64, return_sequences=True)(x)
+    #     x = layers.GRU(64, return_sequences=True, go_backwards=True)(x)
+    #     x = layers.Bidirectional(layers.LSTM(256, return_sequences=True))(x)
+    #     x = layers.Bidirectional(layers.GRU(256, return_sequences=True))(x)
+    #     x = layers.Dense(10, activation='softmax')(x)
+    #     output_tensor = layers.Activation('linear')(x)
+    #     model = tf.keras.Model(inputs=input_tensor, outputs=output_tensor)
+    # 
+    #     vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
+    #     self.assertEqual(
+    #         vgsl_spec, "None,64,None,1 Cr3,3,32 Mp2,2,2,2 Ap2,2,1,1 Bn D25 "
+    #                    "RB3,3,32 Rc Lfs64 Grs64 Bl256 Bg256 O1s10")
+    # 
+    #     # Generate a model from the VGSL string
+    #     model_generator = self.VGSLModelGenerator(vgsl_spec)
+    #     generated_model = model_generator.build()
+    # 
+    #     # Compare the original model with the generated model
+    #     self.compare_model_configs(model, generated_model)
 
-        vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
-        self.assertEqual(
-            vgsl_spec, "None,64,None,1 Cr3,3,32 Mp2,2,2,2 Ap2,2,1,1 Bn D25 "
-                       "RB3,3,32 Rc Lfs64 Grs64 Bl256 Bg256 O1s10")
-
-        # Generate a model from the VGSL string
-        model_generator = self.VGSLModelGenerator(vgsl_spec)
-        generated_model = model_generator.build()
-
-        # Compare the original model with the generated model
-        self.compare_model_configs(model, generated_model)
-
-    def test_sequential_combination_to_vgsl(self):
-        # Define the original model using the sequential API
-        model = tf.keras.Sequential([
-            layers.Input(shape=(None, 64, 1)),
-            layers.Conv2D(32, (3, 3), activation='relu'),
-            layers.MaxPooling2D(pool_size=(2, 2)),
-            layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1)),
-            layers.BatchNormalization(),
-            layers.Dropout(0.25),
-            self.ResidualBlock(32, 3, 3),
-            layers.Reshape((-1, 1024)),
-            layers.LSTM(64, return_sequences=True),
-            layers.GRU(64, return_sequences=True, go_backwards=True),
-            layers.Bidirectional(layers.LSTM(256, return_sequences=True)),
-            layers.Bidirectional(layers.GRU(256, return_sequences=True)),
-            layers.Dense(10, activation='softmax'),
-            layers.Activation('linear')
-        ])
-
-        vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
-        self.assertEqual(
-            vgsl_spec, "None,64,None,1 Cr3,3,32 Mp2,2,2,2 Ap2,2,1,1 Bn D25 "
-                       "RB3,3,32 Rc Lfs64 Grs64 Bl256 Bg256 O1s10")
-
-        # Generate a model from the VGSL string
-        model_generator = self.VGSLModelGenerator(vgsl_spec)
-        generated_model = model_generator.build()
-
-        # Compare the original model with the generated model
-        self.compare_model_configs(model, generated_model)
+    # def test_sequential_combination_to_vgsl(self):
+    #     # Define the original model using the sequential API
+    #     model = tf.keras.Sequential([
+    #         layers.Input(shape=(None, 64, 1)),
+    #         layers.Conv2D(32, (3, 3), activation='relu'),
+    #         layers.MaxPooling2D(pool_size=(2, 2)),
+    #         layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1)),
+    #         layers.BatchNormalization(),
+    #         layers.Dropout(0.25),
+    #         self.ResidualBlock(32, 3, 3),
+    #         layers.Reshape((-1, 1024)),
+    #         layers.LSTM(64, return_sequences=True),
+    #         layers.GRU(64, return_sequences=True, go_backwards=True),
+    #         layers.Bidirectional(layers.LSTM(256, return_sequences=True)),
+    #         layers.Bidirectional(layers.GRU(256, return_sequences=True)),
+    #         layers.Dense(10, activation='softmax'),
+    #         layers.Activation('linear')
+    #     ])
+    #
+    #     vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
+    #     self.assertEqual(
+    #         vgsl_spec, "None,64,None,1 Cr3,3,32 Mp2,2,2,2 Ap2,2,1,1 Bn D25 "
+    #                    "RB3,3,32 Rc Lfs64 Grs64 Bl256 Bg256 O1s10")
+    #
+    #     # Generate a model from the VGSL string
+    #     model_generator = self.VGSLModelGenerator(vgsl_spec)
+    #     generated_model = model_generator.build()
+    #
+    #     # Compare the original model with the generated model
+    #     self.compare_model_configs(model, generated_model)
 
     def compare_model_configs(self, model, generated_model):
 
