@@ -15,6 +15,7 @@ from data_loader import DataLoader
 from model import replace_final_layer, replace_recurrent_layer, train_batch
 from utils import Utils, normalize_confidence, decode_batch_predictions
 from vgsl_model_generator import VGSLModelGenerator
+from custom_layers import ResidualBlock
 
 # > Third party dependencies
 import editdistance
@@ -109,7 +110,7 @@ def main():
             get_custom_objects().update({"CERMetric": CERMetric})
             get_custom_objects().update({"WERMetric": WERMetric})
             get_custom_objects().update({"CTCLoss": CTCLoss})
-
+            get_custom_objects().update({"ResidualBlock": ResidualBlock})
             model = keras.models.load_model(args.existing_model)
 
             if args.model_name:
@@ -318,7 +319,8 @@ def main():
             early_stopping_patience=args.early_stopping_patience,
             output_checkpoints=args.output_checkpoints,
             charlist=loader.charList,
-            metadata=metadata
+            metadata=metadata,
+            verbosity_mode=args.training_verbosity_mode
         )
 
         # construct a plot that plots and saves the training history

@@ -283,7 +283,7 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
 
 def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                 early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
-                metadata=None, charlist=None):
+                metadata=None, charlist=None, verbosity_mode='auto'):
     # # Add early stopping
     callbacks = []
     if early_stopping_patience > 0 and validation_dataset:
@@ -322,6 +322,7 @@ def train_batch(model, train_dataset, validation_dataset, epochs, output, model_
         shuffle=True,
         workers=num_workers,
         max_queue_size=max_queue_size,
-        steps_per_epoch=steps_per_epoch
+        steps_per_epoch=steps_per_epoch,
+        verbose=verbosity_mode
     )
     return history

@@ -11,6 +11,8 @@ import tensorflow as tf
 import elasticdeform.tf as etf
 import tensorflow_addons as tfa
 from skimage.filters import threshold_otsu, threshold_sauvola
+from tensorflow.python.ops import bitwise_ops
+
 
 class DataGenerator(tf.keras.utils.Sequence):
 
@@ -27,6 +29,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                  channels=1,
                  do_random_shear=False,
                  do_blur=False,
+                 do_invert=False
                  ):
         print(height)
 
@@ -42,6 +45,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.channels = channels
         self.do_random_shear = do_random_shear
         self.do_blur = do_blur
+        self.do_invert = do_invert
 
     def elastic_transform(self, original):
         displacement_val = tf.random.normal([2, 3, 3]) * 5
@@ -65,6 +69,27 @@ class DataGenerator(tf.keras.utils.Sequence):
         otsu_threshold = threshold_otsu(np_array)
 
         return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
+
+    def invert(self, tensor):
+
+        if str(tensor.numpy().dtype).startswith("uint") or str(tensor.numpy().dtype).startswith("int"):
+            max_value = 255
+        else:
+            max_value = 1
+
+        if self.channels == 4:
+            channel1, channel2, channel3, alpha = tf.split(tensor, 4, axis=2)
+            channel1 = tf.convert_to_tensor(max_value - channel1.numpy())
+            channel2 = tf.convert_to_tensor(max_value - channel2.numpy())
+            channel3 = tf.convert_to_tensor(max_value - channel3.numpy())
+
+            return tf.concat([channel1, channel2, channel3, alpha], axis=2)
+
+        else:
+            return tf.convert_to_tensor(max_value - tensor.numpy())
+
+
+
 
     def blur(self, tensor):
         return tfa.image.gaussian_filter2d(tensor, sigma=[3.0, 20.0], filter_shape=(10, 10))
@@ -140,6 +165,9 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         if self.do_blur:
             image = self.blur(image)
+
+        if self.do_invert:
+            image = self.invert(image)
 
         label = image_path[1]
         encodedLabel = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
