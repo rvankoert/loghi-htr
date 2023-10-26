@@ -151,8 +151,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
 
 def start_processes(batch_size: int, max_queue_size: int, model_path: str,
-                    charlist_path: str, output_path: str, num_channels: int,
-                    gpus: str):
+                    charlist_path: str, output_path: str, gpus: str):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -170,7 +169,7 @@ def start_processes(batch_size: int, max_queue_size: int, model_path: str,
     preparation_process = Process(
         target=image_preparation_worker,
         args=(batch_size, request_queue,
-              prepared_queue, num_channels),
+              prepared_queue, model_path),
         name="Image Preparation Process")
     preparation_process.daemon = True
     preparation_process.start()
@@ -180,7 +179,8 @@ def start_processes(batch_size: int, max_queue_size: int, model_path: str,
     prediction_process = Process(
         target=batch_prediction_worker,
         args=(prepared_queue, model_path,
-              charlist_path, output_path, num_channels, gpus),
+              charlist_path, output_path,
+              gpus),
         name="Batch Prediction Process")
     prediction_process.daemon = True
     prediction_process.start()

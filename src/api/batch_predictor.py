@@ -20,7 +20,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                             model_path: str,
                             charlist_path: str,
                             output_path: str,
-                            num_channels: int,
                             gpus: str = '0'):
     """
     Worker process for batch prediction on images.
@@ -40,10 +39,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
         Path to the character list file.
     output_path : str
         Path where predictions should be saved.
-    num_channels : int
-        Number of channels desired for the input images (e.g., 1 for grayscale,
-        3 for RGB). This is used to verify that the preparation uses the
-        correct format.
     gpus : str, optional
         IDs of GPUs to be used (comma-separated). Default is '0'.
 
@@ -105,8 +100,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     try:
         with strategy.scope():
-            model, utils = create_model(
-                model_path, charlist_path, num_channels)
+            model, utils = create_model(model_path, charlist_path)
         logger.info("Model created and utilities initialized")
     except Exception as e:
         logger.error(e)
@@ -125,6 +119,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
             batch_info = list(zip(batch_groups, batch_identifiers))
 
             # Here, make the batch prediction
+            # TODO: if OOM, split the batch into halves and try again for each
+            # half
             try:
                 predictions = batch_predict(
                     model, batch_images, batch_info, utils,
@@ -163,8 +159,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
 
 def create_model(model_path: str,
-                 charlist_path: str,
-                 num_channels: int) -> Tuple[tf.keras.Model, object]:
+                 charlist_path: str) -> Tuple[tf.keras.Model, object]:
     """
     Load a pre-trained model and create utility methods.
 
@@ -174,9 +169,6 @@ def create_model(model_path: str,
         Path to the pre-trained model file.
     charlist_path : str
         Path to the character list file.
-    num_channels : int
-        Number of channels desired for the input images (e.g., 1 for grayscale,
-        3 for RGB).
 
     Returns
     -------
@@ -192,6 +184,7 @@ def create_model(model_path: str,
     - Logs various messages regarding the model and utility initialization.
     """
 
+    from custom_layers import ResidualBlock
     from model import CERMetric, WERMetric, CTCLoss
     from utils import Utils
 
@@ -202,18 +195,13 @@ def create_model(model_path: str,
         'CERMetric': CERMetric,
         'WERMetric': WERMetric,
         'CTCLoss': CTCLoss,
+        'ResidualBlock': ResidualBlock
     })
     logger.debug("Custom objects registered")
 
     logger.info("Loading model...")
     model = tf.keras.saving.load_model(model_path)
     logger.info("Model loaded successfully")
-
-    model_channels = model.input_shape[3]
-    if model_channels != num_channels:
-        raise ValueError(
-            f"Model expects {model_channels} channels, but {num_channels} "
-            "were provided")
 
     if logger.isEnabledFor(logging.DEBUG):
         model.summary()

@@ -13,7 +13,7 @@ import tensorflow as tf
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
                              prepared_queue: multiprocessing.Queue,
-                             num_channels: int):
+                             model_path: str):
     """
     Worker process to prepare images for batch processing.
 
@@ -28,9 +28,8 @@ def image_preparation_worker(batch_size: int,
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
-    num_channels : int
-        Number of channels desired for the output image (e.g., 1 for grayscale,
-        3 for RGB).
+    model_path : str
+        Path to the model.
 
     Side Effects
     ------------
@@ -43,6 +42,18 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
+    # Load the saved model to get the input tensor shape
+    model = tf.saved_model.load(model_path)
+
+    # Get the concrete function from the saved model
+    concrete_func = model.signatures[tf.saved_model
+                                     .DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+
+    # Get the input tensor shape
+    num_channels = concrete_func.inputs[0].shape.as_list()[-1]
+    logger.debug(f"Input tensor shape: {concrete_func.inputs[0].shape}")
+
+    # Define the maximum time to wait for new images
     TIMEOUT_DURATION = 1
     MAX_WAIT_COUNT = 1
 

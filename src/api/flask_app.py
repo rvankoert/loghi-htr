@@ -60,7 +60,6 @@ if __name__ == '__main__':
     batch_size = int(get_env_variable("LOGHI_BATCH_SIZE", "256"))
     output_path = get_env_variable("LOGHI_OUTPUT_PATH")
     max_queue_size = int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000"))
-    num_channels = int(get_env_variable("LOGHI_MODEL_CHANNELS"))
 
     # Get GPU options from environment variables
     logger.info("Getting GPU options from environment variables")
@@ -74,7 +73,6 @@ if __name__ == '__main__':
         model_path,
         charlist_path,
         output_path,
-        num_channels,
         gpus
     )
 
