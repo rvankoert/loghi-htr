@@ -305,7 +305,6 @@ GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 ```bash
 LOGHI_MODEL_PATH         # Path to the model.
 LOGHI_CHARLIST_PATH      # Path to the character list.
-LOGHI_MODEL_CHANNELS     # Number of channels in the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
