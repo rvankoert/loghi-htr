@@ -94,8 +94,8 @@ def image_preparation_worker(batch_size: int,
 
             # Resize each image in the batch to the maximum width
             for i in range(len(batch_images)):
-                batch_images[i] = tf.image.resize_with_pad(
-                    batch_images[i], max_width, 64)
+                batch_images[i] = center_pad_to_width(
+                    batch_images[i], max_width, -10)
 
             logger.info(f"Prepared batch of {len(batch_images)} images")
 
@@ -113,6 +113,47 @@ def image_preparation_worker(batch_size: int,
             "Image Preparation Worker process interrupted. Exiting...")
     except Exception as e:
         logger.error(f"Error: {e}")
+
+
+def center_pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
+    """
+    Pads a transposed image (where the first dimension is width) to a specified
+    target width, adding padding equally on the top and bottom sides of the
+    image. The padding is applied such that the image content is centered.
+
+    Parameters
+    ----------
+    image : tf.Tensor
+        A 3D TensorFlow tensor representing an image, where the image is
+        already transposed such that the width is the first dimension and the
+        height is the second dimension.
+        The shape of the tensor is expected to be [width, height, channels].
+    target_width : int
+        The target width to which the image should be padded. If the current
+        width of the image is greater than this value, no padding will be
+        added.
+    pad_value : float
+        The scalar value to be used for padding.
+
+    Returns
+    -------
+    tf.Tensor
+        A 3D TensorFlow tensor of the same type as the input 'image', with
+        padding applied to reach the target width. The shape of the output
+        tensor will be [target_width, original_height, channels].
+    """
+    current_width = tf.shape(image)[0]
+
+    # Calculate the padding sizes
+    total_pad_width = target_width - current_width
+    pad_top = total_pad_width // 2
+    pad_bottom = total_pad_width - pad_top
+
+    # Configure padding
+    padding = [[pad_top, pad_bottom], [0, 0], [0, 0]]
+
+    # Pad the image
+    return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
 
 
 def prepare_image(identifier: str,
@@ -147,8 +188,7 @@ def prepare_image(identifier: str,
     aspect_ratio = tf.shape(image)[1] / tf.shape(image)[0]
     target_width = tf.cast(target_height * aspect_ratio, tf.int32)
     image = tf.image.resize(image,
-                            [target_height, target_width],
-                            preserve_aspect_ratio=True)
+                            [target_height, target_width])
 
     # Normalize the image and something else
     image = 0.5 - (image / 255)

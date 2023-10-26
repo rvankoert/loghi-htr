@@ -259,7 +259,7 @@ def batch_predict(model: tf.keras.Model,
     groups, identifiers = zip(*batch_info)
 
     logger.info("Making predictions...")
-    encoded_predictions = model(images)
+    encoded_predictions = model.predict_on_batch(images)
     logger.debug("Predictions made")
 
     logger.debug("Decoding predictions...")
