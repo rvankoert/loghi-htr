@@ -9,6 +9,8 @@ from multiprocessing.queues import Empty
 import numpy as np
 import tensorflow as tf
 
+import time
+
 
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
@@ -65,7 +67,8 @@ def image_preparation_worker(batch_size: int,
 
             while len(batch_images) < batch_size:
                 try:
-                    image, group, identifier = request_queue.get(timeout=1)
+                    image, group, identifier = request_queue.get(
+                        timeout=TIMEOUT_DURATION)
                     logger.debug(f"Retrieved {identifier} from request_queue")
 
                     image = prepare_image(identifier, image, num_channels)
@@ -74,7 +77,7 @@ def image_preparation_worker(batch_size: int,
                         f"Prepared image {identifier} with shape: "
                         f"{image.shape}")
 
-                    batch_images.append(image.numpy())
+                    batch_images.append(image)
                     batch_groups.append(group)
                     batch_identifiers.append(identifier)
 
