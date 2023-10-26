@@ -59,7 +59,7 @@ def predict() -> flask.Response:
     except Full:
         response = jsonify({
             "status": "error",
-            "code": 503,
+            "code": 429,
             "message": "The server is currently processing a high volume of "
                        "requests. Please try again later.",
             "timestamp": datetime.datetime.now().isoformat(),
@@ -67,7 +67,7 @@ def predict() -> flask.Response:
             "identifier": identifier,
         })
 
-        response.status_code = 503
+        response.status_code = 429
 
         logger.error("Request queue is full.")
 
