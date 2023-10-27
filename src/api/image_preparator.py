@@ -9,8 +9,6 @@ from multiprocessing.queues import Empty
 import numpy as np
 import tensorflow as tf
 
-import time
-
 
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
@@ -97,7 +95,7 @@ def image_preparation_worker(batch_size: int,
 
             # Resize each image in the batch to the maximum width
             for i in range(len(batch_images)):
-                batch_images[i] = center_pad_to_width(
+                batch_images[i] = pad_to_width(
                     batch_images[i], max_width, -10)
 
             logger.info(f"Prepared batch of {len(batch_images)} images")
@@ -118,7 +116,7 @@ def image_preparation_worker(batch_size: int,
         logger.error(f"Error: {e}")
 
 
-def center_pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
+def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
     """
     Pads a transposed image (where the first dimension is width) to a specified
     target width, adding padding equally on the top and bottom sides of the
@@ -147,13 +145,14 @@ def center_pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
     """
     current_width = tf.shape(image)[0]
 
-    # Calculate the padding sizes
-    total_pad_width = target_width - current_width
-    pad_top = total_pad_width // 2
-    pad_bottom = total_pad_width - pad_top
+    # Calculate the padding size
+    pad_width = target_width - current_width
 
-    # Configure padding
-    padding = [[pad_top, pad_bottom], [0, 0], [0, 0]]
+    # Ensure no negative padding
+    pad_width = max(pad_width, 0)
+
+    # Configure padding to add only on the right side
+    padding = [[0, pad_width], [0, 0], [0, 0]]
 
     # Pad the image
     return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
