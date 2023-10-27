@@ -327,7 +327,7 @@ class VGSLModelGenerator:
                  "RBd3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 "
                  "RBd3,3,128 RB3,3,128 "
                  "Rc "
-                 "Bl256,D20 Bl256,D20 Bl256,D20 "
+                 "Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 "
                  "O1s92")
         }
 
