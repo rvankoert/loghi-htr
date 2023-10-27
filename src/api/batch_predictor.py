@@ -245,20 +245,19 @@ def create_model(model_path: str,
     """
 
     from model import CERMetric, WERMetric, CTCLoss
-    from utils import Utils
+    from custom_layers import ResidualBlock
+    from utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
 
-    # Register custom objects
-    get_custom_objects().update({
+    logger.info("Loading model...")
+    custom_objects = {
         'CERMetric': CERMetric,
         'WERMetric': WERMetric,
         'CTCLoss': CTCLoss,
-    })
-    logger.debug("Custom objects registered")
-
-    logger.info("Loading model...")
-    model = tf.keras.saving.load_model(model_path)
+        'ResidualBlock': ResidualBlock
+    }
+    model = load_model_from_directory(model_path, custom_objects)
     logger.info("Model loaded successfully")
 
     model_channels = model.input_shape[3]
