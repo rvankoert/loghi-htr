@@ -323,11 +323,11 @@ class VGSLModelGenerator:
             "model17":
                 ("None,64,None,4 Bn Ce3,3,16 "
                  "RB3,3,16 RB3,3,16 "
-                 "RBd3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32"
+                 "RBd3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 "
                  "RBd3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 "
-                 "RBd3,3,128 RB3,3,128"
+                 "RBd3,3,128 RB3,3,128 "
                  "Rc "
-                 "Bl256,D20 Bl256,D20 Bl256,D20 "
+                 "Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 "
                  "O1s92")
         }
 
