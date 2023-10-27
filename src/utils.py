@@ -220,7 +220,6 @@ def load_model_from_directory(directory, custom_objects=None):
     model_file = next((os.path.join(directory, file) for file in os.listdir(
         directory) if file.endswith(".keras")), None)
 
-    print(custom_objects)
     if model_file:
         return tf.keras.models.load_model(model_file, custom_objects=custom_objects)
 

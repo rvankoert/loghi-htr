@@ -65,10 +65,9 @@ def main():
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
     from model import CERMetric, WERMetric, CTCLoss
-    from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
-    # strategy = tf.distribute.MirroredStrategy()
-    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
@@ -94,8 +93,7 @@ def main():
         charlist_location = args.output + '/charlist.txt'
     model_channels = args.channels
     model_height = args.height
-    # with strategy.scope():
-    with tf.device('/gpu:0'):
+    with strategy.scope():
         if args.existing_model:
             if not os.path.exists(args.existing_model):
                 print('cannot find existing model on disk: ' + args.existing_model)
@@ -514,24 +512,24 @@ def main():
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
 
-        totalcer_lower = \
+        totalcer_lower = round(
             totalcer-(calc_confidence_interval(totalcer,
-                      pred_counter, certainty))
-        totalcer_upper = \
+                      pred_counter, certainty)), 4)
+        totalcer_upper = round(
             totalcer+(calc_confidence_interval(totalcer,
-                      pred_counter, certainty))
-        totalcerlower_lower = \
+                      pred_counter, certainty)), 4)
+        totalcerlower_lower = round(
             totalcerlower-(calc_confidence_interval(totalcerlower,
-                                                    pred_counter, certainty))
-        totalcerlower_upper = \
+                                                    pred_counter, certainty)), 4)
+        totalcerlower_upper = round(
             totalcerlower+(calc_confidence_interval(totalcerlower,
-                                                    pred_counter, certainty))
-        totalcersimple_lower = \
-            totalcersimple - \
-            (calc_confidence_interval(totalcersimple, pred_counter, certainty))
-        totalcersimple_upper = \
-            totalcersimple + \
-            (calc_confidence_interval(totalcersimple, pred_counter, certainty))
+                                                    pred_counter, certainty)), 4)
+        totalcersimple_lower = round(
+            totalcersimple -
+            (calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+        totalcersimple_upper = round(
+            totalcersimple +
+            (calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
 
         print('totalcer: ' + str(totalcer) + "(" + str(certainty)+"%"+" certainty that totalcer is between "
               + str(totalcer_lower) + " and " + str(totalcer_upper) + ")")
