@@ -228,7 +228,7 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.lower().startswith("conv"):
+                    elif args.freeze_conv_layers and (layer.name.lower().startswith("conv") or layer.name.lower().startswith("residual")):
                         print(layer.name)
                         layer.trainable = False
                     elif args.freeze_recurrent_layers and layer.name.lower().startswith("bidirectional"):
