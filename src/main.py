@@ -13,7 +13,8 @@ import uuid
 from arg_parser import get_args
 from data_loader import DataLoader
 from model import replace_final_layer, replace_recurrent_layer, train_batch
-from utils import Utils, normalize_confidence, decode_batch_predictions
+from utils import Utils, normalize_confidence, decode_batch_predictions, \
+    load_model_from_directory
 from vgsl_model_generator import VGSLModelGenerator
 from custom_layers import ResidualBlock
 
@@ -66,8 +67,8 @@ def main():
     from model import CERMetric, WERMetric, CTCLoss
     from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
-    strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # strategy = tf.distribute.MirroredStrategy()
+    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     if not args.use_float32 and args.gpu != '-1':
         print("using mixed_float16")
@@ -93,7 +94,8 @@ def main():
         charlist_location = args.output + '/charlist.txt'
     model_channels = args.channels
     model_height = args.height
-    with strategy.scope():
+    # with strategy.scope():
+    with tf.device('/gpu:0'):
         if args.existing_model:
             if not os.path.exists(args.existing_model):
                 print('cannot find existing model on disk: ' + args.existing_model)
@@ -107,11 +109,15 @@ def main():
                 print("using charlist")
                 print("length charlist: " + str(len(char_list)))
                 print(char_list)
-            get_custom_objects().update({"CERMetric": CERMetric})
-            get_custom_objects().update({"WERMetric": WERMetric})
-            get_custom_objects().update({"CTCLoss": CTCLoss})
-            get_custom_objects().update({"ResidualBlock": ResidualBlock})
-            model = keras.models.load_model(args.existing_model)
+
+            custom_objects = {
+                'CERMetric': CERMetric,
+                'WERMetric': WERMetric,
+                'CTCLoss': CTCLoss,
+                'ResidualBlock': ResidualBlock
+            }
+            model = load_model_from_directory(args.existing_model,
+                                              custom_objects=custom_objects)
 
             if args.model_name:
                 model._name = args.model_name
@@ -313,7 +319,7 @@ def main():
             validation_dataset,
             epochs=args.epochs,
             output=args.output,
-            model_name='encoder12',
+            model_name=model.name,
             steps_per_epoch=args.steps_per_epoch,
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,
@@ -508,18 +514,24 @@ def main():
             totalcerwbs = totaleditdistance_wbs / float(totallength)
             totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
 
-        totalcer_lower = round(
-            totalcer-(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
-        totalcer_upper = round(
-            totalcer+(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
-        totalcerlower_lower = round(
-            totalcerlower-(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
-        totalcerlower_upper = round(
-            totalcerlower+(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
-        totalcersimple_lower = round(
-            totalcersimple-(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
-        totalcersimple_upper = round(
-            totalcersimple+(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+        totalcer_lower = \
+            totalcer-(calc_confidence_interval(totalcer,
+                      pred_counter, certainty))
+        totalcer_upper = \
+            totalcer+(calc_confidence_interval(totalcer,
+                      pred_counter, certainty))
+        totalcerlower_lower = \
+            totalcerlower-(calc_confidence_interval(totalcerlower,
+                                                    pred_counter, certainty))
+        totalcerlower_upper = \
+            totalcerlower+(calc_confidence_interval(totalcerlower,
+                                                    pred_counter, certainty))
+        totalcersimple_lower = \
+            totalcersimple - \
+            (calc_confidence_interval(totalcersimple, pred_counter, certainty))
+        totalcersimple_upper = \
+            totalcersimple + \
+            (calc_confidence_interval(totalcersimple, pred_counter, certainty))
 
         print('totalcer: ' + str(totalcer) + "(" + str(certainty)+"%"+" certainty that totalcer is between "
               + str(totalcer_lower) + " and " + str(totalcer_upper) + ")")
