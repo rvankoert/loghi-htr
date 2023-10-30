@@ -33,7 +33,7 @@ if args.existing_model:
         exit(1)
     MODEL_PATH = args.existing_model
 else:
-    print('Please provide a path to an existing model directory')
+    print('Please provide a path to an --existing_model directory')
     exit(1)
 
 SEED = args.seed
@@ -147,7 +147,7 @@ def main():
                 print('cannot find validation .txt on disk: ' + args.validation_list)
                 exit(1)
         else:
-            print('Please provide a path to a .txt containing (validation) images, e.g. the sample_list.txt inside "loghi-htr/tests/data" ')
+            print('Please provide a --validation_list to a .txt containing (validation) images, e.g. the sample_list.txt inside "loghi-htr/tests/data" ')
             exit(1)
 
         loader = DataLoader(args.batch_size, img_size,
