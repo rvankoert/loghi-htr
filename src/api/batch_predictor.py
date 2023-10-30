@@ -118,10 +118,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
             batch_info = list(zip(batch_groups, batch_identifiers))
 
             # Here, make the batch prediction
-            # TODO: if OOM, split the batch into halves and try again for each
-            # half
             try:
-                predictions = batch_predict(
+                predictions = safe_batch_predict(
                     model, batch_images, batch_info, utils,
                     decode_batch_predictions, output_path,
                     normalize_confidence)
@@ -185,7 +183,6 @@ def create_model(model_path: str,
 
     from custom_layers import ResidualBlock
     from model import CERMetric, WERMetric, CTCLoss
-    from custom_layers import ResidualBlock
     from utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
@@ -209,6 +206,86 @@ def create_model(model_path: str,
     logger.debug("Utilities initialized")
 
     return model, utils
+
+
+def safe_batch_predict(model: tf.keras.Model,
+                       batch_images: List[tf.Tensor],
+                       batch_info: List[Tuple[str, str]],
+                       utils: object,
+                       decode_batch_predictions: Callable,
+                       output_path: str,
+                       normalize_confidence: Callable) -> List[str]:
+    """
+    Attempt to predict on a batch of images using the provided model. If a
+    TensorFlow Out of Memory (OOM) error occurs, the batch is split in half and
+    each half is attempted again, recursively. If an OOM error occurs with a
+    batch of size 1, the offending image is logged and skipped.
+
+    Parameters
+    ----------
+    model : TensorFlow model
+        The model used for making predictions.
+    batch_images : List or ndarray
+        A list or numpy array of images for which predictions need to be made.
+    batch_info : List of tuples
+        A list of tuples containing additional information (e.g., group and
+        identifier) for each image in `batch_images`.
+    utils : module or object
+        Utility module/object containing necessary utility functions or
+        settings.
+    decode_batch_predictions : function
+        A function to decode the predictions made by the model.
+    output_path : str
+        Path where any output files should be saved.
+    normalize_confidence : function
+        A function to normalize the confidence of the predictions.
+    logger : Logger
+        A logging.Logger object for logging messages.
+
+    Returns
+    -------
+    List
+        A list of predictions made by the model. If an image causes an OOM
+        error, it is skipped, and no prediction is returned for it.
+    """
+
+    logger = logging.getLogger(__name__)
+    try:
+        return batch_predict(
+            model, batch_images, batch_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+    except tf.errors.ResourceExhaustedError:
+        # If the batch size is 1 and still causing OOM, then skip the image and
+        # return an empty list
+        if len(batch_images) == 1:
+            logger.error(
+                "OOM error with single image. Skipping image"
+                f"{batch_info[0][1]}.")
+            return []
+
+        logger.warning(
+            f"OOM error with batch size {len(batch_images)}. Splitting batch "
+            "in half and retrying.")
+
+        # Splitting batch in half
+        mid_index = len(batch_images) // 2
+        first_half_images = batch_images[:mid_index]
+        second_half_images = batch_images[mid_index:]
+        first_half_info = batch_info[:mid_index]
+        second_half_info = batch_info[mid_index:]
+
+        # Recursive calls for each half
+        first_half_predictions = safe_batch_predict(
+            model, first_half_images, first_half_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+        second_half_predictions = safe_batch_predict(
+            model, second_half_images, second_half_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+
+        return first_half_predictions + second_half_predictions
 
 
 def batch_predict(model: tf.keras.Model,
@@ -255,7 +332,7 @@ def batch_predict(model: tf.keras.Model,
     # Unpack the batch
     groups, identifiers = zip(*batch_info)
 
-    logger.info("Making predictions...")
+    logger.info(f"Making {len(images)} predictions...")
     encoded_predictions = model.predict_on_batch(images)
     logger.debug("Predictions made")
 
