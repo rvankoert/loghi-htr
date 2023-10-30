@@ -366,18 +366,6 @@ def main():
         )
         prediction_model.summary(line_length=110)
 
-        totalcer = 0.
-        totaleditdistance = 0
-        totaleditdistance_lower = 0
-        totaleditdistance_simple = 0
-        totaleditdistance_wbs_simple = 0
-        totaleditdistance_wbs = 0
-        totaleditdistance_wbs_lower = 0
-        totallength = 0
-        totallength_simple = 0
-        counter = 0
-        pred_counter = 0
-
         wbs = None
         if args.corpus_file:
             if not os.path.exists(args.corpus_file):
@@ -390,9 +378,7 @@ def main():
                     if args.normalization_file:
                         line = loader.normalize(line)
                     corpus += line
-            word_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÂÉØßàáâäçèéêëìïòóôõöøüōƒ̄ꞵ='
             word_chars = '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
-            #
             chars = '' + ''.join(sorted(list(char_list)))
 
             print('using corpus file: ' + str(args.corpus_file))
@@ -400,8 +386,15 @@ def main():
                                  word_chars.encode('utf8'))
             print('Created WordBeamSearcher')
 
-        batch_no = 0
-        #  Let's check results on some validation samples
+        total_cer = total_cer_lower = total_cer_simple = 0
+        total_length = total_length_simple = 0
+
+        norm_total_cer = norm_total_cer_lower = 0
+        norm_total_length = 0
+
+        total_cer_wbs = total_cer_wbs_lower = total_cer_wbs_simple = 0
+        batch_no = pred_counter = 0
+
         for batch in validation_dataset:
             predictions = prediction_model.predict(batch[0])
             predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
@@ -411,127 +404,141 @@ def main():
             if wbs:
                 print('computing wbs...')
                 label_str = wbs.compute(predsbeam)
-                char_str = []  # decoded texts for batch
-                for curr_label_str in label_str:
-                    s = ''.join([chars[label] for label in curr_label_str])
-                    char_str.append(s)
-                    print(s)
+                char_str = [''.join([chars[label] for label in curr_label_str]) for curr_label_str in label_str]
+                [print(s) for s in char_str]
 
-            counter += 1
-            orig_texts = []
-            for label in batch[1]:
-                label = tf.strings.reduce_join(
-                    utilsObject.num_to_char(label)).numpy().decode("utf-8")
-                orig_texts.append(label.strip())
+            orig_texts = [tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8").strip() for
+                          label in batch[1]]
 
             for prediction in predicted_texts:
                 for i in range(len(prediction)):
-                    confidence = prediction[i][0]
-                    predicted_text = prediction[i][1]
-                    original_text = orig_texts[i].strip().replace('', '')
+                    confidence, predicted_text, original_text = prediction[i][0], prediction[i][1], orig_texts[i]
+
+                    original_text = original_text.strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
                     original_text = remove_tags(original_text)
                     predicted_text = remove_tags(predicted_text)
-                    current_editdistance = editdistance.eval(
-                        original_text, predicted_text)
-                    current_editdistance_lower = editdistance.eval(
-                        original_text.lower(), predicted_text.lower())
 
-                    pattern = re.compile('[\W_]+')
-                    ground_truth_simple = pattern.sub(
-                        '', original_text).lower()
-                    predicted_simple = pattern.sub('', predicted_text).lower()
-                    current_editdistance_simple = editdistance.eval(
-                        ground_truth_simple, predicted_simple)
+                    ground_truth_simple = re.sub('[\W_]+', '', original_text).lower()
+                    predicted_simple = re.sub('[\W_]+', '', predicted_text).lower()
+
+                    cer = editdistance.eval(original_text, predicted_text) / max(len(original_text), 1)
+                    current_editdistance = editdistance.eval(original_text, predicted_text)
+                    current_editdistance_lower = editdistance.eval(original_text.lower(), predicted_text.lower())
+                    current_editdistance_simple = editdistance.eval(ground_truth_simple, predicted_simple)
+
                     if wbs:
-                        predicted_wbs_simple = pattern.sub(
-                            '', char_str[i]).lower()
-                        current_editdistance_wbs_simple = editdistance.eval(
-                            ground_truth_simple, predicted_wbs_simple)
-                        current_editdistance_wbs = editdistance.eval(
-                            original_text, char_str[i].strip())
-                        current_editdistance_wbslower = editdistance.eval(original_text.lower(),
-                                                                          char_str[i].strip().lower())
-                    cer = current_editdistance / float(len(original_text))
+                        predicted_wbs_simple = re.sub('[\W_]+', '', char_str[i]).lower()
+                        current_editdistance_wbs_simple = editdistance.eval(ground_truth_simple, predicted_wbs_simple)
+                        current_editdistance_wbs = editdistance.eval(original_text, char_str[i].strip())
+                        current_editdistance_wbs_lower = editdistance.eval(original_text.lower(),
+                                                                           char_str[i].strip().lower())
+
+                        total_cer_wbs_simple += current_editdistance_wbs_simple
+                        total_cer_wbs += current_editdistance_wbs
+                        total_cer_wbs_lower += current_editdistance_wbs_lower
+
+                    #Apply normalisation of ground truth + prediction and calculate normalised CER
+                    if args.normalization_file:
+                        #Apply normalisation from DataLoader
+                        original_text_normalised = loader.normalize(original_text, args.normalization_file)
+                        predicted_text_normalised = loader.normalize(predicted_text, args.normalization_file)
+
+                        #Calculate editdistance between original_text and pred
+                        norm_current_editdistance = editdistance.eval(original_text_normalised,
+                                                                      predicted_text_normalised)
+
+                        # Calculate editdistance on lowercase original_text and pred
+                        norm_current_editdistance_lower = editdistance.eval(original_text_normalised.lower(),
+                                                                            predicted_text_normalised.lower())
+
+                        #Aggregate cer
+                        norm_total_cer += norm_current_editdistance
+                        norm_total_cer_lower += norm_current_editdistance_lower
+                        norm_total_length += len(original_text_normalised)
 
                     if cer > 0.0:
-                        filename = loader.get_item(
-                            'validation', (batch_no * args.batch_size) + i)
-                        print('\n' + filename)
-                        print(original_text)
-                        print(predicted_text)
+                        filename = loader.get_item('validation', (batch_no * args.batch_size) + i)
+                        [print(f'\n{filename}\n{original_text}\n{predicted_text}') for _ in range(3)]
                         if wbs:
-                            print(char_str[i])
-                    totaleditdistance += current_editdistance
-                    totaleditdistance_lower += current_editdistance_lower
-                    totaleditdistance_simple += current_editdistance_simple
-                    if wbs:
-                        totaleditdistance_wbs_simple += current_editdistance_wbs_simple
-                        totaleditdistance_wbs += current_editdistance_wbs
-                        totaleditdistance_wbs_lower += current_editdistance_wbslower
-                    totallength += len(original_text)
-                    totallength_simple += len(ground_truth_simple)
+                            [print(s) for s in char_str]
+
+                    total_cer += current_editdistance
+                    total_cer_lower += current_editdistance_lower
+                    total_cer_simple += current_editdistance_simple
+                    total_length += len(original_text)
+                    total_length_simple += len(ground_truth_simple)
 
                     if cer > 0.0:
-                        print('confidence: ' + str(confidence)
-                              + ' cer: ' + str(cer)
-                              + ' total_orig: ' + str(len(original_text))
-                              + ' total_pred: ' + str(len(predicted_text))
-                              + ' errors: ' + str(current_editdistance))
-                        print("avg editdistance: " +
-                              str(totaleditdistance / float(totallength)))
-                        print("avg editdistance lower: " +
-                              str(totaleditdistance_lower / float(totallength)))
-                        if totallength_simple > 0:
-                            print("avg editdistance simple: " +
-                                  str(totaleditdistance_simple / float(totallength_simple)))
+                        print(f'confidence: {confidence} cer: {cer} total_orig: {len(original_text)} total_pred: {len(predicted_text)} errors: {current_editdistance}')
+                        print(f'avg editdistance: {total_cer / total_length}')
+                        print(f'avg editdistance lower: {total_cer_lower / total_length}')
+
+                        if total_length_simple > 0:
+                            print(f'avg editdistance simple: {total_cer_simple / total_length_simple}')
+
+                        if args.normalization_file:
+                            print(f'avg norm_editdistance: {norm_total_cer / norm_total_length}')
+                            print(f'avg norm_editdistance lower: {norm_total_cer_lower / norm_total_length}')
+
                         if wbs:
-                            print("avg editdistance wbs: " +
-                                  str(totaleditdistance_wbs / float(totallength)))
-                            print("avg editdistance wbs lower: " +
-                                  str(totaleditdistance_wbs_lower / float(totallength)))
-                            if totallength_simple > 0:
-                                print("avg editdistance wbs_simple: " + str(
-                                    totaleditdistance_wbs_simple / float(totallength_simple)))
+                            print(f'avg editdistance wbs: {total_cer_wbs / total_length}')
+                            print(f'avg editdistance wbs lower: {total_cer_wbs_lower / total_length}')
+
+                            if total_length_simple > 0:
+                                print(f'avg editdistance wbs_simple: {total_cer_wbs_simple / total_length_simple}')
                     else:
                         print('.', end='')
                     pred_counter += 1
             batch_no += 1
 
-        totalcer = totaleditdistance / float(totallength)
-        totalcerlower = totaleditdistance_lower / float(totallength)
-        totalcersimple = totaleditdistance_simple / float(totallength_simple)
-        certainty = 95
-        if wbs:
-            totalcerwbssimple = totaleditdistance_wbs_simple / \
-                float(totallength_simple)
-            totalcerwbs = totaleditdistance_wbs / float(totallength)
-            totalcerwbslower = totaleditdistance_wbs_lower / float(totallength)
+        #Calculate averages
+        total_cer /= total_length
+        total_cer_lower /= total_length
+        total_cer_simple /= total_length_simple
 
-        totalcer_lower = round(
-            totalcer-(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
-        totalcer_upper = round(
-            totalcer+(calc_confidence_interval(totalcer, pred_counter, certainty)), 4)
-        totalcerlower_lower = round(
-            totalcerlower-(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
-        totalcerlower_upper = round(
-            totalcerlower+(calc_confidence_interval(totalcerlower, pred_counter, certainty)), 4)
-        totalcersimple_lower = round(
-            totalcersimple-(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
-        totalcersimple_upper = round(
-            totalcersimple+(calc_confidence_interval(totalcersimple, pred_counter, certainty)), 4)
+        if args.normalization_file:
+            norm_total_cer /= norm_total_length
+            norm_total_cer_lower /= norm_total_length
 
-        print('totalcer: ' + str(totalcer) + "(" + str(certainty)+"%"+" certainty that totalcer is between "
-              + str(totalcer_lower) + " and " + str(totalcer_upper) + ")")
-        print('totalcerlower: ' + str(totalcerlower) + "(" + str(certainty)+"%"+" certainty that totalcerlower is between "
-              + str(totalcerlower_lower) + " and " + str(totalcerlower_upper) + ")")
-        print('totalcersimple: ' + str(totalcersimple) + "(" + str(certainty)+"%"+" certainty that totalcersimple is between "
-              + str(totalcersimple_lower)+" and " + str(totalcersimple_upper) + ")")
+            total_norm_cer_lower = round(norm_total_cer - calc_95_confidence_interval(norm_total_cer, pred_counter), 4)
+            total_norm_cer_upper = round(norm_total_cer + calc_95_confidence_interval(norm_total_cer, pred_counter), 4)
+
+            total_norm_cer_lower_lower = round(
+                norm_total_cer_lower - calc_95_confidence_interval(norm_total_cer_lower, pred_counter), 4)
+            total_norm_cer_lower_upper = round(
+                norm_total_cer_lower + calc_95_confidence_interval(norm_total_cer_lower, pred_counter), 4)
+
+
 
         if wbs:
-            print('totalcerwbs: ' + str(totalcerwbs))
-            print('totalcerwbslower: ' + str(totalcerwbslower))
-            print('totalcerwbssimple: ' + str(totalcerwbssimple))
+            total_cer_wbs_simple /= total_length_simple
+            total_cer_wbs /= total_length
+            total_cer_wbs_lower /= total_length
+
+        #Calculate confidence ranges upper/lower bounds
+        total_cer_lowerbound = round(total_cer - calc_95_confidence_interval(total_cer, pred_counter), 4)
+        total_cer_upperbound = round(total_cer + calc_95_confidence_interval(total_cer, pred_counter), 4)
+        total_cer_lower_lowerbound = round(total_cer_lower - calc_95_confidence_interval(total_cer_lower, pred_counter), 4)
+        total_cer_lower_upperbound = round(total_cer_lower + calc_95_confidence_interval(total_cer_lower, pred_counter), 4)
+        total_cer_simple_lowerbound = round(total_cer_simple - calc_95_confidence_interval(total_cer_simple, pred_counter),4)
+        total_cer_simple_upperbound = round(total_cer_simple + calc_95_confidence_interval(total_cer_simple, pred_counter),4)
+
+        print("--------------------------------------------------------")
+        print(f'totalcer: {total_cer} (95% conf. range [{total_cer_lowerbound},{total_cer_upperbound}])')
+        print(f'totalcerlower: {total_cer_lower} (95% conf. range [{total_cer_lower_lowerbound},{total_cer_lower_upperbound}])')
+        print(f'totalcersimple: {total_cer_simple} (95% conf. range [{total_cer_simple_lowerbound},{total_cer_simple_upperbound}])')
+        print("--------------------------------------------------------")
+
+        if args.normalization_file:
+            print(f'norm_totalcer: {norm_total_cer} (95% conf. range [{total_norm_cer_lower},{total_norm_cer_upper}])')
+            print(f'norm_totalcer_lower: {norm_total_cer_lower} (95% conf. range [{total_norm_cer_lower_lower},{total_norm_cer_lower_upper}])')
+            print("--------------------------------------------------------")
+
+        if wbs:
+            print(f'totalcerwbs: {total_cer_wbs}')
+            print(f'totalcerwbslower: {total_cer_wbs_lower}')
+            print(f'totalcerwbssimple: {total_cer_wbs_simple}')
 
     if args.do_inference:
         print('inferencing')
@@ -633,20 +640,14 @@ def store_info(args, model):
         json.dump(config, configuration_file)
 
 
-def calc_confidence_interval(cer_metric, n, certainty=95):
+def calc_95_confidence_interval(cer_metric, n):
     """ Calculates the binomial confidence radius of the given metric
-    based on the num of samples (n) and a provided certainty number (either 90/95/98/99) out of 100
+    based on the num of samples (n) and a 95% certainty number
     E.g. cer_metric = 0.10, certainty = 95 and n= 5500 samples -->
     conf_radius = 1.96 * ((0.1*(1-0.1))/5500)) ** 0.5 = 0.008315576
     This means with 95% certainty we can say that the True CER of the model is between 0.0917 and 0.1083 (4-dec rounded)
     """
-    sig_levels = {
-        90: 1.64,
-        95: 1.96,
-        98: 2.33,
-        99: 2.58
-    }
-    return sig_levels.get(certainty) * ((cer_metric*(1-cer_metric))/n) ** 0.5
+    return 1.96 * ((cer_metric*(1-cer_metric))/n) ** 0.5
 
 
 if __name__ == '__main__':
