@@ -44,7 +44,12 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
-    num_channels = get_model_channels(model_path)
+    try:
+        num_channels = get_model_channels(model_path)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        logger.error("Error retrieving number of channels. Exiting...")
+        return
     logger.debug(f"Input channels: {num_channels}")
 
     # Define the maximum time to wait for new images

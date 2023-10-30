@@ -12,7 +12,6 @@ import gc
 
 # > Third-party dependencies
 import tensorflow as tf
-from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras import mixed_precision
 
 
