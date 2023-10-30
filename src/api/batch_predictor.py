@@ -12,7 +12,6 @@ import gc
 
 # > Third-party dependencies
 import tensorflow as tf
-from tensorflow.keras.utils import get_custom_objects
 from tensorflow.keras import mixed_precision
 
 
@@ -186,21 +185,19 @@ def create_model(model_path: str,
 
     from custom_layers import ResidualBlock
     from model import CERMetric, WERMetric, CTCLoss
-    from utils import Utils
+    from custom_layers import ResidualBlock
+    from utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
 
-    # Register custom objects
-    get_custom_objects().update({
+    logger.info("Loading model...")
+    custom_objects = {
         'CERMetric': CERMetric,
         'WERMetric': WERMetric,
         'CTCLoss': CTCLoss,
         'ResidualBlock': ResidualBlock
-    })
-    logger.debug("Custom objects registered")
-
-    logger.info("Loading model...")
-    model = tf.keras.saving.load_model(model_path)
+    }
+    model = load_model_from_directory(model_path, custom_objects)
     logger.info("Model loaded successfully")
 
     if logger.isEnabledFor(logging.DEBUG):
