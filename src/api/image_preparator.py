@@ -1,9 +1,11 @@
 # Imports
 
 # > Standard library
+import json
 import logging
 import multiprocessing
 from multiprocessing.queues import Empty
+import os
 
 # > Third-party dependencies
 import numpy as np
@@ -42,16 +44,13 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
-    # Load the saved model to get the input tensor shape
-    model = tf.saved_model.load(model_path)
-
-    # Get the concrete function from the saved model
-    concrete_func = model.signatures[tf.saved_model
-                                     .DEFAULT_SERVING_SIGNATURE_DEF_KEY]
-
-    # Get the input tensor shape
-    num_channels = concrete_func.inputs[0].shape.as_list()[-1]
-    logger.debug(f"Input tensor shape: {concrete_func.inputs[0].shape}")
+    try:
+        num_channels = get_model_channels(model_path)
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        logger.error("Error retrieving number of channels. Exiting...")
+        return
+    logger.debug(f"Input channels: {num_channels}")
 
     # Define the maximum time to wait for new images
     TIMEOUT_DURATION = 1
@@ -199,3 +198,50 @@ def prepare_image(identifier: str,
     image = tf.transpose(image, perm=[1, 0, 2])
 
     return image
+
+
+def get_model_channels(config_path: str) -> int:
+    """
+    Retrieve the number of input channels for a model from a configuration
+    file.
+
+    This function reads a JSON configuration file located in the specified
+    directory to extract the number of input channels used by the model.
+
+    Parameters
+    ----------
+    config_path : str
+        The path to the directory containing the 'config.json' file.
+        The function will append "/config.json" to this path.
+
+    Returns
+    -------
+    int
+        The number of input channels specified in the configuration file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the 'config.json' file does not exist in the given directory.
+
+    ValueError
+        If the number of channels is not found or not specified in the
+        'config.json' file.
+    """
+
+    config_path = os.path.join(config_path, "config.json")
+
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(
+            f"Config file not found in the directory: {config_path}")
+
+    # Load the configuration file
+    with open(config_path, 'r') as file:
+        config = json.load(file)
+
+    # Extract the number of channels
+    num_channels = config.get("args", {}).get("channels")
+    if num_channels is None:
+        raise ValueError("Number of channels not found in the config file.")
+
+    return num_channels

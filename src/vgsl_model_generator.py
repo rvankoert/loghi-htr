@@ -204,9 +204,9 @@ class VGSLModelGenerator:
                         self.avgpool_generator(layer))
                 self.history.append(f"avgpool_{index}")
             elif layer.startswith('RB'):
-                # setattr(self, f"ResidualBlock_{index}",
-                self.residual_block_generator(layer, index)
-                # self.history.append(f"ResidualBlock_{index}")
+                setattr(self, f"ResidualBlock_{index}",
+                        self.residual_block_generator(layer, index))
+                self.history.append(f"ResidualBlock_{index}")
             elif layer.startswith('D'):
                 setattr(self, f"dropout_{index}",
                         self.dropout_generator(layer))
@@ -238,23 +238,11 @@ class VGSLModelGenerator:
                              "VGSL-spec string.")
 
         x = self.inputs
-        residual_block_x = None
         for index, layer in enumerate(self.history):
             if layer.startswith("reshape"):
                 x = self.reshape_generator(layer.split("_")[2], x)(x)
             else:
-                if layer.startswith('conv') and layer.endswith("_conv1_rb"):
-                    residual_block_x = x
-                if not layer.lower().startswith('elu_'):
-                    x = getattr(self, layer)(x)
-                if layer.lower().startswith('conv') and getattr(self, layer).name.endswith("_conv3_rb"):
-                    residual_block_x = x
-                if layer.startswith('elu') \
-                        and getattr(self, layer).name.startswith("elu_") \
-                        and getattr(self, layer).name.endswith("_rb"):
-                    print('layer '+layer)            #elu
-                    x = layers.Add()([residual_block_x, x])
-                    residual_block_x = None
+                x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
 
         logging.info("Model has been built\n")
@@ -314,21 +302,11 @@ class VGSLModelGenerator:
                 ("None,64,None,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 "
                  "Lfs128,D50 Lfs128,D50 O1s92"),
-            # "model17":
-            #     ("None,64,None,4 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
-            #      "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
-            #      "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
-            #      "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 "
-            #      "O1s92")
             "model17":
-                ("None,64,None,4 Bn Ce3,3,16 "
-                 "RB3,3,16 RB3,3,16 "
-                 "RBd3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 "
-                 "RBd3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 RB3,3,64 "
-                 "RBd3,3,128 RB3,3,128 "
-                 "Rc "
-                 "Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 Bl256,D20 "
-                 "O1s92")
+                ("None,64,None,4 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
+                 "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
+                 "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
+                 "Bl256,D20 Bl256,D20 Bl256,D20 O1s92")
         }
 
         return model_library
@@ -360,7 +338,7 @@ class VGSLModelGenerator:
     #   Helper functions   #
     ########################
 
-    @staticmethod
+    @ staticmethod
     def model_to_vgsl(model: tf.keras.models.Model) -> str:
         """
         Convert a Keras model to a VGSL spec string.
@@ -1205,26 +1183,7 @@ class VGSLModelGenerator:
                 f"Invalid parameters x={x}, y={y}, d={d} in layer {layer}. "
                 "All values should be positive integers.")
 
-        stride = ',1,1,'
-        spec = 'Ce,' + str(x)+',' + str(y) + stride + str(d)
-        setattr(self, f"conv2d_{index}_conv1_rb", self.conv2d_generator(spec))
-        self.history.append(f"conv2d_{index}_conv1_rb")
-
-        spec = 'Ce,'+str(x)+','+str(y)+',1,1,' + str(d)
-        setattr(self, f"conv2d_{index}_conv2_rb", self.conv2d_generator(spec))
-        self.history.append(f"conv2d_{index}_conv2_rb")
-
-        if downsample:
-            spec = 'Ce,' + str(x) + ',' + str(y) + ',2,2,' + str(d)
-            setattr(self, f"conv2d_{index}_conv3_rb", self.conv2d_generator(spec, name=f"conv2d_{index}_conv3_rb"))
-            self.history.append(f"conv2d_{index}_conv3_rb")
-
-        setattr(self, f"elu_{index}_rb", layers.ELU(name=f"elu_{index}_rb"))
-        self.history.append(f"elu_{index}_rb")
-
-        setattr(self, f"batchnorm_{index}_rb", layers.BatchNormalization(
-            axis=self._channel_axis))
-        self.history.append(f"batchnorm_{index}_rb")
+        return ResidualBlock(d, (x, y), self._initializer, bool(downsample))
 
     def dropout_generator(self,
                           layer: str) -> tf.keras.layers.Dropout:

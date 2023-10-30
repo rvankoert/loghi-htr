@@ -13,7 +13,8 @@ import uuid
 from arg_parser import get_args
 from data_loader import DataLoader
 from model import replace_final_layer, replace_recurrent_layer, train_batch
-from utils import Utils, normalize_confidence, decode_batch_predictions
+from utils import Utils, normalize_confidence, decode_batch_predictions, \
+    load_model_from_directory
 from vgsl_model_generator import VGSLModelGenerator
 from custom_layers import ResidualBlock
 
@@ -64,7 +65,6 @@ def main():
 
     # place from/imports here so os.environ["CUDA_VISIBLE_DEVICES"]  is set before TF loads
     from model import CERMetric, WERMetric, CTCLoss
-    from tensorflow.keras.utils import get_custom_objects
     import tensorflow.keras as keras
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -107,11 +107,15 @@ def main():
                 print("using charlist")
                 print("length charlist: " + str(len(char_list)))
                 print(char_list)
-            get_custom_objects().update({"CERMetric": CERMetric})
-            get_custom_objects().update({"WERMetric": WERMetric})
-            get_custom_objects().update({"CTCLoss": CTCLoss})
-            get_custom_objects().update({"ResidualBlock": ResidualBlock})
-            model = keras.models.load_model(args.existing_model)
+
+            custom_objects = {
+                'CERMetric': CERMetric,
+                'WERMetric': WERMetric,
+                'CTCLoss': CTCLoss,
+                'ResidualBlock': ResidualBlock
+            }
+            model = load_model_from_directory(args.existing_model,
+                                              custom_objects=custom_objects)
 
             if args.model_name:
                 model._name = args.model_name
@@ -224,7 +228,7 @@ def main():
                 for layer in model.layers:
                     if args.thaw:
                         layer.trainable = True
-                    elif args.freeze_conv_layers and layer.name.lower().startswith("conv"):
+                    elif args.freeze_conv_layers and (layer.name.lower().startswith("conv") or layer.name.lower().startswith("residual")):
                         print(layer.name)
                         layer.trainable = False
                     elif args.freeze_recurrent_layers and layer.name.lower().startswith("bidirectional"):
@@ -313,7 +317,7 @@ def main():
             validation_dataset,
             epochs=args.epochs,
             output=args.output,
-            model_name='encoder12',
+            model_name=model.name,
             steps_per_epoch=args.steps_per_epoch,
             max_queue_size=args.max_queue_size,
             early_stopping_patience=args.early_stopping_patience,

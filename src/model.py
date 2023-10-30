@@ -152,7 +152,6 @@ class WERMetric(tf.keras.metrics.Metric):
         self.counter.assign(0.0)
 
 
-@tf.function
 def CTCLoss(y_true, y_pred):
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
     input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")

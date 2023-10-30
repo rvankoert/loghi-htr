@@ -8,6 +8,7 @@ import json
 # > Third party libraries
 from tensorflow import keras
 
+
 class LoghiCustomCallback(keras.callbacks.Callback):
 
     previous_loss = float('inf')
@@ -21,7 +22,8 @@ class LoghiCustomCallback(keras.callbacks.Callback):
 
     def save_model(self, subdir):
         outputdir = os.path.join(self.output, subdir)
-        self.model.save(outputdir)
+        os.makedirs(outputdir, exist_ok=True)
+        self.model.save(outputdir + '/model.keras')
         with open(os.path.join(outputdir, 'charlist.txt'), 'w') as chars_file:
             chars_file.write(str().join(self.charlist))
         if self.metadata is not None:
