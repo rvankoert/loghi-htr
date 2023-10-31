@@ -191,6 +191,10 @@ def prepare_image(identifier: str,
     image = tf.image.resize(image,
                             [target_height, target_width])
 
+    image = tf.image.resize_with_pad(image,
+                                     target_height,
+                                     target_width + 50)
+
     # Normalize the image and something else
     image = 0.5 - (image / 255)
 
