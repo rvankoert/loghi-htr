@@ -151,7 +151,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
 
 def start_processes(batch_size: int, max_queue_size: int, model_path: str,
-                    charlist_path: str, output_path: str, gpus: str):
+                    output_path: str, gpus: str):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -179,8 +179,7 @@ def start_processes(batch_size: int, max_queue_size: int, model_path: str,
     prediction_process = Process(
         target=batch_prediction_worker,
         args=(prepared_queue, model_path,
-              charlist_path, output_path,
-              gpus),
+              output_path, gpus),
         name="Batch Prediction Process")
     prediction_process.daemon = True
     prediction_process.start()

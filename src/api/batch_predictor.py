@@ -17,7 +17,6 @@ from tensorflow.keras import mixed_precision
 
 def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                             model_path: str,
-                            charlist_path: str,
                             output_path: str,
                             gpus: str = '0'):
     """
@@ -34,8 +33,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
         Queue from which preprocessed images are fetched.
     model_path : str
         Path to the model file.
-    charlist_path : str
-        Path to the character list file.
     output_path : str
         Path where predictions should be saved.
     gpus : str, optional
@@ -56,7 +53,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
 
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    logger.debug(f"Number of GPUs available: {len(physical_devices)}")
+    logger.info(f"Number of GPUs available: {len(physical_devices)}")
     if physical_devices:
         all_gpus_support_mixed_precision = True
 
@@ -99,7 +96,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     try:
         with strategy.scope():
-            model, utils = create_model(model_path, charlist_path)
+            model, utils = create_model(model_path)
         logger.info("Model created and utilities initialized")
     except Exception as e:
         logger.error(e)
@@ -155,8 +152,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
             "Batch Prediction Worker process interrupted. Exiting...")
 
 
-def create_model(model_path: str,
-                 charlist_path: str) -> Tuple[tf.keras.Model, object]:
+def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
     """
     Load a pre-trained model and create utility methods.
 
@@ -164,8 +160,6 @@ def create_model(model_path: str,
     ----------
     model_path : str
         Path to the pre-trained model file.
-    charlist_path : str
-        Path to the character list file.
 
     Returns
     -------
@@ -195,13 +189,18 @@ def create_model(model_path: str,
         'ResidualBlock': ResidualBlock
     }
     model = load_model_from_directory(model_path, custom_objects)
-    logger.info("Model loaded successfully")
+    logger.info(f"Model {model.name} loaded successfully")
 
     if logger.isEnabledFor(logging.DEBUG):
         model.summary()
 
-    with open(charlist_path) as file:
-        charlist = list(char for char in file.read())
+    try:
+        with open(f"{model_path}/charlist.txt") as file:
+            charlist = list(char for char in file.read())
+    except FileNotFoundError:
+        logger.error("charlist.txt not found at {model_path}. Exiting...")
+        sys.exit(1)
+
     utils = Utils(charlist, use_mask=True)
     logger.debug("Utilities initialized")
 
