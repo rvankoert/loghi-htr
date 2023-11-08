@@ -35,12 +35,6 @@ def get_arg_parser():
                         help='epochs to be used')
     parser.add_argument('--dataloader_img_shape', metavar='dataloader_img_shape', type=tuple, default=(128,128,4),
                         help='height, width and channels to be used for dataloader')
-    # parser.add_argument('--spec', metavar='spec ', type=str, default='Cl11,11,32 Mp3,3 Cl7,7,64 Gm',
-    #                     help='spec')
-    # parser.add_argument('--trainset', metavar='trainset', type=str, default='/data/cvl-database-1-1/train.txt',
-    #                     help='trainset to be used')
-    # parser.add_argument('--testset', metavar='testset', type=str, default='/data/cvl-database-1-1/test.txt',
-    #                     help='testset to be used')
     parser.add_argument('--dataset', metavar='dataset ', type=str, default='ecodices',
                         help='dataset. ecodices or iisg')
     parser.add_argument('--validation_list', metavar='validation_list', type=str, default=None,
@@ -53,6 +47,10 @@ def get_arg_parser():
                         help='do_binarize_sauvola')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
                         help='existing_model')
+    parser.add_argument('--do_detailed', action='store_true', default=False, help="param for making more "
+                                                                                               "detailed "
+                                                                                               "visualizations (at "
+                                                                                               "the cost of performace")
     return parser
 
 def get_args():
