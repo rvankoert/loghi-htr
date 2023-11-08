@@ -198,7 +198,7 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
         with open(f"{model_path}/charlist.txt") as file:
             charlist = list(char for char in file.read())
     except FileNotFoundError:
-        logger.error("charlist.txt not found at {model_path}. Exiting...")
+        logger.error(f"charlist.txt not found at {model_path}. Exiting...")
         sys.exit(1)
 
     utils = Utils(charlist, use_mask=True)
