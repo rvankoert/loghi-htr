@@ -8,8 +8,6 @@ import sys
 from typing import Callable, List, Tuple
 import gc
 
-# > Local dependencies
-
 # > Third-party dependencies
 import tensorflow as tf
 from tensorflow.keras import mixed_precision
@@ -43,56 +41,30 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     - Logs various messages regarding the batch processing status.
     """
 
-    logger = logging.getLogger(__name__)
-    logger.info("Batch Prediction Worker process started")
-
-    # Only use the specified GPUs
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
-
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    logger.info(f"Number of GPUs available: {len(physical_devices)}")
-    if physical_devices:
-        all_gpus_support_mixed_precision = True
-
-        for device in physical_devices:
-            tf.config.experimental.set_memory_growth(device, True)
-            logger.debug(device)
-
-            # Get the compute capability of the GPU
-            details = tf.config.experimental.get_device_details(device)
-            major = details.get('compute_capability')[0]
-
-            # Check if the compute capability is less than 7.0
-            if int(major) < 7:
-                all_gpus_support_mixed_precision = False
-                logger.debug(
-                    f"GPU {device} does not support efficient mixed precision."
-                )
-                break
-
-        # If all GPUs support mixed precision, enable it
-        if all_gpus_support_mixed_precision:
-            mixed_precision.set_global_policy('mixed_float16')
-            logger.debug("Mixed precision set to 'mixed_float16'")
-        else:
-            logger.debug(
-                "Not all GPUs support efficient mixed precision. Running in "
-                "standard mode.")
-    else:
-        logger.warning("No GPUs available")
-
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))
     parent_path = os.path.dirname(current_path)
-
     sys.path.append(parent_path)
 
     from utils import decode_batch_predictions, normalize_confidence
 
+    logger = logging.getLogger(__name__)
+    logger.info("Batch Prediction Worker process started")
+
+    # If all GPUs support mixed precision, enable it
+    gpus_support_mixed_precision = setup_gpu_environment(gpus, logger)
+    if gpus_support_mixed_precision:
+        mixed_precision.set_global_policy('mixed_float16')
+        logger.debug("Mixed precision set to 'mixed_float16'")
+    else:
+        logger.debug(
+            "Not all GPUs support efficient mixed precision. Running in "
+            "standard mode.")
+
     strategy = tf.distribute.MirroredStrategy()
 
     total_predictions = 0
-    old_model = None
+    old_model_path = None
 
     try:
         while True:
@@ -103,8 +75,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
             batch_info = list(zip(batch_groups, batch_identifiers))
 
-            if model_path != old_model:
-                old_model = model_path
+            if model_path != old_model_path:
+                old_model_path = model_path
                 try:
                     logger.info("Model changed, adjusting batch prediction")
                     with strategy.scope():
@@ -151,6 +123,36 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     except KeyboardInterrupt:
         logger.warning(
             "Batch Prediction Worker process interrupted. Exiting...")
+
+
+def setup_gpu_environment(gpus: str, logger: logging.Logger):
+    """
+    Setup the GPU environment for batch prediction.
+
+    Parameters
+    ----------
+    gpus : str
+        IDs of GPUs to be used (comma-separated).
+    logger : logging.Logger
+        A logging.Logger object for logging messages.
+
+    Returns
+    -------
+    bool
+        True if all GPUs support mixed precision, False otherwise.
+    """
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = gpus
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if not physical_devices:
+        logger.warning("No GPUs found. Running in CPU mode.")
+        return False
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, True)
+        if tf.config.experimental.\
+                get_device_details(device)['compute_capability'][0] < 7:
+            return False
+    return True
 
 
 def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:

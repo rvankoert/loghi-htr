@@ -166,11 +166,13 @@ def start_processes(batch_size: int, max_queue_size: int,
     logger.info("Initializing request queue")
     manager = Manager()
     request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+    logger.info(f"Request queue size: {max_queue_size//2}")
 
     # Max size of prepared queue is half of the max size of request queue
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
     prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
+    logger.info(f"Prediction queue size: {max_prepared_queue_size}")
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
