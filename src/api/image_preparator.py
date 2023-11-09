@@ -59,11 +59,8 @@ def image_preparation_worker(batch_size: int,
                     logger.debug(f"Retrieved {identifier} from request_queue")
 
                     if model_path != old_model:
-                        old_model = model_path
-
                         logger.info(
                             "Model changed, adjusting image preparation")
-
                         if batch_images:
                             # Add the existing batch to the prepared_queue
                             logger.info(
@@ -76,6 +73,8 @@ def image_preparation_worker(batch_size: int,
                             # Reset the batches after sending
                             batch_images, batch_groups, batch_identifiers = \
                                 [], [], []
+
+                        old_model = model_path
                         try:
                             num_channels = get_model_channels(model_path)
                             logger.debug(
