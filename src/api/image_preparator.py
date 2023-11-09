@@ -14,8 +14,7 @@ import tensorflow as tf
 
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
-                             prepared_queue: multiprocessing.Queue,
-                             model_path: str):
+                             prepared_queue: multiprocessing.Queue):
     """
     Worker process to prepare images for batch processing.
 
@@ -30,8 +29,6 @@ def image_preparation_worker(batch_size: int,
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
-    model_path : str
-        Path to the model.
 
     Side Effects
     ------------
@@ -44,19 +41,12 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
-    try:
-        num_channels = get_model_channels(model_path)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        logger.error("Error retrieving number of channels. Exiting...")
-        return
-    logger.debug(f"Input channels: {num_channels}")
-
     # Define the maximum time to wait for new images
     TIMEOUT_DURATION = 1
     MAX_WAIT_COUNT = 1
 
     wait_count = 0
+    old_model = None
 
     try:
         while True:
@@ -64,9 +54,39 @@ def image_preparation_worker(batch_size: int,
 
             while len(batch_images) < batch_size:
                 try:
-                    image, group, identifier = request_queue.get(
+                    image, group, identifier, model_path = request_queue.get(
                         timeout=TIMEOUT_DURATION)
                     logger.debug(f"Retrieved {identifier} from request_queue")
+
+                    if model_path != old_model:
+                        old_model = model_path
+
+                        logger.info(
+                            "Model changed, adjusting image preparation")
+
+                        if batch_images:
+                            # Add the existing batch to the prepared_queue
+                            logger.info(
+                                f"Sending old batch of {len(batch_images)} "
+                                "images")
+                            pad_batch(batch_images)
+                            prepared_queue.put(
+                                (np.array(batch_images), batch_groups,
+                                 batch_identifiers, old_model))
+                            # Reset the batches after sending
+                            batch_images, batch_groups, batch_identifiers = \
+                                [], [], []
+                        try:
+                            num_channels = get_model_channels(model_path)
+                            logger.debug(
+                                f"New number of channels: "
+                                f"{num_channels}")
+                        except Exception as e:
+                            logger.error(f"Error: {e}")
+                            logger.error(
+                                "Error retrieving number of channels. "
+                                "Exiting...")
+                            return
 
                     image = prepare_image(identifier, image, num_channels)
 
@@ -89,19 +109,14 @@ def image_preparation_worker(batch_size: int,
                     if wait_count > MAX_WAIT_COUNT and len(batch_images) > 0:
                         break
 
-            # Determine the maximum width among all images in the batch
-            max_width = max(image.shape[0] for image in batch_images)
-
-            # Resize each image in the batch to the maximum width
-            for i in range(len(batch_images)):
-                batch_images[i] = pad_to_width(
-                    batch_images[i], max_width, -10)
+            pad_batch(batch_images)
 
             logger.info(f"Prepared batch of {len(batch_images)} images")
 
             # Push the prepared batch to the prepared_queue
             prepared_queue.put(
-                (np.array(batch_images), batch_groups, batch_identifiers))
+                (np.array(batch_images), batch_groups, batch_identifiers,
+                 old_model))
             logger.debug("Pushed prepared batch to prepared_queue")
             logger.debug(
                 f"{request_queue.qsize()} images waiting to be processed")
@@ -113,6 +128,16 @@ def image_preparation_worker(batch_size: int,
             "Image Preparation Worker process interrupted. Exiting...")
     except Exception as e:
         logger.error(f"Error: {e}")
+
+
+def pad_batch(batch_images):
+    # Determine the maximum width among all images in the batch
+    max_width = max(image.shape[0] for image in batch_images)
+
+    # Resize each image in the batch to the maximum width
+    for i in range(len(batch_images)):
+        batch_images[i] = pad_to_width(
+            batch_images[i], max_width, -10)
 
 
 def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):

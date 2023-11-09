@@ -3,8 +3,6 @@ export GUNICORN_WORKERS=1
 export GUNICORN_THREADS=1
 export GUNICORN_ACCESSLOG='-'
 
-export LOGHI_MODEL_PATH="/home/tim/Downloads/new_model/"
-export LOGHI_CHARLIST_PATH="/home/tim/Downloads/new_model/charlist.txt"
 export LOGHI_BATCH_SIZE=300
 export LOGHI_OUTPUT_PATH="/home/tim/Documents/development/loghi-htr/output/"
 export LOGHI_MAX_QUEUE_SIZE=50000

@@ -16,7 +16,6 @@ from tensorflow.keras import mixed_precision
 
 
 def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
-                            model_path: str,
                             output_path: str,
                             gpus: str = '0'):
     """
@@ -31,8 +30,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     ----------
     prepared_queue : multiprocessing.JoinableQueue
         Queue from which preprocessed images are fetched.
-    model_path : str
-        Path to the model file.
     output_path : str
         Path where predictions should be saved.
     gpus : str, optional
@@ -94,25 +91,29 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     strategy = tf.distribute.MirroredStrategy()
 
-    try:
-        with strategy.scope():
-            model, utils = create_model(model_path)
-        logger.info("Model created and utilities initialized")
-    except Exception as e:
-        logger.error(e)
-        logger.error("Error creating model. Exiting...")
-        return
-
     total_predictions = 0
+    old_model = None
 
     try:
         while True:
-            batch_images, batch_groups, batch_identifiers = \
+            batch_images, batch_groups, batch_identifiers, model_path = \
                 prepared_queue.get()
             logger.debug(f"Retrieved batch of size {len(batch_images)} from "
                          "prepared_queue")
 
             batch_info = list(zip(batch_groups, batch_identifiers))
+
+            if model_path != old_model:
+                old_model = model_path
+                try:
+                    logger.info("Model changed, adjusting batch prediction")
+                    with strategy.scope():
+                        model, utils = create_model(model_path)
+                    logger.info("Model created and utilities initialized")
+                except Exception as e:
+                    logger.error(e)
+                    logger.error("Error creating model. Exiting...")
+                    return
 
             # Here, make the batch prediction
             try:
