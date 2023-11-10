@@ -91,7 +91,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
             if model_path != old_model_path:
                 old_model_path = model_path
                 try:
-                    logger.info("Model changed, adjusting batch prediction")
+                    logger.warning("Model changed, adjusting batch prediction")
                     with strategy.scope():
                         model, utils = create_model(model_path)
                     logger.info("Model created and utilities initialized")

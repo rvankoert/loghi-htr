@@ -322,10 +322,17 @@ You can set these variables in your shell or use a script. An example script to 
 Once the API is up and running, you can send HTR requests using curl. Here's how:
 
 ```bash
-curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" -F "model=$model_path" http://localhost:5000/predict
+curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
 ```
 
-Replace `$input_path`, `$group_id`, `$filename`, and `$model_path` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable). The `model` field is optional, and allows you to dynamically switch the model used.
+Replace `$input_path`, `$group_id`, and `$filename` with your respective file paths and identifiers. If you're considering switching the recognition model, use the `model` field cautiously:
+
+- The `model` field (`-F "model=$model_path"`) allows for specifying which handwritten text recognition model the API should use for the current request. 
+- To avoid the slowdown associated with loading different models for each request, it is preferable to set a specific model before starting your API by using the `LOGHI_MODEL_PATH` environment variable.
+- Only use the `model` field if you are certain that a different model is needed for a particular task and you understand its performance characteristics.
+
+> [!WARNING]
+> Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
 ---
 

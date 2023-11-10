@@ -65,7 +65,7 @@ def image_preparation_worker(batch_size: int,
 
                     # Check if the model has changed
                     if model_path and model_path != old_model:
-                        logger.info(
+                        logger.warning(
                             "Model changed, adjusting image preparation")
                         if batch_images:
                             # Add the existing batch to the prepared_queue
