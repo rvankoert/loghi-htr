@@ -97,9 +97,9 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                 logger.error(e)
                 logger.error("Error making predictions. Skipping batch.")
                 logger.error("Failed batch:")
-                for id in batch_identifiers:
+                for group, id in batch_info:
                     logger.error(id)
-                    output_error(output_path, id, e)
+                    output_prediction_error(output_path, group, id, e)
                 predictions = []
 
             # Update the total number of predictions made
@@ -258,7 +258,7 @@ def safe_batch_predict(model: tf.keras.Model,
             model, batch_images, batch_info, utils,
             decode_batch_predictions, output_path,
             normalize_confidence)
-    except tf.errors.ResourceExhaustedError:
+    except tf.errors.ResourceExhaustedError as e:
         # If the batch size is 1 and still causing OOM, then skip the image and
         # return an empty list
         if len(batch_images) == 1:
@@ -266,7 +266,8 @@ def safe_batch_predict(model: tf.keras.Model,
                 "OOM error with single image. Skipping image"
                 f"{batch_info[0][1]}.")
 
-            output_error(output_path, batch_info[0][1], "OOM error")
+            output_prediction_error(
+                output_path, batch_info[0][0], batch_info[0][1], e)
             return []
 
         logger.warning(
@@ -411,8 +412,9 @@ def output_predictions(predictions: List[Tuple[float, str]],
     return outputs
 
 
-def output_error(output_dir: str, identifier: str, text: str):
+def output_prediction_error(output_path: str, group_id: str, identifier: str, text: str):
+    output_dir = os.path.join(output_path, group_id)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     with open(os.path.join(output_dir, identifier + ".error"), "w") as f:
-        f.write(text + "\n")
+        f.write(str(text) + "\n")
