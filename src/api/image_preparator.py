@@ -182,33 +182,6 @@ def pad_batch(batch_images: np.ndarray) -> np.ndarray:
     return batch_images
 
 
-def update_channels(model_path: str, logger):
-    """
-    Update the model used for image preparation.
-
-    Parameters
-    ----------
-    model_path : str
-        The path to the directory containing the 'config.json' file.
-        The function will append "/config.json" to this path.
-    logger : logging.Logger
-        Logger object to log messages.
-    """
-
-    try:
-        num_channels = get_model_channels(model_path)
-        logger.debug(
-            f"New number of channels: "
-            f"{num_channels}")
-        return num_channels
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        logger.error(
-            "Error retrieving number of channels. "
-            "Exiting...")
-        return
-
-
 def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
     """
     Pads a transposed image (where the first dimension is width) to a specified
@@ -249,6 +222,33 @@ def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
 
     # Pad the image
     return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
+
+
+def update_channels(model_path: str, logger):
+    """
+    Update the model used for image preparation.
+
+    Parameters
+    ----------
+    model_path : str
+        The path to the directory containing the 'config.json' file.
+        The function will append "/config.json" to this path.
+    logger : logging.Logger
+        Logger object to log messages.
+    """
+
+    try:
+        num_channels = get_model_channels(model_path)
+        logger.debug(
+            f"New number of channels: "
+            f"{num_channels}")
+        return num_channels
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        logger.error(
+            "Error retrieving number of channels. "
+            "Exiting...")
+        return
 
 
 def prepare_image(image_bytes: bytes,
