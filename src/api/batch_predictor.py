@@ -412,7 +412,25 @@ def output_predictions(predictions: List[Tuple[float, str]],
     return outputs
 
 
-def output_prediction_error(output_path: str, group_id: str, identifier: str, text: str):
+def output_prediction_error(output_path: str,
+                            group_id: str,
+                            identifier: str,
+                            text: str):
+    """
+    Output an error message to a file.
+
+    Parameters
+    ----------
+    output_path : str
+        Base path where prediction outputs should be saved.
+    group_id : str
+        Group ID of the image.
+    identifier : str
+        Identifier of the image.
+    text : str
+        Error message to be saved.
+    """
+
     output_dir = os.path.join(output_path, group_id)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
