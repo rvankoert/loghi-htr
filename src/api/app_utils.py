@@ -62,25 +62,27 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def extract_request_data() -> Tuple[bytes, str, str]:
+def extract_request_data() -> Tuple[bytes, str, str, str]:
     """
     Extract image and other form data from the current request.
 
     Returns
     -------
-    tuple of (bytes, str, str)
+    tuple of (bytes, str, str, str)
         image_content : bytes
             Content of the uploaded image.
         group_id : str
             ID of the group from form data.
         identifier : str
             Identifier from form data.
+        model : str
+            Location of the model to use for prediction.
 
     Raises
     ------
     ValueError
-        If required data (image, group_id, identifier) is missing or if the
-        image format is invalid.
+        If required data (image, group_id, identifier, model) is missing or if
+        the image format is invalid.
     """
 
     # Extract the uploaded image
@@ -106,7 +108,13 @@ def extract_request_data() -> Tuple[bytes, str, str]:
     if not identifier:
         raise ValueError("No identifier provided.")
 
-    return image_content, group_id, identifier
+    model = request.form.get('model')
+    if not model:
+        raise ValueError("No model provided.")
+    if not os.path.exists(model):
+        raise ValueError(f"Model directory {model} does not exist.")
+
+    return image_content, group_id, identifier, model
 
 
 def get_env_variable(var_name: str, default_value: str = None) -> str:
@@ -150,26 +158,27 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def start_processes(batch_size: int, max_queue_size: int, model_path: str,
-                    charlist_path: str, output_path: str, gpus: str):
+def start_processes(batch_size: int, max_queue_size: int,
+                    output_path: str, gpus: str):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
     manager = Manager()
     request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+    logger.info(f"Request queue size: {max_queue_size//2}")
 
     # Max size of prepared queue is half of the max size of request queue
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
     prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
+    logger.info(f"Prediction queue size: {max_prepared_queue_size}")
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
     preparation_process = Process(
         target=image_preparation_worker,
-        args=(batch_size, request_queue,
-              prepared_queue, model_path),
+        args=(batch_size, request_queue, prepared_queue),
         name="Image Preparation Process")
     preparation_process.daemon = True
     preparation_process.start()
@@ -178,9 +187,7 @@ def start_processes(batch_size: int, max_queue_size: int, model_path: str,
     logger.info("Starting batch prediction process")
     prediction_process = Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, model_path,
-              charlist_path, output_path,
-              gpus),
+        args=(prepared_queue, output_path, gpus),
         name="Batch Prediction Process")
     prediction_process.daemon = True
     prediction_process.start()

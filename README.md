@@ -303,8 +303,6 @@ GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 **Loghi-HTR Options:**
 
 ```bash
-LOGHI_MODEL_PATH         # Path to the model.
-LOGHI_CHARLIST_PATH      # Path to the character list.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
@@ -323,10 +321,10 @@ You can set these variables in your shell or use a script. An example script to 
 Once the API is up and running, you can send HTR requests using curl. Here's how:
 
 ```bash
-curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
+curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" -F "model=$model_path" http://localhost:5000/predict
 ```
 
-Replace `$input_path`, `$group_id`, and `$filename` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
+Replace `$input_path`, `$group_id`, `$filename`, and `$model_path` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
 
 ---
 
