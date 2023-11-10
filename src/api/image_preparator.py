@@ -14,7 +14,8 @@ import tensorflow as tf
 
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
-                             prepared_queue: multiprocessing.Queue):
+                             prepared_queue: multiprocessing.Queue,
+                             model_path: str):
     """
     Worker process to prepare images for batch processing.
 
@@ -29,6 +30,8 @@ def image_preparation_worker(batch_size: int,
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
+    model_path : str
+        Path to the initial model used for image preparation.
 
     Side Effects
     ------------
@@ -41,12 +44,15 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
+    # Define the number of channels for the images
+    num_channels = update_channels(model_path, logger)
+
     # Define the maximum time to wait for new images
     TIMEOUT_DURATION = 1
     MAX_WAIT_COUNT = 1
 
     wait_count = 0
-    old_model = None
+    old_model = model_path
     batch_images, batch_groups, batch_identifiers = [], [], []
 
     try:
@@ -58,7 +64,7 @@ def image_preparation_worker(batch_size: int,
                     logger.debug(f"Retrieved {identifier} from request_queue")
 
                     # Check if the model has changed
-                    if model_path != old_model:
+                    if model_path and model_path != old_model:
                         logger.info(
                             "Model changed, adjusting image preparation")
                         if batch_images:

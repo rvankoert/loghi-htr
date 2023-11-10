@@ -15,6 +15,7 @@ from tensorflow.keras import mixed_precision
 
 def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                             output_path: str,
+                            model_path: str,
                             gpus: str = '0'):
     """
     Worker process for batch prediction on images.
@@ -30,6 +31,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
         Queue from which preprocessed images are fetched.
     output_path : str
         Path where predictions should be saved.
+    model_path : str
+        Path to the initial model file.
     gpus : str, optional
         IDs of GPUs to be used (comma-separated). Default is '0'.
 
@@ -63,8 +66,18 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     strategy = tf.distribute.MirroredStrategy()
 
+    # Create the model and utilities
+    try:
+        with strategy.scope():
+            model, utils = create_model(model_path)
+        logger.info("Model created and utilities initialized")
+    except Exception as e:
+        logger.error(e)
+        logger.error("Error creating model. Exiting...")
+        return
+
     total_predictions = 0
-    old_model_path = None
+    old_model_path = model_path
 
     try:
         while True:

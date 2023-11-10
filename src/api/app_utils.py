@@ -109,10 +109,9 @@ def extract_request_data() -> Tuple[bytes, str, str, str]:
         raise ValueError("No identifier provided.")
 
     model = request.form.get('model')
-    if not model:
-        raise ValueError("No model provided.")
-    if not os.path.exists(model):
-        raise ValueError(f"Model directory {model} does not exist.")
+    if model:
+        if not os.path.exists(model):
+            raise ValueError(f"Model directory {model} does not exist.")
 
     return image_content, group_id, identifier, model
 
@@ -159,7 +158,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
 
 def start_processes(batch_size: int, max_queue_size: int,
-                    output_path: str, gpus: str):
+                    output_path: str, gpus: str, model_path: str):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -178,7 +177,8 @@ def start_processes(batch_size: int, max_queue_size: int,
     logger.info("Starting image preparation process")
     preparation_process = Process(
         target=image_preparation_worker,
-        args=(batch_size, request_queue, prepared_queue),
+        args=(batch_size, request_queue,
+              prepared_queue, model_path),
         name="Image Preparation Process")
     preparation_process.daemon = True
     preparation_process.start()
@@ -187,7 +187,7 @@ def start_processes(batch_size: int, max_queue_size: int,
     logger.info("Starting batch prediction process")
     prediction_process = Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, output_path, gpus),
+        args=(prepared_queue, output_path, model_path, gpus),
         name="Batch Prediction Process")
     prediction_process.daemon = True
     prediction_process.start()
