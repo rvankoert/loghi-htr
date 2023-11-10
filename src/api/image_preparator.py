@@ -76,7 +76,7 @@ def image_preparation_worker(batch_size: int,
                         old_model = model_path
                         num_channels = update_channels(model_path, logger)
 
-                    image = prepare_image(identifier, image, num_channels)
+                    image = prepare_image(image, num_channels)
                     logger.debug(
                         f"Prepared image {identifier} with shape: "
                         f"{image.shape}")
@@ -156,6 +156,32 @@ def pad_and_queue_batch(batch_images: np.ndarray,
     return [], [], []
 
 
+def pad_batch(batch_images: np.ndarray) -> np.ndarray:
+    """
+    Pad a batch of images to the same width.
+
+    Parameters
+    ----------
+    batch_images : np.ndarray
+        Batch of images to be padded.
+
+    Returns
+    -------
+    np.ndarray
+        Batch of padded images.
+    """
+
+    # Determine the maximum width among all images in the batch
+    max_width = max(image.shape[0] for image in batch_images)
+
+    # Resize each image in the batch to the maximum width
+    for i in range(len(batch_images)):
+        batch_images[i] = pad_to_width(
+            batch_images[i], max_width, -10)
+
+    return batch_images
+
+
 def update_channels(model_path: str, logger):
     """
     Update the model used for image preparation.
@@ -181,32 +207,6 @@ def update_channels(model_path: str, logger):
             "Error retrieving number of channels. "
             "Exiting...")
         return
-
-
-def pad_batch(batch_images: np.ndarray) -> np.ndarray:
-    """
-    Pad a batch of images to the same width.
-
-    Parameters
-    ----------
-    batch_images : np.ndarray
-        Batch of images to be padded.
-
-    Returns
-    -------
-    np.ndarray
-        Batch of padded images.
-    """
-
-    # Determine the maximum width among all images in the batch
-    max_width = max(image.shape[0] for image in batch_images)
-
-    # Resize each image in the batch to the maximum width
-    for i in range(len(batch_images)):
-        batch_images[i] = pad_to_width(
-            batch_images[i], max_width, -10)
-
-    return batch_images
 
 
 def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
@@ -251,8 +251,7 @@ def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
     return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
 
 
-def prepare_image(identifier: str,
-                  image_bytes: bytes,
+def prepare_image(image_bytes: bytes,
                   num_channels: int) -> tf.Tensor:
     """
     Prepare a raw image for batch processing.
@@ -262,8 +261,6 @@ def prepare_image(identifier: str,
 
     Parameters
     ----------
-    identifier : str
-        Identifier of the image (used for logging).
     image_bytes : bytes
         Raw bytes of the image.
     num_channels : int

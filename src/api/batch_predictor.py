@@ -99,6 +99,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                 logger.error("Failed batch:")
                 for id in batch_identifiers:
                     logger.error(id)
+                    output_error(output_path, id, e)
                 predictions = []
 
             # Update the total number of predictions made
@@ -264,6 +265,8 @@ def safe_batch_predict(model: tf.keras.Model,
             logger.error(
                 "OOM error with single image. Skipping image"
                 f"{batch_info[0][1]}.")
+
+            output_error(output_path, batch_info[0][1], "OOM error")
             return []
 
         logger.warning(
@@ -406,3 +409,10 @@ def output_predictions(predictions: List[Tuple[float, str]],
             f.write(text + "\n")
 
     return outputs
+
+
+def output_error(output_dir: str, identifier: str, text: str):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(os.path.join(output_dir, identifier + ".error"), "w") as f:
+        f.write(text + "\n")
