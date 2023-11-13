@@ -304,7 +304,6 @@ GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 
 ```bash
 LOGHI_MODEL_PATH         # Path to the model.
-LOGHI_CHARLIST_PATH      # Path to the character list.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
@@ -326,7 +325,14 @@ Once the API is up and running, you can send HTR requests using curl. Here's how
 curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
 ```
 
-Replace `$input_path`, `$group_id`, and `$filename` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
+Replace `$input_path`, `$group_id`, and `$filename` with your respective file paths and identifiers. If you're considering switching the recognition model, use the `model` field cautiously:
+
+- The `model` field (`-F "model=$model_path"`) allows for specifying which handwritten text recognition model the API should use for the current request. 
+- To avoid the slowdown associated with loading different models for each request, it is preferable to set a specific model before starting your API by using the `LOGHI_MODEL_PATH` environment variable.
+- Only use the `model` field if you are certain that a different model is needed for a particular task and you understand its performance characteristics.
+
+> [!WARNING]
+> Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
 ---
 

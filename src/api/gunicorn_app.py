@@ -84,9 +84,8 @@ if __name__ == "__main__":
 
     # Get Loghi-HTR options from environment variables
     logger.info("Getting Loghi-HTR options from environment variables")
-    model_path = get_env_variable("LOGHI_MODEL_PATH")
-    charlist_path = get_env_variable("LOGHI_CHARLIST_PATH")
     batch_size = int(get_env_variable("LOGHI_BATCH_SIZE", "256"))
+    model_path = get_env_variable("LOGHI_MODEL_PATH")
     output_path = get_env_variable("LOGHI_OUTPUT_PATH")
     max_queue_size = int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000"))
 
@@ -99,10 +98,9 @@ if __name__ == "__main__":
     request_queue, preparation_process, prediction_process = start_processes(
         batch_size,
         max_queue_size,
-        model_path,
-        charlist_path,
         output_path,
-        gpus
+        gpus,
+        model_path
     )
 
     options = {
