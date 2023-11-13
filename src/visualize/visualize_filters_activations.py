@@ -54,11 +54,10 @@ def initialize_image(channels, image_width):
     return (img - 0.5) * 0.25
 
 
-def visualize_filter(filter_index, channels, image_width = 64):
+def visualize_filter(filter_index, channels, image_width = 256):
     # We run gradient ascent for 20 steps
     iterations = 20
     learning_rate = 10
-    print("image width set to: ",image_width)
     img = initialize_image(channels, image_width)
     for iteration in range(iterations):
         loss, img = gradient_ascent_step(img, filter_index, learning_rate)
@@ -69,28 +68,23 @@ def visualize_filter(filter_index, channels, image_width = 64):
 
 
 def select_number_of_row_plots():
-    layer_info = []
-    for layer in model.layers:
-        layer_name = layer.name.lower()
-        if layer_name.startswith("conv"):
-            layer_info.append({"layer_name": layer_name,
-                               "kernel_size": str(layer.kernel_size),
-                               "filters": str(layer.filters)})
+    layer_info = [{"layer_name": layer.name.lower(),
+                   "kernel_size": str(layer.kernel_size),
+                   "filters": str(layer.filters)}
+                  for layer in model.layers if layer.name.lower().startswith("conv")]
 
     if args.do_detailed:
         return layer_info, []
     else:
-        # Create dictionaries to track the first occurrences of third element (i.e. filters).
         filter_occurrence_dict = {}
         sub_list_indices = []
         for i, layer_data in enumerate(layer_info):
-            filter = layer_data.get("filters")
-            if filter not in filter_occurrence_dict:
-                filter_occurrence_dict[filter] = i
+            filter_value = layer_data.get("filters")
+            if filter_value not in filter_occurrence_dict:
+                filter_occurrence_dict[filter_value] = i
                 sub_list_indices.append(i)
-        # Retrieve only the elements from layer_info for the specific sub_list_indices
-        return [layer_info[i] for i in sub_list_indices], sub_list_indices
 
+        return [layer_info[i] for i in sub_list_indices], sub_list_indices
 
 args = get_args()
 if args.existing_model:
@@ -125,20 +119,29 @@ model_channels = model.layers[0].input_shape[0][3]
 print(model.summary())
 
 # Prep plots
-num_filters = 6  # Number of filters per row
+num_filters_per_row = args.num_filters_per_row  # Number of filters per row
 layer_info, sub_list_indices = select_number_of_row_plots()
-n_row_plots = 2 * len(layer_info) if args.sample_image else len(layer_info)  # Number of rows
+# num_row_plots = 2 * len(layer_info) if args.sample_image else len(layer_info)  # Number of rows
+num_row_plots = len(layer_info)
 
 # Top level plot
-plt.style.use('dark_background')
-fig = plt.figure(figsize=(5 * num_filters, 5 * n_row_plots), dpi=200)
-sub_figs = fig.subfigures(n_row_plots, 1)
+if not args.light_mode:
+    plt.style.use('dark_background')
+fig = plt.figure(figsize=(5 * num_filters_per_row, 2 * num_row_plots), dpi=200)
+sub_figs = fig.subfigures(len(layer_info), 1)
 
+# Get layout parameters for later plots
+fig.tight_layout()
+dic = {par: getattr(fig.subplotpars, par) for par in ["left", "right", "wspace", "hspace"]}
+
+# Set base row_index
 row_index = 0
-conv_layer_list = []
-for layer in model.layers:
-    if layer.name.lower().startswith("conv"):
-        conv_layer_list.append(layer)
+
+# Collect convolutional layers
+conv_layer_list = [layer for layer in model.layers if layer.name.lower().startswith("conv")]
+
+# Select relevant layers
+layer_list = conv_layer_list if len(sub_list_indices) == 0 else [conv_layer_list[i] for i in sub_list_indices]
 
 if len(sub_list_indices) > 0:
     layer_list = [conv_layer_list[i] for i in sub_list_indices]
@@ -148,23 +151,21 @@ else:
 for layer in layer_list:
     if not layer.name.lower().startswith("conv"):
         continue
-    if row_index == n_row_plots:
-        break
 
     print("Plotting filters for layer: ", layer_info[row_index])
     feature_extractor = tf.keras.Model(inputs=model.inputs, outputs=layer.output)
 
-    # Sub_plot level
-    if args.sample_image:
-        filter_plot = sub_figs[row_index].subplots(2, num_filters)
-    else:
-        filter_plot = sub_figs[row_index].subplots(1, num_filters)
+    # Set subplot layout
+    num_subplot_rows = 2 if args.sample_image else 1
+    filter_plot = sub_figs[row_index].subplots(num_subplot_rows, num_filters_per_row)
+    filter_cmap = 'viridis' if model_channels > 1 else 'gray'
 
-    # Check the number of filters for this layer and take num_filters times a random number out of that number
-    random_filter_indices = random.sample(range(int(layer_info[row_index].get("filters"))), num_filters)
+    # Randomly select filter indices
+    random_filter_indices = random.sample(range(int(layer_info[row_index].get("filters"))), num_filters_per_row)
+
     filter_images = []
     feature_maps = []
-    for filter_index in range(num_filters):
+    for filter_index in range(num_filters_per_row):
         try:
             if args.sample_image:
                 # Prep input text line for prediction
@@ -190,32 +191,48 @@ for layer in layer_list:
                 # Add the feature maps
                 feature_maps.append(maps[0, :, :, random_filter_indices[filter_index]].T)
 
+                # If filter_plot has 2 rows then fill each row else do the regular one
+                filter_plot[0, filter_index].imshow(filter_images[filter_index], cmap=filter_cmap)
+                filter_plot[0, filter_index].set_title("Conv Filter: " + str(filter_index))
+                filter_plot[1, filter_index].imshow(feature_maps[filter_index], cmap='viridis')
+                filter_plot[1, filter_index].set_title("Layer Activations: " + str(filter_index))
+
             else:
-                print("Calculating filter: ", random_filter_indices[filter_index])
+                # Add the filter images
                 loss, img = visualize_filter(random_filter_indices[filter_index], model_channels)
                 filter_images.append(img)
 
-            # If filter_plot has 2 rows then fill each row else do the regular one
-            if args.sample_image:
-                # Dual plot level
-                filter_plot[0, filter_index].imshow(filter_images[filter_index])
-                filter_plot[0, filter_index].set_title("Conv filter: " + str(filter_index))
-                filter_plot[1, filter_index].imshow(feature_maps[filter_index])
-                filter_plot[1, filter_index].set_title("Feature map activations: " + str(filter_index))
-            else:
                 # Individual plot level
-                filter_plot[filter_index].imshow(filter_images[filter_index])
-                filter_plot[filter_index].set_title("Conv filter: " + str(filter_index))
+                filter_plot[filter_index].imshow(filter_images[filter_index], cmap= filter_cmap)
+                filter_plot[filter_index].set_title("Conv Filter: " + str(filter_index))
         except IndexError:
             "filter_index has surpassed the filters in the layer, select a lower number of filters to plot"
+
+    # Fix layout parameters and keep some extra space at the top for suptitle
+    fig.subplots_adjust(**dic, top=0.7)
 
     # Disable axes
     for ax in filter_plot.ravel():
         ax.set_axis_off()
 
-    # Display the layer_name to the left of the subplots
-    sub_figs[row_index].suptitle(layer_info[row_index])
+    # Display the layer_name above the subplots
+    layer_info_dict = layer_info[row_index]
+    sub_figs[row_index].suptitle(layer_info_dict.get("layer_name")
+                                 + ": kernel_size: " + str(layer_info_dict.get("kernel_size"))
+                                 + " : filters: " + str(layer_info_dict.get("filters")),
+                                 fontsize=20)
     row_index += 1
 
-    plt.tight_layout()
-    plt.savefig("layer_filter_plots2.png")
+    # Prepare for saving image
+    output_dir = args.output
+
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+
+    output_name = (model.name
+                   + ("_1channel" if model_channels == 1 else "_" + str(model_channels) + "channels")
+                   + ("_filters_act" if args.sample_image else "_filters")
+                   + ("_light" if args.light_mode else "_dark")
+                   + ("_detailed.png" if args.do_detailed else".png"))
+
+    plt.savefig(os.path.join(output_dir, output_name))

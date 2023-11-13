@@ -48,7 +48,11 @@ tf.keras.utils.get_custom_objects().update({"CERMetric": CERMetric})
 tf.keras.utils.get_custom_objects().update({"WERMetric": WERMetric})
 tf.keras.utils.get_custom_objects().update({"CTCLoss": CTCLoss})
 
-
+# Set color_scheme
+if args.light_mode:
+    background_color, font_color = [255, 255, 255], (0, 0, 0)
+else:
+    background_color, font_color = [0,0,0], (255,255,255)
 def main():
     model = tf.keras.models.load_model(MODEL_PATH)
     model_channels = model.input_shape[3]
@@ -85,9 +89,21 @@ def main():
 
     preds = model.predict(img)
     preds = tf.dtypes.cast(preds, tf.float32)
+
     char_list = MODEL_PATH + "charlist.txt"
     with open(char_list, 'r') as f:
         char_list = f.read()
+
+    import pandas as pd
+    pred_df = pd.DataFrame(columns = ["ts_" + str(i) for i in range(preds.shape[1])])
+    for index, tensor in enumerate(preds):
+        for index,time_step in enumerate(tensor):
+            pred_df["ts_" + str(index)] = time_step
+
+    # Drop first 2 rows (CAREFUL BASED ON CHANNELS)
+    pred_df = pred_df.iloc[2:,:]
+    pred_df.index = [char for char in char_list]
+    pred_df.to_csv("preds.csv")
 
     import sys
     np.set_printoptions(threshold=sys.maxsize)
@@ -115,13 +131,13 @@ def main():
     original_image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
     original_image_padded = cv2.resize(original_image, (tf.get_static_value(image_width + 50), 64))
 
-    bordered_img = cv2.copyMakeBorder(original_image_padded, 50, 200, 0, 0, cv2.BORDER_CONSTANT, value=[255, 255, 255])
+    bordered_img = cv2.copyMakeBorder(original_image_padded, 50, 200, 0, 0, cv2.BORDER_CONSTANT, value=background_color)
     cv2.putText(bordered_img, "Time-step predictions (Top-1 prediction):",
                 org=(0, 15),
-                color=(0, 0, 0),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                color=font_color,
+                fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=0.5,
-                thickness=2)
+                thickness=1)
 
     timestep_char_labels_cleaned = []
     line_start = 25
@@ -177,7 +193,7 @@ def main():
         # Draw the top-5 text
         cv2.putText(bordered_img, "Top-" + str(row_num),
                     org=(0, row_height),
-                    color=(0, 0, 0),
+                    color=font_color,
                     fontFace=cv2.FONT_HERSHEY_DUPLEX,
                     fontScale=0.5,
                     thickness=1)
@@ -186,13 +202,13 @@ def main():
     # Add misc. text
     cv2.putText(bordered_img, "Other predictions for this time step (lower probability):",
                 org=(0, 140),
-                color=(0, 0, 0),
+                color=(255, 255, 255),
                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=0.5,
                 thickness=1)
     cv2.putText(bordered_img, "Final result (collapsed blank characters):",
                 org=(0, 270),
-                color=(0, 0, 0),
+                color=font_color,
                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=0.5,
                 thickness=1)
@@ -201,12 +217,18 @@ def main():
     cv2.putText(bordered_img,
                 "".join(timestep_char_labels_cleaned),
                 org=(50, 300),
-                color=(0, 0, 0),
+                color=font_color,
                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=1,
                 thickness=1)
     print("".join(timestep_char_labels_cleaned))
-    cv2.imwrite("output/timestep_prediction_plot.jpg", bordered_img)
+
+    # Prepare for saving image
+    output_dir = args.output
+
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
+    cv2.imwrite(output_dir+"/timestep_prediction_plot.jpg", bordered_img)
 
 if __name__ == "__main__":
     main()

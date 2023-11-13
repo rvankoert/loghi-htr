@@ -12,7 +12,7 @@ def get_arg_parser():
         description='Loghi-htr visualization '
                     'for visualizing model weights/layers')
 
-    # General args (visualize_network.py)
+    # General args (visualize_filters_activations.py)
     parser.add_argument('--seed', metavar='seed', type=int, default=42,
                         help='random seed to be used')
     parser.add_argument('--gpu', metavar='gpu', type=int, default=0,
@@ -21,11 +21,13 @@ def get_arg_parser():
                         help='batch_size to be used, when using variable sized input this must be 1')
     parser.add_argument('--height', metavar='height', type=int, default=64,
                         help='height to be used')
+    parser.add_argument('--num_filters_per_row', metavar='num_filters_per_row', type=int, default=8,
+                        help='amount of filter plots to make per row (visualize_filters_activations.py specific)')
     parser.add_argument('--channels', metavar='channels', type=int, default=4,
                         help='channels to be used')
     parser.add_argument('--width', metavar='width', type=int, default=751,
                         help='width to be used')
-    parser.add_argument('--output', metavar='output', type=str, default='output',
+    parser.add_argument('--output', metavar='output', type=str, default='visualize_plots',
                         help='base output to be used')
     parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
                         help='percent_validation to be used')
@@ -41,6 +43,8 @@ def get_arg_parser():
                         help='validation_list')
     parser.add_argument('--sample_image', metavar='sample_image', type=str, default="",
                         help='single png to for saliency plots')
+    parser.add_argument('--light_mode', action='store_true',
+                        help='for setting the output image background + font color')
     parser.add_argument('--do_binarize_otsu', action='store_true',
                         help='prefix to use for testing')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
