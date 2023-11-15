@@ -16,6 +16,7 @@ from model import CERMetric, WERMetric, CTCLoss
 import tensorflow as tf
 import numpy as np
 import cv2
+import pandas as pd
 
 # Prep GPU support and set seeds/objects
 # disable GPU for now, because it is already running on my dev machine
@@ -52,7 +53,9 @@ tf.keras.utils.get_custom_objects().update({"CTCLoss": CTCLoss})
 if args.light_mode:
     background_color, font_color = [255, 255, 255], (0, 0, 0)
 else:
-    background_color, font_color = [0,0,0], (255,255,255)
+    background_color, font_color = [0, 0, 0], (255, 255, 255)
+
+
 def main():
     model = tf.keras.models.load_model(MODEL_PATH)
     model_channels = model.input_shape[3]
@@ -94,20 +97,6 @@ def main():
     with open(char_list, 'r') as f:
         char_list = f.read()
 
-    import pandas as pd
-    pred_df = pd.DataFrame(columns = ["ts_" + str(i) for i in range(preds.shape[1])])
-    for index, tensor in enumerate(preds):
-        for index,time_step in enumerate(tensor):
-            pred_df["ts_" + str(index)] = time_step
-
-    # Drop first 2 rows (CAREFUL BASED ON CHANNELS)
-    pred_df = pred_df.iloc[2:,:]
-    pred_df.index = [char for char in char_list]
-    pred_df.to_csv("preds.csv")
-
-    import sys
-    np.set_printoptions(threshold=sys.maxsize)
-
     timestep_char_list_indices = []
     timestep_char_list_indices_top_5 = []
     top_k = 3
@@ -131,7 +120,16 @@ def main():
     original_image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
     original_image_padded = cv2.resize(original_image, (tf.get_static_value(image_width + 50), 64))
 
-    bordered_img = cv2.copyMakeBorder(original_image_padded, 50, 200, 0, 0, cv2.BORDER_CONSTANT, value=background_color)
+    # Dynamically calculate the right pad width required to keep all text readable (465px width at least)
+    additional_right_pad_width = 465 - original_image_padded.shape[1] if original_image_padded.shape[1] < 465 else 0
+    bordered_img = cv2.copyMakeBorder(original_image_padded,
+                                      top=50,
+                                      bottom=200,
+                                      left=0,
+                                      right=additional_right_pad_width,
+                                      borderType=cv2.BORDER_CONSTANT,
+                                      value=background_color)
+
     cv2.putText(bordered_img, "Time-step predictions (Top-1 prediction):",
                 org=(0, 15),
                 color=font_color,
@@ -187,7 +185,6 @@ def main():
 
     # Add the top-5 for the specific timestep
     row_num = 2
-    min_row_y = 170
     max_row_y = 170 + ((top_k - 1) * 50)
     for row_height in range(170, max_row_y, 50):
         # Draw the top-5 text
@@ -223,12 +220,25 @@ def main():
                 thickness=1)
     print("".join(timestep_char_labels_cleaned))
 
-    # Prepare for saving image
+    # Prepare for saving image and csv
     output_dir = args.output
 
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir)
-    cv2.imwrite(output_dir+"/timestep_prediction_plot.jpg", bordered_img)
+
+    pred_df = pd.DataFrame(columns=["ts_" + str(i) for i in range(preds.shape[1])])
+    for index, tensor in enumerate(preds):
+        for ts_index, time_step in enumerate(tensor):
+            pred_df["ts_" + str(ts_index)] = time_step
+
+    # Add labels for the mask and blank predictions
+    pred_df.index = [char for char in char_list] + ['MASK', 'BLANK']
+
+    # Save results
+    pred_df.to_csv(output_dir + "/sample_image_preds.csv")
+    cv2.imwrite(output_dir + "/timestep_prediction_plot" + ("_light" if args.light_mode else "_dark") + ".jpg",
+                bordered_img)
+
 
 if __name__ == "__main__":
     main()

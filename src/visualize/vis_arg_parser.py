@@ -43,9 +43,9 @@ def get_arg_parser():
                         help='validation_list')
     parser.add_argument('--sample_image', metavar='sample_image', type=str, default="",
                         help='single png to for saliency plots')
-    parser.add_argument('--light_mode', action='store_true',
+    parser.add_argument('--light_mode', action='store_true', default=False,
                         help='for setting the output image background + font color')
-    parser.add_argument('--do_binarize_otsu', action='store_true',
+    parser.add_argument('--do_binarize_otsu', action='store_true', default = False,
                         help='prefix to use for testing')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
                         help='do_binarize_sauvola')
