@@ -46,7 +46,7 @@ def deprocess_image(img):
     return img
 
 
-def select_number_of_row_plots():
+def select_number_of_row_plots(model):
     layer_info = [{"layer_name": layer.name.lower(),
                    "kernel_size": str(layer.kernel_size),
                    "filters": str(layer.filters)}
@@ -101,8 +101,7 @@ def main():
 
     # Prep plots
     num_filters_per_row = args.num_filters_per_row  # Number of filters per row
-    layer_info, sub_list_indices = select_number_of_row_plots()
-    num_row_plots = len(layer_info)
+    layer_info, sub_list_indices = select_number_of_row_plots(model)
 
     # Top level plot
     if not args.light_mode:

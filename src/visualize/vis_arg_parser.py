@@ -21,7 +21,7 @@ def get_arg_parser():
                         help='batch_size to be used, when using variable sized input this must be 1')
     parser.add_argument('--height', metavar='height', type=int, default=64,
                         help='height to be used')
-    parser.add_argument('--num_filters_per_row', metavar='num_filters_per_row', type=int, default=8,
+    parser.add_argument('--num_filters_per_row', metavar='num_filters_per_row', type=int, default=5,
                         help='amount of filter plots to make per row (visualize_filters_activations.py specific)')
     parser.add_argument('--channels', metavar='channels', type=int, default=4,
                         help='channels to be used')
@@ -51,6 +51,8 @@ def get_arg_parser():
                         help='do_binarize_sauvola')
     parser.add_argument('--existing_model', metavar='existing_model ', type=str, default='',
                         help='existing_model')
+    parser.add_argument('--replace_header', metavar='replace_header ', type=str, default='',
+                        help='replace_header')
     parser.add_argument('--do_detailed', action='store_true', default=False, help="param for making more "
                                                                                                "detailed "
                                                                                                "visualizations (at "

@@ -10,6 +10,7 @@ Loghi HTR also works on machine printed text.
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
 4. [API Usage Guide](#api-usage-guide)
+5. [Model Visualizer Guide](#model-visualizer-guide)
 5. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
@@ -332,6 +333,45 @@ Replace `$input_path`, `$group_id`, and `$filename` with your specific values. T
 ---
 
 This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
+
+## Model Visualizer Guide
+
+The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
+![sample_image](/src/visualize/https://github.com/rvankoert/loghi-htr/src/visualize/sample_image.jpg)
+### 1. Visualize setup
+Navigate to the `src/visualize` directory in your project:
+
+```bash
+cd src/visualize
+```
+
+### 2. Start the visualizers
+```bash
+python3 main.py 
+--existing_model /path/to/existing/model 
+--sample_image /path/to/sample/img
+```
+This will output various files into the `visualize_plots directory`:
+* A PDF sheet consisting of all made visualizations for the above call
+* Individual PNG and JPG files of these visualizations
+* a `sample_image_preds.csv` which consist of a character prediction table for each prediction timestep. The highest probability is the character that was chosen by the model
+
+Currently, the following visualizers are implemented:
+
+1. **visualize_timestep_predictions**: Takes the `sample_image` and simulates the model's prediction process for each time step, the top-3 most probable characters per timestep are displayed and the "cleaned" result is shown at the bottom.
+
+2. **visualize_filter_activations**: Display what the convolutional filters have learned after providing it with random noise + show the activation of conv filters for the `sample_image`. Each unique convolutional layer is displayed once.
+
+**Note**:  If a model has multiple `Cr3,3,64` layers then only the first instance of this configuration is visualized)
+
+
+### 3. (Optional parameters)
+```bash
+--do_detailed # Visualize all convolutional layers, not just the first instance of a conv layer
+--light_mode  # Plots and overviews are shown in light mode (instead of dark mode)
+```
+
+---
 
 ## FAQ
 

@@ -51,9 +51,9 @@ tf.keras.utils.get_custom_objects().update({"CTCLoss": CTCLoss})
 
 # Set color_scheme
 if args.light_mode:
-    background_color, font_color = [255, 255, 255], (0, 0, 0)
+    background_color, font_color = [255, 255, 255], (0, 0, 0) # Light mode
 else:
-    background_color, font_color = [0, 0, 0], (255, 255, 255)
+    background_color, font_color = [0, 0, 0], (255, 255, 255) # Dark mode
 
 
 def main():
@@ -199,7 +199,7 @@ def main():
     # Add misc. text
     cv2.putText(bordered_img, "Other predictions for this time step (lower probability):",
                 org=(0, 140),
-                color=(255, 255, 255),
+                color=font_color,
                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=0.5,
                 thickness=1)
