@@ -2,6 +2,7 @@
 
 # > Standard Library
 import argparse
+import logging
 
 # > Local dependencies
 
@@ -29,9 +30,6 @@ def get_arg_parser():
                               help='optimizer.')
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help='random seed to be used')
-    general_args.add_argument('--channels', metavar='channels', type=int, default=3,
-                              help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
-                              '4 for png\'s with transparency')
     general_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
                               help='max_queue_size')
     general_args.add_argument(
@@ -52,9 +50,6 @@ def get_arg_parser():
                                help='learning_rate to be used, default 0.0003')
     training_args.add_argument('--epochs', metavar='epochs', type=int,
                                default=40, help='epochs to be used, default 40')
-    training_args.add_argument('--height', metavar='height', type=int, default=64,
-                               help='rescale everything to this height before '
-                                    'training, default 64')
     training_args.add_argument('--width', metavar='width', type=int, default=65536,
                                help='maximum width to be used. '
                                     'This should be a high number and '
@@ -194,9 +189,25 @@ def fix_args(args):
         args.__dict__['use_mask'] = True
 
 
+def arg_future_warning(args):
+    logger = logging.getLogger(__name__)
+
+    # March 2024
+    if args.do_train:
+        logger.warning("Argument will lose support in March 2024: --do_train. "
+                       "Training will be enabled by providing a train_list. ")
+    if args.no_auto:
+        logger.warning("Argument will lose support in March 2024: --no_auto.")
+    if args.use_mask:
+        logger.warning("Argument will lose support in March 2024: --use_mask. "
+                       "Masking will be enabled by default.")
+
+
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
+    arg_future_warning(args)
+
     # TODO: use config
     fix_args(args)
 

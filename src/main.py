@@ -15,7 +15,6 @@ import tensorflow as tf
 
 def setup_environment(args):
     # Initial setup
-    setup_logging()
     logging.info(f"Running with args : {vars(args)}")
 
     logging.info(f"Using GPU: {args.gpu}")
@@ -113,18 +112,6 @@ def adjust_model_for_float32(model):
 def initialize_data_loader(args, char_list, model):
     model_height = model.layers[0].input_shape[0][2]
     model_channels = model.layers[0].input_shape[0][3]
-
-    # Height adjustment logic
-    if args.height != model_height:
-        if args.no_auto:
-            raise ValueError(
-                f"Input height ({args.height}) differs from model height "
-                f"({model_height}). Exiting because no_auto is set.")
-        else:
-            logging.info(
-                f"Adjusting input height from {args.height} to {model_height}")
-            args.height = model_height
-
     img_size = (model_height, args.width, model_channels)
 
     return DataLoader(
@@ -256,6 +243,8 @@ def create_learning_rate_schedule(learning_rate, decay_rate, decay_steps,
 
 
 if __name__ == "__main__":
+    setup_logging()
+
     # Get the arguments
     args = get_args()
 
