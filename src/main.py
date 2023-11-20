@@ -219,7 +219,7 @@ def get_optimizer(optimizer_name, learning_rate_schedule):
     if optimizer_name in optimizers:
         return optimizers[optimizer_name](learning_rate=learning_rate_schedule)
     else:
-        raise ValueError(f"Invalid optimizer name: {optimizer.name}")
+        raise ValueError(f"Invalid optimizer name: {optimizer_name}")
 
 
 def create_learning_rate_schedule(learning_rate, decay_rate, decay_steps,
@@ -238,6 +238,15 @@ def create_learning_rate_schedule(learning_rate, decay_rate, decay_steps,
                 decay_rate=decay_rate
             )
     return learning_rate
+
+
+def save_charlist(charlist, output_charlist_location):
+    # Save the new charlist
+    if not output_charlist_location:
+        output_charlist_location = args.output + '/charlist.txt'
+    with open(output_charlist_location, 'w') as chars_file:
+        chars_file.write(str().join(charlist))
+
 
 ##############  Main function  ##############
 
@@ -260,9 +269,11 @@ if __name__ == "__main__":
         args.charlist, args.existing_model,
         args.output, args.replace_final_layer)
 
-    # Load the model
+    # Set the custom objects
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
                       'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock}
+
+    # Create the model
     with strategy.scope():
         model = load_or_create_model(
             args, custom_objects, charlist)
@@ -275,22 +286,21 @@ if __name__ == "__main__":
 
         # Replace the charlist
         charlist = loader.charList
+        save_charlist(charlist, args.output_charlist)
 
-        # Additional model customization
+        # Additional model customization such as freezing layers, replacing
+        # layers, or adjusting for float32
         model = customize_model(model, args, charlist)
 
-        # Save the new charlist
-        output_charlist_location = args.output_charlist
-        if not output_charlist_location:
-            output_charlist_location = args.output + '/charlist.txt'
-        with open(output_charlist_location, 'w') as chars_file:
-            chars_file.write(str().join(charlist))
-
-        # Compile the model by creating the optimizer and loss function
+        # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
             args.learning_rate, args.decay_rate, args.decay_steps,
             train_batches, args.do_train)
+
+        # Create the optimizer
         optimizer = get_optimizer(args.optimizer, lr_schedule)
+
+        # Compile the model
         model.compile(optimizer=optimizer, loss=CTCLoss, metrics=[CERMetric(
             greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
 
