@@ -337,7 +337,9 @@ This guide should help you get started with the API. For advanced configurations
 ## Model Visualizer Guide
 
 The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
-![sample_image](/src/visualize/https://github.com/rvankoert/loghi-htr/src/visualize/sample_image.jpg)
+
+<figure> <img src="https://raw.githubusercontent.com/rvankoert/loghi-htr/visualize-files-revamp/src/visualize/visualize_plots/sample_image.jpg" alt="sample_image" width="650" style="display: block; margin: 0 auto;" /> <figcaption>Example time-step prediction </figure>
+
 ### 1. Visualize setup
 Navigate to the `src/visualize` directory in your project:
 
@@ -361,6 +363,10 @@ Currently, the following visualizers are implemented:
 1. **visualize_timestep_predictions**: Takes the `sample_image` and simulates the model's prediction process for each time step, the top-3 most probable characters per timestep are displayed and the "cleaned" result is shown at the bottom.
 
 2. **visualize_filter_activations**: Display what the convolutional filters have learned after providing it with random noise + show the activation of conv filters for the `sample_image`. Each unique convolutional layer is displayed once.
+
+Potential future implementations:
+* Implement a SHAP visualizer to show the parts of the image that influence the model's character prediction. Or a similar saliency plot.
+* Plot the raw Conv filters (e.g. a 3x3 filter)
 
 **Note**:  If a model has multiple `Cr3,3,64` layers then only the first instance of this configuration is visualized)
 
