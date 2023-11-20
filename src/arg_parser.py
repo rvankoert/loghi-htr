@@ -196,6 +196,10 @@ def arg_future_warning(args):
     if args.do_train:
         logger.warning("Argument will lose support in March 2024: --do_train. "
                        "Training will be enabled by providing a train_list. ")
+    if args.do_inference:
+        logger.warning("Argument will lose support in March 2024: "
+                       "--do_inference. Inference will be enabled by "
+                       "providing an inference_list. ")
     if args.use_mask:
         logger.warning("Argument will lose support in March 2024: --use_mask. "
                        "Masking will be enabled by default.")

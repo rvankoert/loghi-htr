@@ -1,11 +1,15 @@
 import logging
 import os
+import matplotlib.pyplot as plt
+import subprocess
+import uuid
+import json
 # Import other necessary libraries
 
 from arg_parser import get_args
 from utils import load_model_from_directory
 from model import CERMetric, WERMetric, CTCLoss, replace_recurrent_layer, \
-    replace_final_layer
+    replace_final_layer, train_batch
 from custom_layers import ResidualBlock
 from vgsl_model_generator import VGSLModelGenerator
 from data_loader import DataLoader
@@ -272,8 +276,98 @@ def save_charlist(charlist, output, output_charlist_location=None):
     with open(output_charlist_location, 'w') as chars_file:
         chars_file.write(str().join(charlist))
 
+############## Metadata functions ##############
+
+
+def get_git_hash():
+    if os.path.exists("version_info"):
+        with open("version_info") as file:
+            return file.read().strip()
+    else:
+        try:
+            result = subprocess.run(['git', 'log', '--format=%H', '-n', '1'],
+                                    stdout=subprocess.PIPE,
+                                    check=True)
+            return result.stdout.decode('utf-8').strip().replace('"', '')
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Subprocess failed: {e}")
+        except OSError as e:
+            logging.error(f"OS error occurred: {e}")
+        return "Unavailable"
+
+
+def summarize_model(model):
+    model_layers = []
+    model.summary(print_fn=lambda x: model_layers.append(x))
+    return model_layers
+
+
+def get_config(args, model):
+    return {
+        'git_hash': get_git_hash(),
+        'args': vars(args),
+        'model': summarize_model(model),
+        'notes': ' ',
+        'uuid': str(uuid.uuid4())
+    }
+
+
+def store_info(args, model):
+    config = get_config(args, model)
+    config_file_output = args.config_file_output if args.config_file_output \
+        else os.path.join(args.output, 'config.json')
+
+    try:
+        with open(config_file_output, 'w') as configuration_file:
+            json.dump(config, configuration_file)
+    except IOError as e:
+        logging.error(f"Error writing config file: {e}")
+
+
+############## Training functions ##############
+
+def train_model(model, args, training_dataset, validation_dataset, loader):
+
+    metadata = get_config(args, model)
+
+    history = train_batch(
+        model,
+        training_dataset,
+        validation_dataset,
+        epochs=args.epochs,
+        output=args.output,
+        model_name=model.name,
+        steps_per_epoch=args.steps_per_epoch,
+        max_queue_size=args.max_queue_size,
+        early_stopping_patience=args.early_stopping_patience,
+        output_checkpoints=args.output_checkpoints,
+        charlist=loader.charList,
+        metadata=metadata,
+        verbosity_mode=args.training_verbosity_mode
+    )
+
+    return history
+
+
+def plot_training_history(history, args):
+    def plot_metric(metric, title, filename):
+        plt.style.use("ggplot")
+        plt.figure()
+        plt.plot(history.history[metric], label=metric)
+        if args.validation_list:
+            plt.plot(history.history[f"val_{metric}"], label=f"val_{metric}")
+        plt.title(title)
+        plt.xlabel("Epoch #")
+        plt.ylabel("Loss/CER")
+        plt.legend(loc="lower left")
+        plt.savefig(os.path.join(args.output, filename))
+
+    plot_metric("loss", "Training Loss", 'plot.png')
+    plot_metric("CER_metric", "Character Error Rate (CER)", 'plot2.png')
+
 
 ##############  Main function  ##############
+
 
 def main():
     setup_logging()
@@ -288,7 +382,7 @@ def main():
     if args.output:
         os.makedirs(args.output, exist_ok=True)
 
-    # Get the character list
+    # Get the initial character list
     charlist = load_initial_charlist(
         args.charlist, args.existing_model,
         args.output, args.replace_final_layer)
@@ -333,6 +427,25 @@ def main():
 
     # Print the model summary
     model.summary()
+
+    # Store the model info (i.e., git hash, args, model summary, etc.)
+    store_info(args, model)
+
+    # Train the model
+    if args.do_train:
+        history = train_model(model, args, training_dataset,
+                              validation_dataset, loader)
+
+        # Plot the training history
+        plot_training_history(history, args)
+
+    # Evaluate the model
+    if args.do_validate:
+        pass
+
+    # Infer with the model
+    if args.do_inference:
+        pass
 
 
 if __name__ == "__main__":
