@@ -10,15 +10,29 @@ from custom_layers import ResidualBlock
 from vgsl_model_generator import VGSLModelGenerator
 from data_loader import DataLoader
 
+
 import tensorflow as tf
 
 
 def setup_environment(args):
     # Initial setup
-    logging.info(f"Running with args : {vars(args)}")
+    logging.info(f"Running with args: {vars(args)}")
 
-    logging.info(f"Using GPU: {args.gpu}")
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+    # Set the GPU
+    gpu_devices = tf.config.list_physical_devices('GPU')
+    logging.info(f"Available GPUs: {gpu_devices}")
+
+    # Set the active GPUs depending on the 'gpu' argument
+    if args.gpu == "-1":
+        active_gpus = []
+        logging.info("Using CPU")
+    else:
+        gpus = args.gpu.split(',')
+        active_gpus = [gpu if str(i) in gpus else None for i,
+                       gpu in enumerate(gpu_devices)]
+        logging.info(f"Using GPU(s): {active_gpus}")
+
+    tf.config.set_visible_devices(active_gpus, 'GPU')
 
     # Initialize the strategy
     strategy = initialize_strategy(args.use_float32, args.gpu)
@@ -177,7 +191,7 @@ def customize_model(model, args, charlist):
                 layer.trainable = False
 
     # Further configuration based on use_float32 and gpu
-    if args.use_float32 or args.gpu == -1:
+    if args.use_float32 or args.gpu == "-1":
         # Adjust the model for float32
         logging.info("Adjusting model for float32")
         model = adjust_model_for_float32(model)
@@ -195,11 +209,9 @@ def load_or_create_model(args, custom_objects, char_list):
         model_generator = VGSLModelGenerator(
             model=args.model,
             name=args.model_name,
-            channels=args.channels,
             output_classes=len(char_list) + 2
             if args.use_mask else len(char_list) + 1
         )
-
         model = model_generator.build()
 
     return model
@@ -240,18 +252,30 @@ def create_learning_rate_schedule(learning_rate, decay_rate, decay_steps,
     return learning_rate
 
 
-def save_charlist(charlist, output_charlist_location):
+def verify_charlist_length(charlist, model, use_mask):
+    # Verify that the length of the charlist is correct
+    if use_mask:
+        expected_length = model.layers[-1].output_shape[2] - 2
+    else:
+        expected_length = model.layers[-1].output_shape[2] - 1
+    if len(charlist) != expected_length:
+        raise ValueError(
+            f"Charlist length ({len(charlist)}) does not match "
+            f"model output length ({expected_length}). If the charlist "
+            "is correct, try setting use_mask to True.")
+
+
+def save_charlist(charlist, output, output_charlist_location=None):
     # Save the new charlist
     if not output_charlist_location:
-        output_charlist_location = args.output + '/charlist.txt'
+        output_charlist_location = output + '/charlist.txt'
     with open(output_charlist_location, 'w') as chars_file:
         chars_file.write(str().join(charlist))
 
 
 ##############  Main function  ##############
 
-
-if __name__ == "__main__":
+def main():
     setup_logging()
 
     # Get the arguments
@@ -280,17 +304,20 @@ if __name__ == "__main__":
 
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
-        training_generator, validation_generator, test_generator, \
+        training_dataset, validation_dataset, test_dataset, \
             inference_generator, utilsObject, train_batches \
             = loader.generators()
 
-        # Replace the charlist
+        # Replace the charlist with the one from the data loader
         charlist = loader.charList
-        save_charlist(charlist, args.output_charlist)
 
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
         model = customize_model(model, args, charlist)
+
+        # Save the charlist
+        verify_charlist_length(charlist, model, args.use_mask)
+        save_charlist(charlist, args.output, args.output_charlist)
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
@@ -304,4 +331,9 @@ if __name__ == "__main__":
         model.compile(optimizer=optimizer, loss=CTCLoss, metrics=[CERMetric(
             greedy=args.greedy, beam_width=args.beam_width), WERMetric()])
 
+    # Print the model summary
     model.summary()
+
+
+if __name__ == "__main__":
+    main()
