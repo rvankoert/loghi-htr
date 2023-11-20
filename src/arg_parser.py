@@ -177,7 +177,8 @@ def get_arg_parser():
                            help='beta: deterministic mode (reproducible results')
     misc_args.add_argument('--no_auto', action='store_true',
                            help='No Auto disabled automatic "fixing" of certain parameters')
-    misc_args.add_argument('--do_blur', action='store_true', help='blur the images for training purposes')
+    misc_args.add_argument('--do_blur', action='store_true',
+                           help='blur the images for training purposes')
     misc_args.add_argument('--do_invert', action='store_true',
                            help='use with images that have light ink and dark background')
 
@@ -197,8 +198,6 @@ def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
     # TODO: use config
-    dictionary = args.__dict__
     fix_args(args)
-    print(dictionary)
 
     return args
