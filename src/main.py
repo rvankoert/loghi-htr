@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 import subprocess
 import uuid
 import json
+import re
 # Import other necessary libraries
 
 from arg_parser import get_args
-from utils import load_model_from_directory
+from utils import load_model_from_directory, Utils, decode_batch_predictions
 from model import CERMetric, WERMetric, CTCLoss, replace_recurrent_layer, \
     replace_final_layer, train_batch
 from custom_layers import ResidualBlock
@@ -16,6 +17,8 @@ from data_loader import DataLoader
 
 
 import tensorflow as tf
+from word_beam_search import WordBeamSearch
+import editdistance
 
 
 def setup_environment(args):
@@ -362,8 +365,130 @@ def plot_training_history(history, args):
         plt.legend(loc="lower left")
         plt.savefig(os.path.join(args.output, filename))
 
-    plot_metric("loss", "Training Loss", 'plot.png')
-    plot_metric("CER_metric", "Character Error Rate (CER)", 'plot2.png')
+    plot_metric("loss", "Training Loss", 'loss_plot.png')
+    plot_metric("CER_metric", "Character Error Rate (CER)", 'cer_plot.png')
+
+
+############## Validation util functions ##############
+
+def remove_tags(text):
+    # public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
+    text = text.replace('␃', '')
+    # public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
+    text = text.replace('␅', '')
+    # public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
+    text = text.replace('␄', '')
+    # public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
+    text = text.replace('␆', '')
+    return text
+
+
+def preprocess_text(text):
+    text = text.strip().replace('', '')
+    text = remove_tags(text)
+    return text
+
+
+def print_predictions(filename, original_text, predicted_text, char_str=None):
+    logging.info("--------------------------------------------------------")
+    logging.info(f"File: {filename}")
+    logging.info(f"Original text  - {original_text}")
+    logging.info(f"Predicted text - {predicted_text}")
+    if char_str:
+        [logging.info(s) for s in char_str]
+
+
+############## Validation functions ##############
+
+
+def get_prediction_model(model):
+    last_dense_layer = None
+    for layer in reversed(model.layers):
+        if layer.name.startswith('dense'):
+            last_dense_layer = layer
+            break
+    if last_dense_layer is None:
+        raise ValueError("No dense layer found in the model")
+
+    prediction_model = tf.keras.models.Model(
+        model.get_layer(name="image").input, last_dense_layer.output
+    )
+    return prediction_model
+
+
+def setup_word_beam_search(args, charlist):
+    # Check if the corpus file exists
+    if not os.path.exists(args.corpus_file):
+        raise FileNotFoundError(f'Corpus file not found: {args.corpus_file}')
+
+    with open(args.corpus_file) as f:
+        corpus = f.read()
+    logging.info(f'Using corpus file: {args.corpus_file}')
+
+    word_chars = \
+        '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
+    chars = '' + ''.join(sorted(list(charlist)))
+
+    wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing,
+                         corpus.encode('utf8'), chars.encode('utf8'),
+                         word_chars.encode('utf8'))
+    logging.info('Created WordBeamSearch')
+    return wbs
+
+
+def process_batch(batch, prediction_model, utilsObject,
+                  args, wbs, loader, batch_no, chars):
+    X, y_true = batch
+
+    # Get the predictions
+    predictions = prediction_model.predict(X, verbose=0)
+    y_pred = decode_batch_predictions(
+        predictions, utilsObject, args.greedy,
+        args.beam_width, args.num_oov_indices)[0]
+
+    # Transpose the predictions for WordBeamSearch
+    predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
+    if wbs:
+        # char_str = handle_wbs_results(predsbeam, wbs, args, chars)
+        pass
+
+    # Get the original texts
+    orig_texts = [tf.strings.reduce_join(utilsObject.num_to_char(label))
+                  .numpy().decode("utf-8").strip() for label in y_true]
+
+    # Calculate CER
+    n = 0
+    for (confidence, prediction), original_text in zip(y_pred, orig_texts):
+        prediction = preprocess_text(prediction)
+        filename = loader.get_item(
+            'validation', (batch_no * args.batch_size) + n)
+        print_predictions(filename, original_text, prediction)
+
+        n += 1
+
+
+def perform_validation(args, model, validation_dataset, char_list, dataloader):
+    logging.info("Performing validation...")
+
+    utils_object = Utils(char_list, args.use_mask)
+    prediction_model = get_prediction_model(model)
+
+    # Setup WordBeamSearch if needed
+    wbs = setup_word_beam_search(args, char_list) if args.corpus_file else None
+
+    # Initialize variables for CER calculation
+    total_cer, total_cer_lower, total_cer_simple = 0, 0, 0
+    total_length, total_length_simple = 0, 0
+    norm_total_cer, norm_total_cer_lower = 0, 0
+    norm_total_length = 0
+
+    # Process each batch in the validation dataset
+    for batch_no, batch in enumerate(validation_dataset):
+        # Logic for processing each batch, calculating CER, etc.
+        process_batch(batch, prediction_model, utils_object,
+                      args, wbs, dataloader, batch_no, char_list)
+
+    # TODO: Calculate and print final CER results
 
 
 ##############  Main function  ##############
@@ -441,7 +566,7 @@ def main():
 
     # Evaluate the model
     if args.do_validate:
-        pass
+        perform_validation(args, model, validation_dataset, charlist, loader)
 
     # Infer with the model
     if args.do_inference:
