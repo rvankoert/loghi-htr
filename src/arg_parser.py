@@ -32,8 +32,6 @@ def get_arg_parser():
                               help='random seed to be used')
     general_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
                               help='max_queue_size')
-    general_args.add_argument(
-        '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
     general_args.add_argument('--charlist', metavar='charlist ', type=str, default=None,
                               help='Charlist to use')
     general_args.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
@@ -41,10 +39,6 @@ def get_arg_parser():
 
     # Training args
     training_args = parser.add_argument_group('General training arguments')
-    training_args.add_argument('--do_train',
-                               help='enable the training. '
-                                    'Use this flag if you want to train.',
-                               action='store_true')
     training_args.add_argument('--learning_rate', metavar='learning_rate',
                                type=float, default=0.0003,
                                help='learning_rate to be used, default 0.0003')
@@ -93,8 +87,6 @@ def get_arg_parser():
 
     # Inference args
     inference_args = parser.add_argument_group('General inference arguments')
-    inference_args.add_argument('--do_inference', help='inference',
-                                action='store_true')
     inference_args.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
                                 help='use this file containing textline location+transcription for inferencing. You can use '
                                 'multiple input files quoted and space separated "inference_file1.txt '
@@ -170,12 +162,23 @@ def get_arg_parser():
                            'are the characters to be replaced, the values are the characters to replace with.')
     misc_args.add_argument('--deterministic', action='store_true',
                            help='beta: deterministic mode (reproducible results')
-    misc_args.add_argument('--no_auto', action='store_true',
-                           help='No Auto disabled automatic "fixing" of certain parameters')
     misc_args.add_argument('--do_blur', action='store_true',
                            help='blur the images for training purposes')
     misc_args.add_argument('--do_invert', action='store_true',
                            help='use with images that have light ink and dark background')
+
+    # Deprecation zone
+    depr_args = parser.add_argument_group(
+        'Deprecation zone', 'These arguments will be removed in the future')
+    depr_args.add_argument('--do_train', help='enable the training. '
+                                              'Use this flag if you want to train.',
+                           action='store_true')
+    depr_args.add_argument('--do_inference', help='inference',
+                           action='store_true')
+    depr_args.add_argument(
+        '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
+    depr_args.add_argument('--no_auto', action='store_true',
+                           help='No Auto disabled automatic "fixing" of certain parameters')
 
     return parser
 
