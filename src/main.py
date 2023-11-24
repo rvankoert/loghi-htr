@@ -387,8 +387,7 @@ def print_predictions(filename, original_text, predicted_text, char_str=None):
     logging.info(f"Original text  - {original_text}")
     logging.info(f"Predicted text - {predicted_text}")
     if char_str:
-        for s in char_str:
-            logging.info(s)
+        logging.info(f"WordBeamSearch - {char_str}")
 
 
 def simplify_text(text):
@@ -533,24 +532,44 @@ def get_prediction_model(model):
     return prediction_model
 
 
-def setup_word_beam_search(args, charlist):
+def setup_word_beam_search(args, charlist, loader):
+    logging.info("Setting up WordBeamSearch...")
+
     # Check if the corpus file exists
     if not os.path.exists(args.corpus_file):
         raise FileNotFoundError(f'Corpus file not found: {args.corpus_file}')
 
+    # Load the corpus
     with open(args.corpus_file) as f:
-        corpus = f.read()
+        # Create the corpus
+        corpus = ''
+        for line in f:
+            if args.normalization_file:
+                line = loader.normalize(line, args.normalization_file)
+            corpus += line
     logging.info(f'Using corpus file: {args.corpus_file}')
 
+    # Create the WordBeamSearch object
     word_chars = \
         '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
     chars = '' + ''.join(sorted(list(charlist)))
-
     wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing,
                          corpus.encode('utf8'), chars.encode('utf8'),
                          word_chars.encode('utf8'))
     logging.info('Created WordBeamSearch')
+
     return wbs
+
+
+def handle_wbs_results(predsbeam, wbs, args, chars):
+    label_str = wbs.compute(predsbeam)
+    char_str = []  # decoded texts for batch
+    for curr_label_str in label_str:
+        s = ''.join([chars[label-1] for label in curr_label_str])
+        s = preprocess_text(s)
+        char_str.append(s)
+
+    return char_str
 
 
 def process_batch(batch, prediction_model, utilsObject,
@@ -566,8 +585,9 @@ def process_batch(batch, prediction_model, utilsObject,
     # Transpose the predictions for WordBeamSearch
     predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
     if wbs:
-        # char_str = handle_wbs_results(predsbeam, wbs, args, chars)
-        pass
+        char_str = handle_wbs_results(predsbeam, wbs, args, chars)
+    else:
+        char_str = None
 
     # Get the original texts
     orig_texts = [tf.strings.reduce_join(utilsObject.num_to_char(label))
@@ -595,13 +615,40 @@ def process_batch(batch, prediction_model, utilsObject,
         if edit_distance > 0:
             filename = loader.get_item('validation',
                                        (batch_no * args.batch_size) + index)
-            print_predictions(filename, original_text, prediction)
+            print_predictions(filename, original_text,
+                              prediction, char_str[index])
             logging.info(f"Confidence = {confidence:.4f}")
 
             print_cer_stats(distances, lengths)
 
+        # Update the counters
+        batch_info = update_batch_info(batch_info,
+                                       distances,
+                                       lengths)
+
         if wbs:
-            pass
+            wbs_distances = \
+                calculate_edit_distances(char_str[index], original_text)
+
+            # Update the counters
+            batch_info = update_batch_info(batch_info,
+                                           wbs_distances,
+                                           lengths,
+                                           prefix="wbs")
+
+            # Unpack the distances
+            wbs_edit_distance, wbs_lower_edit_distance, \
+                wbs_simple_edit_distance = wbs_distances
+
+            # Print the CERs if there are any errors
+            if edit_distance > 0:
+                print_cer_stats(wbs_distances, lengths, prefix="WBS")
+
+            # Update the counters
+            batch_info = update_batch_info(batch_info,
+                                           wbs_distances,
+                                           lengths,
+                                           prefix="wbs")
 
         if args.normalization_file:
             # Normalize the text
@@ -636,11 +683,6 @@ def process_batch(batch, prediction_model, utilsObject,
                                            normalized_lengths,
                                            prefix="normalized")
 
-        # Update the counters
-        batch_info = update_batch_info(batch_info,
-                                       distances,
-                                       lengths)
-
     return batch_info
 
 
@@ -651,12 +693,14 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(args, char_list) if args.corpus_file else None
+    wbs = setup_word_beam_search(args, char_list, dataloader) \
+        if args.corpus_file else None
 
     # Initialize variables for CER calculation
     n_items = 0
     total_counter = defaultdict(int)
     total_normalized_counter = defaultdict(int)
+    total_wbs_counter = defaultdict(int)
 
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
@@ -700,6 +744,22 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
                             'Normalized Simple CER'])
             batch_stats.extend(normalized_batch_cers)
             total_stats.extend(normalized_total_cers)
+
+        if wbs:
+            # Update the counters
+            total_wbs_counter = update_totals(batch_info, total_counter,
+                                              prefix="wbs")
+
+            # Calculate the batch WBS CER
+            wbs_batch_cers = calculate_cers(batch_info, prefix="wbs")
+
+            # Calculate the new total WBS CER
+            wbs_total_cers = calculate_cers(total_wbs_counter, prefix="wbs")
+
+            # Update the metrics and stats
+            metrics.extend(['WBS CER', 'WBS Lower CER', 'WBS Simple CER'])
+            batch_stats.extend(wbs_batch_cers)
+            total_stats.extend(wbs_total_cers)
 
         # Print batch info
         metrics.append('Items')
