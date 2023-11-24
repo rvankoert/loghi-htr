@@ -447,19 +447,28 @@ def edit_distance_to_cer(edit_distance, length):
     return edit_distance / max(length, 1)
 
 
-def calculate_cers(edit_distance, edit_distance_lower, edit_distance_simple,
-                   length, length_simple):
+def calculate_cers(info, prefix=""):
+    prefix = f"{prefix}_" if prefix else prefix
+
+    edit_distance = info[prefix + 'edit_distance']
+    length = info[prefix + 'length']
+    lower_edit_distance = info[prefix + 'lower_edit_distance']
+    length_simple = info[prefix + 'length_simple']
+    simple_edit_distance = info[prefix + 'simple_edit_distance']
+
     # Calculate CER
     cer = edit_distance_to_cer(edit_distance, length)
-    lower_cer = edit_distance_to_cer(edit_distance_lower, length)
-    simple_cer = edit_distance_to_cer(edit_distance_simple, length_simple)
+    lower_cer = edit_distance_to_cer(lower_edit_distance, length)
+    simple_cer = edit_distance_to_cer(simple_edit_distance, length_simple)
 
     return cer, lower_cer, simple_cer
 
 
-def print_cer_stats(length, length_simple, edit_distance, lower_edit_distance,
-                    simple_edit_distance, prefix=""):
+def print_cer_stats(distances, lengths, prefix=""):
     prefix = f"{prefix} " if prefix else prefix
+
+    edit_distance, lower_edit_distance, simple_edit_distance = distances
+    length, length_simple = lengths
 
     # Calculate CER
     cer = edit_distance_to_cer(edit_distance, length)
@@ -474,17 +483,36 @@ def print_cer_stats(length, length_simple, edit_distance, lower_edit_distance,
                  f"({simple_edit_distance}/{length_simple})")
 
 
-def update_counters(info, total, prefix=""):
+def update_totals(info, total, prefix=""):
     prefix = f"{prefix}_" if prefix else prefix
-    total[prefix + 'edit_distance'] += info[prefix + 'edit_distance']
-    total[prefix + 'length'] += info[prefix + 'length']
-    total[prefix + 'lower_edit_distance'] += info[prefix +
-                                                  'lower_edit_distance']
-    total[prefix + 'length_simple'] += info[prefix + 'length_simple']
-    total[prefix + 'simple_edit_distance'] += info[prefix +
-                                                   'simple_edit_distance']
+
+    edit_distance = info[prefix + 'edit_distance']
+    length = info[prefix + 'length']
+    lower_edit_distance = info[prefix + 'lower_edit_distance']
+    length_simple = info[prefix + 'length_simple']
+    simple_edit_distance = info[prefix + 'simple_edit_distance']
+
+    total[prefix + 'edit_distance'] += edit_distance
+    total[prefix + 'length'] += length
+    total[prefix + 'lower_edit_distance'] += lower_edit_distance
+    total[prefix + 'length_simple'] += length_simple
+    total[prefix + 'simple_edit_distance'] += simple_edit_distance
 
     return total
+
+
+def update_batch_info(info, distances, lengths, prefix=""):
+    prefix = f"{prefix}_" if prefix else prefix
+    edit_distance, lower_edit_distance, simple_edit_distance = distances
+    length, length_simple = lengths
+
+    info[f'{prefix}edit_distance'] += edit_distance
+    info[f'{prefix}length'] += length
+    info[f'{prefix}lower_edit_distance'] += lower_edit_distance
+    info[f'{prefix}length_simple'] += length_simple
+    info[f'{prefix}simple_edit_distance'] += simple_edit_distance
+
+    return info
 
 
 ############## Validation functions ##############
@@ -556,8 +584,12 @@ def process_batch(batch, prediction_model, utilsObject,
         _, simple_original = simplify_text(original_text)
 
         # Calculate edit distances
-        edit_distance, lower_edit_distance, simple_edit_distance = \
+        distances = \
             calculate_edit_distances(prediction, original_text)
+        lengths = [len(original_text), len(simple_original)]
+
+        # Unpack the distances
+        edit_distance, lower_edit_distance, simple_edit_distance = distances
 
         # Print the predictions if there are any errors
         if edit_distance > 0:
@@ -566,50 +598,48 @@ def process_batch(batch, prediction_model, utilsObject,
             print_predictions(filename, original_text, prediction)
             logging.info(f"Confidence = {confidence:.4f}")
 
-            print_cer_stats(len(original_text), len(simple_original),
-                            edit_distance, lower_edit_distance,
-                            simple_edit_distance)
+            print_cer_stats(distances, lengths)
 
         if wbs:
             pass
 
         if args.normalization_file:
+            # Normalize the text
             normalized_prediction = loader.normalize(prediction,
                                                      args.normalization_file)
             normalized_original = loader.normalize(original_text,
                                                    args.normalization_file)
 
-            normalized_edit_distance, normalized_lower_edit_distance, \
-                normalized_simple_edit_distance = \
-                calculate_edit_distances(normalized_prediction,
-                                         normalized_original)
-
+            # Preprocess the normalized text
             _, normalized_simple_original = simplify_text(
                 normalized_original)
 
+            # Calculate the normalized edit distances
+            normalized_distances = \
+                calculate_edit_distances(normalized_prediction,
+                                         normalized_original)
+            normalized_lengths = [len(normalized_original),
+                                  len(normalized_simple_original)]
+
+            # Unpack the normalized distances
+            normalized_edit_distance, normalized_lower_edit_distance, \
+                normalized_simple_edit_distance = normalized_distances
+
+            # Print the normalized CERs if there are any errors
             if edit_distance > 0:
-                print_cer_stats(len(normalized_original),
-                                len(normalized_simple_original),
-                                normalized_edit_distance,
-                                normalized_lower_edit_distance,
-                                normalized_simple_edit_distance,
+                print_cer_stats(normalized_distances, normalized_lengths,
                                 prefix="Normalized")
 
-            batch_info['normalized_edit_distance'] += normalized_edit_distance
-            batch_info['normalized_lower_edit_distance'] += \
-                normalized_lower_edit_distance
-            batch_info['normalized_simple_edit_distance'] += \
-                normalized_simple_edit_distance
-            batch_info['normalized_length'] += len(normalized_original)
-            batch_info['normalized_length_simple'] += \
-                len(normalized_simple_original)
+            # Update the counters
+            batch_info = update_batch_info(batch_info,
+                                           normalized_distances,
+                                           normalized_lengths,
+                                           prefix="normalized")
 
         # Update the counters
-        batch_info['edit_distance'] += edit_distance
-        batch_info['lower_edit_distance'] += lower_edit_distance
-        batch_info['simple_edit_distance'] += simple_edit_distance
-        batch_info['length'] += len(original_text)
-        batch_info['length_simple'] += len(simple_original)
+        batch_info = update_batch_info(batch_info,
+                                       distances,
+                                       lengths)
 
     return batch_info
 
@@ -636,23 +666,15 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
 
         # Update the counters
         n_items += len(batch[1])
-        total_stats = update_counters(batch_info, total_counter)
+        total_stats = update_totals(batch_info, total_counter)
 
         # Calculate the batch CER
         batch_cer, batch_cer_lower, batch_cer_simple = \
-            calculate_cers(batch_info['edit_distance'],
-                           batch_info['lower_edit_distance'],
-                           batch_info['simple_edit_distance'],
-                           batch_info['length'],
-                           batch_info['length_simple'])
+            calculate_cers(batch_info)
 
         # Calculate the new total CER
         total_cer, total_cer_lower, total_cer_simple = \
-            calculate_cers(total_counter['edit_distance'],
-                           total_counter['lower_edit_distance'],
-                           total_counter['simple_edit_distance'],
-                           total_counter['length'],
-                           total_counter['length_simple'])
+            calculate_cers(total_stats)
 
         # Initialize the metrics and stats
         metrics = ['CER', 'Lower CER', 'Simple CER']
@@ -662,42 +684,22 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
         # Calculate the normalized CER
         if args.normalization_file:
             # Update the counters
-            total_normalized_stats = update_counters(
+            total_normalized_stats = update_totals(
                 batch_info, total_normalized_counter, prefix="normalized")
 
             # Calculate the batch normalized CER
-            normalized_batch_cer, normalized_batch_cer_lower, \
-                normalized_batch_cer_simple = \
-                calculate_cers(batch_info['normalized_edit_distance'],
-                               batch_info['normalized_lower_edit_distance'],
-                               batch_info['normalized_simple_edit_distance'],
-                               batch_info['normalized_length'],
-                               batch_info['normalized_length_simple'])
+            normalized_batch_cers = \
+                calculate_cers(batch_info, prefix="normalized")
 
             # Calculate the new total normalized CER
-            normalized_total_cer, normalized_total_cer_lower, \
-                normalized_total_cer_simple = \
-                calculate_cers(
-                    total_normalized_stats[
-                        'normalized_edit_distance'],
-                    total_normalized_stats[
-                        'normalized_lower_edit_distance'],
-                    total_normalized_stats[
-                        'normalized_simple_edit_distance'],
-                    total_normalized_stats[
-                        'normalized_length'],
-                    total_normalized_stats[
-                        'normalized_length_simple'])
+            normalized_total_cers = \
+                calculate_cers(total_normalized_stats, prefix="normalized")
 
             # Update the metrics and stats
             metrics.extend(['Normalized CER', 'Normalized Lower CER',
                             'Normalized Simple CER'])
-            batch_stats.extend([normalized_batch_cer,
-                                normalized_batch_cer_lower,
-                                normalized_batch_cer_simple])
-            total_stats.extend([normalized_total_cer,
-                                normalized_total_cer_lower,
-                                normalized_total_cer_simple])
+            batch_stats.extend(normalized_batch_cers)
+            total_stats.extend(normalized_total_cers)
 
         # Print batch info
         metrics.append('Items')
