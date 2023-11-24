@@ -407,7 +407,7 @@ def display_statistics(batch_stats, total_stats, metrics):
     separator = "-" * (max_metric_length + 21)
     border = "=" * (max_metric_length + 21)
 
-    logging.info("Validation statistics:")
+    logging.info("Batch validation statistics:")
     logging.info(border)
 
     # Print header
@@ -514,6 +514,52 @@ def update_batch_info(info, distances, lengths, prefix=""):
     return info
 
 
+def process_cer_type(batch_info, total_counter, metrics, batch_stats,
+                     total_stats, prefix=""):
+    # Update totals
+    updated_totals = update_totals(batch_info, total_counter, prefix=prefix)
+
+    # Calculate CERs for both batch and total
+    batch_cers = calculate_cers(batch_info, prefix=prefix)
+    total_cers = calculate_cers(updated_totals, prefix=prefix)
+
+    # Define metric names based on the prefix
+    prefix = f"{prefix.capitalize()} " if prefix else prefix
+    cer_names = [f"{prefix}CER", f"{prefix}Lower CER", f"{prefix}Simple CER"] \
+        if prefix else ["CER", "Lower CER", "Simple CER"]
+
+    # Extend metrics and stats
+    metrics.extend(cer_names)
+    batch_stats.extend(batch_cers)
+    total_stats.extend(total_cers)
+
+    return updated_totals, metrics, batch_stats, total_stats
+
+
+def process_prediction_type(prediction, original, batch_info, prefix=""):
+    # Preprocess the text for CER calculation
+    _, simple_original = simplify_text(original)
+
+    # Calculate edit distances
+    distances = calculate_edit_distances(prediction, original)
+
+    # Unpack the distances
+    edit_distance, lower_edit_distance, simple_edit_distance = distances
+    lengths = [len(original), len(simple_original)]
+
+    # Print the predictions if there are any errors
+    if edit_distance > 0:
+        print_cer_stats(distances, lengths, prefix=prefix.capitalize())
+
+    # Update the counters
+    batch_info = update_batch_info(batch_info,
+                                   distances,
+                                   lengths,
+                                   prefix=prefix)
+
+    return batch_info
+
+
 ############## Validation functions ##############
 
 
@@ -552,10 +598,11 @@ def setup_word_beam_search(args, charlist, loader):
     # Create the WordBeamSearch object
     word_chars = \
         '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
-    chars = '' + ''.join(sorted(list(charlist)))
+    chars = '' + ''.join(sorted(charlist))
     wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing,
                          corpus.encode('utf8'), chars.encode('utf8'),
                          word_chars.encode('utf8'))
+
     logging.info('Created WordBeamSearch')
 
     return wbs
@@ -583,8 +630,8 @@ def process_batch(batch, prediction_model, utilsObject,
         args.beam_width, args.num_oov_indices)[0]
 
     # Transpose the predictions for WordBeamSearch
-    predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
     if wbs:
+        predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
         char_str = handle_wbs_results(predsbeam, wbs, args, chars)
     else:
         char_str = None
@@ -601,54 +648,24 @@ def process_batch(batch, prediction_model, utilsObject,
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])
-        _, simple_original = simplify_text(original_text)
 
-        # Calculate edit distances
+        # Calculate edit distances here so we can use them for printing the
+        # predictions
         distances = \
             calculate_edit_distances(prediction, original_text)
-        lengths = [len(original_text), len(simple_original)]
-
-        # Unpack the distances
-        edit_distance, lower_edit_distance, simple_edit_distance = distances
 
         # Print the predictions if there are any errors
-        if edit_distance > 0:
+        if distances[0] > 0:
             filename = loader.get_item('validation',
                                        (batch_no * args.batch_size) + index)
+            char_str = char_str[index] if wbs else None
             print_predictions(filename, original_text,
-                              prediction, char_str[index])
+                              prediction, char_str)
             logging.info(f"Confidence = {confidence:.4f}")
 
-            print_cer_stats(distances, lengths)
-
-        # Update the counters
-        batch_info = update_batch_info(batch_info,
-                                       distances,
-                                       lengths)
-
-        if wbs:
-            wbs_distances = \
-                calculate_edit_distances(char_str[index], original_text)
-
-            # Update the counters
-            batch_info = update_batch_info(batch_info,
-                                           wbs_distances,
-                                           lengths,
-                                           prefix="wbs")
-
-            # Unpack the distances
-            wbs_edit_distance, wbs_lower_edit_distance, \
-                wbs_simple_edit_distance = wbs_distances
-
-            # Print the CERs if there are any errors
-            if edit_distance > 0:
-                print_cer_stats(wbs_distances, lengths, prefix="WBS")
-
-            # Update the counters
-            batch_info = update_batch_info(batch_info,
-                                           wbs_distances,
-                                           lengths,
-                                           prefix="wbs")
+        batch_info = process_prediction_type(prediction,
+                                             original_text,
+                                             batch_info)
 
         if args.normalization_file:
             # Normalize the text
@@ -657,31 +674,18 @@ def process_batch(batch, prediction_model, utilsObject,
             normalized_original = loader.normalize(original_text,
                                                    args.normalization_file)
 
-            # Preprocess the normalized text
-            _, normalized_simple_original = simplify_text(
-                normalized_original)
+            # Process the normalized CER
+            batch_info = process_prediction_type(normalized_prediction,
+                                                 normalized_original,
+                                                 batch_info,
+                                                 prefix="normalized")
 
-            # Calculate the normalized edit distances
-            normalized_distances = \
-                calculate_edit_distances(normalized_prediction,
-                                         normalized_original)
-            normalized_lengths = [len(normalized_original),
-                                  len(normalized_simple_original)]
-
-            # Unpack the normalized distances
-            normalized_edit_distance, normalized_lower_edit_distance, \
-                normalized_simple_edit_distance = normalized_distances
-
-            # Print the normalized CERs if there are any errors
-            if edit_distance > 0:
-                print_cer_stats(normalized_distances, normalized_lengths,
-                                prefix="Normalized")
-
-            # Update the counters
-            batch_info = update_batch_info(batch_info,
-                                           normalized_distances,
-                                           normalized_lengths,
-                                           prefix="normalized")
+        if wbs:
+            # Process the WBS CER
+            batch_info = process_prediction_type(char_str[index],
+                                                 original_text,
+                                                 batch_info,
+                                                 prefix="wbs")
 
     return batch_info
 
@@ -707,61 +711,29 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
         # Logic for processing each batch, calculating CER, etc.
         batch_info = process_batch(batch, prediction_model, utils_object, args,
                                    wbs, dataloader, batch_no, char_list)
+        metrics, batch_stats, total_stats = [], [], []
 
-        # Update the counters
-        n_items += len(batch[1])
-        total_stats = update_totals(batch_info, total_counter)
-
-        # Calculate the batch CER
-        batch_cer, batch_cer_lower, batch_cer_simple = \
-            calculate_cers(batch_info)
-
-        # Calculate the new total CER
-        total_cer, total_cer_lower, total_cer_simple = \
-            calculate_cers(total_stats)
-
-        # Initialize the metrics and stats
-        metrics = ['CER', 'Lower CER', 'Simple CER']
-        batch_stats = [batch_cer, batch_cer_lower, batch_cer_simple]
-        total_stats = [total_cer, total_cer_lower, total_cer_simple]
+        # Calculate the CER
+        total_counter, metrics, batch_stats, total_stats \
+            = process_cer_type(
+                batch_info, total_counter, metrics, batch_stats, total_stats)
 
         # Calculate the normalized CER
         if args.normalization_file:
-            # Update the counters
-            total_normalized_stats = update_totals(
-                batch_info, total_normalized_counter, prefix="normalized")
+            total_normalized_counter, metrics, batch_stats, total_stats \
+                = process_cer_type(
+                    batch_info, total_normalized_counter, metrics, batch_stats,
+                    total_stats, prefix="normalized")
 
-            # Calculate the batch normalized CER
-            normalized_batch_cers = \
-                calculate_cers(batch_info, prefix="normalized")
-
-            # Calculate the new total normalized CER
-            normalized_total_cers = \
-                calculate_cers(total_normalized_stats, prefix="normalized")
-
-            # Update the metrics and stats
-            metrics.extend(['Normalized CER', 'Normalized Lower CER',
-                            'Normalized Simple CER'])
-            batch_stats.extend(normalized_batch_cers)
-            total_stats.extend(normalized_total_cers)
-
+        # Calculate the WBS CER
         if wbs:
-            # Update the counters
-            total_wbs_counter = update_totals(batch_info, total_counter,
-                                              prefix="wbs")
-
-            # Calculate the batch WBS CER
-            wbs_batch_cers = calculate_cers(batch_info, prefix="wbs")
-
-            # Calculate the new total WBS CER
-            wbs_total_cers = calculate_cers(total_wbs_counter, prefix="wbs")
-
-            # Update the metrics and stats
-            metrics.extend(['WBS CER', 'WBS Lower CER', 'WBS Simple CER'])
-            batch_stats.extend(wbs_batch_cers)
-            total_stats.extend(wbs_total_cers)
+            total_wbs_counter, metrics, batch_stats, total_stats \
+                = process_cer_type(
+                    batch_info, total_wbs_counter, metrics, batch_stats,
+                    total_stats, prefix="wbs")
 
         # Print batch info
+        n_items += len(batch[1])
         metrics.append('Items')
         batch_stats.append(len(batch[1]))
         total_stats.append(n_items)
