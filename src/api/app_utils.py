@@ -12,6 +12,7 @@ from image_preparator import image_preparation_worker
 
 # > Third-party dependencies
 from flask import request
+from prometheus_client import Gauge
 
 
 class TensorFlowLogFilter(logging.Filter):
@@ -172,6 +173,12 @@ def start_processes(batch_size: int, max_queue_size: int,
     max_prepared_queue_size = max_queue_size // 2 // batch_size
     prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
     logger.info(f"Prediction queue size: {max_prepared_queue_size}")
+
+    # Add request queue size to prometheus statistics
+    request_queue_size_gauge = Gauge('request_queue_size', "Request queue size")
+    request_queue_size_gauge.set_function(lambda: request_queue.qsize())
+    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Request queue size")
+    prepared_queue_size_gauge.set_function(lambda: request_queue.qsize())
 
     # Start the image preparation process
     logger.info("Starting image preparation process")

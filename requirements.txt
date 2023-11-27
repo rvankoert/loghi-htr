@@ -11,3 +11,5 @@ tf_keras_vis==0.8.5
 elasticdeform==0.5.0
 blinker==1.4
 scikit-image==0.22.0
+prometheus-client==0.19.0
+
