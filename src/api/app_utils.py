@@ -177,8 +177,8 @@ def start_processes(batch_size: int, max_queue_size: int,
     # Add request queue size to prometheus statistics
     request_queue_size_gauge = Gauge('request_queue_size', "Request queue size")
     request_queue_size_gauge.set_function(lambda: request_queue.qsize())
-    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Request queue size")
-    prepared_queue_size_gauge.set_function(lambda: request_queue.qsize())
+    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Prepared queue size")
+    prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
