@@ -10,7 +10,8 @@ from collections import defaultdict
 # Import other necessary libraries
 
 from arg_parser import get_args
-from utils import load_model_from_directory, Utils, decode_batch_predictions
+from utils import load_model_from_directory, Utils, decode_batch_predictions, \
+    normalize_confidence
 from model import CERMetric, WERMetric, CTCLoss, replace_recurrent_layer, \
     replace_final_layer, train_batch
 from custom_layers import ResidualBlock
@@ -386,6 +387,7 @@ def print_predictions(filename, original_text, predicted_text, char_str=None):
     logging.info("--------------------------------------------------------")
     logging.info("")
     logging.info(f"File: {filename}")
+    logging.info("")
     logging.info(f"Original text  - {original_text}")
     logging.info(f"Predicted text - {predicted_text}")
     if char_str:
@@ -540,7 +542,8 @@ def process_cer_type(batch_info, total_counter, metrics, batch_stats,
     return updated_totals, metrics, batch_stats, total_stats
 
 
-def process_prediction_type(prediction, original, batch_info, prefix=""):
+def process_prediction_type(prediction, original, batch_info,
+                            do_print, prefix=""):
     # Preprocess the text for CER calculation
     _, simple_original = simplify_text(original)
 
@@ -552,7 +555,7 @@ def process_prediction_type(prediction, original, batch_info, prefix=""):
     lengths = [len(original), len(simple_original)]
 
     # Print the predictions if there are any errors
-    if edit_distance > 0:
+    if do_print:
         print_cer_stats(distances, lengths, prefix=prefix)
 
     # Update the counters
@@ -670,6 +673,10 @@ def process_batch(batch, prediction_model, utilsObject,
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
+        # Normalize the confidence before processing because it was determined
+        # on the original prediction
+        normalized_confidence = normalize_confidence(confidence, prediction)
+
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])
@@ -678,19 +685,22 @@ def process_batch(batch, prediction_model, utilsObject,
         # predictions
         distances = \
             calculate_edit_distances(prediction, original_text)
+        do_print = distances[0] > 0
 
         # Print the predictions if there are any errors
-        if distances[0] > 0:
+        if do_print:
             filename = loader.get_item('validation',
                                        (batch_no * args.batch_size) + index)
             wbs_str = char_str[index] if wbs else None
             print_predictions(filename, original_text,
                               prediction, wbs_str)
-            logging.info(f"Confidence = {confidence:.4f}")
+            logging.info(f"Confidence = {normalized_confidence:.4f}")
+            logging.info("")
 
         batch_info = process_prediction_type(prediction,
                                              original_text,
-                                             batch_info)
+                                             batch_info,
+                                             do_print)
 
         if args.normalization_file:
             # Normalize the text
@@ -703,6 +713,7 @@ def process_batch(batch, prediction_model, utilsObject,
             batch_info = process_prediction_type(normalized_prediction,
                                                  normalized_original,
                                                  batch_info,
+                                                 do_print,
                                                  prefix="Normalized")
 
         if wbs:
@@ -710,6 +721,7 @@ def process_batch(batch, prediction_model, utilsObject,
             batch_info = process_prediction_type(char_str[index],
                                                  original_text,
                                                  batch_info,
+                                                 do_print,
                                                  prefix="WBS")
 
     return batch_info
@@ -771,7 +783,6 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
     logging.info("")
     logging.info("Final validation statistics")
     logging.info("---------------------------")
-    logging.info("")
 
     # Calculate the CER confidence intervals on all metrics except Items
     intervals = calculate_confidence_intervals(total_stats[:-1], n_items)
