@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import subprocess
 import uuid
 import json
+import time
 import re
 from collections import defaultdict
 # Import other necessary libraries
@@ -383,11 +384,13 @@ def preprocess_text(text):
 
 def print_predictions(filename, original_text, predicted_text, char_str=None):
     logging.info("--------------------------------------------------------")
+    logging.info("")
     logging.info(f"File: {filename}")
     logging.info(f"Original text  - {original_text}")
     logging.info(f"Predicted text - {predicted_text}")
     if char_str:
         logging.info(f"WordBeamSearch - {char_str}")
+    logging.info("")
 
 
 def simplify_text(text):
@@ -407,7 +410,7 @@ def display_statistics(batch_stats, total_stats, metrics):
     separator = "-" * (max_metric_length + 21)
     border = "=" * (max_metric_length + 21)
 
-    logging.info("Batch validation statistics:")
+    logging.info("Validation metrics:")
     logging.info(border)
 
     # Print header
@@ -480,6 +483,7 @@ def print_cer_stats(distances, lengths, prefix=""):
                  f"/{length})")
     logging.info(f"{prefix}Simple CER = {simple_cer:.4f} "
                  f"({simple_edit_distance}/{length_simple})")
+    logging.info("")
 
 
 def update_totals(info, total, prefix=""):
@@ -524,7 +528,7 @@ def process_cer_type(batch_info, total_counter, metrics, batch_stats,
     total_cers = calculate_cers(updated_totals, prefix=prefix)
 
     # Define metric names based on the prefix
-    prefix = f"{prefix.capitalize()} " if prefix else prefix
+    prefix = f"{prefix} " if prefix else prefix
     cer_names = [f"{prefix}CER", f"{prefix}Lower CER", f"{prefix}Simple CER"] \
         if prefix else ["CER", "Lower CER", "Simple CER"]
 
@@ -549,7 +553,7 @@ def process_prediction_type(prediction, original, batch_info, prefix=""):
 
     # Print the predictions if there are any errors
     if edit_distance > 0:
-        print_cer_stats(distances, lengths, prefix=prefix.capitalize())
+        print_cer_stats(distances, lengths, prefix=prefix)
 
     # Update the counters
     batch_info = update_batch_info(batch_info,
@@ -558,6 +562,16 @@ def process_prediction_type(prediction, original, batch_info, prefix=""):
                                    prefix=prefix)
 
     return batch_info
+
+
+def calculate_confidence_intervals(cer_metrics, n):
+    intervals = []
+
+    # Calculate the confidence intervals
+    for cer_metric in cer_metrics:
+        intervals.append(calc_95_confidence_interval(cer_metric, n))
+
+    return intervals
 
 
 ############## Validation functions ##############
@@ -619,6 +633,17 @@ def handle_wbs_results(predsbeam, wbs, args, chars):
     return char_str
 
 
+def calc_95_confidence_interval(cer_metric, n):
+    """ Calculates the binomial confidence radius of the given metric
+    based on the num of samples (n) and a 95% certainty number
+    E.g. cer_metric = 0.10, certainty = 95 and n= 5500 samples -->
+    conf_radius = 1.96 * ((0.1*(1-0.1))/5500)) ** 0.5 = 0.008315576
+    This means with 95% certainty we can say that the True CER of the model is
+    between 0.0917 and 0.1083 (4-dec rounded)
+    """
+    return 1.96 * ((cer_metric*(1-cer_metric))/n) ** 0.5
+
+
 def process_batch(batch, prediction_model, utilsObject,
                   args, wbs, loader, batch_no, chars):
     X, y_true = batch
@@ -658,9 +683,9 @@ def process_batch(batch, prediction_model, utilsObject,
         if distances[0] > 0:
             filename = loader.get_item('validation',
                                        (batch_no * args.batch_size) + index)
-            char_str = char_str[index] if wbs else None
+            wbs_str = char_str[index] if wbs else None
             print_predictions(filename, original_text,
-                              prediction, char_str)
+                              prediction, wbs_str)
             logging.info(f"Confidence = {confidence:.4f}")
 
         batch_info = process_prediction_type(prediction,
@@ -678,14 +703,14 @@ def process_batch(batch, prediction_model, utilsObject,
             batch_info = process_prediction_type(normalized_prediction,
                                                  normalized_original,
                                                  batch_info,
-                                                 prefix="normalized")
+                                                 prefix="Normalized")
 
         if wbs:
             # Process the WBS CER
             batch_info = process_prediction_type(char_str[index],
                                                  original_text,
                                                  batch_info,
-                                                 prefix="wbs")
+                                                 prefix="WBS")
 
     return batch_info
 
@@ -723,22 +748,41 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
             total_normalized_counter, metrics, batch_stats, total_stats \
                 = process_cer_type(
                     batch_info, total_normalized_counter, metrics, batch_stats,
-                    total_stats, prefix="normalized")
+                    total_stats, prefix="Normalized")
 
         # Calculate the WBS CER
         if wbs:
             total_wbs_counter, metrics, batch_stats, total_stats \
                 = process_cer_type(
                     batch_info, total_wbs_counter, metrics, batch_stats,
-                    total_stats, prefix="wbs")
+                    total_stats, prefix="WBS")
 
         # Print batch info
         n_items += len(batch[1])
         metrics.append('Items')
         batch_stats.append(len(batch[1]))
         total_stats.append(n_items)
-        display_statistics(batch_stats, total_stats, metrics)
 
+        display_statistics(batch_stats, total_stats, metrics)
+        logging.info("")
+
+    # Print the final validation statistics
+    logging.info("--------------------------------------------------------")
+    logging.info("")
+    logging.info("Final validation statistics")
+    logging.info("---------------------------")
+    logging.info("")
+
+    # Calculate the CER confidence intervals on all metrics except Items
+    intervals = calculate_confidence_intervals(total_stats[:-1], n_items)
+
+    # Print the final statistics
+    for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],
+                                             intervals):
+        logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
+
+    logging.info(f"Items = {total_stats[-1]}")
+    logging.info("")
 
 ##############  Main function  ##############
 
@@ -805,22 +849,46 @@ def main():
     # Store the model info (i.e., git hash, args, model summary, etc.)
     store_info(args, model)
 
+    # Store timestamps
+    timestamps = {
+        'start_time': time.time(),
+    }
+
     # Train the model
     if args.do_train:
+        tick = time.time()
+
         history = train_model(model, args, training_dataset,
                               validation_dataset, loader)
 
         # Plot the training history
         plot_training_history(history, args)
 
+        timestamps['train_time'] = time.time() - tick
+
     # Evaluate the model
     if args.do_validate:
         logging.warning("Validation results are without special markdown tags")
+
+        tick = time.time()
         perform_validation(args, model, validation_dataset, charlist, loader)
+
+        timestamps['validate_time'] = time.time() - tick
 
     # Infer with the model
     if args.do_inference:
         pass
+
+    # Log the timestamps
+    logging.info("--------------------------------------------------------")
+    if args.do_train:
+        logging.info(f"Training completed in {timestamps['train_time']:.2f} "
+                     "seconds")
+    if args.do_validate:
+        logging.info("Validation completed in "
+                     f"{timestamps['validate_time']:.2f} seconds")
+    logging.info(f"Total time: {time.time() - timestamps['start_time']:.2f} "
+                 "seconds")
 
 
 if __name__ == "__main__":
