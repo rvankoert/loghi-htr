@@ -647,14 +647,14 @@ def calc_95_confidence_interval(cer_metric, n):
     return 1.96 * ((cer_metric*(1-cer_metric))/n) ** 0.5
 
 
-def process_batch(batch, prediction_model, utilsObject,
+def process_batch(batch, prediction_model, utils_object,
                   args, wbs, loader, batch_no, chars):
     X, y_true = batch
 
     # Get the predictions
     predictions = prediction_model.predict(X, verbose=0)
     y_pred = decode_batch_predictions(
-        predictions, utilsObject, args.greedy,
+        predictions, utils_object, args.greedy,
         args.beam_width, args.num_oov_indices)[0]
 
     # Transpose the predictions for WordBeamSearch
@@ -665,7 +665,7 @@ def process_batch(batch, prediction_model, utilsObject,
         char_str = None
 
     # Get the original texts
-    orig_texts = [tf.strings.reduce_join(utilsObject.num_to_char(label))
+    orig_texts = [tf.strings.reduce_join(utils_object.num_to_char(label))
                   .numpy().decode("utf-8").strip() for label in y_true]
 
     # Initialize the batch info
@@ -795,6 +795,45 @@ def perform_validation(args, model, validation_dataset, char_list, dataloader):
     logging.info(f"Items = {total_stats[-1]}")
     logging.info("")
 
+
+############## Inference functions ##############
+
+def perform_inference(args, model, inference_dataset, char_list, loader):
+    utils_object = Utils(char_list, args.use_mask)
+    prediction_model = get_prediction_model(model)
+
+    with open(args.results_file, "w") as results_file:
+        for batch_no, batch in enumerate(inference_dataset):
+            # Get the predictions
+            predictions = prediction_model.predict(batch[0], verbose=0)
+            y_pred = decode_batch_predictions(
+                predictions, utils_object, args.greedy,
+                args.beam_width, args.num_oov_indices)[0]
+
+            # Print the predictions and process the CER
+            for index, (confidence, prediction) in enumerate(y_pred):
+                # Normalize the confidence before processing because it was
+                # determined on the original prediction
+                normalized_confidence = normalize_confidence(
+                    confidence, prediction)
+
+                # Remove the special characters from the prediction
+                prediction = prediction.strip().replace('', '')
+
+                # Format the filename
+                filename = loader.get_item(
+                    'inference', (batch_no * args.batch_size) + index)
+
+                # Write the results to the results file
+                result_str = f"{filename}\t{normalized_confidence}\t" \
+                    f"{prediction}"
+                logging.info(result_str)
+                results_file.write(result_str+"\n")
+
+                # Flush the results file
+                results_file.flush()
+
+
 ##############  Main function  ##############
 
 
@@ -828,7 +867,7 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, validation_dataset, test_dataset, \
-            inference_generator, utilsObject, train_batches\
+            inference_dataset, utilsObject, train_batches\
             = loader.generators()
 
         # Replace the charlist with the one from the data loader
@@ -888,7 +927,10 @@ def main():
 
     # Infer with the model
     if args.do_inference:
-        pass
+        tick = time.time()
+        perform_inference(args, model, inference_dataset, charlist, loader)
+
+        timestamps['inference_time'] = time.time() - tick
 
     # Log the timestamps
     logging.info("--------------------------------------------------------")
@@ -898,6 +940,9 @@ def main():
     if args.do_validate:
         logging.info("Validation completed in "
                      f"{timestamps['validate_time']:.2f} seconds")
+    if args.do_inference:
+        logging.info("Inference completed in "
+                     f"{timestamps['inference_time']:.2f} seconds")
     logging.info(f"Total time: {time.time() - timestamps['start_time']:.2f} "
                  "seconds")
 
