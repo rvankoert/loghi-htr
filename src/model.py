@@ -265,10 +265,10 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
             name=last_layer).output
     )
     if use_mask:
-        x = layers.Dense(number_characters + 2, activation="softmax", name="dense_replaced",
+        x = layers.Dense(number_characters + 2, activation="softmax", name="dense_out",
                          kernel_initializer=initializer)(prediction_model.output)
     else:
-        x = layers.Dense(number_characters + 1, activation="softmax", name="dense_replaced",
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense_out",
                          kernel_initializer=initializer)(prediction_model.output)
     output = layers.Activation('linear', dtype=tf.float32)(x)
     model = keras.models.Model(

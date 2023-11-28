@@ -50,7 +50,7 @@ def customize_model(model, args, charlist):
                                         use_mask=args.use_mask)
 
     # Replace the final layer if specified
-    if args.replace_final_layer:
+    if args.replace_final_layer or not args.existing_model:
         new_classes = len(charlist) + 2 if args.use_mask else len(charlist) + 1
         logging.info(f"Replacing final layer with {new_classes} classes")
         model = replace_final_layer(model, len(
@@ -86,7 +86,7 @@ def customize_model(model, args, charlist):
     return model
 
 
-def load_or_create_model(args, custom_objects, char_list):
+def load_or_create_model(args, custom_objects):
     if args.existing_model:
         model = load_model_from_directory(
             args.existing_model, custom_objects=custom_objects)
@@ -95,9 +95,7 @@ def load_or_create_model(args, custom_objects, char_list):
     else:
         model_generator = VGSLModelGenerator(
             model=args.model,
-            name=args.model_name,
-            output_classes=len(char_list) + 2
-            if args.use_mask else len(char_list) + 1
+            name=args.model_name
         )
         model = model_generator.build()
 

@@ -19,6 +19,7 @@ from model_management import load_or_create_model, customize_model, \
 from optimization import create_learning_rate_schedule, get_optimizer
 from training import train_model, plot_training_history
 from validation import perform_validation
+from vgsl_model_generator import VGSLModelGenerator
 
 
 def main():
@@ -35,9 +36,12 @@ def main():
         os.makedirs(args.output, exist_ok=True)
 
     # Get the initial character list
-    charlist = load_initial_charlist(
-        args.charlist, args.existing_model,
-        args.output, args.replace_final_layer)
+    if args.existing_model:
+        charlist = load_initial_charlist(
+            args.charlist, args.existing_model,
+            args.output, args.replace_final_layer)
+    else:
+        charlist = []
 
     # Set the custom objects
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
@@ -45,8 +49,7 @@ def main():
 
     # Create the model
     with strategy.scope():
-        model = load_or_create_model(
-            args, custom_objects, charlist)
+        model = load_or_create_model(args, custom_objects)
 
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
