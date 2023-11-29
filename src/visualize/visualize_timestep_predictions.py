@@ -2,8 +2,8 @@
 
 # > Standard Library
 import os
+from pathlib import Path
 import sys
-import random
 import csv
 import re
 
@@ -11,8 +11,8 @@ import re
 from vis_arg_parser import get_args
 
 # Add the above directory to the path
-sys.path.append('..')
-from model import CERMetric, WERMetric, CTCLoss
+sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
+from vis_utils import prep_image_for_model, init_pre_trained_model
 
 # > Third party libraries
 import tensorflow as tf
@@ -20,81 +20,90 @@ import numpy as np
 import cv2
 
 # Prep GPU support and set seeds/objects
-# disable GPU for now, because it is already running on my dev machine
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
-args = get_args()
 
-if args.existing_model:
-    if not os.path.exists(args.existing_model):
-        print('cannot find existing model on disk: ' + args.existing_model)
-        exit(1)
-    MODEL_PATH = args.existing_model
-else:
-    print('Please provide a path to an existing model directory with --existing_model')
-    exit(1)
+def remove_tags(text):
+    """
+    Remove special tags from the input text.
 
-SEED = args.seed
-GPU = args.gpu
-random.seed(SEED)
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
-if GPU >= 0:
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    if len(gpus) > 0:
-        tf.config.experimental.set_virtual_device_configuration(gpus[GPU], [
-            tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)])
+    Parameters
+    ----------
+    text : str
+        The input text containing special tags to be removed.
 
-tf.keras.utils.get_custom_objects().update({"CERMetric": CERMetric})
-tf.keras.utils.get_custom_objects().update({"WERMetric": WERMetric})
-tf.keras.utils.get_custom_objects().update({"CTCLoss": CTCLoss})
+    Returns
+    -------
+    str
+        The text with special tags removed.
 
-# Set color_scheme
-if args.light_mode:
-    background_color, font_color = [255, 255, 255], (0, 0, 0)  # Light mode
-else:
-    background_color, font_color = [0, 0, 0], (255, 255, 255)  # Dark mode
+    Notes
+    -----
+    This function removes specific Unicode characters representing tags:
+    - ␃ (U+2403): STRIKETHROUGHCHAR
+    - ␅ (U+2405): UNDERLINECHAR
+    - ␄ (U+2404): SUBSCRIPTCHAR
+    - ␆ (U+2406): SUPERSCRIPTCHAR
 
+    Examples
+    --------
+    >>> remove_tags("Hello␃ World␅!")
+    'Hello World!'
+    >>> remove_tags("2␄ + 3␆ = 5")
+    '2 + 3 = 5'
+    """
+    text = text.replace('␃', '')  # public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
+    text = text.replace('␅', '')  # public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
+    text = text.replace('␄', '')  # public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
+    text = text.replace('␆', '')  # public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
+    return text
 
-def main():
-    model = tf.keras.models.load_model(MODEL_PATH)
-    model_channels = model.input_shape[3]
-    model.summary()
+def get_timestep_indices(model_path):
+    """
+    Retrieve timestep indices and related information from a model.
 
-    if args.sample_image:
-        if not os.path.exists(args.sample_image):
-            print('cannot find textline img on disk: ' + args.sample_image)
-            exit(1)
-        img_path = args.sample_image
-    else:
-        print(
-            'Please provide a path to a text line img with--sample_image parameter')
-        exit(1)
+    Parameters
+    ----------
+    model_path : str
+        The path to the model.
 
-    # Remake data_generator parts
-    target_height = 64
-    original_image = tf.io.read_file(img_path)
-    original_image = tf.image.decode_image(original_image, channels=model_channels)
-    original_image = tf.image.resize(original_image,
-                                     [target_height,
-                                      tf.cast(target_height * tf.shape(original_image)[1]
-                                              / tf.shape(original_image)[0], tf.int32)],
-                                     preserve_aspect_ratio=True)
+    Returns
+    -------
+    tuple
+        A tuple containing the following elements:
+        - char_list : str
+            The content of the 'charlist.txt' file.
+        - timestep_char_list_indices : list
+            List of indices representing the argmax of each timestep.
+        - timestep_char_list_indices_top_5 : list
+            List of indices representing the top k values of each timestep.
+        - step_width : float
+            The width of each timestep calculated based on the model and image width.
+        - pad_steps_skip : float
+            The number of steps to skip for padding, calculated based on step width.
 
-    image_width = tf.shape(original_image)[1]
-    image_height = tf.shape(original_image)[0]
+    Notes
+    -----
+    This function reads 'charlist.txt' from the provided model path, extracts
+    information related to timesteps, and calculates the step width and padding steps.
 
-    # Normalize the image and something else
-    img = 0.5 - (original_image / 255)
-    # Pad the image
-    img = tf.image.resize_with_pad(img, target_height, tf.shape(img)[1] + 50)
-    img = tf.transpose(img, perm=[1, 0, 2])
-    img = np.expand_dims(img, axis=0)
-
-    preds = model.predict(img)
-
-    char_list = MODEL_PATH + "charlist.txt"
+    Examples
+    --------
+    >>> model_path = "/path/to/your/model/"
+    >>> char_list, indices, top_5_indices, width, pad_skip = get_timestep_indices(model_path)
+    >>> print(char_list)
+    'abcde...'
+    >>> print(indices)
+    [0, 3, 1, ...]
+    >>> print(top_5_indices)
+    [[0, 1, 2, 3, 4], [2, 0, 4, 1, 3], ...]
+    >>> print(width)
+    10.5
+    >>> print(pad_skip)
+    4.0
+    """
+    char_list = model_path + "charlist.txt"
     with open(char_list, 'r') as f:
         char_list = f.read()
 
@@ -110,31 +119,96 @@ def main():
         print("step_width: ", step_width)
         pad_steps_skip = np.floor(50 / step_width)
         print("pad_steps_skip: ", pad_steps_skip)
-
         for time_step in text_line:
             timestep_char_list_indices.append(tf.get_static_value(tf.math.argmax(time_step)))
             timestep_char_list_indices_top_5.append(tf.get_static_value(tf.math.top_k(time_step, k=top_k, sorted=True)))
+    return char_list, timestep_char_list_indices, timestep_char_list_indices_top_5, step_width, pad_steps_skip
 
-    def remove_tags(text):
-        text = text.replace('␃', '')  # public static String STRIKETHROUGHCHAR = "␃"; //Unicode Character “␃” (U+2403)
-        text = text.replace('␅', '')  # public static String UNDERLINECHAR = "␅"; //Unicode Character “␅” (U+2405)
-        text = text.replace('␄', '')  # public static String SUBSCRIPTCHAR = "␄"; // Unicode Character “␄” (U+2404)
-        text = text.replace('␆', '')  # public static String SUPERSCRIPTCHAR = "␆"; // Unicode Character “␆” (U+2406)
-        return text
+def write_ctc_table_to_csv(preds, char_list, index_correction):
+    """
+    Write CTC (Connectionist Temporal Classification) table data to a CSV file.
 
-    original_image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-    original_image_padded = cv2.resize(original_image, (tf.get_static_value(image_width + 50), 64))
+    Parameters
+    ----------
+    preds : numpy.ndarray
+        3D array representing the predictions from the CTC model.
+    char_list : str
+        String containing the characters used in the predictions.
+    index_correction : int
+        Correction factor for indexing characters in the output.
 
-    # Dynamically calculate the right pad width required to keep all text readable (465px width at least)
-    additional_right_pad_width = 465 - original_image_padded.shape[1] if original_image_padded.shape[1] < 465 else 50
-    bordered_img = cv2.copyMakeBorder(original_image_padded,
-                                      top=50,
-                                      bottom=200,
-                                      left=0,
-                                      right=additional_right_pad_width,
-                                      borderType=cv2.BORDER_CONSTANT,
-                                      value=background_color)
+    Notes
+    -----
+    This function takes CTC predictions in the form of a 3D array, extracts the data,
+    and writes it to a CSV file. It creates columns for each timestep and includes character labels.
 
+    Examples
+    --------
+    >>> preds = np.array([[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [0.2, 0.1, 0.3]]])
+    >>> char_list = "ABC"
+    >>> index_correction = 1
+    >>> write_ctc_table_to_csv(preds, char_list, index_correction)
+    # Creates a CSV file with characters and corresponding predictions for each timestep.
+    """
+    # Iterate through each index and tensor in preds
+    tensor_data = []
+    for tensor in preds:
+        # Iterate through each time step in the tensor
+        for time_step in tensor:
+            # Add the time step to the row
+            tensor_data.append(time_step.tolist())
+
+    # Create columns
+    columns = ["ts_" + str(i) for i in range(preds.shape[1])]
+    additional_chars = ['MASK', 'BLANK'] if '' in char_list else ["BLANK"]
+    characters = [char for char in char_list] + additional_chars
+    transposed_data = np.transpose(tensor_data)
+
+    # Prepare for saving image and csv
+    # output_dir = args.output
+
+    if not os.path.isdir(Path(__file__).with_name("visualize_plots")):
+        os.makedirs(Path(__file__).with_name("visualize_plots"))
+
+    # Write results to a CSV file
+    with open(str(Path(__file__).with_name("visualize_plots")) + "/sample_image_preds.csv", 'w', newline="") as csvfile:
+        writer = csv.writer(csvfile)
+
+        # Write the header
+        writer.writerow(['Chars'] + columns)
+
+        # Write the rows with index and data:
+        for i, row in enumerate(transposed_data):
+            if i + index_correction > -1:  # Don't print characters[-1] if index_correction is -1
+                writer.writerow([characters[i + index_correction]] + list(map(str, row)))
+
+
+def create_timestep_plots(bordered_img, index_correction, font_color):
+    """
+    Create plots with time-step predictions for the provided image.
+
+    Parameters
+    ----------
+    bordered_img : numpy.ndarray
+        The image on which the time-step predictions will be plotted.
+    index_correction : int
+        Correction factor for indexing characters in the output.
+    font_color : tuple
+        Tuple representing the color of the font.
+
+    Notes
+    -----
+    This function adds time-step predictions, including the top-1 prediction and top-2 to top-5 most probable
+    characters, to the provided image. It also includes additional information such as the final result.
+
+    Examples
+    --------
+    >>> bordered_img = np.zeros((500, 500, 3), dtype=np.uint8)
+    >>> index_correction = 1
+    >>> font_color = (255, 255, 255)
+    >>> create_timestep_plots(bordered_img, index_correction, font_color)
+    # Updates the provided image with time-step predictions.
+    """
     cv2.putText(bordered_img, "Time-step predictions (Top-1 prediction):",
                 org=(0, 15),
                 color=font_color,
@@ -143,14 +217,8 @@ def main():
                 thickness=1)
 
     timestep_char_labels_cleaned = []
+
     line_start = 25 - step_width
-
-    # if blank token in char_list -> take normal else i-1
-    if '' in char_list:
-        index_correction = 0
-    else:
-        index_correction = -1
-
     # Retrieve the top 5 predictions for each timestep and write them down underneath each other
     for index, char_index in enumerate(timestep_char_list_indices):
         line_start += step_width
@@ -159,7 +227,6 @@ def main():
         if char_index < len(char_list) + 1:  # char_list + 1 is blank token, which is final character
             timestep_char_labels_cleaned.append(remove_tags(char_list[char_index + index_correction]))
             if index < pad_steps_skip:
-                # print("index:", index, remove_tags(char_list[char_index + index_correction]))
                 continue
                 # Do not draw predictions that are spaces or "invisible characters" for better readability
             if re.sub('\W+', ' ', remove_tags(char_list[char_index])).strip() in [" ", ""]:
@@ -194,7 +261,8 @@ def main():
 
     # Add the top-5 for the specific timestep
     row_num = 2
-    max_row_y = 170 + ((top_k - 1) * 50)
+    # 3 stands for the top-k most probable characters defined in the
+    max_row_y = 170 + ((3 - 1) * 50)
     for row_height in range(170, max_row_y, 50):
         # Draw the top-5 text
         cv2.putText(bordered_img, "Top-" + str(row_num),
@@ -229,42 +297,66 @@ def main():
                 thickness=1)
     print("".join(timestep_char_labels_cleaned))
 
-    # Prepare for saving image and csv
-    output_dir = args.output
+if __name__ == "__main__":
+    # Load args
+    args = get_args()
 
-    if not os.path.isdir(output_dir):
-        os.makedirs(output_dir)
+    # Load in pre-trained model and get model channels
+    model, model_channels, MODEL_PATH = init_pre_trained_model()
 
-    # Iterate through each index and tensor in preds
-    tensor_data = []
-    for index, tensor in enumerate(preds):
-        # Iterate through each time step in the tensor
-        for ts_index, time_step in enumerate(tensor):
-            # Add the time step to the row
-            tensor_data.append(time_step.tolist())
+    # Make sure image is provided with call
+    if args.sample_image:
+        if not os.path.exists(args.sample_image):
+            raise FileNotFoundError("Please provide a valid path to a sample image, you provided: "
+                                    + args.sample_image)
+        img_path = args.sample_image
+    else:
+        raise ValueError("Please provide a path to a sample image")
 
+    # Prepare image based on model channels
+    img, image_width, image_height = prep_image_for_model(img_path, model_channels)
+    preds = model.predict(img)
 
-    # Create columns
-    columns = ["ts_" + str(i) for i in range(preds.shape[1])]
-    characters = [char for char in char_list] + ['MASK', 'BLANK']
+    # Read char_list and calculate character indices for sample image preds
+    (char_list, timestep_char_list_indices, timestep_char_list_indices_top_5,
+     step_width, pad_steps_skip) = get_timestep_indices(MODEL_PATH)
 
-    transposed_data = np.transpose(tensor_data)
+    # Take the "raw" sample image and plot the pred results on top
+    original_image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+    original_image_padded = cv2.resize(original_image, (tf.get_static_value(image_width + 50), 64))
 
-    # Write results to a CSV file
-    with open(output_dir + "/sample_image_preds.csv", 'w', newline="") as csvfile:
-        writer = csv.writer(csvfile)
+    # Set index_correction in case masking was used
+    # if blank token in char_list -> take normal else i-1
+    if '' in char_list:
+        index_correction = 0
+    else:
+        index_correction = -1
 
-        # Write the header
-        writer.writerow(['Chars'] + columns)
+    # Set color_scheme
+    if args.light_mode:
+        background_color, font_color = [255, 255, 255], (0, 0, 0)  # Light mode
+    else:
+        background_color, font_color = [0, 0, 0], (255, 255, 255)  # Dark mode
 
-        # Write the rows with index and data:
-        for i, row in enumerate(transposed_data):
-            writer.writerow([characters[i]] + list(map(str, row)))
+    # Dynamically calculate the right pad width required to keep all text readable (465px width at least)
+    additional_right_pad_width = 465 - original_image_padded.shape[1] if original_image_padded.shape[1] < 465 else 50
+    bordered_img = cv2.copyMakeBorder(original_image_padded,
+                                      top=50,
+                                      bottom=200,
+                                      left=0,
+                                      right=additional_right_pad_width,
+                                      borderType=cv2.BORDER_CONSTANT,
+                                      value=background_color)
+
+    # Create time_step plots
+    create_timestep_plots(bordered_img, index_correction, font_color)
+
+    # Take character preds for sample image and create csv file
+    write_ctc_table_to_csv(preds, char_list, index_correction)
 
     # Save the timestep plot
-    cv2.imwrite(output_dir + "/timestep_prediction_plot" + ("_light" if args.light_mode else "_dark") + ".jpg",
+    cv2.imwrite(str(Path(__file__).with_name("visualize_plots"))
+                + "/timestep_prediction_plot"
+                + ("_light" if args.light_mode else "_dark")
+                + ".jpg",
                 bordered_img)
-
-
-if __name__ == "__main__":
-    main()

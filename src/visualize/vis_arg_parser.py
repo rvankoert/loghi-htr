@@ -3,6 +3,7 @@
 # > Standard Library
 import argparse
 
+
 # > Local dependencies
 
 # > Third party libraries
@@ -27,7 +28,7 @@ def get_arg_parser():
                         help='channels to be used')
     parser.add_argument('--width', metavar='width', type=int, default=751,
                         help='width to be used')
-    parser.add_argument('--output', metavar='output', type=str, default='visualize_plots',
+    parser.add_argument('--output', metavar='output', type=str, default='visualize/visualize_plots',
                         help='base output to be used')
     parser.add_argument('--percent_validation', metavar='percent_validation', type=float, default=0.15,
                         help='percent_validation to be used')
@@ -35,7 +36,7 @@ def get_arg_parser():
                         help='learning_rate to be used')
     parser.add_argument('--epochs', metavar='epochs', type=int, default=40,
                         help='epochs to be used')
-    parser.add_argument('--dataloader_img_shape', metavar='dataloader_img_shape', type=tuple, default=(128,128,4),
+    parser.add_argument('--dataloader_img_shape', metavar='dataloader_img_shape', type=tuple, default=(128, 128, 4),
                         help='height, width and channels to be used for dataloader')
     parser.add_argument('--dataset', metavar='dataset ', type=str, default='ecodices',
                         help='dataset. ecodices or iisg')
@@ -45,7 +46,7 @@ def get_arg_parser():
                         help='single png to for saliency plots')
     parser.add_argument('--light_mode', action='store_true', default=False,
                         help='for setting the output image background + font color')
-    parser.add_argument('--do_binarize_otsu', action='store_true', default = False,
+    parser.add_argument('--do_binarize_otsu', action='store_true', default=False,
                         help='prefix to use for testing')
     parser.add_argument('--do_binarize_sauvola', action='store_true',
                         help='do_binarize_sauvola')
@@ -53,11 +54,11 @@ def get_arg_parser():
                         help='existing_model')
     parser.add_argument('--replace_header', metavar='replace_header ', type=str, default='',
                         help='replace_header')
-    parser.add_argument('--do_detailed', action='store_true', default=False, help="param for making more "
-                                                                                               "detailed "
-                                                                                               "visualizations (at "
-                                                                                               "the cost of performace")
+    parser.add_argument("--do_detailed", action='store_true', default=False, help="param for making more detailed "
+                                                                                  "visualizations (at the cost of "
+                                                                                  "performace")
     return parser
+
 
 def get_args():
     parser = get_arg_parser()
