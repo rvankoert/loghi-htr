@@ -8,7 +8,7 @@ import subprocess
 import uuid
 
 # > Local dependencies
-from model_management import summarize_model
+from utils.print import summarize_model
 
 
 def get_git_hash():
@@ -29,12 +29,13 @@ def get_git_hash():
 
 
 def get_config(args, model):
+    args.channels = model.layers[0].input_shape[0][-1]
     return {
         'git_hash': get_git_hash(),
         'args': vars(args),
         'model': summarize_model(model),
         'notes': ' ',
-        'uuid': str(uuid.uuid4())
+        'uuid': str(uuid.uuid4()),
     }
 
 

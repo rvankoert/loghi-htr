@@ -7,8 +7,8 @@ import os
 import matplotlib.pyplot as plt
 
 # > Local dependencies
-from config_metadata import get_config
-from model import train_batch
+from setup.config_metadata import get_config
+from model.model import train_batch
 
 
 def train_model(model, args, training_dataset, validation_dataset, loader):

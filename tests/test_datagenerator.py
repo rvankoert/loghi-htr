@@ -39,10 +39,10 @@ class TestDataGenerator(unittest.TestCase):
         # Add the src directory to the path
         sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
-        from data_generator import DataGenerator
+        from data.generator import DataGenerator
         cls.DataGenerator = DataGenerator
 
-        from utils import Utils
+        from utils.utils import Utils
         cls.utils = Utils
 
     def test_initialization(self):

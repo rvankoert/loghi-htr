@@ -5,7 +5,7 @@ import logging
 import os
 
 # > Local dependencies
-from data_loader import DataLoader
+from data.loader import DataLoader
 
 
 def initialize_data_loader(args, char_list, model):

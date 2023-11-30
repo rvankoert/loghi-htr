@@ -4,9 +4,8 @@
 import logging
 
 # > Local dependencies
-from utils import Utils
-from model_management import get_prediction_model
-from utils import decode_batch_predictions, normalize_confidence
+from utils.utils import Utils, decode_batch_predictions, normalize_confidence
+from model.management import get_prediction_model
 
 
 def perform_inference(args, model, inference_dataset, char_list, loader):

@@ -7,9 +7,9 @@ import logging
 import tensorflow as tf
 
 # > Local dependencies
-from utils import load_model_from_directory
-from model import replace_final_layer, replace_recurrent_layer
-from vgsl_model_generator import VGSLModelGenerator
+from utils.utils import load_model_from_directory
+from model.model import replace_final_layer, replace_recurrent_layer
+from model.vgsl_model_generator import VGSLModelGenerator
 
 
 def adjust_model_for_float32(model):
@@ -113,12 +113,6 @@ def verify_charlist_length(charlist, model, use_mask):
             f"Charlist length ({len(charlist)}) does not match "
             f"model output length ({expected_length}). If the charlist "
             "is correct, try setting use_mask to True.")
-
-
-def summarize_model(model):
-    model_layers = []
-    model.summary(print_fn=lambda x: model_layers.append(x))
-    return model_layers
 
 
 def get_prediction_model(model):

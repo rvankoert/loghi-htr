@@ -30,8 +30,6 @@ def get_arg_parser():
                               help='optimizer.')
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help='random seed to be used')
-    general_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
-                              help='max_queue_size')
     general_args.add_argument('--charlist', metavar='charlist ', type=str, default=None,
                               help='Charlist to use')
     general_args.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
@@ -84,6 +82,8 @@ def get_arg_parser():
     training_args.add_argument('--training_verbosity_mode', choices=['auto', '0', '1', '2'], default='auto',
                                help="0 = silent, 1 = progress bar, 2 = one line per epoch. 'auto' becomes 1 for most cases. "
                                     "default value is 'auto'")
+    training_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
+                               help='max_queue_size')
 
     # Inference args
     inference_args = parser.add_argument_group('General inference arguments')

@@ -6,20 +6,24 @@ import time
 import logging
 
 # > Local dependencies
-from arg_parser import get_args
-from config_metadata import store_info
-from custom_layers import ResidualBlock
-from data_handling import load_initial_charlist, initialize_data_loader, \
+# Data handling
+from data.data_handling import load_initial_charlist, initialize_data_loader, \
     save_charlist
-from env_setup import setup_environment, setup_logging
-from inference import perform_inference
-from model import CERMetric, WERMetric, CTCLoss
-from model_management import load_or_create_model, customize_model, \
+
+# Model-specific
+from model.custom_layers import ResidualBlock
+from modes.inference import perform_inference
+from model.model import CERMetric, WERMetric, CTCLoss
+from model.management import load_or_create_model, customize_model, \
     verify_charlist_length
-from optimization import create_learning_rate_schedule, get_optimizer
-from training import train_model, plot_training_history
-from validation import perform_validation
-from vgsl_model_generator import VGSLModelGenerator
+from model.optimization import create_learning_rate_schedule, get_optimizer
+from modes.training import train_model, plot_training_history
+from modes.validation import perform_validation
+
+# Setup and configuration
+from setup.arg_parser import get_args
+from setup.config_metadata import store_info
+from setup.environment import setup_environment, setup_logging
 
 
 def main():

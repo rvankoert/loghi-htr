@@ -8,12 +8,13 @@ import logging
 import tensorflow as tf
 
 # > Local dependencies
-from model_management import get_prediction_model
-from utils import decode_batch_predictions, Utils, normalize_confidence
-from utility_functions import calculate_confidence_intervals, \
-    calculate_edit_distances, display_statistics, preprocess_text, \
-    process_cer_type, process_prediction_type, print_predictions
-from wbs_utils import setup_word_beam_search, handle_wbs_results
+from model.management import get_prediction_model
+from utils.calculate import calculate_confidence_intervals, \
+    calculate_edit_distances, process_cer_type, process_prediction_type
+from utils.print import print_predictions, display_statistics
+from utils.text import preprocess_text
+from utils.utils import Utils, decode_batch_predictions, normalize_confidence
+from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
 def process_batch(batch, prediction_model, utils_object,

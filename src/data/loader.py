@@ -5,8 +5,8 @@ from __future__ import division
 from __future__ import print_function
 
 # > Local dependencies
-from data_generator import DataGenerator
-from utils import Utils
+from data.generator import DataGenerator
+from utils.utils import Utils
 
 # > Third party dependencies
 import tensorflow as tf

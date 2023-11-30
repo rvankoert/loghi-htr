@@ -5,8 +5,8 @@ import logging
 import os
 
 # > Local dependencies
-from loghi_custom_callback import LoghiCustomCallback
-from vgsl_model_generator import VGSLModelGenerator
+from model.custom_callback import LoghiCustomCallback
+from model.vgsl_model_generator import VGSLModelGenerator
 
 # > Third party dependencies
 import keras.backend as K

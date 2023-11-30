@@ -8,7 +8,7 @@ import os
 from word_beam_search import WordBeamSearch
 
 # > Local imports
-from utility_functions import preprocess_text
+from utils.text import preprocess_text
 
 
 def setup_word_beam_search(args, charlist, loader):

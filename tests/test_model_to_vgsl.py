@@ -56,10 +56,10 @@ class TestModelToVGSL(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        from vgsl_model_generator import VGSLModelGenerator
+        from model.vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
 
-        from custom_layers import ResidualBlock
+        from model.custom_layers import ResidualBlock
         cls.ResidualBlock = ResidualBlock
 
     def test_input_layer_to_vgsl(self):

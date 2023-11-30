@@ -28,7 +28,7 @@ class ResidualBlock(tf.keras.layers.Layer):
         Initializer for the kernel weights of the convolutional layers.
     downsample : bool, default=False
         Whether to downsample the input feature maps using strides.
-    activation : str, default='elu'
+    activation : str, default='relu'
         Activation function to use after the convolutional layers.
     regularizer : tf.keras.regularizers.Regularizer, optional
         Regularizer function applied to the kernel weights of the
@@ -65,7 +65,7 @@ class ResidualBlock(tf.keras.layers.Layer):
                  kernel_size,
                  initializer=tf.initializers.GlorotNormal(),
                  downsample=False,
-                 activation='elu',
+                 activation='relu',
                  regularizer=None,
                  **kwargs):
 
