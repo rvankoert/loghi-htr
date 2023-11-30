@@ -1,13 +1,37 @@
 # Imports
 
 # > Standard library
+import argparse
 import logging
 
 # > Third-party dependencies
 import tensorflow as tf
 
 
-def setup_environment(args):
+def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
+    """
+    Sets up the environment for running the TensorFlow model, including GPU
+    configuration and distribution strategy.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The namespace containing runtime arguments related to environment
+        setup, like GPU selection and precision settings.
+
+    Returns
+    -------
+    tf.distribute.Strategy
+        The TensorFlow distribution strategy based on the provided arguments.
+
+    Notes
+    -----
+    This function configures the visible GPU devices based on the 'gpu'
+    argument and initializes a TensorFlow distribution strategy. It also logs
+    the GPU devices being used and the precision policy (float32 or
+    mixed_float16) based on the 'use_float32' and 'gpu' arguments.
+    """
+
     # Initial setup
     logging.info(f"Running with args: {vars(args)}")
 
@@ -33,7 +57,18 @@ def setup_environment(args):
     return strategy
 
 
-def setup_logging():
+def setup_logging() -> None:
+    """
+    Sets up logging configuration for the application.
+
+    Notes
+    -----
+    This function initializes the Python logging module with a specific format
+    and date format. It also removes the default TensorFlow logger handlers to
+    prevent duplicate logging and ensures that only the custom configuration is
+    used.
+    """
+
     # Set up logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -47,7 +82,33 @@ def setup_logging():
         tf_logger.handlers.pop()
 
 
-def initialize_strategy(use_float32, gpu):
+def initialize_strategy(use_float32: bool,
+                        gpu: str) -> tf.distribute.Strategy:
+    """
+    Initializes the TensorFlow distribution strategy and sets the mixed
+    precision policy.
+
+    Parameters
+    ----------
+    use_float32 : bool
+        Flag indicating whether to use float32 precision.
+    gpu : str
+        A string indicating the GPU configuration. A value of "-1" indicates
+        CPU-only mode.
+
+    Returns
+    -------
+    tf.distribute.Strategy
+        The initialized TensorFlow distribution strategy.
+
+    Notes
+    -----
+    This function sets up the MirroredStrategy for distributed training and
+    configures the mixed precision policy based on the 'use_float32' and 'gpu'
+    arguments. It uses 'mixed_float16' precision when GPUs are used and
+    'use_float32' is False, otherwise, it defaults to 'float32' precision.
+    """
+
     # Set the strategy for distributed training
     strategy = tf.distribute.MirroredStrategy()
 

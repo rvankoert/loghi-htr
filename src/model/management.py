@@ -1,7 +1,9 @@
 # Imports
 
 # > Standard library
+import argparse
 import logging
+from typing import Any, List, Dict
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -12,7 +14,21 @@ from model.model import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 
 
-def adjust_model_for_float32(model):
+def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
+    """
+    Adjusts a given Keras model to use float32 data type for all layers.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        The model to be adjusted for float32.
+
+    Returns
+    -------
+    tf.keras.Model
+        A new model with all layers set to use float32 data type.
+    """
+
     # Recreate the exact same model but with float32
     config = model.get_config()
 
@@ -39,7 +55,27 @@ def adjust_model_for_float32(model):
     return model
 
 
-def customize_model(model, args, charlist):
+def customize_model(model: tf.keras.Model, args: argparse.Namespace,
+                    charlist: List[str]) -> tf.keras.Model:
+    """
+    Customizes a Keras model based on various arguments including layer
+    replacement and freezing options.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        The model to be customized.
+    args : argparse.Namespace
+        A set of arguments controlling how the model should be customized.
+    charlist : List[str]
+        A list of characters used for model customization.
+
+    Returns
+    -------
+    tf.keras.Model
+        The customized model.
+    """
+
     # Replace certain layers if specified
     if args.replace_recurrent_layer:
         logging.info("Replacing recurrent layer with "
@@ -86,7 +122,25 @@ def customize_model(model, args, charlist):
     return model
 
 
-def load_or_create_model(args, custom_objects):
+def load_or_create_model(args: argparse.Namespace,
+                         custom_objects: Dict[str, Any]) -> tf.keras.Model:
+    """
+    Loads an existing Keras model or creates a new one based on provided
+    arguments.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Arguments to determine whether to load or create a model.
+    custom_objects : Dict[str, Any]
+        Custom objects required for model loading.
+
+    Returns
+    -------
+    tf.keras.Model
+        The loaded or newly created Keras model.
+    """
+
     if args.existing_model:
         model = load_model_from_directory(
             args.existing_model, custom_objects=custom_objects)
@@ -102,7 +156,28 @@ def load_or_create_model(args, custom_objects):
     return model
 
 
-def verify_charlist_length(charlist, model, use_mask):
+def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
+                           use_mask: bool) -> None:
+    """
+    Verifies if the length of the character list matches the expected output
+    length of the model.
+
+    Parameters
+    ----------
+    charlist : List[str]
+        List of characters to be verified.
+    model : tf.keras.Model
+        The model whose output length is to be checked.
+    use_mask : bool
+        Indicates whether a mask is being used or not.
+
+    Raises
+    ------
+    ValueError
+        If the length of the charlist does not match the expected output length
+        of the model.
+    """
+
     # Verify that the length of the charlist is correct
     if use_mask:
         expected_length = model.layers[-1].output_shape[2] - 2
@@ -115,7 +190,28 @@ def verify_charlist_length(charlist, model, use_mask):
             "is correct, try setting use_mask to True.")
 
 
-def get_prediction_model(model):
+def get_prediction_model(model: tf.keras.Model) -> tf.keras.Model:
+    """
+    Extracts a prediction model from a given Keras model.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        The complete Keras model from which the prediction model is to be
+        extracted.
+
+    Returns
+    -------
+    tf.keras.Model
+        The prediction model extracted from the given model, typically up to
+        the last dense layer.
+
+    Raises
+    ------
+    ValueError
+        If no dense layer is found in the given model.
+    """
+
     last_dense_layer = None
     for layer in reversed(model.layers):
         if layer.name.startswith('dense'):

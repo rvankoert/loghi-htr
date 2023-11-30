@@ -1,17 +1,55 @@
 # Imports
 
 # > Standard library
+import argparse
 import logging
 import os
+from typing import List
 
 # > Third-party dependencies
+import tensorflow as tf
 from word_beam_search import WordBeamSearch
 
 # > Local imports
+from data.loader import DataLoader
 from utils.text import preprocess_text
 
 
-def setup_word_beam_search(args, charlist, loader):
+def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
+                           loader: DataLoader) -> WordBeamSearch:
+    """
+    Sets up the Word Beam Search (WBS) algorithm for use in character
+    recognition tasks.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        A namespace containing arguments related to the WBS setup, such as the
+        path to the corpus file, beam width, and smoothing parameters.
+    charlist : List[str]
+        A list of characters used in the model.
+    loader : DataLoader
+        A data loader object capable of normalizing text using a specified
+        normalization file.
+
+    Returns
+    -------
+    WordBeamSearch
+        An initialized WordBeamSearch object ready for use in decoding
+        predictions.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the corpus file specified in the arguments does not exist.
+
+    Notes
+    -----
+    This function initializes a WordBeamSearch object with the given
+    parameters. It loads a corpus file for language modeling and sets up the
+    character sets for the WBS algorithm.
+    """
+
     logging.info("Setting up WordBeamSearch...")
 
     # Check if the corpus file exists
@@ -41,7 +79,39 @@ def setup_word_beam_search(args, charlist, loader):
     return wbs
 
 
-def handle_wbs_results(predsbeam, wbs, args, chars):
+def handle_wbs_results(predsbeam: tf.Tensor, wbs: WordBeamSearch,
+                       args: argparse.Namespace, chars: List[str]) \
+        -> List[str]:
+    """
+    Decodes batch predictions using Word Beam Search (WBS).
+
+    Parameters
+    ----------
+    predsbeam : tf.Tensor
+        The transposed predictions from the model, formatted for WBS
+        processing.
+    wbs : WordBeamSearch
+        The WordBeamSearch object used for decoding.
+    args : argparse.Namespace
+        A namespace containing relevant arguments, potentially used in the
+        decoding process.
+    chars : List[str]
+        A list of characters corresponding to the indices in the model's
+        predictions.
+
+    Returns
+    -------
+    List[str]
+        A list of decoded strings from the batch predictions using Word Beam
+        Search.
+
+    Notes
+    -----
+    This function decodes each set of predictions in the batch using WBS and
+    processes them to form readable strings. The function also handles any
+    necessary preprocessing of the decoded text.
+    """
+
     label_str = wbs.compute(predsbeam)
     char_str = []  # decoded texts for batch
     for curr_label_str in label_str:

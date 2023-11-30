@@ -1,14 +1,47 @@
 # Imports
 
 # > Standard library
+import argparse
 import logging
 import os
+from typing import List, Optional
+
+# > Third-party dependencies
+import tensorflow as tf
 
 # > Local dependencies
 from data.loader import DataLoader
 
 
-def initialize_data_loader(args, char_list, model):
+def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
+                           model: tf.keras.Model) -> DataLoader:
+    """
+    Initializes a data loader with specified parameters and based on the input
+    shape of a given model.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        A namespace containing various arguments to configure the data loader
+        (e.g., batch size, image size, lists for training, validation, etc.).
+    char_list : List[str]
+        A list of characters to be used by the data loader.
+    model : tf.keras.Model
+        The Keras model, used to derive input dimensions for the data loader.
+
+    Returns
+    -------
+    DataLoader
+        An instance of DataLoader configured as per the provided arguments and
+        model.
+
+    Notes
+    -----
+    The DataLoader is initialized with parameters like image size, batch size,
+    and various data augmentation options. These parameters are derived from
+    both the `args` namespace and the input shape of the provided `model`.
+    """
+
     model_height = model.layers[0].input_shape[0][2]
     model_channels = model.layers[0].input_shape[0][3]
     img_size = (model_height, args.width, model_channels)
@@ -37,8 +70,44 @@ def initialize_data_loader(args, char_list, model):
     )
 
 
-def load_initial_charlist(charlist_location, existing_model,
-                          output_directory, replace_final_layer):
+def load_initial_charlist(charlist_location: str, existing_model: str,
+                          output_directory: str, replace_final_layer: bool) \
+        -> List[str]:
+    """
+    Loads the initial character list from the specified location or model
+    directory.
+
+    Parameters
+    ----------
+    charlist_location : str
+        The location where the character list is stored.
+    existing_model : str
+        The path to the existing model, which might contain the character list.
+    output_directory : str
+        The directory where output files are stored, which might contain the
+        character list.
+    replace_final_layer : bool
+        A flag indicating whether the final layer of the model is being
+        replaced.
+
+    Returns
+    -------
+    List[str]
+        A list of characters loaded from the character list file.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the character list file is not found and the final layer is not
+        being replaced.
+
+    Notes
+    -----
+    The function first determines the location of the character list file based
+    on the provided paths and the `replace_final_layer` flag. It then loads the
+    character list from the file if it exists.
+    """
+
     # Set the character list location
     if not charlist_location and existing_model:
         charlist_location = existing_model + '/charlist.txt'
@@ -65,7 +134,28 @@ def load_initial_charlist(charlist_location, existing_model,
     return char_list
 
 
-def save_charlist(charlist, output, output_charlist_location=None):
+def save_charlist(charlist: List[str], output: str,
+                  output_charlist_location: Optional[str] = None) -> None:
+    """
+    Saves the given character list to a specified location.
+
+    Parameters
+    ----------
+    charlist : List[str]
+        The character list to be saved.
+    output : str
+        The base output directory where the character list file is to be saved.
+    output_charlist_location : Optional[str]
+        The specific location where the character list file is to be saved. If
+        not provided, it defaults to a location within the output directory.
+
+    Notes
+    -----
+    This function saves the provided character list to a file, either at a
+    specified location or by default in the output directory under the filename
+    'charlist.txt'.
+    """
+
     # Save the new charlist
     if not output_charlist_location:
         output_charlist_location = output + '/charlist.txt'

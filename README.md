@@ -77,7 +77,7 @@ The command-line options include, but are not limited to:
 
 - `--do_train`: Enable the training stage. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
 - `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
+- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `inference_list`.
 - `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.

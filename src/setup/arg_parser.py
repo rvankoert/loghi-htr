@@ -16,7 +16,7 @@ def get_arg_parser():
 
     # General args
     general_args = parser.add_argument_group('General arguments')
-    general_args.add_argument('--gpu', metavar='gpu', type=str, default=-1,
+    general_args.add_argument('--gpu', metavar='gpu', type=str, default="-1",
                               help='gpu to be used, use -1 for CPU')
     general_args.add_argument('--output', metavar='output', type=str, default='output',
                               help='base output to be used')

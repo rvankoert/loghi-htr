@@ -1,13 +1,17 @@
 # Imports
 
 # > Standard library
+import argparse
 from collections import defaultdict
 import logging
+from typing import Any, Dict, List, Optional, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
 
 # > Local dependencies
+from data.generator import DataGenerator
+from data.loader import DataLoader
 from model.management import get_prediction_model
 from utils.calculate import calculate_confidence_intervals, \
     calculate_edit_distances, process_cer_type, process_prediction_type
@@ -17,8 +21,47 @@ from utils.utils import Utils, decode_batch_predictions, normalize_confidence
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
-def process_batch(batch, prediction_model, utils_object,
-                  args, wbs, loader, batch_no, chars):
+def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
+                  prediction_model: tf.keras.Model,
+                  utils_object: Utils,
+                  args: argparse.Namespace,
+                  wbs: Optional[Any],
+                  loader: DataLoader,
+                  batch_no: int,
+                  chars: List[str]) -> Dict[str, int]:
+    """
+    Processes a batch of data by predicting, calculating Character Error Rate
+    (CER), and handling Word Beam Search (WBS) if enabled.
+
+    Parameters
+    ----------
+    batch : Tuple[tf.Tensor, tf.Tensor]
+        A tuple containing the input data (X) and true labels (y_true) for the
+        batch.
+    prediction_model : tf.keras.Model
+        The prediction model derived from the main model for inference.
+    utils_object : Utils
+        An object containing utility functions for character processing.
+    args : argparse.Namespace
+        A namespace containing arguments for processing the batch, like batch
+        size and settings for WBS.
+    wbs : Optional[Any]
+        An optional Word Beam Search object for advanced decoding, if
+        applicable.
+    loader : DataLoader
+        A data loader object for additional operations like normalization.
+    batch_no : int
+        The number of the current batch being processed.
+    chars : List[str]
+        A list of characters used in the model.
+
+    Returns
+    -------
+    Dict[str, int]
+        A dictionary containing various counts and statistics computed during
+        the batch processing, such as CER.
+    """
+
     X, y_true = batch
 
     # Get the predictions
@@ -97,7 +140,38 @@ def process_batch(batch, prediction_model, utils_object,
     return batch_info
 
 
-def perform_validation(args, model, validation_dataset, char_list, dataloader):
+def perform_validation(args: argparse.Namespace,
+                       model: tf.keras.Model,
+                       validation_dataset: DataGenerator,
+                       char_list: List[str],
+                       dataloader: DataLoader) -> None:
+    """
+    Performs validation on a dataset using a given model and calculates various
+    metrics like Character Error Rate (CER).
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        A namespace containing arguments for the validation process such as
+        mask usage and file paths.
+    model : tf.keras.Model
+        The Keras model to be validated.
+    validation_dataset : DataGenerator
+        The dataset to be used for validation.
+    char_list : List[str]
+        A list of characters used in the model.
+    dataloader : DataLoader
+        A data loader object for additional operations like normalization and
+        Word Beam Search setup.
+
+    Notes
+    -----
+    The function processes each batch in the validation dataset, calculates
+    CER, and optionally processes Word Beam Search (WBS) results if enabled.
+    It also handles the display and logging of statistical information
+    throughout the validation process.
+    """
+
     logging.info("Performing validation...")
 
     utils_object = Utils(char_list, args.use_mask)
