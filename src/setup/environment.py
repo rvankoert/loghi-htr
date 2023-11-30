@@ -3,9 +3,38 @@
 # > Standard library
 import argparse
 import logging
+import os
+import random
 
 # > Third-party dependencies
+import numpy as np
 import tensorflow as tf
+
+
+def set_deterministic(seed: int) -> None:
+    """
+    Sets the environment and random seeds to ensure deterministic behavior in
+    TensorFlow operations.
+
+    Parameters
+    ----------
+    seed : int
+        The seed value to be used for setting deterministic operations across
+        various libraries.
+
+    Notes
+    -----
+    This function configures the environment to enforce deterministic behavior
+    in TensorFlow by setting the 'TF_DETERMINISTIC_OPS' environment variable.
+    It also initializes the seeds for Python's `random`, NumPy's `np.random`,
+    and TensorFlow's `tf.random` with the specified seed value. This setup
+    is useful for ensuring reproducibility in experiments.
+    """
+
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
 
 
 def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
@@ -34,6 +63,10 @@ def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
 
     # Initial setup
     logging.info(f"Running with args: {vars(args)}")
+
+    # Set the random seed
+    if args.deterministic:
+        set_deterministic(args.seed)
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
@@ -81,7 +114,7 @@ def setup_logging() -> None:
     while tf_logger.handlers:
         tf_logger.handlers.pop()
     tf_logger.propagate = True
-    tf_logger.setLevel("WARNING")
+    tf_logger.setLevel("ERROR")
 
 
 def initialize_strategy(use_float32: bool,
