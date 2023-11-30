@@ -77,9 +77,11 @@ def setup_logging() -> None:
     )
 
     # Remove the default Tensorflow logger handlers and use our own
-    tf_logger = logging.getLogger('tensorflow')
+    tf_logger = tf.get_logger()
     while tf_logger.handlers:
         tf_logger.handlers.pop()
+    tf_logger.propagate = True
+    tf_logger.setLevel("WARNING")
 
 
 def initialize_strategy(use_float32: bool,
