@@ -370,11 +370,12 @@ Potential future implementations:
 
 **Note**:  If a model has multiple `Cr3,3,64` layers then only the first instance of this configuration is visualized)
 
-
 ### 3. (Optional parameters)
 ```bash
 --do_detailed # Visualize all convolutional layers, not just the first instance of a conv layer
 --light_mode  # Plots and overviews are shown in light mode (instead of dark mode)
+--num_filters_per_row # Changes the number of filters per row in the filter activation plots (default =6)
+# NOTE: increasing the num_filters_per_row requires significant computing resources, you might experience an OOM.
 ```
 
 ---

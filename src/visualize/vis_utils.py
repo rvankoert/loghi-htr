@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import sys
 
+from typing import Tuple
+
 # > Local dependencies
 from vis_arg_parser import get_args
 
@@ -18,7 +20,7 @@ import tensorflow as tf
 import numpy as np
 
 
-def prep_image_for_model(img_path, model_channels):
+def prep_image_for_model(img_path: str, model_channels: int) -> Tuple[np.ndarray, tf.Tensor, tf.Tensor]:
     """
     Prepare an image for input to a model.
 
@@ -57,9 +59,8 @@ def prep_image_for_model(img_path, model_channels):
     original_image = tf.io.read_file(img_path)
     original_image = tf.image.decode_image(original_image, channels=model_channels)
     original_image = tf.image.resize(original_image,
-                                     [target_height,
-                                      tf.cast(target_height * tf.shape(original_image)[1]
-                                              / tf.shape(original_image)[0], tf.int32)],
+                                     [target_height, tf.cast(target_height * tf.shape(original_image)[1]
+                                                             / tf.shape(original_image)[0], tf.int32)],
                                      preserve_aspect_ratio=True)
 
     image_width = tf.shape(original_image)[1]
@@ -72,6 +73,7 @@ def prep_image_for_model(img_path, model_channels):
     img = tf.transpose(img, perm=[1, 0, 2])
     img = np.expand_dims(img, axis=0)
     return img, image_width, image_height
+
 
 def init_pre_trained_model():
     """
@@ -109,12 +111,12 @@ def init_pre_trained_model():
     else:
         raise ValueError("Please provide a path to an existing model")
 
-    SEED = args.seed
-    GPU = args.gpu
+    seed = args.seed
+    gpu = args.gpu
     # Set seed for plots to check changes in preprocessing
-    np.random.seed(SEED)
-    tf.random.set_seed(SEED)
-    if GPU >= 0:
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    if gpu >= 0:
         gpus = tf.config.experimental.list_physical_devices('GPU')
 
     model = tf.keras.models.load_model(MODEL_PATH, custom_objects={"CERMetric": CERMetric,
@@ -125,4 +127,3 @@ def init_pre_trained_model():
     model.summary()
 
     return model, model_channels, MODEL_PATH
-
