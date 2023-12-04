@@ -149,7 +149,8 @@ def load_or_create_model(args: argparse.Namespace,
     else:
         model_generator = VGSLModelGenerator(
             model=args.model,
-            name=args.model_name
+            name=args.model_name,
+            channels=args.channels
         )
         model = model_generator.build()
 

@@ -147,7 +147,6 @@ def get_arg_parser():
 
     # Miscellaneous
     misc_args = parser.add_argument_group('Miscellaneous arguments')
-
     misc_args.add_argument('--do_binarize_otsu', action='store_true',
                            help='beta: do_binarize_otsu')
     misc_args.add_argument('--do_binarize_sauvola', action='store_true',
@@ -179,6 +178,12 @@ def get_arg_parser():
         '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
     depr_args.add_argument('--no_auto', action='store_true',
                            help='No Auto disabled automatic "fixing" of certain parameters')
+    depr_args.add_argument('--height', metavar='height', type=int, default=64,
+                           help='rescale everything to this height before '
+                           'training, default 64')
+    depr_args.add_argument('--channels', metavar='channels', type=int, default=3,
+                           help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
+                           '4 for png\'s with transparency')
 
     return parser
 
@@ -208,6 +213,12 @@ def arg_future_warning(args):
                        "Masking will be enabled by default.")
     if args.no_auto:
         logger.warning("Argument will lose support in March 2024: --no_auto.")
+    if args.height:
+        logger.warning("Argument will lose support in March 2024: --height. "
+                       "Height will be inferred from the VGSL spec.")
+    if args.channels:
+        logger.warning("Argument will lose support in March 2024: --channels. "
+                       "Channels will be inferred from the VGSL spec.")
 
 
 def get_args():
