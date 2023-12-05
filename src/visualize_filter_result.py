@@ -149,7 +149,7 @@ def visualize_filter(filter_index, channels):
 # 1 3 5 6
 for layerId in range(len(submodel.layers)):
     layer = submodel.layers[layerId]
-    if not layer.name.startswith("conv") and not layer.name.startswith("add"):
+    if not layer.name.lower().startswith("conv") and not layer.name.lower().startswith("add"):
         continue
     feature_extractor = keras.Model(
         inputs=submodel.inputs, outputs=layer.output)
@@ -171,7 +171,7 @@ for layerId in range(len(submodel.layers)):
     #     char_list = f.readlines()
 
     maxTextLen = 128
-    loader = DataLoaderNew(args.batch_size, imgSize,
+    loader = DataLoader(args.batch_size, imgSize,
                            train_list=None,
                            validation_list=None,
                            test_list=None,
