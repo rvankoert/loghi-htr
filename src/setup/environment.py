@@ -75,12 +75,19 @@ def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
     # Set the active GPUs depending on the 'gpu' argument
     if args.gpu == "-1":
         active_gpus = []
-        logging.info("Using CPU")
+    elif args.gpu.lower() == "all":
+        active_gpus = gpu_devices
     else:
         gpus = args.gpu.split(',')
-        active_gpus = [gpu if str(i) in gpus else None for i,
-                       gpu in enumerate(gpu_devices)]
+        active_gpus = []
+        for i, gpu in enumerate(gpu_devices):
+            if str(i) in gpus:
+                active_gpus.append(gpu)
+
+    if active_gpus:
         logging.info(f"Using GPU(s): {active_gpus}")
+    else:
+        logging.info("Using CPU")
 
     tf.config.set_visible_devices(active_gpus, 'GPU')
 
