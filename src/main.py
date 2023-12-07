@@ -629,7 +629,8 @@ def get_config(args, model):
         'args': args.__dict__,
         'model': model_layers,
         'notes': ' ',
-        'uuid': str(uuid.uuid4())
+        'uuid': str(uuid.uuid4()),
+        'url-code': 'https://github.com/knaw-huc/loghi'
     }
     return config
 

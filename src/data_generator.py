@@ -88,11 +88,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             return tf.convert_to_tensor(max_value - tensor.numpy())
 
-
-
-
     def blur(self, tensor):
-        return tfa.image.gaussian_filter2d(tensor, sigma=[3.0, 20.0], filter_shape=(10, 10))
+        return tfa.image.gaussian_filter2d(tensor, sigma=[0.0, 20.0], filter_shape=(10, 10))
 
     def load_images(self, image_path):
         image = tf.io.read_file(image_path[0])
@@ -106,6 +103,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = tf.image.random_jpeg_quality(image, 50, 100)
                 channel1, channel2, channel3 = tf.split(image, 3, axis=2)
                 image = tf.concat([channel1, channel2, channel3, alpha], axis=2)
+                del channel1, channel2, channel3, alpha
             else:
                 image = tf.image.random_jpeg_quality(image, 20, 100)
 
@@ -150,6 +148,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 channel1, channel2, channel3 = tf.split(image, 3, axis=2)
                 alpha, alpha, alpha = tf.split(image2, 3, axis=2)
                 image = tf.concat([channel1, channel2, channel3, alpha], axis=2)
+                del channel1, channel2, channel3, alpha, image2
             elif self.channels == 3:
                 image = tfa.image.shear_x(image, random_shear, replace=0)
             else:
