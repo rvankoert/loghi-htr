@@ -417,7 +417,7 @@ def output_predictions(predictions: List[Tuple[float, str]],
         # Output the text to a file
         output_dir = os.path.join(output_path, group_id)
         if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
             logger.debug(f"Created output directory: {output_dir}")
         with open(os.path.join(output_dir, identifier + ".txt"), "w") as f:
             f.write(text + "\n")
@@ -446,6 +446,6 @@ def output_prediction_error(output_path: str,
 
     output_dir = os.path.join(output_path, group_id)
     if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(output_dir, identifier + ".error"), "w") as f:
         f.write(str(text) + "\n")
