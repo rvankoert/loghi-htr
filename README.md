@@ -340,6 +340,34 @@ This guide should help you get started with the API. For advanced configurations
 
 If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
 
+### How Can I Use One of the Loghi HTR Models in My Own Project?
+
+To integrate a Loghi HTR model into your project, follow these steps:
+
+1. **Obtain the Model**: First, you need to get the HTR model file. This could be done by training a model yourself or downloading a pre-trained model [here](https://images.diginfra.net/pim/loghihtrmodels) or [here](https://surfdrive.surf.nl/files/index.php/s/YA8HJuukIUKznSP?path=%2Floghi-htr).
+
+2. **Loading the Model for Inference**: 
+    - Install TensorFlow in your project environment if you haven't already.
+    - Load the model using TensorFlow's `tf.keras.models.load_model` function. Here's a basic code snippet to help you get started:
+
+      ```python
+      import tensorflow as tf
+
+      model_file = 'path_to_your_model.keras'  # Replace with your model file path
+      model = tf.keras.models.load_model(model_file, compile=False)
+      ```
+
+    - Setting `compile=False` is crucial as it indicates the model is being loaded for inference, not training.
+
+3. **Using the Model for Inference**: 
+    - Once the model is loaded, you can use it to make predictions on handwritten text images.
+    - Prepare your input data (images of handwritten text) according to the model's expected input format.
+    - Use the `model.predict()` method to get the recognition results.
+
+4. **Note on Training**: 
+    - The provided model is pre-trained and configured for inference purposes.
+    - If you wish to retrain or fine-tune the model, this must be done within the Loghi framework, as the model structure and training configurations are tailored to their system.
+
 ### How can I determine the VGSL spec of a model I previously used?
 
 If you've used one of our older models and would like to know its VGSL specification, follow these steps:
