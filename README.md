@@ -75,17 +75,15 @@ Example of 'lines.txt' content:
 
 The command-line options include, but are not limited to:
 
-- `--do_train`: Enable the training stage.
+- `--do_train`: Enable the training stage. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
 - `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference.
+- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `inference_list`.
 - `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
 - `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
-- `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
 - `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
 - `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
-- `--height`: Height to scale the textline image. Internal processing requires images of the same height. 64 is recommended for handwriting.
 - `--use_mask`: Enable when using `batch_size` > 1.
 - `--results_file`: The inference results are aggregated in this file.
 - `--config_file_output`: The output location of the config.
@@ -359,7 +357,7 @@ Replace `/path/on/host/to/your/model_directory` with the path to your model dire
 2. Once inside the container, run the VGSL spec generator:
 
 ```bash
-python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
 ```
 
 Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
@@ -369,7 +367,7 @@ Replace `/path/in/container/to/model_directory` with the path you specified in t
 1. Run the VGSL spec generator:
 
 ```bash
-python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
 ```
 
 Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.

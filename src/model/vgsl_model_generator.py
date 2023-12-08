@@ -6,7 +6,7 @@ import re
 import logging
 
 # > Local dependencies
-from custom_layers import CTCLayer, ResidualBlock
+from model.custom_layers import CTCLayer, ResidualBlock
 
 # > Third party dependencies
 import tensorflow as tf
@@ -1311,7 +1311,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    from model import CERMetric, WERMetric, CTCLoss
+    from model.model import CERMetric, WERMetric, CTCLoss
 
     # Load the model
     model = tf.keras.models.load_model(args.model_dir,

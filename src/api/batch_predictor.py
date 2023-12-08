@@ -49,7 +49,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     parent_path = os.path.dirname(current_path)
     sys.path.append(parent_path)
 
-    from utils import decode_batch_predictions, normalize_confidence
+    from utils.utils import decode_batch_predictions, normalize_confidence
 
     logger = logging.getLogger(__name__)
     logger.info("Batch Prediction Worker process started")
@@ -192,9 +192,9 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
     - Logs various messages regarding the model and utility initialization.
     """
 
-    from custom_layers import ResidualBlock
-    from model import CERMetric, WERMetric, CTCLoss
-    from utils import Utils, load_model_from_directory
+    from model.custom_layers import ResidualBlock
+    from model.model import CERMetric, WERMetric, CTCLoss
+    from utils.utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
 

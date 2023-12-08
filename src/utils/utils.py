@@ -3,8 +3,6 @@
 # > Standard Library
 import os
 
-# > Local dependencies
-
 # > Third party libraries
 import tensorflow as tf
 import numpy as np
@@ -16,7 +14,6 @@ from numpy import exp
 
 
 class Utils:
-
     def __init__(self, chars, use_mask):
         self.set_charlist(chars=chars, use_mask=use_mask)
 
@@ -135,26 +132,15 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
 
 def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=0):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
-    # sequence_length = tf.constant(np.array([None], dtype=np.int32))
-    # sequence_lengths = tf.cast(tf.fill(538,maxTextLen ),tf.int32)
-    # sequence_lengths = tf.fill(tf.shape(pred)[1], tf.shape(pred)[0])
 
     # Use greedy search. For complex tasks, you can use beam search
     pred = tf.dtypes.cast(pred, tf.float32)
-    # pred_matrix = tf.transpose(pred[0], perm=[1, 0])
-    # np.savetxt("foo.csv", pred_matrix, delimiter=",")
     top_paths = 1
     output_texts = []
     ctc_decoded = ctc_decode(pred, input_length=input_len,
                              greedy=greedy, beam_width=beam_width, top_paths=top_paths)
     for top_path in range(0, top_paths):
         results = ctc_decoded[0][top_path][:, :]
-        # log_prob = ctc_decoded[1][0][top_path]
-        # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
-        #                   :, :maxTextLen
-        #                   ]
-        #
 
         # Iterate over the results and get back the text
         output_text = []
@@ -166,13 +152,10 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             else:
                 confidence = np.exp(log_prob)
             i = i + 1
-            # print(confidence)
             res = res + num_oov_indices
             chars = utils.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
-            # print( output_text)
-            # exit()
         output_texts.append(output_text)
     return output_texts
 

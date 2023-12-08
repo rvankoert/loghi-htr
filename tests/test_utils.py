@@ -24,7 +24,7 @@ class TestUtils(unittest.TestCase):
         # Add the src directory to the path
         sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
-        from utils import Utils
+        from utils.utils import Utils
         cls.utils = Utils
 
     def test_utils_class(self):
@@ -54,7 +54,7 @@ class TestUtils(unittest.TestCase):
         input_length = np.random.randint(1, 10, size=(32,))
 
         # Call the function with greedy=True
-        from utils import ctc_decode
+        from utils.utils import ctc_decode
         decoded_dense, log_prob = ctc_decode(y_pred, input_length,
                                              greedy=True)
 
@@ -70,7 +70,7 @@ class TestUtils(unittest.TestCase):
         top_paths = 1
 
         # Call the function with greedy=False
-        from utils import ctc_decode
+        from utils.utils import ctc_decode
         decoded_dense, log_prob = ctc_decode(y_pred, input_length,
                                              greedy=False,
                                              beam_width=beam_width,
@@ -90,7 +90,7 @@ class TestUtils(unittest.TestCase):
         y_pred = np.random.random((32, 10, 5))
 
         # Call the function
-        from utils import decode_batch_predictions
+        from utils.utils import decode_batch_predictions
         result = decode_batch_predictions(y_pred, utils)
 
         # Verify that the output is as expected
@@ -106,7 +106,7 @@ class TestUtils(unittest.TestCase):
         y_pred = np.random.random((32, 10, 5))
 
         # Call the function
-        from utils import decode_batch_predictions
+        from utils.utils import decode_batch_predictions
         result = decode_batch_predictions(y_pred, utils, beam_width=100)
 
         # Verify that the output is as expected
