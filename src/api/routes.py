@@ -11,6 +11,8 @@ from app_utils import extract_request_data
 # > Third party dependencies
 import flask
 from flask import Blueprint, jsonify, current_app as app
+from prometheus_client import generate_latest
+
 
 main = Blueprint('main', __name__)
 
@@ -86,3 +88,11 @@ def predict() -> flask.Response:
     response.status_code = 202
 
     return response
+
+
+@main.route("/prometheus", methods=["GET"])
+def prometheus() -> bytes:
+    """
+    Endpoint for getting prometheus statistics
+    """
+    return generate_latest()
