@@ -82,6 +82,7 @@ def get_config(args: argparse.Namespace, model: tf.keras.Model) \
         'model': summarize_model(model),
         'notes': ' ',
         'uuid': str(uuid.uuid4()),
+        'url-code': 'https://github.com/knaw-huc/loghi'
     }
 
 
