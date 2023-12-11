@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import csv
 import re
+from typing import Tuple, List
 
 # > Local dependencies
 from vis_arg_parser import get_args
@@ -24,7 +25,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 
-def remove_tags(text):
+def remove_tags(text: str) -> str:
     """
     Remove special tags from the input text.
 
@@ -60,7 +61,8 @@ def remove_tags(text):
     return text
 
 
-def get_timestep_indices(model_path, preds, image_width):
+def get_timestep_indices(model_path: str, preds: np.ndarray,
+                         image_width: tf.Tensor) -> Tuple[str, List[int], List[List[int]], float, float]:
     """
     Retrieve timestep indices and related information from a model.
 
@@ -122,7 +124,7 @@ def get_timestep_indices(model_path, preds, image_width):
         print("timesteps: ", timesteps)
         step_width = (tf.get_static_value(image_width) + 50) / timesteps
         print("step_width: ", step_width)
-        pad_steps_skip = np.floor(50 / step_width)
+        pad_steps_skip = 50 // step_width
         print("pad_steps_skip: ", pad_steps_skip)
         for time_step in text_line:
             timestep_char_list_indices.append(tf.get_static_value(tf.math.argmax(time_step)))
@@ -130,7 +132,7 @@ def get_timestep_indices(model_path, preds, image_width):
     return char_list, timestep_char_list_indices, timestep_char_list_indices_top_3, step_width, pad_steps_skip
 
 
-def write_ctc_table_to_csv(preds, char_list, index_correction):
+def write_ctc_table_to_csv(preds: np.ndarray, char_list: str, index_correction: int) -> None:
     """
     Write CTC (Connectionist Temporal Classification) table data to a CSV file.
 
@@ -186,8 +188,10 @@ def write_ctc_table_to_csv(preds, char_list, index_correction):
                 writer.writerow([characters[i + index_correction]] + list(map(str, row)))
 
 
-def create_timestep_plots(bordered_img, index_correction, font_color, step_width, pad_steps_skip,
-                          image_height, char_list, timestep_char_list_indices, timestep_char_list_indices_top_3):
+def create_timestep_plots(bordered_img: np.ndarray, index_correction: int, font_color: Tuple[int, int, int],
+                          step_width: int, pad_steps_skip: int, image_height: tf.Tensor, char_list: List[str],
+                          timestep_char_list_indices: List[int],
+                          timestep_char_list_indices_top_3: List[tf.Tensor]) -> None:
     """
     Create plots with time-step predictions for the provided image.
 
@@ -227,7 +231,8 @@ def create_timestep_plots(bordered_img, index_correction, font_color, step_width
     >>> image_height = 300
     >>> char_list = ["a", "b", "c"]
     >>> timestep_char_list_indices = [0, 1, 2]
-    >>> timestep_char_list_indices_top_3 = [tf.constant([[0, 1, 2, 3, 4]]), tf.constant([[1, 2, 0, 3, 4]]), tf.constant([[2, 1, 0, 3, 4]])]
+    >>> timestep_char_list_indices_top_3 = [tf.constant([[0, 1, 2, 3, 4]]), tf.constant([[1, 2, 0, 3, 4]]),
+    >>> tf.constant([[2, 1, 0, 3, 4]])]
     >>> create_timestep_plots(bordered_img, index_correction, font_color, step_width, pad_steps_skip,
     ...                       image_height, char_list, timestep_char_list_indices, timestep_char_list_indices_top_3)
     # Updates the provided image with time-step predictions.

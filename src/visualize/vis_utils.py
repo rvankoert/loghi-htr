@@ -112,13 +112,9 @@ def init_pre_trained_model():
         raise ValueError("Please provide a path to an existing model")
 
     seed = args.seed
-    gpu = args.gpu
     # Set seed for plots to check changes in preprocessing
     np.random.seed(seed)
     tf.random.set_seed(seed)
-    if gpu >= 0:
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-
     model = tf.keras.models.load_model(MODEL_PATH, custom_objects={"CERMetric": CERMetric,
                                                                    "WERMetric": WERMetric,
                                                                    "CTCLoss": CTCLoss,

@@ -18,9 +18,6 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-os.environ['TF_DETERMINISTIC_OPS'] = '0'
-
 
 def visualize_filter(filter_index, channels, feature_extractor, image_width=256):
     """

@@ -190,7 +190,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = self.shear_x(image, random_shear * -1)
                 image = np.expand_dims(image, axis=-1)
             else:
-                raise ValueError("Invalid number of channels. Supported values are 1, 3, or 4.")
+                raise NotImplementedError("Unsupported number of channels. Supported values are 1, 3, or 4.")
 
         label = image_path[1]
         encoded_label = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
