@@ -76,17 +76,15 @@ Example of 'lines.txt' content:
 
 The command-line options include, but are not limited to:
 
-- `--do_train`: Enable the training stage.
+- `--do_train`: Enable the training stage. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
 - `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference.
+- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `inference_list`.
 - `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
 - `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
-- `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
 - `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
 - `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
-- `--height`: Height to scale the textline image. Internal processing requires images of the same height. 64 is recommended for handwriting.
 - `--use_mask`: Enable when using `batch_size` > 1.
 - `--results_file`: The inference results are aggregated in this file.
 - `--config_file_output`: The output location of the config.
@@ -305,8 +303,6 @@ GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 
 ```bash
 LOGHI_MODEL_PATH         # Path to the model.
-LOGHI_CHARLIST_PATH      # Path to the character list.
-LOGHI_MODEL_CHANNELS     # Number of channels in the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
@@ -328,7 +324,14 @@ Once the API is up and running, you can send HTR requests using curl. Here's how
 curl -X POST -F "image=@$input_path" -F "group_id=$group_id" -F "identifier=$filename" http://localhost:5000/predict
 ```
 
-Replace `$input_path`, `$group_id`, and `$filename` with your specific values. The model processes the image, predicts the handwritten text, and saves the predictions in the specified output path (from the `LOGHI_OUTPUT_PATH` environment variable).
+Replace `$input_path`, `$group_id`, and `$filename` with your respective file paths and identifiers. If you're considering switching the recognition model, use the `model` field cautiously:
+
+- The `model` field (`-F "model=$model_path"`) allows for specifying which handwritten text recognition model the API should use for the current request. 
+- To avoid the slowdown associated with loading different models for each request, it is preferable to set a specific model before starting your API by using the `LOGHI_MODEL_PATH` environment variable.
+- Only use the `model` field if you are certain that a different model is needed for a particular task and you understand its performance characteristics.
+
+> [!WARNING]
+> Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
 ---
 
@@ -384,6 +387,34 @@ Potential future implementations:
 
 If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
 
+### How Can I Use One of the Loghi HTR Models in My Own Project?
+
+To integrate a Loghi HTR model into your project, follow these steps:
+
+1. **Obtain the Model**: First, you need to get the HTR model file. This could be done by training a model yourself or downloading a pre-trained model [here](https://images.diginfra.net/pim/loghihtrmodels) or [here](https://surfdrive.surf.nl/files/index.php/s/YA8HJuukIUKznSP?path=%2Floghi-htr).
+
+2. **Loading the Model for Inference**: 
+    - Install TensorFlow in your project environment if you haven't already.
+    - Load the model using TensorFlow's `tf.keras.models.load_model` function. Here's a basic code snippet to help you get started:
+
+      ```python
+      import tensorflow as tf
+
+      model_file = 'path_to_your_model.keras'  # Replace with your model file path
+      model = tf.keras.models.load_model(model_file, compile=False)
+      ```
+
+    - Setting `compile=False` is crucial as it indicates the model is being loaded for inference, not training.
+
+3. **Using the Model for Inference**: 
+    - Once the model is loaded, you can use it to make predictions on handwritten text images.
+    - Prepare your input data (images of handwritten text) according to the model's expected input format.
+    - Use the `model.predict()` method to get the recognition results.
+
+4. **Note on Training**: 
+    - The provided model is pre-trained and configured for inference purposes.
+    - If you wish to retrain or fine-tune the model, this must be done within the Loghi framework, as the model structure and training configurations are tailored to their system.
+
 ### How can I determine the VGSL spec of a model I previously used?
 
 If you've used one of our older models and would like to know its VGSL specification, follow these steps:
@@ -401,7 +432,7 @@ Replace `/path/on/host/to/your/model_directory` with the path to your model dire
 2. Once inside the container, run the VGSL spec generator:
 
 ```bash
-python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
 ```
 
 Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
@@ -411,7 +442,7 @@ Replace `/path/in/container/to/model_directory` with the path you specified in t
 1. Run the VGSL spec generator:
 
 ```bash
-python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
 ```
 
 Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.

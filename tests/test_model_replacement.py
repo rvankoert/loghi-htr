@@ -11,6 +11,9 @@ import sys
 import logging
 import unittest
 
+# FIXME initialization fails when all tests are run in series, it works when
+# only this file is run
+
 
 class TestReplaceLayers(unittest.TestCase):
     """
@@ -54,10 +57,10 @@ class TestReplaceLayers(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        from vgsl_model_generator import VGSLModelGenerator
+        from model.vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
 
-        import model
+        import model.model as model
         cls.model = model
 
     def test_rnn_replacement_simple(self):

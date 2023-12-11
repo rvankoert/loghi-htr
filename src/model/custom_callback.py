@@ -3,10 +3,12 @@
 # > Standard Library
 import os
 import json
+
 # > Local dependencies
 
 # > Third party libraries
 from tensorflow import keras
+
 
 class LoghiCustomCallback(keras.callbacks.Callback):
 
@@ -21,7 +23,8 @@ class LoghiCustomCallback(keras.callbacks.Callback):
 
     def save_model(self, subdir):
         outputdir = os.path.join(self.output, subdir)
-        self.model.save(outputdir)
+        os.makedirs(outputdir, exist_ok=True)
+        self.model.save(outputdir + '/model.keras')
         with open(os.path.join(outputdir, 'charlist.txt'), 'w') as chars_file:
             chars_file.write(str().join(self.charlist))
         if self.metadata is not None:
@@ -30,26 +33,26 @@ class LoghiCustomCallback(keras.callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         print(
-            "The average loss for epoch {} is {:7.2f} "
+            "The average cer for epoch {} is {:7.2f} "
             .format(
-                epoch, logs["loss"]
+                epoch, logs["CER_metric"]
             )
         )
-        if logs["val_loss"] is not None:
-            current_loss = logs["val_loss"]
+        if logs["val_CER_metric"] is not None:
+            current_loss = logs["val_CER_metric"]
         else:
-            current_loss = logs["loss"]
+            current_loss = logs["CER_metric"]
 
         if self.save_best:
             if self.previous_loss is None or self.previous_loss > current_loss:
-                print('loss has improved from {:7.2f} to {:7.2f}'.format(
+                print('cer has improved from {:7.2f} to {:7.2f}'.format(
                     self.previous_loss, current_loss))
                 self.previous_loss = current_loss
                 self.save_model('best_val')
         if self.save_checkpoint:
-            if logs["val_loss"]:
-                loss_part = "_val_loss"+str(logs["val_loss"])
+            if logs["val_CER_metric"]:
+                loss_part = "_val_CER_metric"+str(logs["val_CER_metric"])
             else:
-                loss_part = "_loss" + str(logs["loss"])
+                loss_part = "_CER_metric" + str(logs["CER_metric"])
             print('saving checkpoint')
             self.save_model('epoch_' + str(epoch) + loss_part)

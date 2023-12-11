@@ -2,6 +2,7 @@
 
 # > Standard library
 import datetime
+import logging
 from multiprocessing.queues import Full
 
 # > Local dependencies
@@ -10,6 +11,8 @@ from app_utils import extract_request_data
 # > Third party dependencies
 import flask
 from flask import Blueprint, jsonify, current_app as app
+from prometheus_client import generate_latest
+
 
 main = Blueprint('main', __name__)
 
@@ -45,18 +48,21 @@ def predict() -> flask.Response:
 
     # Add incoming request to queue
     # Here, we're just queuing the raw data.
-    image_file, group_id, identifier = extract_request_data()
-    app.logger.debug(f"Data received: {group_id}, {identifier}")
+    image_file, group_id, identifier, model = extract_request_data()
 
-    app.logger.debug(f"Adding {identifier} to queue")
+    logger = logging.getLogger(__name__)
+
+    logger.debug(f"Data received: {group_id}, {identifier}")
+    logger.debug(f"Adding {identifier} to queue")
+    logger.debug(f"Using model {model}")
 
     try:
-        app.request_queue.put((image_file, group_id, identifier), block=True,
-                              timeout=30)
+        app.request_queue.put((image_file, group_id, identifier, model),
+                              block=True, timeout=15)
     except Full:
         response = jsonify({
             "status": "error",
-            "code": 503,
+            "code": 429,
             "message": "The server is currently processing a high volume of "
                        "requests. Please try again later.",
             "timestamp": datetime.datetime.now().isoformat(),
@@ -64,9 +70,9 @@ def predict() -> flask.Response:
             "identifier": identifier,
         })
 
-        response.status_code = 503
+        response.status_code = 429
 
-        app.logger.error("Request queue is full.")
+        logger.error("Request queue is full.")
 
         return response
 
@@ -82,3 +88,11 @@ def predict() -> flask.Response:
     response.status_code = 202
 
     return response
+
+
+@main.route("/prometheus", methods=["GET"])
+def prometheus() -> bytes:
+    """
+    Endpoint for getting prometheus statistics
+    """
+    return generate_latest()

@@ -76,10 +76,10 @@ class DataLoaderTest(unittest.TestCase):
                                        cls.sample_labels):
                 f.write(f"{img_path}.png\t{label}\n")
 
-        from data_loader import DataLoader
+        from data.loader import DataLoader
         cls.DataLoader = DataLoader
 
-        from utils import Utils
+        from utils.utils import Utils
         cls.Utils = Utils
 
     def _create_temp_file(self, additional_lines=None):
@@ -239,7 +239,7 @@ class DataLoaderTest(unittest.TestCase):
 
     def test_text_normalization(self):
         # Sample data with mixed-case labels
-        additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel ."]
+        additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel      ."]
         temp_sample_list_file = self._create_temp_file(
             additional_lines)
 
@@ -250,7 +250,8 @@ class DataLoaderTest(unittest.TestCase):
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
-                                      normalize_text=True)
+                                      normalization_file=os.path.join(
+                                          self.data_dir, "norm_chars.json"))
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -258,7 +259,7 @@ class DataLoaderTest(unittest.TestCase):
 
         # Asserts
         # last file"s label should be normalized to "Label.'
-        self.assertEqual(files[-1][1], "Label.",
+        self.assertEqual(files[-1][1], "I4831 #",
                          "Text not normalized correctly")
 
         self._remove_temp_file(temp_sample_list_file)

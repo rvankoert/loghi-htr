@@ -56,10 +56,10 @@ class TestModelToVGSL(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        from vgsl_model_generator import VGSLModelGenerator
+        from model.vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
 
-        from custom_layers import ResidualBlock
+        from model.custom_layers import ResidualBlock
         cls.ResidualBlock = ResidualBlock
 
     def test_input_layer_to_vgsl(self):
@@ -281,7 +281,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Basic residual block
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            self.ResidualBlock(32, 3, 3)
+            self.ResidualBlock(32, (3, 3))
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -290,7 +290,7 @@ class TestModelToVGSL(unittest.TestCase):
         # Alternative residual block
         model = tf.keras.Sequential([
             layers.Input(shape=(None, 64, 1)),
-            self.ResidualBlock(16, 4, 2, downsample=True)
+            self.ResidualBlock(16, (4, 2), downsample=True)
         ])
 
         vgsl_spec = self.VGSLModelGenerator.model_to_vgsl(model)
@@ -305,7 +305,7 @@ class TestModelToVGSL(unittest.TestCase):
         x = layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1))(x)
         x = layers.BatchNormalization()(x)
         x = layers.Dropout(0.25)(x)
-        x = self.ResidualBlock(32, 3, 3)(x)
+        x = self.ResidualBlock(32, (3, 3))(x)
         x = layers.Reshape((-1, 1024))(x)
         x = layers.LSTM(64, return_sequences=True)(x)
         x = layers.GRU(64, return_sequences=True, go_backwards=True)(x)
@@ -336,7 +336,7 @@ class TestModelToVGSL(unittest.TestCase):
             layers.AveragePooling2D(pool_size=(2, 2), strides=(1, 1)),
             layers.BatchNormalization(),
             layers.Dropout(0.25),
-            self.ResidualBlock(32, 3, 3),
+            self.ResidualBlock(32, (3, 3)),
             layers.Reshape((-1, 1024)),
             layers.LSTM(64, return_sequences=True),
             layers.GRU(64, return_sequences=True, go_backwards=True),

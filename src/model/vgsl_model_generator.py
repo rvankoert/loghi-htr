@@ -6,7 +6,7 @@ import re
 import logging
 
 # > Local dependencies
-from custom_layers import CTCLayer, ResidualBlock
+from model.custom_layers import CTCLayer, ResidualBlock
 
 # > Third party dependencies
 import tensorflow as tf
@@ -205,7 +205,7 @@ class VGSLModelGenerator:
                 self.history.append(f"avgpool_{index}")
             elif layer.startswith('RB'):
                 setattr(self, f"ResidualBlock_{index}",
-                        self.residual_block_generator(layer))
+                        self.residual_block_generator(layer, index))
                 self.history.append(f"ResidualBlock_{index}")
             elif layer.startswith('D'):
                 setattr(self, f"dropout_{index}",
@@ -275,7 +275,7 @@ class VGSLModelGenerator:
                  "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
                  "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
             "model10":
-                ("None,64,None,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+                ("None,64,None,4 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
                  "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
                  "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
             "model11":
@@ -303,11 +303,10 @@ class VGSLModelGenerator:
                  "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 "
                  "Lfs128,D50 Lfs128,D50 O1s92"),
             "model17":
-                ("None,64,None,1 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
+                ("None,64,None,4 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
                  "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
-                 "Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 Lfs128,D50 "
-                 "O1s92")
+                 "Bl256,D20 Bl256,D20 Bl256,D20 O1s92")
         }
 
         return model_library
@@ -339,7 +338,7 @@ class VGSLModelGenerator:
     #   Helper functions   #
     ########################
 
-    @staticmethod
+    @ staticmethod
     def model_to_vgsl(model: tf.keras.models.Model) -> str:
         """
         Convert a Keras model to a VGSL spec string.
@@ -577,7 +576,7 @@ class VGSLModelGenerator:
     #######################
 
     def conv2d_generator(self,
-                         layer: str) -> tf.keras.layers.Conv2D:
+                         layer: str, name=None) -> tf.keras.layers.Conv2D:
         """
         Generate a 2D convolutional layer based on a VGSL specification string.
 
@@ -646,7 +645,8 @@ class VGSLModelGenerator:
                                  strides=(1, 1),
                                  padding='same',
                                  activation=activation,
-                                 kernel_initializer=self._initializer)
+                                 kernel_initializer=self._initializer,
+                                 name=name)
         elif len(conv_filter_params) == 5:
             x, y, s_x, s_y, d = conv_filter_params
             return layers.Conv2D(d,
@@ -654,7 +654,10 @@ class VGSLModelGenerator:
                                  strides=(s_x, s_y),
                                  padding='same',
                                  activation=activation,
-                                 kernel_initializer=self._initializer)
+                                 kernel_initializer=self._initializer,
+                                 name=name)
+        else:
+            raise ValueError(f"Invalid number of parameters in {layer}")
 
     def maxpool_generator(self,
                           layer: str) -> tf.keras.layers.MaxPooling2D:
@@ -1131,7 +1134,7 @@ class VGSLModelGenerator:
                                     merge_mode='concat')
 
     def residual_block_generator(self,
-                                 layer: str) -> ResidualBlock:
+                                 layer: str, index) -> ResidualBlock:
         """
         Generate a Residual Block based on a VGSL specification string.
 
@@ -1180,7 +1183,7 @@ class VGSLModelGenerator:
                 f"Invalid parameters x={x}, y={y}, d={d} in layer {layer}. "
                 "All values should be positive integers.")
 
-        return ResidualBlock(d, x, y, self._initializer, bool(downsample))
+        return ResidualBlock(d, (x, y), self._initializer, bool(downsample))
 
     def dropout_generator(self,
                           layer: str) -> tf.keras.layers.Dropout:
@@ -1308,7 +1311,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    from model import CERMetric, WERMetric, CTCLoss
+    from model.model import CERMetric, WERMetric, CTCLoss
 
     # Load the model
     model = tf.keras.models.load_model(args.model_dir,

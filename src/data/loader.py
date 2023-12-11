@@ -5,8 +5,8 @@ from __future__ import division
 from __future__ import print_function
 
 # > Local dependencies
-from data_generator import DataGenerator
-from utils import Utils
+from data.generator import DataGenerator
+from utils.utils import Utils
 
 # > Third party dependencies
 import tensorflow as tf
@@ -14,7 +14,10 @@ from tensorflow.data import AUTOTUNE
 import numpy as np
 
 # > Environment
+import json
+import re
 import os
+
 
 class DataLoader:
     DTYPE = 'float32'
@@ -24,54 +27,68 @@ class DataLoader:
     validation_dataset = []
 
     @staticmethod
-    def normalize(input):
-        output = input.replace(',,', '„') \
-            .replace(' ,', ',') \
-            .replace(',', ', ') \
-             .replace(' .', '.') \
-            .replace('.', '. ') \
-            .replace('  ', ' ') \
-            .replace('`', '\'') \
-            .replace('´', '\'') \
-            .replace('ʼ', '\'') \
-            .replace('‘', '\'') \
-            .replace('’', '\'') \
-            .replace('“', '"') \
-            .replace('”', '"') \
-            .replace('·', '.') \
-            .strip()
-        return output
+    def normalize(input: str, replacements: str) -> str:
+        """
+        Normalize text using a json file with replacements
 
-    def init_data_generator(self, files, params, is_training=False, deterministic= False):
+        Parameters
+        ----------
+        input : str
+            Input string to normalize
+        replacements : str
+            Path to json file with replacements, where key is the string to
+            replace and value is the replacement. Example: {"a": "b"} will
+            replace all "a" with "b" in the input string.
+
+        Returns
+        -------
+        str
+            Normalized string
+        """
+
+        with open(replacements, 'r') as f:
+            replacements = json.load(f)
+            for key, value in replacements.items():
+                input = input.replace(key, value)
+
+        input = re.sub(r"\s+", " ", input)
+
+        return input.strip()
+
+    def init_data_generator(self, files, params, is_training=False, deterministic=False):
         data_generator = DataGenerator(**params)
         num_batches = np.ceil(len(files) / self.batch_size)
         generator = tf.data.Dataset.from_tensor_slices(files)
         if is_training:
-            #Add additional repeat and shuffle for training
+            # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
         generator = (generator
                      .map(data_generator.load_images,
-                                    num_parallel_calls=AUTOTUNE,
-                                    deterministic=deterministic)
-                    .padded_batch(self.batch_size,
-                        padded_shapes=([None, None, self.channels], [None]),
-                        padding_values=(
-                        tf.constant(-10, dtype=tf.float32),
-                        tf.constant(0, dtype=tf.int64)))
-                    .prefetch(AUTOTUNE)
-                    ).apply(tf.data.experimental.assert_cardinality(num_batches))
+                          num_parallel_calls=AUTOTUNE,
+                          deterministic=deterministic)
+                     .padded_batch(self.batch_size,
+                                   padded_shapes=(
+                                       [None, None, self.channels], [None]),
+                                   padding_values=(
+                                       tf.constant(-10, dtype=tf.float32),
+                                       tf.constant(0, dtype=tf.int64)))
+                     .prefetch(AUTOTUNE)
+                     ).apply(tf.data.experimental.assert_cardinality(num_batches))
         return generator
 
     def generators(self):
         chars = set()
-        partition = {'train': [], 'validation': [], 'test': [], 'inference': []}
+        partition = {'train': [], 'validation': [],
+                     'test': [], 'inference': []}
         labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
 
         if self.train_list:
-            chars, train_files = self.create_data(chars, labels, partition, 'train', self.train_list, use_multiply=True)
+            chars, train_files = self.create_data(
+                chars, labels, partition, 'train', self.train_list, use_multiply=True)
 
         if self.validation_list:
-            chars, validation_files = self.create_data(chars, labels, partition, 'validation', self.validation_list)
+            chars, validation_files = self.create_data(
+                chars, labels, partition, 'validation', self.validation_list)
 
         if self.test_list:
             chars, test_files = self.create_data(chars, labels, partition, 'test', self.test_list,
@@ -91,23 +108,23 @@ class DataLoader:
         self.utils = Utils(self.charList, self.use_mask)
 
         train_params = {'utils': self.utils,
-                       'height': self.height,
-                       'batch_size': self.batch_size,
-                       'channels': self.channels,
-                       'do_binarize_sauvola': self.do_binarize_sauvola,
-                       'do_binarize_otsu': self.do_binarize_otsu,
-                       'do_elastic_transform': self.elastic_transform,
-                       'random_crop': self.random_crop,
-                       'random_width': self.random_width,
-                       'distort_jpeg': self.distort_jpeg,
-                       'do_random_shear': self.do_random_shear
-                       }
+                        'height': self.height,
+                        'batch_size': self.batch_size,
+                        'channels': self.channels,
+                        'do_binarize_sauvola': self.do_binarize_sauvola,
+                        'do_binarize_otsu': self.do_binarize_otsu,
+                        'do_elastic_transform': self.elastic_transform,
+                        'random_crop': self.random_crop,
+                        'random_width': self.random_width,
+                        'distort_jpeg': self.distort_jpeg,
+                        'do_random_shear': self.do_random_shear
+                        }
         non_train_params = {'utils': self.utils,
                             'batch_size': self.batch_size,
                             'height': self.height,
-                            'channels' : self.channels,
-                            'do_binarize_sauvola':self.do_binarize_sauvola,
-                            'do_binarize_otsu':self.do_binarize_otsu
+                            'channels': self.channels,
+                            'do_binarize_sauvola': self.do_binarize_sauvola,
+                            'do_binarize_otsu': self.do_binarize_otsu
                             }
 
         training_generator = None
@@ -116,15 +133,19 @@ class DataLoader:
         inference_generator = None
         train_batches = 0
         if self.train_list:
-            training_generator = self.init_data_generator(train_files, train_params, is_training=True)
-            #Explicitly set train batches otherwise training is not initialised
+            training_generator = self.init_data_generator(
+                train_files, train_params, is_training=True)
+            # Explicitly set train batches otherwise training is not initialised
             train_batches = np.ceil(len(train_files) / self.batch_size)
         if self.validation_list:
-            validation_generator = self.init_data_generator(validation_files, non_train_params, deterministic=True)
+            validation_generator = self.init_data_generator(
+                validation_files, non_train_params, deterministic=True)
         if self.test_list:
-            test_generator = self.init_data_generator(test_files, non_train_params, deterministic=True)
+            test_generator = self.init_data_generator(
+                test_files, non_train_params, deterministic=True)
         if self.inference_list:
-            inference_generator = self.init_data_generator(inference_files, non_train_params, deterministic=True)
+            inference_generator = self.init_data_generator(
+                inference_files, non_train_params, deterministic=True)
 
         self.partition = partition
         return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
@@ -139,7 +160,7 @@ class DataLoader:
                  inference_list='',
                  do_binarize_sauvola=False,
                  do_binarize_otsu=False,
-                 normalize_text=False,
+                 normalization_file=None,
                  multiply=1,
                  augment=True,
                  elastic_transform=False,
@@ -168,7 +189,7 @@ class DataLoader:
         self.inference_list = inference_list
         self.do_binarize_sauvola = do_binarize_sauvola
         self.do_binarize_otsu = do_binarize_otsu
-        self.normalize_text = normalize_text
+        self.normalization_file = normalization_file
         self.multiply = multiply
         self.dataAugmentation = augment
         self.elastic_transform = elastic_transform
@@ -204,8 +225,9 @@ class DataLoader:
                         continue
                     if is_inference:
                         gtText = 'to be determined'
-                    elif self.normalize_text:
-                        gtText = self.normalize(lineSplit[1])
+                    elif self.normalization_file:
+                        gtText = self.normalize(
+                            lineSplit[1], self.normalization_file)
                     else:
                         gtText = lineSplit[1]
                     ignoreLine = False
@@ -229,8 +251,10 @@ class DataLoader:
                         labels[partition_name].append(gtText)
                         files.append([fileName, gtText])
                     if not self.injected_charlist or self.replace_final_layer:
-                        chars = chars.union(set(char for label in gtText for char in label))
-                print('found ' + str(counter) + ' lines suitable for ' + partition_name)
+                        chars = chars.union(
+                            set(char for label in gtText for char in label))
+                print('found ' + str(counter) +
+                      ' lines suitable for ' + partition_name)
         return chars, files
 
     @staticmethod

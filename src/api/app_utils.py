@@ -2,11 +2,26 @@
 
 # > Standard library
 import logging
+from multiprocessing import Process, Manager
 import os
 from typing import Tuple
 
+# > Local dependencies
+from batch_predictor import batch_prediction_worker
+from image_preparator import image_preparation_worker
+
 # > Third-party dependencies
 from flask import request
+from prometheus_client import Gauge
+
+
+class TensorFlowLogFilter(logging.Filter):
+    def filter(self, record):
+        # Exclude logs containing the specific message
+        exclude_phrases = [
+            "Reduce to /job:localhost/replica:0/task:0/device:CPU:"
+        ]
+        return not any(phrase in record.msg for phrase in exclude_phrases)
 
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
@@ -34,33 +49,41 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Set up the basic logging configuration
     logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="[%(process)d] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging_levels[level],
     )
 
+    # Get TensorFlow's logger and remove its handlers to prevent duplicate logs
+    tf_logger = logging.getLogger('tensorflow')
+    tf_logger.addFilter(TensorFlowLogFilter())
+    while tf_logger.handlers:
+        tf_logger.handlers.pop()
+
     return logging.getLogger(__name__)
 
 
-def extract_request_data() -> Tuple[bytes, str, str]:
+def extract_request_data() -> Tuple[bytes, str, str, str]:
     """
     Extract image and other form data from the current request.
 
     Returns
     -------
-    tuple of (bytes, str, str)
+    tuple of (bytes, str, str, str)
         image_content : bytes
             Content of the uploaded image.
         group_id : str
             ID of the group from form data.
         identifier : str
             Identifier from form data.
+        model : str
+            Location of the model to use for prediction.
 
     Raises
     ------
     ValueError
-        If required data (image, group_id, identifier) is missing or if the
-        image format is invalid.
+        If required data (image, group_id, identifier, model) is missing or if
+        the image format is invalid.
     """
 
     # Extract the uploaded image
@@ -86,7 +109,12 @@ def extract_request_data() -> Tuple[bytes, str, str]:
     if not identifier:
         raise ValueError("No identifier provided.")
 
-    return image_content, group_id, identifier
+    model = request.form.get('model')
+    if model:
+        if not os.path.exists(model):
+            raise ValueError(f"Model directory {model} does not exist.")
+
+    return image_content, group_id, identifier, model
 
 
 def get_env_variable(var_name: str, default_value: str = None) -> str:
@@ -128,3 +156,47 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
     logger.debug(f"Environment variable {var_name} set to {value}")
     return value
+
+
+def start_processes(batch_size: int, max_queue_size: int,
+                    output_path: str, gpus: str, model_path: str):
+    logger = logging.getLogger(__name__)
+
+    # Create a thread-safe Queue
+    logger.info("Initializing request queue")
+    manager = Manager()
+    request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
+    logger.info(f"Request queue size: {max_queue_size//2}")
+
+    # Max size of prepared queue is half of the max size of request queue
+    # expressed in number of batches
+    max_prepared_queue_size = max_queue_size // 2 // batch_size
+    prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
+    logger.info(f"Prediction queue size: {max_prepared_queue_size}")
+
+    # Add request queue size to prometheus statistics
+    request_queue_size_gauge = Gauge('request_queue_size', "Request queue size")
+    request_queue_size_gauge.set_function(lambda: request_queue.qsize())
+    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Prepared queue size")
+    prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
+
+    # Start the image preparation process
+    logger.info("Starting image preparation process")
+    preparation_process = Process(
+        target=image_preparation_worker,
+        args=(batch_size, request_queue,
+              prepared_queue, model_path),
+        name="Image Preparation Process")
+    preparation_process.daemon = True
+    preparation_process.start()
+
+    # Start the batch prediction process
+    logger.info("Starting batch prediction process")
+    prediction_process = Process(
+        target=batch_prediction_worker,
+        args=(prepared_queue, output_path, model_path, gpus),
+        name="Batch Prediction Process")
+    prediction_process.daemon = True
+    prediction_process.start()
+
+    return request_queue, preparation_process, prediction_process

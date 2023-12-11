@@ -1,8 +1,7 @@
 # Imports
 
 # > Standard Library
-
-# > Local dependencies
+import os
 
 # > Third party libraries
 import tensorflow as tf
@@ -13,8 +12,8 @@ from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
 from numpy import exp
 
-class Utils():
 
+class Utils:
     def __init__(self, chars, use_mask):
         self.set_charlist(chars=chars, use_mask=use_mask)
 
@@ -53,6 +52,7 @@ class Utils():
                 invert=True
             )
 
+
 def shape(x):
     """Returns the symbolic shape of a tensor or variable.
 
@@ -74,6 +74,7 @@ def shape(x):
 
     """
     return array_ops.shape(x)
+
 
 def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     """Decodes the output of a softmax.
@@ -106,7 +107,8 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     """
     input_shape = shape(y_pred)
     num_samples, num_steps = input_shape[0], input_shape[1]
-    y_pred = math_ops.log(array_ops.transpose(y_pred, perm=[1, 0, 2]) + tf.keras.backend.epsilon())
+    y_pred = math_ops.log(array_ops.transpose(
+        y_pred, perm=[1, 0, 2]) + tf.keras.backend.epsilon())
     input_length = math_ops.cast(input_length, dtypes.int32)
 
     if greedy:
@@ -130,25 +132,15 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
 
 def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=0):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
-    # sequence_length = tf.constant(np.array([None], dtype=np.int32))
-    # sequence_lengths = tf.cast(tf.fill(538,maxTextLen ),tf.int32)
-    # sequence_lengths = tf.fill(tf.shape(pred)[1], tf.shape(pred)[0])
 
     # Use greedy search. For complex tasks, you can use beam search
     pred = tf.dtypes.cast(pred, tf.float32)
-    # pred_matrix = tf.transpose(pred[0], perm=[1, 0])
-    # np.savetxt("foo.csv", pred_matrix, delimiter=",")
     top_paths = 1
     output_texts = []
-    ctc_decoded = ctc_decode(pred, input_length=input_len, greedy=greedy, beam_width=beam_width, top_paths=top_paths)
+    ctc_decoded = ctc_decode(pred, input_length=input_len,
+                             greedy=greedy, beam_width=beam_width, top_paths=top_paths)
     for top_path in range(0, top_paths):
         results = ctc_decoded[0][top_path][:, :]
-        # log_prob = ctc_decoded[1][0][top_path]
-        # results = tf.nn.ctc_beam_search_decoder(pred, sequence_length=input_len, beam_width=5, top_paths=1)[0][0][
-        #                   :, :maxTextLen
-        #                   ]
-        #
 
         # Iterate over the results and get back the text
         output_text = []
@@ -160,15 +152,13 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             else:
                 confidence = np.exp(log_prob)
             i = i + 1
-            # print(confidence)
             res = res + num_oov_indices
             chars = utils.num_to_char(res)
             res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
             output_text.append((confidence, res))
-            # print( output_text)
-            # exit()
         output_texts.append(output_text)
     return output_texts
+
 
 def deprocess_image(img):
     img /= 2.0
@@ -177,6 +167,7 @@ def deprocess_image(img):
     img = np.clip(img, 0, 255).astype("uint8")
     return img
 
+
 def initialize_image(channels):
     # We start from a gray image with some random noise
     img = tf.random.uniform((1, 64, 64, channels))
@@ -184,13 +175,15 @@ def initialize_image(channels):
     # Here we scale our random inputs to [-0.125, +0.125]
     return (img - 0.5) * 0.25
 
+
 def get_feature_maps(model, layer_id, input_image):
-    model_ = Model(inputs=[model.input]
-                   , outputs=[model.layers[layer_id].output])
+    model_ = Model(inputs=[model.input], outputs=[
+                   model.layers[layer_id].output])
     print(model.layers[layer_id].name)
     # img = tf.transpose(img, perm=[1, 0, 2])
 
     return model_.predict(np.expand_dims(input_image, axis=0))[0, :, :, :].transpose((2, 1, 0))
+
 
 def normalize_confidence(confidence, predicted_text):
     if len(predicted_text) > 0:
@@ -199,3 +192,18 @@ def normalize_confidence(confidence, predicted_text):
         if confidence < 0:
             confidence = -confidence
     return confidence
+
+
+def load_model_from_directory(directory, custom_objects=None):
+    # Check for a .pb file (indicating SavedModel format)
+    if any(file.endswith('.pb') for file in os.listdir(directory)):
+        return tf.keras.models.load_model(directory, custom_objects=custom_objects)
+
+    # Look for a .keras file
+    model_file = next((os.path.join(directory, file) for file in os.listdir(
+        directory) if file.endswith(".keras")), None)
+
+    if model_file:
+        return tf.keras.models.load_model(model_file, custom_objects=custom_objects)
+
+    raise FileNotFoundError("No suitable model file found in the directory.")

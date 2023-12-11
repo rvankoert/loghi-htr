@@ -5,8 +5,8 @@ import logging
 import os
 
 # > Local dependencies
-from loghi_custom_callback import LoghiCustomCallback
-from vgsl_model_generator import VGSLModelGenerator
+from model.custom_callback import LoghiCustomCallback
+from model.vgsl_model_generator import VGSLModelGenerator
 
 # > Third party dependencies
 import keras.backend as K
@@ -152,7 +152,6 @@ class WERMetric(tf.keras.metrics.Metric):
         self.counter.assign(0.0)
 
 
-@tf.function
 def CTCLoss(y_true, y_pred):
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
     input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
@@ -266,10 +265,10 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
             name=last_layer).output
     )
     if use_mask:
-        x = layers.Dense(number_characters + 2, activation="softmax", name="dense_replaced",
+        x = layers.Dense(number_characters + 2, activation="softmax", name="dense_out",
                          kernel_initializer=initializer)(prediction_model.output)
     else:
-        x = layers.Dense(number_characters + 1, activation="softmax", name="dense_replaced",
+        x = layers.Dense(number_characters + 1, activation="softmax", name="dense_out",
                          kernel_initializer=initializer)(prediction_model.output)
     output = layers.Activation('linear', dtype=tf.float32)(x)
     model = keras.models.Model(
@@ -283,7 +282,7 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
 
 def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
                 early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
-                metadata=None, charlist=None):
+                metadata=None, charlist=None, verbosity_mode='auto'):
     # # Add early stopping
     callbacks = []
     if early_stopping_patience > 0 and validation_dataset:
@@ -322,6 +321,7 @@ def train_batch(model, train_dataset, validation_dataset, epochs, output, model_
         shuffle=True,
         workers=num_workers,
         max_queue_size=max_queue_size,
-        steps_per_epoch=steps_per_epoch
+        steps_per_epoch=steps_per_epoch,
+        verbose=verbosity_mode
     )
     return history

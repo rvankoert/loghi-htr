@@ -2,10 +2,12 @@
 
 # > Standard Library
 import argparse
+import logging
 
 # > Local dependencies
 
 # > Third party libraries
+
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
@@ -14,7 +16,7 @@ def get_arg_parser():
 
     # General args
     general_args = parser.add_argument_group('General arguments')
-    general_args.add_argument('--gpu', metavar='gpu', type=str, default=-1,
+    general_args.add_argument('--gpu', metavar='gpu', type=str, default="-1",
                               help='gpu to be used, use -1 for CPU')
     general_args.add_argument('--output', metavar='output', type=str, default='output',
                               help='base output to be used')
@@ -28,13 +30,6 @@ def get_arg_parser():
                               help='optimizer.')
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help='random seed to be used')
-    general_args.add_argument('--channels', metavar='channels', type=int, default=3,
-                              help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
-                              '4 for png\'s with transparency')
-    general_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
-                              help='max_queue_size')
-    general_args.add_argument(
-        '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
     general_args.add_argument('--charlist', metavar='charlist ', type=str, default=None,
                               help='Charlist to use')
     general_args.add_argument('--output_charlist', metavar='output_charlist', type=str, default=None,
@@ -42,18 +37,11 @@ def get_arg_parser():
 
     # Training args
     training_args = parser.add_argument_group('General training arguments')
-    training_args.add_argument('--do_train',
-                               help='enable the training. '
-                                    'Use this flag if you want to train.',
-                               action='store_true')
     training_args.add_argument('--learning_rate', metavar='learning_rate',
                                type=float, default=0.0003,
                                help='learning_rate to be used, default 0.0003')
     training_args.add_argument('--epochs', metavar='epochs', type=int,
                                default=40, help='epochs to be used, default 40')
-    training_args.add_argument('--height', metavar='height', type=int, default=64,
-                               help='rescale everything to this height before '
-                                    'training, default 64')
     training_args.add_argument('--width', metavar='width', type=int, default=65536,
                                help='maximum width to be used. '
                                     'This should be a high number and '
@@ -91,11 +79,14 @@ def get_arg_parser():
                                help='use this file containing textline location+transcription for testing. You can use '
                                'multiple input files quoted and space separated "test_file1.txt test_file2.txt"to '
                                'combine testing sets.')
+    training_args.add_argument('--training_verbosity_mode', choices=['auto', '0', '1', '2'], default='auto',
+                               help="0 = silent, 1 = progress bar, 2 = one line per epoch. 'auto' becomes 1 for most cases. "
+                                    "default value is 'auto'")
+    training_args.add_argument('--max_queue_size', metavar='max_queue_size ', type=int, default=256,
+                               help='max_queue_size')
 
     # Inference args
     inference_args = parser.add_argument_group('General inference arguments')
-    inference_args.add_argument('--do_inference', help='inference',
-                                action='store_true')
     inference_args.add_argument('--inference_list', metavar='inference_list', type=str, default=None,
                                 help='use this file containing textline location+transcription for inferencing. You can use '
                                 'multiple input files quoted and space separated "inference_file1.txt '
@@ -156,7 +147,6 @@ def get_arg_parser():
 
     # Miscellaneous
     misc_args = parser.add_argument_group('Miscellaneous arguments')
-
     misc_args.add_argument('--do_binarize_otsu', action='store_true',
                            help='beta: do_binarize_otsu')
     misc_args.add_argument('--do_binarize_sauvola', action='store_true',
@@ -166,12 +156,34 @@ def get_arg_parser():
                            'contain characters that are not in charlist.')
     misc_args.add_argument('--check_missing_files', action='store_true',
                            help='beta: check_missing_files')
-    misc_args.add_argument('--normalize_text', action='store_true',
-                           help='')
+    misc_args.add_argument('--normalization_file', default=None, type=str,
+                           help='The location of a json file that contains the characters to be normalized. The keys '
+                           'are the characters to be replaced, the values are the characters to replace with.')
     misc_args.add_argument('--deterministic', action='store_true',
                            help='beta: deterministic mode (reproducible results')
-    misc_args.add_argument('--no_auto', action='store_true',
+    misc_args.add_argument('--do_blur', action='store_true',
+                           help='blur the images for training purposes')
+    misc_args.add_argument('--do_invert', action='store_true',
+                           help='use with images that have light ink and dark background')
+
+    # Deprecation zone
+    depr_args = parser.add_argument_group(
+        'Deprecation zone', 'These arguments will be removed in the future')
+    depr_args.add_argument('--do_train', help='enable the training. '
+                                              'Use this flag if you want to train.',
+                           action='store_true')
+    depr_args.add_argument('--do_inference', help='inference',
+                           action='store_true')
+    depr_args.add_argument(
+        '--use_mask', help='whether or not to mask certain parts of the data. Defaults to true when batch_size > 1', action='store_true')
+    depr_args.add_argument('--no_auto', action='store_true',
                            help='No Auto disabled automatic "fixing" of certain parameters')
+    depr_args.add_argument('--height', metavar='height', type=int, default=64,
+                           help='rescale everything to this height before '
+                           'training, default 64')
+    depr_args.add_argument('--channels', metavar='channels', type=int, default=3,
+                           help='number of channels to use. 1 for grey-scale/binary images, three for color images, '
+                           '4 for png\'s with transparency')
 
     return parser
 
@@ -185,12 +197,36 @@ def fix_args(args):
         args.__dict__['use_mask'] = True
 
 
+def arg_future_warning(args):
+    logger = logging.getLogger(__name__)
+
+    # March 2024
+    if args.do_train:
+        logger.warning("Argument will lose support in March 2024: --do_train. "
+                       "Training will be enabled by providing a train_list. ")
+    if args.do_inference:
+        logger.warning("Argument will lose support in March 2024: "
+                       "--do_inference. Inference will be enabled by "
+                       "providing an inference_list. ")
+    if args.use_mask:
+        logger.warning("Argument will lose support in March 2024: --use_mask. "
+                       "Masking will be enabled by default.")
+    if args.no_auto:
+        logger.warning("Argument will lose support in March 2024: --no_auto.")
+    if args.height:
+        logger.warning("Argument will lose support in March 2024: --height. "
+                       "Height will be inferred from the VGSL spec.")
+    if args.channels:
+        logger.warning("Argument will lose support in March 2024: --channels. "
+                       "Channels will be inferred from the VGSL spec.")
+
+
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
+    arg_future_warning(args)
+
     # TODO: use config
-    dictionary = args.__dict__
     fix_args(args)
-    print(dictionary)
 
     return args

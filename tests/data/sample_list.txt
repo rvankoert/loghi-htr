@@ -1,3 +1,3 @@
-/home/luke/ai-development/rvankoert/loghi/loghi-htr/tests/data/test-image1.png	bleek cum annexis, staande en gelegen op den Nieuwenbildt
-/home/luke/ai-development/rvankoert/loghi/loghi-htr/tests/data/test-image2.png	de voorleden jaarse pagters van de aankomende
-/home/luke/ai-development/rvankoert/loghi/loghi-htr/tests/data/test-image3.png	138
+/home/tim/Documents/development/loghi-htr/tests/data/test-image1.png	bleek cum annexis, staande en gelegen op den Nieuwenbildt
+/home/tim/Documents/development/loghi-htr/tests/data/test-image2.png	de voorleden jaarse pagters van de aankomende
+/home/tim/Documents/development/loghi-htr/tests/data/test-image3.png	138

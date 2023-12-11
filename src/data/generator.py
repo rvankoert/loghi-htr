@@ -6,10 +6,10 @@ import random
 # > Local dependencies
 
 # > Third party libraries
+import cv2
 import tensorflow as tf
 import elasticdeform.tf as etf
 import numpy as np
-import cv2
 
 
 class DataGenerator(tf.keras.utils.Sequence):
@@ -25,7 +25,9 @@ class DataGenerator(tf.keras.utils.Sequence):
                  random_width=False,
                  distort_jpeg=False,
                  channels=1,
-                 do_random_shear=False
+                 do_random_shear=False,
+                 do_blur=False,
+                 do_invert=False
                  ):
         print(height)
 
@@ -40,25 +42,32 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.height = height
         self.channels = channels
         self.do_random_shear = do_random_shear
+        self.do_blur = do_blur
+        self.do_invert = do_invert
 
     def elastic_transform(self, original):
         """
         Apply elastic transformation to an image.
 
-        Parameters:
+        Parameters
+        ----------
         - original (numpy.ndarray): The original image to be transformed.
 
-        Returns:
+        Returns
+        -------
         - numpy.ndarray: The image after elastic transformation.
 
-        Notes:
-        - Elastic transformation introduces local deformations to the image to enhance robustness and 
-        variability in the dataset.
-        - It uses a random displacement field generated from a normal distribution.
-        - The `etf.deform_grid` function is employed for the deformation, allowing control over the axis and 
-        interpolation order.
+        Notes
+        -----
+        - Elastic transformation introduces local deformations to the image to
+          enhance robustness and variability in the dataset.
+        - It uses a random displacement field generated from a normal
+          distribution.
+        - The `etf.deform_grid` function is employed for the deformation,
+          allowing control over the axis and interpolation order.
 
-        Example:
+        Example
+        -------
         ```python
         transformer = ImageTransformer()
         original_image = load_image("path/to/image.jpg")
@@ -66,24 +75,30 @@ class DataGenerator(tf.keras.utils.Sequence):
         ```
         """
         displacement_val = tf.random.normal([2, 3, 3]) * 5
-        x_deformed = etf.deform_grid(original, displacement_val, axis=(0, 1), order=3)
+        x_deformed = etf.deform_grid(
+            original, displacement_val, axis=(0, 1), order=3)
         return x_deformed
 
     def shear_x(self, image, shear_factor):
         """
         Apply shear transformation along the x-axis to the input image.
 
-        Parameters:
-        - image (numpy.ndarray): Input image, can be 3-channel (RGB) or 4-channel (RGBA).
+        Parameters
+        ----------
+        - image (numpy.ndarray): Input image, can be 3-channel (RGB) or
+          4-channel (RGBA).
         - shear_factor (float): Shear factor to apply along the x-axis.
 
-        Returns:
+        Returns
+        -------
         - numpy.ndarray: Sheared image.
 
-        Raises:
+        Raises
+        ------
         - ValueError: If the input image has an unsupported number of channels.
 
-        Example:
+        Example
+        -------
         >>> input_image = np.random.rand(256, 256, 3)
         >>> sheared_result = self.shear_x(input_image, 0.5)
         """
@@ -101,7 +116,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             image_rgb = image
 
         # Apply the shear transformation
-        sheared_image = cv2.warpAffine(image_rgb.numpy(), shear_matrix, (cols, rows))
+        sheared_image = cv2.warpAffine(
+            image_rgb.numpy(), shear_matrix, (cols, rows))
 
         # Add back original alpha channel for (4-channel images)
         if self.channels == 4:
@@ -115,18 +131,27 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         Load and preprocess images.
 
-        Parameters:
-        - image_path (tuple): Tuple containing the file path (string) and label (string) of the image.
+        Parameters
+        ----------
+        - image_path (tuple): Tuple containing the file path (string) and label
+          (string) of the image.
 
-        Returns:
-        - Tuple: A tuple containing the preprocessed image (numpy.ndarray) and encoded label (numpy.ndarray).
+        Returns
+        -------
+        - Tuple: A tuple containing the preprocessed image (numpy.ndarray) and
+          encoded label (numpy.ndarray).
 
-        Raises:
+        Raises
+        ------
         - ValueError: If the number of channels is not 1, 3, or 4.
 
-        Notes:
-        - This function uses TensorFlow operations to read, decode, and preprocess images.
-        - Preprocessing steps include resizing, channel manipulation, distortion (if specified), elastic transform, cropping, shearing, and label encoding.
+        Notes
+        -----
+        - This function uses TensorFlow operations to read, decode, and
+          preprocess images.
+        - Preprocessing steps include resizing, channel manipulation,
+          distortion (if specified), elastic transform, cropping, shearing, and
+          label encoding.
 
         Example:
         ```python
@@ -139,16 +164,23 @@ class DataGenerator(tf.keras.utils.Sequence):
         try:
             image = tf.image.decode_png(image, channels=self.channels)
         except ValueError:
-            print("Invalid number of channels. Supported values are 1, 3, or 4.")
-        image = tf.image.resize(image, (self.height, 99999), preserve_aspect_ratio=True) / 255.0
+            print("Invalid number of channels. "
+                  "Supported values are 1, 3, or 4.")
+        image = tf.image.resize(
+            image, (self.height, 99999), preserve_aspect_ratio=True) / 255.0
+
         if self.distort_jpeg:
             if self.channels == 4:
-                # crappy workaround for bug in shear_x where alpha causes errors
-                channel1, channel2, channel3, alpha = tf.split(image, 4, axis=2)
+                # crappy workaround for bug in shear_x where alpha causes
+                # errors
+                channel1, channel2, channel3, alpha = tf.split(
+                    image, 4, axis=2)
                 image = tf.concat([channel1, channel2, channel3], axis=2)
                 image = tf.image.random_jpeg_quality(image, 50, 100)
                 channel1, channel2, channel3 = tf.split(image, 3, axis=2)
-                image = tf.concat([channel1, channel2, channel3, alpha], axis=2)
+                image = tf.concat(
+                    [channel1, channel2, channel3, alpha], axis=2)
+                del channel1, channel2, channel3, alpha
             else:
                 image = tf.image.random_jpeg_quality(image, 20, 100)
 
@@ -156,22 +188,24 @@ class DataGenerator(tf.keras.utils.Sequence):
         image_height = tf.shape(image)[0]
         if self.do_elastic_transform:
             image = self.elastic_transform(image)
-            print(image)
 
         if self.random_crop:
             random_seed = random.randint(0, 100000), random.randint(0, 1000000)
-            random_crop = tf.random.uniform(shape=[1], minval=0.6, maxval=1.0)[0]
+            random_crop = tf.random.uniform(
+                shape=[1], minval=0.6, maxval=1.0)[0]
             original_width = tf.shape(image)[1]
             original_height = tf.cast(tf.shape(image)[0], tf.float32)
             crop_height = tf.cast(random_crop * original_height, tf.int32)
             crop_size = (crop_height, original_width, self.channels)
-            image = tf.image.stateless_random_crop(image, crop_size, random_seed)
+
+            image = tf.image.stateless_random_crop(
+                image, crop_size, random_seed)
             image_width = tf.shape(image)[1]
             image_height = tf.shape(image)[0]
 
-        print(image)
         if self.random_width:
-            random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
+            random_width = tf.random.uniform(
+                shape=[1], minval=0.75, maxval=1.25)[0]
             random_width *= float(image_width)
             image_width = int(random_width)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
@@ -180,8 +214,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         image = tf.image.resize_with_pad(image, self.height, image_width+50)
 
         if self.do_random_shear:
-            image = tf.image.resize_with_pad(image, self.height, image_width + 64 + 50)
-            random_shear = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
+            image = tf.image.resize_with_pad(
+                image, self.height, image_width + 64 + 50)
+            random_shear = tf.random.uniform(
+                shape=[1], minval=-1.0, maxval=1.0)[0]
             if self.channels == 4:
                 image = self.shear_x(image, random_shear * -1)
             elif self.channels == 3:
@@ -190,13 +226,18 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = self.shear_x(image, random_shear * -1)
                 image = np.expand_dims(image, axis=-1)
             else:
-                raise NotImplementedError("Unsupported number of channels. Supported values are 1, 3, or 4.")
+                raise NotImplementedError(
+                    "Unsupported number of channels. Supported values are 1, "
+                    "3, or 4.")
 
         label = image_path[1]
-        encoded_label = self.utils.char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        encoded_label = self.utils.char_to_num(
+            tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
         label_counter = 0
         last_char = None
+
+        # TODO: readd do_binarize_sauvola, do_binarize_otsu, do_blur, do_invert
         for char in encoded_label:
             label_counter += 1
             if char == last_char:

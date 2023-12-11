@@ -3,25 +3,19 @@
 # > Standard library
 import logging
 import multiprocessing
-from multiprocessing.queues import Empty
 import os
 import sys
 from typing import Callable, List, Tuple
 import gc
 
-# > Local dependencies
-
 # > Third-party dependencies
 import tensorflow as tf
-from tensorflow.keras.utils import get_custom_objects
+from tensorflow.keras import mixed_precision
 
 
-def batch_prediction_worker(batch_size: int,
-                            prepared_queue: multiprocessing.JoinableQueue,
-                            model_path: str,
-                            charlist_path: str,
+def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                             output_path: str,
-                            num_channels: int,
+                            model_path: str,
                             gpus: str = '0'):
     """
     Worker process for batch prediction on images.
@@ -33,20 +27,12 @@ def batch_prediction_worker(batch_size: int,
 
     Parameters
     ----------
-    batch_size : int
-        Number of images to process in a batch.
     prepared_queue : multiprocessing.JoinableQueue
         Queue from which preprocessed images are fetched.
-    model_path : str
-        Path to the model file.
-    charlist_path : str
-        Path to the character list file.
     output_path : str
         Path where predictions should be saved.
-    num_channels : int
-        Number of channels desired for the input images (e.g., 1 for grayscale,
-        3 for RGB). This is used to verify that the preparation uses the
-        correct format.
+    model_path : str
+        Path to the initial model file.
     gpus : str, optional
         IDs of GPUs to be used (comma-separated). Default is '0'.
 
@@ -58,107 +44,75 @@ def batch_prediction_worker(batch_size: int,
     - Logs various messages regarding the batch processing status.
     """
 
-    logger = logging.getLogger(__name__)
-    logger.info("Batch Prediction Worker process started")
-
-    # Only use the specified GPU
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpus)
-    logger.debug("Num GPUs Available: ", len(
-        tf.config.experimental.list_physical_devices('GPU')))
-
-    physical_devices = tf.config.experimental.list_physical_devices('GPU')
-    if physical_devices:
-        for device in physical_devices:
-            tf.config.experimental.set_memory_growth(device, True)
-            logger.debug(device)
-
     # Add parent directory to path for imports
     current_path = os.path.dirname(os.path.realpath(__file__))
     parent_path = os.path.dirname(current_path)
-
     sys.path.append(parent_path)
 
-    from utils import decode_batch_predictions, normalize_confidence
+    from utils.utils import decode_batch_predictions, normalize_confidence
 
+    logger = logging.getLogger(__name__)
+    logger.info("Batch Prediction Worker process started")
+
+    # If all GPUs support mixed precision, enable it
+    gpus_support_mixed_precision = setup_gpu_environment(gpus, logger)
+    if gpus_support_mixed_precision:
+        mixed_precision.set_global_policy('mixed_float16')
+        logger.debug("Mixed precision set to 'mixed_float16'")
+    else:
+        logger.debug(
+            "Not all GPUs support efficient mixed precision. Running in "
+            "standard mode.")
+
+    strategy = tf.distribute.MirroredStrategy()
+
+    # Create the model and utilities
     try:
-        model, utils = create_model(model_path, charlist_path, num_channels)
+        with strategy.scope():
+            model, utils = create_model(model_path)
         logger.info("Model created and utilities initialized")
     except Exception as e:
         logger.error(e)
         logger.error("Error creating model. Exiting...")
         return
 
-    TIMEOUT_DURATION = 1
-    MAX_WAIT_COUNT = 3
-
     total_predictions = 0
+    old_model_path = model_path
 
     try:
         while True:
-            # The goal is to accumulate a batch of images for processing.
-            # However, if there's a delay in receiving images, we don't want to
-            # wait indefinitely. So, we'll use a combination of timeouts and
-            # counters to decide when to process whatever images we have, even
-            # if we don't have a full batch.
+            batch_images, batch_groups, batch_identifiers, model_path = \
+                prepared_queue.get()
+            logger.debug(f"Retrieved batch of size {len(batch_images)} from "
+                         "prepared_queue")
 
-            batch_images = []
-            wait_count = 0
+            batch_info = list(zip(batch_groups, batch_identifiers))
 
-            logger.debug("Waiting to accumulate images for processing")
-
-            # Wait until we have enough images for a batch
-            while len(batch_images) < batch_size:
-                logger.debug(
-                    f"Waiting for {batch_size - len(batch_images)} more images"
-                    " to be available")
-
+            if model_path != old_model_path:
+                old_model_path = model_path
                 try:
-                    # Wait for TIMEOUT_DURATION seconds for an image to be
-                    # available in the queue
-                    prepared_data = prepared_queue.get(
-                        timeout=TIMEOUT_DURATION)
-                    batch_images.append(prepared_data)
-                    prepared_queue.task_done()
-                    wait_count = 0
-                except Empty:
-                    wait_count += 1
-                    logger.debug("Time without new images: "
-                                 f"{wait_count * TIMEOUT_DURATION} seconds")
-
-                    # If we've waited more than the maximum allowed time
-                    # (MAX_WAIT_COUNT * TIMEOUT_DURATION) and we have some
-                    # images in the batch, then process those images.
-                    if wait_count > MAX_WAIT_COUNT and len(batch_images) > 0:
-
-                        # Grab any remaining images in the queue up to the
-                        # batch size
-                        while not prepared_queue.empty()\
-                                and len(batch_images) < batch_size:
-                            prepared_data = prepared_queue.get()
-                            batch_images.append(prepared_data)
-                            prepared_queue.task_done()
-
-                        # Reset the wait_count and break out of the loop
-                        wait_count = 0
-                        break
-
-            logger.info(
-                f"Retrieved batch of size {len(batch_images)}")
-            logger.debug(
-                f"There are {prepared_queue.qsize()} images waiting on "
-                "prediction")
+                    logger.warning("Model changed, adjusting batch prediction")
+                    with strategy.scope():
+                        model, utils = create_model(model_path)
+                    logger.info("Model created and utilities initialized")
+                except Exception as e:
+                    logger.error(e)
+                    logger.error("Error creating model. Exiting...")
+                    return
 
             # Here, make the batch prediction
             try:
-                predictions = batch_predict(
-                    model, batch_images, utils, decode_batch_predictions,
-                    output_path, normalize_confidence)
+                predictions = safe_batch_predict(
+                    model, batch_images, batch_info, utils,
+                    decode_batch_predictions, output_path,
+                    normalize_confidence)
             except Exception as e:
                 logger.error(e)
                 logger.error("Error making predictions. Skipping batch.")
                 logger.error("Failed batch:")
-                for image in batch_images:
-                    logger.error(image[2])
+                for group, id in batch_info:
+                    logger.error(id)
+                    output_prediction_error(output_path, group, id, e)
                 predictions = []
 
             # Update the total number of predictions made
@@ -172,7 +126,7 @@ def batch_prediction_worker(batch_size: int,
                 f"Made {len(predictions)} predictions")
             logger.info(f"Total predictions: {total_predictions}")
             logger.info(
-                f"{prepared_queue.qsize()} images waiting on prediction")
+                f"{prepared_queue.qsize()} batches waiting on prediction")
 
             # Clear the batch images to free up memory
             logger.debug("Clearing batch images and predictions")
@@ -185,9 +139,37 @@ def batch_prediction_worker(batch_size: int,
             "Batch Prediction Worker process interrupted. Exiting...")
 
 
-def create_model(model_path: str,
-                 charlist_path: str,
-                 num_channels: int) -> Tuple[tf.keras.Model, object]:
+def setup_gpu_environment(gpus: str, logger: logging.Logger):
+    """
+    Setup the GPU environment for batch prediction.
+
+    Parameters
+    ----------
+    gpus : str
+        IDs of GPUs to be used (comma-separated).
+    logger : logging.Logger
+        A logging.Logger object for logging messages.
+
+    Returns
+    -------
+    bool
+        True if all GPUs support mixed precision, False otherwise.
+    """
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = gpus
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if not physical_devices:
+        logger.warning("No GPUs found. Running in CPU mode.")
+        return False
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, True)
+        if tf.config.experimental.\
+                get_device_details(device)['compute_capability'][0] < 7:
+            return False
+    return True
+
+
+def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
     """
     Load a pre-trained model and create utility methods.
 
@@ -195,11 +177,6 @@ def create_model(model_path: str,
     ----------
     model_path : str
         Path to the pre-trained model file.
-    charlist_path : str
-        Path to the character list file.
-    num_channels : int
-        Number of channels desired for the input images (e.g., 1 for grayscale,
-        3 for RGB).
 
     Returns
     -------
@@ -215,42 +192,124 @@ def create_model(model_path: str,
     - Logs various messages regarding the model and utility initialization.
     """
 
-    from model import CERMetric, WERMetric, CTCLoss
-    from utils import Utils
+    from model.custom_layers import ResidualBlock
+    from model.model import CERMetric, WERMetric, CTCLoss
+    from utils.utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
 
-    # Register custom objects
-    get_custom_objects().update({
+    logger.info("Loading model...")
+    custom_objects = {
         'CERMetric': CERMetric,
         'WERMetric': WERMetric,
         'CTCLoss': CTCLoss,
-    })
-    logger.debug("Custom objects registered")
-
-    logger.info("Loading model...")
-    model = tf.keras.saving.load_model(model_path)
-    logger.info("Model loaded successfully")
-
-    model_channels = model.input_shape[3]
-    if model_channels != num_channels:
-        raise ValueError(
-            f"Model expects {model_channels} channels, but {num_channels} "
-            "were provided")
+        'ResidualBlock': ResidualBlock
+    }
+    model = load_model_from_directory(model_path, custom_objects)
+    logger.info(f"Model {model.name} loaded successfully")
 
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(model.summary())
+        model.summary()
 
-    with open(charlist_path) as file:
-        charlist = list(char for char in file.read())
+    try:
+        with open(f"{model_path}/charlist.txt") as file:
+            charlist = list(char for char in file.read())
+    except FileNotFoundError:
+        logger.error(f"charlist.txt not found at {model_path}. Exiting...")
+        sys.exit(1)
+
     utils = Utils(charlist, use_mask=True)
     logger.debug("Utilities initialized")
 
     return model, utils
 
 
+def safe_batch_predict(model: tf.keras.Model,
+                       batch_images: List[tf.Tensor],
+                       batch_info: List[Tuple[str, str]],
+                       utils: object,
+                       decode_batch_predictions: Callable,
+                       output_path: str,
+                       normalize_confidence: Callable) -> List[str]:
+    """
+    Attempt to predict on a batch of images using the provided model. If a
+    TensorFlow Out of Memory (OOM) error occurs, the batch is split in half and
+    each half is attempted again, recursively. If an OOM error occurs with a
+    batch of size 1, the offending image is logged and skipped.
+
+    Parameters
+    ----------
+    model : TensorFlow model
+        The model used for making predictions.
+    batch_images : List or ndarray
+        A list or numpy array of images for which predictions need to be made.
+    batch_info : List of tuples
+        A list of tuples containing additional information (e.g., group and
+        identifier) for each image in `batch_images`.
+    utils : module or object
+        Utility module/object containing necessary utility functions or
+        settings.
+    decode_batch_predictions : function
+        A function to decode the predictions made by the model.
+    output_path : str
+        Path where any output files should be saved.
+    normalize_confidence : function
+        A function to normalize the confidence of the predictions.
+    logger : Logger
+        A logging.Logger object for logging messages.
+
+    Returns
+    -------
+    List
+        A list of predictions made by the model. If an image causes an OOM
+        error, it is skipped, and no prediction is returned for it.
+    """
+
+    logger = logging.getLogger(__name__)
+    try:
+        return batch_predict(
+            model, batch_images, batch_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+    except tf.errors.ResourceExhaustedError as e:
+        # If the batch size is 1 and still causing OOM, then skip the image and
+        # return an empty list
+        if len(batch_images) == 1:
+            logger.error(
+                "OOM error with single image. Skipping image"
+                f"{batch_info[0][1]}.")
+
+            output_prediction_error(
+                output_path, batch_info[0][0], batch_info[0][1], e)
+            return []
+
+        logger.warning(
+            f"OOM error with batch size {len(batch_images)}. Splitting batch "
+            "in half and retrying.")
+
+        # Splitting batch in half
+        mid_index = len(batch_images) // 2
+        first_half_images = batch_images[:mid_index]
+        second_half_images = batch_images[mid_index:]
+        first_half_info = batch_info[:mid_index]
+        second_half_info = batch_info[mid_index:]
+
+        # Recursive calls for each half
+        first_half_predictions = safe_batch_predict(
+            model, first_half_images, first_half_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+        second_half_predictions = safe_batch_predict(
+            model, second_half_images, second_half_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+
+        return first_half_predictions + second_half_predictions
+
+
 def batch_predict(model: tf.keras.Model,
-                  batch: List[Tuple[tf.Tensor, str, str]],
+                  images: List[Tuple[tf.Tensor, str, str]],
+                  batch_info: List[Tuple[str, str]],
                   utils: object,
                   decoder: Callable,
                   output_path: str,
@@ -287,36 +346,14 @@ def batch_predict(model: tf.keras.Model,
 
     logger = logging.getLogger(__name__)
 
-    logger.debug(f"Initial batch size: {len(batch)}")
+    logger.debug(f"Initial batch size: {len(images)}")
 
     # Unpack the batch
-    images, groups, identifiers = map(list, zip(*batch))
+    groups, identifiers = zip(*batch_info)
 
-    # Determine the maximum width of the images in the batch
-    max_width = 0
-    for image in images:
-        if image.shape[0] > max_width:
-            max_width = image.shape[0]
-    logger.debug(f"Determined max width: {max_width}")
-
-    # Pad the images to the maximum width
-    for i in range(len(images)):
-        images[i] = tf.image.resize_with_pad(images[i], max_width, 64)
-    images = tf.stack(images)
-
-    logger.debug(f"Batch shape after padding: {images.shape}")
-
-    batch = tf.convert_to_tensor(images)
-    logger.debug("Converted batch to tensor")
-
-    logger.info("Making predictions...")
-    encoded_predictions = model(images)
+    logger.info(f"Making {len(images)} predictions...")
+    encoded_predictions = model.predict_on_batch(images)
     logger.debug("Predictions made")
-
-    # Clear the session to free up memory
-    logger.debug("Clearing session...")
-    tf.keras.backend.clear_session()
-    logger.debug("Session cleared")
 
     logger.debug("Decoding predictions...")
     decoded_predictions = decoder(encoded_predictions, utils)[0]
@@ -380,9 +417,35 @@ def output_predictions(predictions: List[Tuple[float, str]],
         # Output the text to a file
         output_dir = os.path.join(output_path, group_id)
         if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+            os.makedirs(output_dir, exist_ok=True)
             logger.debug(f"Created output directory: {output_dir}")
         with open(os.path.join(output_dir, identifier + ".txt"), "w") as f:
             f.write(text + "\n")
 
     return outputs
+
+
+def output_prediction_error(output_path: str,
+                            group_id: str,
+                            identifier: str,
+                            text: str):
+    """
+    Output an error message to a file.
+
+    Parameters
+    ----------
+    output_path : str
+        Base path where prediction outputs should be saved.
+    group_id : str
+        Group ID of the image.
+    identifier : str
+        Identifier of the image.
+    text : str
+        Error message to be saved.
+    """
+
+    output_dir = os.path.join(output_path, group_id)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, identifier + ".error"), "w") as f:
+        f.write(str(text) + "\n")
