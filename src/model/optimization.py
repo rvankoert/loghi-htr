@@ -11,7 +11,7 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
                                  schedules.LearningRateSchedule):
     def __init__(self, initial_learning_rate: float, decay_rate: float,
                  decay_steps: int, warmup_ratio: float, train_batches: int,
-                 decay_per_step: bool = True) -> None:
+                 total_steps: int, decay_per_step: bool = True) -> None:
         """
         Initialize the custom learning rate schedule.
 
@@ -29,6 +29,8 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
             steps.
         train_batches : int
             Total number of training batches.
+        total_steps : int
+            Total number of training steps.
         decay_per_step : bool, optional
             If True, apply decay per step; otherwise, apply per epoch (default
             is True).
@@ -43,7 +45,7 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         self.decay_steps = decay_steps if decay_steps != -1 else train_batches
 
         # Calculate warmup steps as a fraction of total training steps
-        self.warmup_steps = int(warmup_ratio * train_batches)
+        self.warmup_steps = int(warmup_ratio * total_steps)
         self.decay_per_step = decay_per_step
 
     def __call__(self, step: int) -> float:
@@ -65,15 +67,21 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
             warmup_lr = self.initial_learning_rate * (step / self.warmup_steps)
             return warmup_lr
         else:
-            # Post-warmup phase: apply exponential decay
+            # Post-warmup phase
             if self.decay_per_step:
                 # Decay per step
-                decayed_lr = self.initial_learning_rate * \
-                    (self.decay_rate ** (step / self.decay_steps))
+                # Calculate the decayed learning rate from the end of warmup
+                decayed_lr = (self.initial_learning_rate *
+                              (self.decay_rate ** ((step - self.warmup_steps) /
+                                                   self.decay_steps)))
             else:
                 # Decay per epoch
-                decayed_lr = self.initial_learning_rate * \
-                    (self.decay_rate ** (step // self.decay_steps))
+                # Calculate completed epochs since warmup
+                completed_epochs = (
+                    step - self.warmup_steps) // self.decay_steps
+                # Apply decay rate per completed epoch
+                decayed_lr = (self.initial_learning_rate *
+                              (self.decay_rate ** completed_epochs))
             return decayed_lr
 
     def get_config(self) -> dict:
@@ -142,8 +150,8 @@ def get_optimizer(optimizer_name: str,
 
 
 def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
-                                  decay_steps: int, train_batches: int,
-                                  do_train: bool, warmup_ratio: float = 0.1,
+                                  train_batches: int, do_train: bool,
+                                  warmup_ratio: float, epochs: int,
                                   decay_per_step: bool = False) \
         -> Union[float, CustomLearningRateSchedule,
                  tf.keras.optimizers.schedules.ExponentialDecay]:
@@ -157,10 +165,6 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
         The initial learning rate.
     decay_rate : float
         The rate of decay for the learning rate.
-    decay_steps : int
-        The number of steps after which the learning rate decays. A value of -1
-        indicates using the total number of training batches as the decay
-        steps.
     train_batches : int
         The total number of training batches.
     do_train : bool
@@ -168,6 +172,8 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
     warmup_ratio : float, optional
         The ratio of the warmup period to the total training batches (default
         is 0.1).
+    epochs : int
+        The total number of epochs.
     decay_per_step : bool, optional
         If True, apply decay per step; otherwise, apply per epoch (default is
         False).
@@ -181,19 +187,23 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
     """
 
     if do_train:
-        if decay_rate > 0:
-            # Use custom learning rate schedule with warmup and decay
-            return CustomLearningRateSchedule(
-                initial_learning_rate=learning_rate,
-                decay_rate=decay_rate,
-                decay_steps=decay_steps,
-                warmup_ratio=warmup_ratio,
-                train_batches=train_batches,
-                decay_per_step=decay_per_step
-            )
+        steps_per_epoch = train_batches // epochs
+
+        if decay_per_step:
+            decay_steps = -1
         else:
-            # Return a constant learning rate
-            return learning_rate
+            decay_steps = steps_per_epoch
+
+        # Use custom learning rate schedule with warmup and decay
+        return CustomLearningRateSchedule(
+            initial_learning_rate=learning_rate,
+            decay_rate=decay_rate,
+            decay_steps=decay_steps,
+            warmup_ratio=warmup_ratio,
+            train_batches=train_batches,
+            total_steps=epochs * train_batches,
+            decay_per_step=decay_per_step
+        )
     else:
         # If not training, return the initial learning rate
         return learning_rate

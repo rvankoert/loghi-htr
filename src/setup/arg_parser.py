@@ -42,12 +42,6 @@ def get_arg_parser():
     training_args.add_argument('--learning_rate', metavar='learning_rate',
                                type=float, default=0.0003,
                                help='Initial learning rate. Default: 0.0003.')
-    training_args.add_argument('--decay_steps', metavar='decay_steps',
-                               type=int, default=-1,
-                               help='Number of iterations after which the '
-                               'learning rate will decrease. Set to 0 for no '
-                               'decay, -1 to use num_batches per epoch. '
-                               'Default: -1.')
     training_args.add_argument('--decay_rate', type=float, default=0.99,
                                help='Rate of decay for the learning rate. Set '
                                'to 0 to disable decay. Default: 0.99.')
