@@ -74,8 +74,13 @@ def main():
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
-            args.learning_rate, args.decay_rate, args.decay_steps,
-            train_batches, args.do_train)
+            learning_rate=args.learning_rate,
+            decay_rate=args.decay_rate,
+            decay_steps=args.decay_steps,
+            train_batches=train_batches,
+            do_train=args.do_train,
+            warmup_ratio=args.warmup_ratio,
+            decay_per_step=args.decay_per_step)
 
         # Create the optimizer
         optimizer = get_optimizer(args.optimizer, lr_schedule)

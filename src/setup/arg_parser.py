@@ -37,9 +37,27 @@ def get_arg_parser():
 
     # Training args
     training_args = parser.add_argument_group('General training arguments')
+
+    # LR Schedule
     training_args.add_argument('--learning_rate', metavar='learning_rate',
                                type=float, default=0.0003,
-                               help='learning_rate to be used, default 0.0003')
+                               help='Initial learning rate. Default: 0.0003.')
+    training_args.add_argument('--decay_steps', metavar='decay_steps',
+                               type=int, default=-1,
+                               help='Number of iterations after which the '
+                               'learning rate will decrease. Set to 0 for no '
+                               'decay, -1 to use num_batches per epoch. '
+                               'Default: -1.')
+    training_args.add_argument('--decay_rate', type=float, default=0.99,
+                               help='Rate of decay for the learning rate. Set '
+                               'to 0 to disable decay. Default: 0.99.')
+    training_args.add_argument('--warmup_ratio', type=float, default=0.1,
+                               help='Ratio of the warmup period to total '
+                               'training steps. Default: 0.1.')
+    training_args.add_argument('--decay_per_step', action='store_true',
+                               help='Apply decay per step if set, otherwise '
+                               'decay per epoch. Default: False.')
+
     training_args.add_argument('--epochs', metavar='epochs', type=int,
                                default=40, help='epochs to be used, default 40')
     training_args.add_argument('--width', metavar='width', type=int, default=65536,
@@ -54,11 +72,6 @@ def get_arg_parser():
                                     'quoted and space separated '
                                     '"training_file1.txt training_file2.txt" '
                                     'to combine training sets.')
-    training_args.add_argument('--decay_steps', metavar='decay_steps', type=int, default=-1,
-                               help='decay_steps. default -1. After this number of iterations the learning rate will '
-                               'decrease with 10 percent. When 0, it will not decrease. When -1 it is set to num_batches / 1 epoch')
-    training_args.add_argument('--decay_rate', type=float, default=0.99,
-                               help='beta: decay_rate. Default 0.99. disables learning rate decay when set to 0')
     training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch ', type=int, default=None,
                                help='steps_per_epoch. default None')
     training_args.add_argument('--output_checkpoints', action='store_true',
