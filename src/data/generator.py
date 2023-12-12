@@ -10,7 +10,7 @@ from typing import Tuple
 import cv2
 import tensorflow as tf
 import elasticdeform.tf as etf
-import tensorflow_addons as tfa
+# import tensorflow_addons as tfa
 from skimage.filters import threshold_otsu, threshold_sauvola
 import numpy as np
 
@@ -144,17 +144,22 @@ class DataGenerator(tf.keras.utils.Sequence):
         else:
             return tf.convert_to_tensor(max_value - tensor.numpy())
 
-    def blur(self, tensor: tf.Tensor) -> tf.Tensor:
+    def blur(self, image: tf.Tensor) -> np.ndarray:
         """
         Apply Gaussian blur to the input tensor.
 
         Parameters:
-        - tensor (tf.Tensor): Input image tensor.
+        - image (tf.Tensor): Input image tensor.
 
         Returns:
         - tf.Tensor: Blurred image tensor.
         """
-        return tfa.image.gaussian_filter2d(tensor, sigma=[0.0, 20.0], filter_shape=(10, 10))
+        kernel_size = (11, 11)
+        sigma_x = 0.0
+        sigma_y = 20.0
+        blurred_image = cv2.GaussianBlur(image.numpy(), kernel_size, sigma_x, sigma_y)
+        return blurred_image
+        # return tfa.image.gaussian_filter2d(tensor, sigma=[0.0, 20.0], filter_shape=(10, 10))
 
     def shear_x(self, image: np.ndarray, shear_factor: float) -> np.ndarray:
         """
