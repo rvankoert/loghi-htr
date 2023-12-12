@@ -10,8 +10,8 @@ import tensorflow as tf
 class CustomLearningRateSchedule(tf.keras.optimizers.
                                  schedules.LearningRateSchedule):
     def __init__(self, initial_learning_rate: float, decay_rate: float,
-                 decay_steps: int, warmup_ratio: float, train_batches: int,
-                 total_steps: int, decay_per_step: bool = True) -> None:
+                 decay_steps: int, warmup_ratio: float, total_steps: int,
+                 decay_per_step: bool = True) -> None:
         """
         Initialize the custom learning rate schedule.
 
@@ -27,8 +27,6 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         warmup_ratio : float
             The ratio of the warmup period with respect to the total training
             steps.
-        train_batches : int
-            Total number of training batches.
         total_steps : int
             Total number of training steps.
         decay_per_step : bool, optional
@@ -37,24 +35,25 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         """
 
         super(CustomLearningRateSchedule, self).__init__()
-        self.initial_learning_rate = initial_learning_rate
-        self.decay_rate = decay_rate
+        self.initial_learning_rate = tf.cast(initial_learning_rate,
+                                             tf.float32)
+        self.decay_rate = tf.cast(decay_rate, tf.float32)
 
         # Use the total number of training batches as decay steps if
         # decay_steps is -1
-        self.decay_steps = decay_steps if decay_steps != -1 else train_batches
+        self.decay_steps = tf.cast(decay_steps, tf.float32)
 
         # Calculate warmup steps as a fraction of total training steps
-        self.warmup_steps = int(warmup_ratio * total_steps)
-        self.decay_per_step = decay_per_step
+        self.warmup_steps = tf.cast(warmup_ratio * total_steps, tf.float32)
+        self.decay_per_step = tf.cast(decay_per_step, tf.bool)
 
-    def __call__(self, step: int) -> float:
+    def __call__(self, step: tf.Tensor) -> float:
         """
         Calculate the learning rate for a given step.
 
         Parameters
         ----------
-        step : int
+        step : tf.Tensor
             The current training step.
 
         Returns
@@ -62,27 +61,27 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         float
             The calculated learning rate for the given step.
         """
-        # Warmup phase: linearly increase learning rate
-        if step < self.warmup_steps:
-            warmup_lr = self.initial_learning_rate * (step / self.warmup_steps)
-            return warmup_lr
-        else:
+        step = tf.cast(
+            step, tf.float32)  # Ensure `step` is a float tensor for division
+
+        def warmup_lr():
+            return self.initial_learning_rate * (step / self.warmup_steps)
+
+        def decayed_lr():
             # Post-warmup phase
-            if self.decay_per_step:
-                # Decay per step
-                # Calculate the decayed learning rate from the end of warmup
-                decayed_lr = (self.initial_learning_rate *
-                              (self.decay_rate ** ((step - self.warmup_steps) /
-                                                   self.decay_steps)))
-            else:
-                # Decay per epoch
-                # Calculate completed epochs since warmup
-                completed_epochs = (
-                    step - self.warmup_steps) // self.decay_steps
-                # Apply decay rate per completed epoch
-                decayed_lr = (self.initial_learning_rate *
-                              (self.decay_rate ** completed_epochs))
-            return decayed_lr
+            def per_step():
+                steps_since_warmup = step - self.warmup_steps
+                return self.initial_learning_rate * tf.pow(
+                    self.decay_rate, steps_since_warmup / self.decay_steps)
+
+            def per_epoch():
+                return self.initial_learning_rate * tf.pow(
+                    self.decay_rate, tf.math.floor(step / self.decay_steps))
+
+            return tf.cond(self.decay_per_step, per_step, per_epoch)
+
+        # Use tf.cond to choose between warmup and decay phase
+        return tf.cond(step < self.warmup_steps, warmup_lr, decayed_lr)
 
     def get_config(self) -> dict:
         """
@@ -93,12 +92,13 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         dict
             A dictionary containing the configuration parameters.
         """
+
         return {
             "initial_learning_rate": self.initial_learning_rate,
             "decay_rate": self.decay_rate,
             "decay_steps": self.decay_steps,
             "warmup_ratio": self.warmup_ratio,
-            "train_batches": self.train_batches,
+            "total_steps": self.total_steps,
             "decay_per_step": self.decay_per_step
         }
 
@@ -153,8 +153,7 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
                                   train_batches: int, do_train: bool,
                                   warmup_ratio: float, epochs: int,
                                   decay_per_step: bool = False) \
-        -> Union[float, CustomLearningRateSchedule,
-                 tf.keras.optimizers.schedules.ExponentialDecay]:
+        -> Union[float, CustomLearningRateSchedule]:
     """
     Creates a learning rate schedule based on the specified parameters,
     with support for warmup and custom decay.
@@ -180,28 +179,19 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
 
     Returns
     -------
-    Union[float, CustomLearningRateSchedule,
-          tf.keras.optimizers.schedules.ExponentialDecay]
+    Union[float, CustomLearningRateSchedule]
         The learning rate or a learning rate schedule based on the provided
         parameters.
     """
 
     if do_train:
-        steps_per_epoch = train_batches // epochs
-
-        if decay_per_step:
-            decay_steps = -1
-        else:
-            decay_steps = steps_per_epoch
-
         # Use custom learning rate schedule with warmup and decay
         return CustomLearningRateSchedule(
             initial_learning_rate=learning_rate,
             decay_rate=decay_rate,
-            decay_steps=decay_steps,
+            decay_steps=train_batches,
             warmup_ratio=warmup_ratio,
-            train_batches=train_batches,
-            total_steps=epochs * train_batches,
+            total_steps=epochs * train_batches + 1,
             decay_per_step=decay_per_step
         )
     else:
