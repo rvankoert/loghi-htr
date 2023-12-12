@@ -2,6 +2,7 @@
 
 # > Standard Library
 import random
+from typing import Tuple
 
 # > Local dependencies
 
@@ -9,6 +10,8 @@ import random
 import cv2
 import tensorflow as tf
 import elasticdeform.tf as etf
+import tensorflow_addons as tfa
+from skimage.filters import threshold_otsu, threshold_sauvola
 import numpy as np
 
 
@@ -45,7 +48,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.do_blur = do_blur
         self.do_invert = do_invert
 
-    def elastic_transform(self, original):
+    def elastic_transform(self, original: np.ndarray) -> np.ndarray:
         """
         Apply elastic transformation to an image.
 
@@ -79,7 +82,81 @@ class DataGenerator(tf.keras.utils.Sequence):
             original, displacement_val, axis=(0, 1), order=3)
         return x_deformed
 
-    def shear_x(self, image, shear_factor):
+    def binarize_sauvola(self, tensor: tf.Tensor) -> tf.Tensor:
+        """
+        Binarize the input tensor using Sauvola's adaptive thresholding.
+
+        Parameters:
+        - tensor (tf.Tensor): Input image tensor.
+
+        Returns:
+        - tf.Tensor: Binarized image tensor.
+        """
+        np_array = tensor.numpy()
+        window_size = 51
+
+        sauvola_thresh = threshold_sauvola(np_array, window_size=window_size)
+        binary_sauvola = (np_array > sauvola_thresh) * 1
+
+        return tf.convert_to_tensor(binary_sauvola)
+
+    def binarize_otsu(self, tensor: tf.Tensor) -> tf.Tensor:
+        """
+        Binarize the input tensor using Otsu's thresholding.
+
+        Parameters:
+        - tensor (tf.Tensor): Input image tensor.
+
+        Returns:
+        - tf.Tensor: Binarized image tensor.
+        """
+        np_array = tensor.numpy()
+
+        np_array = cv2.cvtColor(np_array, cv2.COLOR_RGB2GRAY)
+
+        otsu_threshold = threshold_otsu(np_array)
+
+        return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
+
+    def invert(self, tensor: tf.Tensor) -> tf.Tensor:
+        """
+        Invert the pixel values of the input tensor.
+
+        Parameters:
+        - tensor (tf.Tensor): Input image tensor.
+
+        Returns:
+        - tf.Tensor: Inverted image tensor.
+        """
+        if str(tensor.numpy().dtype).startswith("uint") or str(tensor.numpy().dtype).startswith("int"):
+            max_value = 255
+        else:
+            max_value = 1
+
+        if self.channels == 4:
+            channel1, channel2, channel3, alpha = tf.split(tensor, 4, axis=2)
+            channel1 = tf.convert_to_tensor(max_value - channel1.numpy())
+            channel2 = tf.convert_to_tensor(max_value - channel2.numpy())
+            channel3 = tf.convert_to_tensor(max_value - channel3.numpy())
+
+            return tf.concat([channel1, channel2, channel3, alpha], axis=2)
+
+        else:
+            return tf.convert_to_tensor(max_value - tensor.numpy())
+
+    def blur(self, tensor: tf.Tensor) -> tf.Tensor:
+        """
+        Apply Gaussian blur to the input tensor.
+
+        Parameters:
+        - tensor (tf.Tensor): Input image tensor.
+
+        Returns:
+        - tf.Tensor: Blurred image tensor.
+        """
+        return tfa.image.gaussian_filter2d(tensor, sigma=[0.0, 20.0], filter_shape=(10, 10))
+
+    def shear_x(self, image: np.ndarray, shear_factor: float) -> np.ndarray:
         """
         Apply shear transformation along the x-axis to the input image.
 
@@ -127,7 +204,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         return repl_image
 
-    def load_images(self, image_path):
+    def load_images(self, image_path: Tuple[str, str]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Load and preprocess images.
 
@@ -230,6 +307,18 @@ class DataGenerator(tf.keras.utils.Sequence):
                     "Unsupported number of channels. Supported values are 1, "
                     "3, or 4.")
 
+        if self.do_binarize_sauvola:
+            image = self.binarize_sauvola(image)
+
+        if self.do_binarize_otsu:
+            image = self.binarize_otsu(image)
+
+        if self.do_blur:
+            image = self.blur(image)
+
+        if self.do_invert:
+            image = self.invert(image)
+
         label = image_path[1]
         encoded_label = self.utils.char_to_num(
             tf.strings.unicode_split(label, input_encoding="UTF-8"))
@@ -237,7 +326,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         label_counter = 0
         last_char = None
 
-        # TODO: readd do_binarize_sauvola, do_binarize_otsu, do_blur, do_invert
         for char in encoded_label:
             label_counter += 1
             if char == last_char:
