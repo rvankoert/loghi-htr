@@ -23,8 +23,7 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
         decay_rate : float
             The rate at which the learning rate decays.
         decay_steps : int
-            The number of steps after which the learning rate decays. If -1,
-            uses `train_batches`.
+            The number of steps after which the learning rate decays.
         warmup_ratio : float
             The ratio of the warmup period with respect to the total training
             steps.
