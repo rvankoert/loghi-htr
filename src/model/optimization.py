@@ -47,6 +47,9 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         self.warmup_steps = tf.cast(warmup_ratio * total_steps, tf.float32)
         self.decay_per_step = tf.cast(decay_per_step, tf.bool)
 
+        self.linear_decay = tf.constant(True, dtype=tf.bool)
+        self.total_steps = tf.cast(total_steps, tf.float32)
+
     def __call__(self, step: tf.Tensor) -> float:
         """
         Calculate the learning rate for a given step.
@@ -61,13 +64,34 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
         float
             The calculated learning rate for the given step.
         """
-        step = tf.cast(
-            step, tf.float32)  # Ensure `step` is a float tensor for division
+        # Ensure `step` is a float tensor for division
+        step = tf.cast(step, tf.float32)
 
         def warmup_lr():
             return self.initial_learning_rate * (step / self.warmup_steps)
 
-        def decayed_lr():
+        def linear_decayed_lr():
+            # Post-warmup phase
+            def per_step():
+                # Calculate the proportion of steps completed
+                proportion_completed = (
+                    step - self.warmup_steps) / self.total_steps
+
+                return self.initial_learning_rate * (1 - proportion_completed)
+
+            def per_epoch():
+                epoch = tf.math.floor(step / self.decay_steps)
+                total_epochs = tf.math.floor(self.total_steps /
+                                             self.decay_steps)
+
+                # Calculate the proportion of epochs completed
+                proportion_completed = epoch / total_epochs
+
+                return self.initial_learning_rate * (1 - proportion_completed)
+
+            return tf.cond(self.decay_per_step, per_step, per_epoch)
+
+        def exponential_decayed_lr():
             # Post-warmup phase
             def per_step():
                 steps_since_warmup = step - self.warmup_steps
@@ -81,7 +105,9 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
             return tf.cond(self.decay_per_step, per_step, per_epoch)
 
         # Use tf.cond to choose between warmup and decay phase
-        return tf.cond(step < self.warmup_steps, warmup_lr, decayed_lr)
+        return tf.cond(step < self.warmup_steps, warmup_lr,
+                       lambda: tf.cond(self.linear_decay, linear_decayed_lr,
+                                       exponential_decayed_lr))
 
     def get_config(self) -> dict:
         """
