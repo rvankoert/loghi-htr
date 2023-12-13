@@ -64,7 +64,7 @@ jobs:
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
         
-    - name: Test cuustom LR schedule
+    - name: Test custom LR schedule
       if: always()
       run: |
         python -m unittest tests/test_lr_schedule.py

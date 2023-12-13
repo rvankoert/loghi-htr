@@ -136,7 +136,6 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
             "initial_learning_rate": self.initial_learning_rate,
             "decay_rate": self.decay_rate,
             "decay_steps": self.decay_steps,
-            "warmup_ratio": self.warmup_ratio,
             "total_steps": self.total_steps,
             "decay_per_epoch": self.decay_per_epoch,
             "linear_decay": self.linear_decay
