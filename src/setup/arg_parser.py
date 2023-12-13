@@ -48,9 +48,12 @@ def get_arg_parser():
     training_args.add_argument('--warmup_ratio', type=float, default=0.1,
                                help='Ratio of the warmup period to total '
                                'training steps. Default: 0.1.')
-    training_args.add_argument('--decay_per_step', action='store_true',
-                               help='Apply decay per step if set, otherwise '
-                               'decay per epoch. Default: False.')
+    training_args.add_argument('--decay_per_epoch', action='store_true',
+                               help='Apply decay per epoch if set, otherwise '
+                               'decay per step. Default: False.')
+    training_args.add_argument('--linear_decay', action='store_true',
+                               help='Use linear decay if set, otherwise use '
+                               'exponential decay. Default: False.')
 
     training_args.add_argument('--epochs', metavar='epochs', type=int,
                                default=40, help='epochs to be used, default 40')

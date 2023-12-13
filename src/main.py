@@ -80,7 +80,8 @@ def main():
             do_train=args.do_train,
             warmup_ratio=args.warmup_ratio,
             epochs=args.epochs,
-            decay_per_step=args.decay_per_step)
+            decay_per_epoch=args.decay_per_epoch,
+            linear_decay=args.linear_decay)
 
         # Create the optimizer
         optimizer = get_optimizer(args.optimizer, lr_schedule)
