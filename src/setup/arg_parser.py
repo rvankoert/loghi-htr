@@ -44,10 +44,15 @@ def get_arg_parser():
                                help='Initial learning rate. Default: 0.0003.')
     training_args.add_argument('--decay_rate', type=float, default=0.99,
                                help='Rate of decay for the learning rate. Set '
-                               'to 0 to disable decay. Default: 0.99.')
-    training_args.add_argument('--warmup_ratio', type=float, default=0.1,
+                               'to 1 to keep the learning rate constant. '
+                               'Default: 0.99.')
+    training_args.add_argument('--decay_steps', type=int, default=-1,
+                               help='Number of steps after which the learning '
+                               'rate decays. A value of -1 means decay '
+                               'every epoch. Default: -1.')
+    training_args.add_argument('--warmup_ratio', type=float, default=0.0,
                                help='Ratio of the warmup period to total '
-                               'training steps. Default: 0.1.')
+                               'training steps. Default: 0.0.')
     training_args.add_argument('--decay_per_epoch', action='store_true',
                                help='Apply decay per epoch if set, otherwise '
                                'decay per step. Default: False.')
