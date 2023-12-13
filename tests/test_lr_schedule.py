@@ -7,6 +7,29 @@ import logging
 
 
 class TestLoghiLearningRateSchedule(unittest.TestCase):
+    """
+    Test the LoghiLearningRateSchedule class.
+
+    Test coverage:
+    1. `test_initialization`: Test correct initialization.
+    2. `test_invalid_lr_init`: Test invalid initialization arguments.
+    3. `test_invalid_decay_rate_init`: Test invalid initialization arguments
+       related to the decay rate.
+    4. `test_invalid_decay_steps_init`: Test invalid initialization arguments
+       related to the decay steps.
+    5. `test_invalid_warmup_ratio_init`: Test invalid initialization arguments
+       related to the warmup ratio.
+    6. `test_invalid_total_steps_init`: Test invalid initialization arguments
+       related to the total steps.
+    7. `test_call_method`: Test the __call__ method for various scenarios.
+    8. `test_get_config`: Test the get_config method.
+    9. `test_learning_rate_calculation`: Test learning rate at various steps.
+    10. `test_exponential_decay_compatibility_stepwise`: Test compatibility
+        with TensorFlow's ExponentialDecay schedule (stepwise decay).
+    11. `test_exponential_decay_compatibility_epochwise`: Test compatibility
+        with TensorFlow's ExponentialDecay schedule (epochwise decay).
+    """
+
     @classmethod
     def setUpClass(cls):
         # Set up logging
