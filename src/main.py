@@ -58,7 +58,7 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, validation_dataset, test_dataset, \
-            inference_dataset, utilsObject, train_batches\
+            inference_dataset, utilsObject, train_batches \
             = loader.generators()
 
         # Replace the charlist with the one from the data loader
@@ -105,7 +105,8 @@ def main():
         tick = time.time()
 
         history = train_model(model, args, training_dataset,
-                              validation_dataset, loader)
+                              validation_dataset, loader,
+                              lr_schedule)
 
         # Plot the training history
         plot_training_history(history, args)

@@ -14,7 +14,8 @@ class LoghiCustomCallback(keras.callbacks.Callback):
 
     previous_loss = float('inf')
 
-    def __init__(self, save_best=True, save_checkpoint=True, output='output', charlist=None, metadata=None):
+    def __init__(self, save_best=True, save_checkpoint=True, output='output',
+                 charlist=None, metadata=None):
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output
@@ -30,6 +31,24 @@ class LoghiCustomCallback(keras.callbacks.Callback):
         if self.metadata is not None:
             with open(os.path.join(outputdir, 'config.json'), 'w') as file:
                 file.write(json.dumps(self.metadata))
+
+    def on_train_batch_end(self, batch, logs=None):
+        lr = self.model.optimizer.lr
+        if hasattr(lr, 'values'):
+            # When the lr is a MirroredVariable, get the value from one of the
+            # replicas
+            lr_value = lr.values[0].numpy()
+        else:
+            # If lr is callable (e.g., a function), evaluate it at the current
+            # step
+            if callable(lr):
+                lr_value = lr(self.model.optimizer.iterations).numpy()
+            else:
+                lr_value = lr.numpy()
+
+        # Add the learning rate to the logs dictionary
+        logs = logs or {}
+        logs['lr'] = lr_value
 
     def on_epoch_end(self, epoch, logs=None):
         print(

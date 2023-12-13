@@ -280,7 +280,8 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
 
 # # Train the model
 
-def train_batch(model, train_dataset, validation_dataset, epochs, output, model_name, steps_per_epoch=None,
+def train_batch(model, train_dataset, validation_dataset, epochs, lr_schedule,
+                output, model_name, steps_per_epoch=None,
                 early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
                 metadata=None, charlist=None, verbosity_mode='auto'):
     # # Add early stopping

@@ -12,13 +12,15 @@ import tensorflow as tf
 from data.loader import DataLoader
 from setup.config_metadata import get_config
 from model.model import train_batch
+from model.optimization import LoghiLearningRateSchedule
 
 
 def train_model(model: tf.keras.Model,
                 args: Any,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                loader: DataLoader) -> Any:
+                loader: DataLoader,
+                lr_schedule: LoghiLearningRateSchedule) -> Any:
     """
     Trains a Keras model using the provided training and validation datasets,
     along with additional arguments.
@@ -36,6 +38,8 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for validation.
     loader : DataLoader
         A DataLoader containing additional information like character list.
+    lr_schedule : LoghiLearningRateSchedule
+        The learning rate schedule to be used for training.
 
     Returns
     -------
@@ -57,6 +61,7 @@ def train_model(model: tf.keras.Model,
         training_dataset,
         validation_dataset,
         epochs=args.epochs,
+        lr_schedule=lr_schedule,
         output=args.output,
         model_name=model.name,
         steps_per_epoch=args.steps_per_epoch,
