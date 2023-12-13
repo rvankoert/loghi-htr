@@ -7,8 +7,8 @@ from typing import Union
 import tensorflow as tf
 
 
-class CustomLearningRateSchedule(tf.keras.optimizers.
-                                 schedules.LearningRateSchedule):
+class LoghiLearningRateSchedule(tf.keras.optimizers.
+                                schedules.LearningRateSchedule):
     def __init__(self, initial_learning_rate: float, decay_rate: float,
                  decay_steps: int, warmup_ratio: float, total_steps: int,
                  decay_per_epoch: bool = False, linear_decay: bool = False) \
@@ -38,7 +38,7 @@ class CustomLearningRateSchedule(tf.keras.optimizers.
             (default is False).
         """
 
-        super(CustomLearningRateSchedule, self).__init__()
+        super(LoghiLearningRateSchedule, self).__init__()
         self.initial_learning_rate = tf.cast(initial_learning_rate,
                                              tf.float32)
         self.decay_rate = tf.cast(decay_rate, tf.float32)
@@ -184,7 +184,7 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
                                   do_train: bool, warmup_ratio: float,
                                   epochs: int, decay_per_epoch: bool = False,
                                   linear_decay: bool = False) \
-        -> Union[float, CustomLearningRateSchedule]:
+        -> Union[float, LoghiLearningRateSchedule]:
     """
     Creates a learning rate schedule based on the specified parameters,
     with support for warmup and custom decay.
@@ -226,7 +226,7 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
             decay_steps = train_batches
 
         # Use custom learning rate schedule with warmup and decay
-        return CustomLearningRateSchedule(
+        return LoghiLearningRateSchedule(
             initial_learning_rate=learning_rate,
             decay_rate=decay_rate,
             decay_steps=decay_steps,
