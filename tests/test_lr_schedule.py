@@ -1,9 +1,13 @@
+# Imports
 
+# > Standard library
+import logging
 import unittest
-import tensorflow as tf
 from pathlib import Path
 import sys
-import logging
+
+# > Third-party dependencies
+import tensorflow as tf
 
 
 class TestLoghiLearningRateSchedule(unittest.TestCase):
