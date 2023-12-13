@@ -37,6 +37,17 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
             If True, use linear decay; otherwise, use exponential decay
             (default is False).
         """
+        # Error handling for initial parameters
+        if not 0 < initial_learning_rate:
+            raise ValueError("Initial learning rate must be positive.")
+        if not 0 < decay_rate:
+            raise ValueError("Decay rate must be positive.")
+        if not (isinstance(decay_steps, int) and decay_steps >= 0):
+            raise ValueError("Decay steps must be a non-negative integer.")
+        if not 0 <= warmup_ratio <= 1:
+            raise ValueError("Warmup ratio must be between 0 and 1.")
+        if not (isinstance(total_steps, int) and total_steps > 0):
+            raise ValueError("Total steps must be a positive integer.")
 
         super(LoghiLearningRateSchedule, self).__init__()
         self.initial_learning_rate = tf.cast(initial_learning_rate,
