@@ -36,6 +36,7 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
             If True, use linear decay; otherwise, use exponential decay
             (default is False).
         """
+
         # Error handling for initial parameters
         if not 0 < initial_learning_rate:
             raise ValueError("Initial learning rate must be positive.")
@@ -48,13 +49,14 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
         if not (isinstance(total_steps, int) and total_steps > 0):
             raise ValueError("Total steps must be a positive integer.")
 
-        super(LoghiLearningRateSchedule, self).__init__()
+        # super(LoghiLearningRateSchedule, self).__init__()
         self.initial_learning_rate = tf.cast(initial_learning_rate,
                                              tf.float32)
         self.decay_rate = tf.cast(decay_rate, tf.float32)
         self.decay_steps = tf.cast(decay_steps, tf.float32)
 
         # Calculate warmup steps as a fraction of total training steps
+        self.warmup_ratio = tf.cast(warmup_ratio, tf.float32)
         self.warmup_steps = tf.cast(warmup_ratio * total_steps, tf.float32)
         self.total_steps = tf.cast(total_steps, tf.float32)
 
@@ -75,6 +77,7 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
         float
             The calculated learning rate for the given step.
         """
+
         # Ensure `step` is a float tensor for division
         step = tf.cast(step, tf.float32)
 
@@ -123,23 +126,26 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
                                        exponential_decayed_lr))
 
     def get_config(self) -> dict:
-        """
-        Return the configuration of the learning rate schedule.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the configuration parameters.
-        """
-
+        # Serialize all parameters as plain values
         return {
-            "initial_learning_rate": self.initial_learning_rate,
-            "decay_rate": self.decay_rate,
-            "decay_steps": self.decay_steps,
-            "total_steps": self.total_steps,
-            "decay_per_epoch": self.decay_per_epoch,
-            "linear_decay": self.linear_decay
+            "initial_learning_rate": float(self.initial_learning_rate),
+            "decay_rate": float(self.decay_rate),
+            "decay_steps": int(self.decay_steps),
+            "warmup_ratio": float(self.warmup_ratio),
+            "total_steps": int(self.total_steps),
+            "decay_per_epoch": bool(self.decay_per_epoch),
+            "linear_decay": bool(self.linear_decay)
         }
+
+    @classmethod
+    def from_config(cls, config: dict) -> "LoghiLearningRateSchedule":
+        # Handle special cases where parameters might be serialized as tensors
+        for key in ['initial_learning_rate', 'decay_rate', 'decay_steps',
+                    'warmup_ratio', 'total_steps']:
+            if isinstance(config[key], dict) and 'value' in config[key]:
+                config[key] = config[key]['value']
+
+        return cls(**config)
 
 
 def get_optimizer(optimizer_name: str,

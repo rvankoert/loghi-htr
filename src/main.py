@@ -48,8 +48,10 @@ def main():
         charlist = []
 
     # Set the custom objects
+    from model.optimization import LoghiLearningRateSchedule
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
-                      'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock}
+                      'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock,
+                      'LoghiLearningRateSchedule': LoghiLearningRateSchedule}
 
     # Create the model
     with strategy.scope():

@@ -194,6 +194,7 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
 
     from model.custom_layers import ResidualBlock
     from model.model import CERMetric, WERMetric, CTCLoss
+    from model.optimization import LoghiLearningRateSchedule
     from utils.utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
@@ -203,7 +204,8 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
         'CERMetric': CERMetric,
         'WERMetric': WERMetric,
         'CTCLoss': CTCLoss,
-        'ResidualBlock': ResidualBlock
+        'ResidualBlock': ResidualBlock,
+        'LoghiLearningRateSchedule': LoghiLearningRateSchedule
     }
     model = load_model_from_directory(model_path, custom_objects)
     logger.info(f"Model {model.name} loaded successfully")
