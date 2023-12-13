@@ -26,8 +26,9 @@ def get_arg_parser():
                               help='results_file. When inferencing the results are stored at this location.')
     general_args.add_argument('--config_file_output', metavar='config_file_output', type=str, default=None,
                               help='config_file_output')
-    general_args.add_argument('--optimizer', metavar='optimizer ', type=str, default='adam',
-                              help='optimizer.')
+    general_args.add_argument('--optimizer', metavar='optimizer', type=str,
+                              default='adamw', help='optimizer to be used, '
+                              'default adamw')
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help='random seed to be used')
     general_args.add_argument('--charlist', metavar='charlist ', type=str, default=None,
