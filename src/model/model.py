@@ -2,15 +2,12 @@
 
 # > Standard library
 import logging
-import os
 
 # > Local dependencies
-from model.custom_callback import LoghiCustomCallback
 from model.vgsl_model_generator import VGSLModelGenerator
 
 # > Third party dependencies
 import keras.backend as K
-from keras.callbacks import ReduceLROnPlateau
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -276,53 +273,3 @@ def replace_final_layer(model, number_characters, model_name, use_mask=False):
     )
 
     return model
-
-
-# # Train the model
-
-def train_batch(model, train_dataset, validation_dataset, epochs, lr_schedule,
-                output, model_name, steps_per_epoch=None,
-                early_stopping_patience=20, num_workers=20, max_queue_size=256, output_checkpoints=False,
-                metadata=None, charlist=None, verbosity_mode='auto'):
-    # # Add early stopping
-    callbacks = []
-    if early_stopping_patience > 0 and validation_dataset:
-        early_stopping = keras.callbacks.EarlyStopping(
-            monitor='val_CER_metric',
-            patience=early_stopping_patience,
-            restore_best_weights=True,
-            mode='min'
-        )
-        callbacks.append(early_stopping)
-    from keras.callbacks import History
-    from keras.callbacks import ModelCheckpoint
-    history = History()
-    if validation_dataset:
-        base_path = output + '/best_val/'
-        mcp_save = ModelCheckpoint(base_path, save_best_only=True, monitor='val_CER_metric',
-                                   mode='min', verbose=1)
-    else:
-        mcp_save = ModelCheckpoint(output + '/best_train/', save_best_only=True, monitor='CER_metric',
-                                   mode='min', verbose=1)
-    reduce_lr_loss = ReduceLROnPlateau(monitor='val_loss', factor=0.3, cooldown=2, patience=5,
-                                       verbose=1, min_delta=1e-4, mode='min')
-    callbacks.append(history)
-    callbacks.append(LoghiCustomCallback(save_best=True, save_checkpoint=output_checkpoints, output=output,
-                                         charlist=charlist, metadata=metadata))
-    filename = os.path.join(output, 'log.csv')
-    history_logger = tf.keras.callbacks.CSVLogger(
-        filename, separator=",", append=True)
-    callbacks.append(history_logger)
-
-    history = model.fit(
-        train_dataset,
-        validation_data=validation_dataset,
-        epochs=epochs,
-        callbacks=callbacks,
-        shuffle=True,
-        workers=num_workers,
-        max_queue_size=max_queue_size,
-        steps_per_epoch=steps_per_epoch,
-        verbose=verbosity_mode
-    )
-    return history
