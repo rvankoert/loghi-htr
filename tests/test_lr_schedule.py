@@ -76,13 +76,17 @@ class TestLoghiLearningRateSchedule(unittest.TestCase):
 
     def test_initialization(self):
         # Test correct initialization
-        self.assertEqual(self.lr_schedule.initial_learning_rate,
-                         self.initial_learning_rate)
-        self.assertEqual(self.lr_schedule.decay_rate, self.decay_rate)
+        self.assertAlmostEqual(self.lr_schedule.initial_learning_rate,
+                               self.initial_learning_rate)
+        self.assertAlmostEqual(self.lr_schedule.decay_rate, self.decay_rate)
         self.assertEqual(self.lr_schedule.decay_steps, self.decay_steps)
         self.assertEqual(self.lr_schedule.warmup_steps,
                          self.warmup_ratio * self.total_steps)
+        self.assertAlmostEqual(
+            self.lr_schedule.warmup_ratio, self.warmup_ratio)
         self.assertEqual(self.lr_schedule.total_steps, self.total_steps)
+        self.assertEqual(self.lr_schedule.decay_per_epoch, False)
+        self.assertEqual(self.lr_schedule.linear_decay, False)
 
     def test_invalid_lr_init(self):
         # Test invalid initialization arguments
@@ -204,9 +208,9 @@ class TestLoghiLearningRateSchedule(unittest.TestCase):
     def test_get_config(self):
         # Test the get_config method
         config = self.lr_schedule.get_config()
-        self.assertEqual(config["initial_learning_rate"],
-                         self.initial_learning_rate)
-        self.assertEqual(config["decay_rate"], self.decay_rate)
+        self.assertAlmostEqual(config["initial_learning_rate"],
+                               self.initial_learning_rate)
+        self.assertAlmostEqual(config["decay_rate"], self.decay_rate)
         self.assertEqual(config["decay_steps"], self.decay_steps)
         self.assertEqual(config["total_steps"], self.total_steps)
         self.assertEqual(config["linear_decay"], False)
