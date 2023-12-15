@@ -180,7 +180,7 @@ def get_optimizer(optimizer_name: str,
 
     optimizers = {
         "adam": tf.keras.optimizers.Adam,
-        "adamw": tf.keras.optimizers.experimental.AdamW,
+        "adamw": tf.keras.optimizers.AdamW,
         "adadelta": tf.keras.optimizers.Adadelta,
         "adagrad": tf.keras.optimizers.Adagrad,
         "adamax": tf.keras.optimizers.Adamax,
