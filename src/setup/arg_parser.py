@@ -17,175 +17,195 @@ def get_arg_parser():
     # General configuration
     general_args = parser.add_argument_group('General arguments')
     general_args.add_argument('--gpu', metavar='gpu', type=str, default="-1",
-                              help='gpu to be used, use -1 for CPU')
+                              help="Specify the GPU ID for training/inference."
+                              " Use -1 to run on CPU. Default: '-1'.")
     general_args.add_argument('--output', metavar='output', type=str,
-                              default='output', help='base output to be used')
-    general_args.add_argument('--batch_size', metavar='batch_size', type=int,
-                              default=4, help='batch_size to be used, '
-                              'default 4')
-    general_args.add_argument('--results_file', metavar='results_file',
-                              type=str, default='output/results.txt',
-                              help='results_file. When inferencing the '
-                              'results are stored at this location.')
+                              default='output', help="Base directory for "
+                              "saving output files such as models and logs. "
+                              "Default: 'output'.")
+    general_args.add_argument('--output_charlist', metavar='output_charlist',
+                              type=str, default=None, help="Path to save the "
+                              "character list used during training/inference. "
+                              "If not specified, the charlist is saved to"
+                              "'output/charlist.txt'.")
     general_args.add_argument('--config_file_output',
                               metavar='config_file_output', type=str,
-                              default=None, help='config_file_output')
+                              default=None, help="Path to save the "
+                              "configuration file. If not specified, the "
+                              "configuration is set to 'output/config.json'.")
+    general_args.add_argument('--batch_size', metavar='batch_size', type=int,
+                              default=4, help="Number of samples processed in "
+                              "one iteration. Affects memory usage and "
+                              "training speed. Default: 4.")
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
-                              help='random seed to be used')
+                              help="Seed for random number generators to "
+                              "ensure reproducibility. Default: 42.")
     general_args.add_argument('--charlist', metavar='charlist ', type=str,
-                              default=None, help='Charlist to use')
-    general_args.add_argument('--output_charlist', metavar='output_charlist',
-                              type=str, default=None, help='output_charlist '
-                              'to use')
+                              default=None, help="Path to a file containing "
+                              "the list of characters to be recognized. "
+                              "Required for inference and validation.")
 
     # Training configuration
     training_args = parser.add_argument_group('Training arguments')
     training_args.add_argument('--epochs', metavar='epochs', type=int,
-                               default=40, help='epochs to be used, default '
-                               '40')
+                               default=40, help="Number of training epochs. "
+                               "Default: 40.")
     training_args.add_argument('--width', metavar='width', type=int,
-                               default=65536,
-                               help='maximum width to be used. '
-                                    'This should be a high number and '
-                                    'generally does not need to be changed')
-    training_args.add_argument('--train_list', metavar='train_list',
-                               type=str, default=None,
-                               help='use this file containing textline '
-                                    'location+transcription for training. '
-                                    'You can use multiple input files '
-                                    'quoted and space separated '
-                                    '"training_file1.txt training_file2.txt" '
-                                    'to combine training sets.')
-    training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch ',
-                               type=int, default=None, help='steps_per_epoch. '
-                               'default None')
+                               default=65536, help="Maximum image width for "
+                               "training. Generally, does not need to be "
+                               "changed. Default: 65536.")
+    training_args.add_argument('--train_list', metavar='train_list', type=str,
+                               default=None, help="Path to a file (or "
+                               "multiple files) with textline locations and "
+                               "transcriptions for training. Use "
+                               "space-separated quotes for multiple files: "
+                               "'training_file1.txt training_file2.txt'.")
+    training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch',
+                               type=int, default=None, help="Number of steps "
+                               "per training epoch. Default: None (calculated "
+                               "based on dataset size).")
     training_args.add_argument('--output_checkpoints', action='store_true',
-                               help='Continuously output checkpoints after '
-                               'each epoch. Default only best_val is saved')
+                               help="Enable continuous output of checkpoints "
+                               "after each epoch. By default, only the best "
+                               "validation result is saved.")
     training_args.add_argument('--early_stopping_patience', type=int,
-                               default=20, help='beta: early_stopping_patience'
-                               )
-    training_args.add_argument('--do_validate', help='if enabled a separate '
-                               'validation run will be done',
-                               action='store_true')
+                               default=20, help="Number of epochs with no "
+                               "improvement after which training will be "
+                               "stopped. Default: 20.")
+    training_args.add_argument('--do_validate', action='store_true',
+                               help="Enable a separate validation run during "
+                               "training.")
     training_args.add_argument('--validation_list', metavar='validation_list',
-                               type=str, default=None, help='use this file '
-                               'containing textline location+transcription '
-                               'for validation. You can use multiple input '
-                               'files quoted and space separated '
-                               '"validation_file1.txt validation_file2.txt" '
-                               'to combine validation sets.')
+                               type=str, default=None, help="File(s) "
+                               "containing textline locations and "
+                               "transcriptions for validation. Format: "
+                               "'validation_file1.txt validation_file2.txt' "
+                               "for multiple files.")
     training_args.add_argument('--training_verbosity_mode',
                                choices=['auto', '0', '1', '2'], default='auto',
-                               help="0 = silent, 1 = progress bar, 2 = one "
-                               "line per epoch. 'auto' becomes 1. For most "
-                               "cases default value is 'auto'")
-    training_args.add_argument('--max_queue_size', metavar='max_queue_size ',
-                               type=int, default=256, help='max_queue_size')
+                               help="Set verbosity mode for training output. "
+                               "0: Silent, 1: Progress Bar, 2: One Line Per "
+                               "Epoch. 'auto' defaults to 1 for most cases. "
+                               "Default: 'auto'.")
+    training_args.add_argument('--max_queue_size', metavar='max_queue_size',
+                               type=int, default=256, help="Maximum size for "
+                               "the generator queue. Default: 256.")
 
     # Inference configuration
     inference_args = parser.add_argument_group('Inference arguments')
     inference_args.add_argument('--inference_list', metavar='inference_list',
-                                type=str, default=None, help='use this file '
-                                'containing textline location+transcription '
-                                'for inference. You can use multiple input '
-                                'files quoted and space separated '
-                                '"inference_file1.txt inference_file2.txt" '
-                                'to combine inference sets.')
+                                type=str, default=None, help="File(s) with "
+                                "textline locations and transcriptions for "
+                                "inference. For multiple files, separate with "
+                                "spaces and use quotes: 'inference_file1.txt "
+                                "inference_file2.txt'.")
+    inference_args.add_argument('--results_file', metavar='results_file',
+                                type=str, default='output/results.txt',
+                                help="File path to store the results of "
+                                "inference. Default: 'output/results.txt'.")
 
     # Learning rate and optimizer configuration
     lr_args = parser.add_argument_group('Learning rate arguments')
     lr_args.add_argument('--optimizer', metavar='optimizer', type=str,
-                         default='adamw', help='optimizer to be used, '
-                         'default adamw')
+                         default='adamw', help="Choice of optimizer for "
+                         "training. Default: 'adamw'.")
     lr_args.add_argument('--learning_rate', metavar='learning_rate',
                          type=float, default=0.0003,
-                         help='Initial learning rate. Default: 0.0003.')
+                         help="Initial learning rate for training. Default: "
+                         "0.0003.")
     lr_args.add_argument('--decay_rate', type=float, default=0.99,
-                         help='Rate of decay for the learning rate. Set '
-                         'to 1 to keep the learning rate constant. '
-                         'Default: 0.99.')
+                         help="Decay rate for the learning rate. Set to 1 for "
+                         "no decay. Default: 0.99.")
     lr_args.add_argument('--decay_steps', type=int, default=-1,
-                         help='Number of steps after which the learning '
-                         'rate decays. A value of -1 means decay '
-                         'every epoch. Default: -1.')
+                         help="Number of steps after which the learning rate "
+                         "decays. Set to -1 for decay each epoch. Default: -1."
+                         )
     lr_args.add_argument('--warmup_ratio', type=float, default=0.0,
-                         help='Ratio of the warmup period to total '
-                         'training steps. Default: 0.0.')
+                         help="Proportion of total training steps used for "
+                         "the warmup phase. Default: 0.0.")
     lr_args.add_argument('--decay_per_epoch', action='store_true',
-                         help='Apply decay per epoch if set, otherwise '
-                         'decay per step. Default: False.')
+                         help="Apply learning rate decay per epoch. By "
+                         "default, decay is applied per step.")
     lr_args.add_argument('--linear_decay', action='store_true',
-                         help='Use linear decay if set, otherwise use '
-                         'exponential decay. Default: False.')
+                         help="Enable linear decay of the learning rate. If "
+                         "not set, exponential decay is used by default.")
 
     # Model configuration
     model_args = parser.add_argument_group('Model arguments')
-    model_args.add_argument('--model', metavar='model ', type=str,
-                            default=None, help='Model to use')
+    model_args.add_argument('--model', metavar='model', type=str, default=None,
+                            help="Specify the model architecture to be used. "
+                            "Default: None (requires specification).")
     model_args.add_argument('--use_float32', action='store_true',
-                            help='beta: use_float32')
-    model_args.add_argument('--existing_model', metavar='existing_model ',
-                            type=str, default=None, help='continue training/'
-                            'validation/testing/inferencing from this model '
-                            'as a starting point.')
-    model_args.add_argument('--model_name', metavar='model_name ', type=str,
-                            default=None, help='use model_name in the output')
+                            help="Use 32-bit float precision in the model. "
+                            "Can improve performance at the cost of memory.")
+    model_args.add_argument('--existing_model', metavar='existing_model',
+                            type=str, default=None, help="Path to an existing "
+                            "model to continue training, validation, testing, "
+                            "or inferencing. Used as a starting point.")
+    model_args.add_argument('--model_name', metavar='model_name', type=str,
+                            default=None, help="Custom name for the model, "
+                            "used in outputs. Default: None (uses the model "
+                            "architecture name).")
     model_args.add_argument('--replace_final_layer', action='store_true',
-                            help='beta: replace_final_layer. You can do this '
-                            'to extend/decrease the character set when using '
-                            'an existing model')
+                            help="Replace the final layer of an existing "
+                            "model, useful for adjusting the character set "
+                            "size.")
     model_args.add_argument('--replace_recurrent_layer', action='store',
-                            help='beta: replace_recurrent_layer. Set new '
-                            'recurrent layer using an existing model. '
-                            'Additionally replaces final layer as well.')
+                            help="Replace the recurrent layer in an existing "
+                            "model, affecting the final layer as well.")
     model_args.add_argument('--thaw', action='store_true',
-                            help='beta: thaw. thaws conv layers, only usable '
-                            'with existing_model')
+                            help="Unfreeze convolutional layers in an "
+                            "existing model for further training.")
     model_args.add_argument('--freeze_conv_layers', action='store_true',
-                            help='beta: freeze_conv_layers. Freezes conv '
-                            'layers, only usable with existing_model')
+                            help="Freeze convolutional layers in an existing "
+                            "model, preventing them from updating during "
+                            "training.")
     model_args.add_argument('--freeze_recurrent_layers', action='store_true',
-                            help='beta: freeze_recurrent_layers. Freezes '
-                            'recurrent layers, only usable with existing_model'
-                            )
+                            help="Freeze recurrent layers in an existing "
+                            "model to keep them static during training.")
     model_args.add_argument('--freeze_dense_layers', action='store_true',
-                            help='beta: freeze_dense_layers. Freezes dense '
-                            'layers, only usable with existing_model')
+                            help="Freeze dense layers in an existing model, "
+                            "useful for training only certain parts of the "
+                            "model.")
 
     # Data augmentation configuration
     augmentation_args = parser.add_argument_group('Augmentation arguments')
     augmentation_args.add_argument('--multiply', metavar='multiply', type=int,
-                                   default=1, help='multiply training data, '
-                                   'default 1')
+                                   default=1, help="Factor to increase the "
+                                   "size of the training dataset by "
+                                   "duplicating images. Default: 1 (no "
+                                   "duplication).")
     augmentation_args.add_argument('--augment', action='store_true',
-                                   help='beta: apply data augmentation to '
-                                   'training set. In general this is a good '
-                                   'idea')
+                                   help="Enable data augmentation for the "
+                                   "training set. Generally recommended to "
+                                   "improve model robustness.")
     augmentation_args.add_argument('--elastic_transform', action='store_true',
-                                   help='beta: elastic_transform, currently '
-                                   'disabled')
+                                   help="Apply elastic transformations to "
+                                   "images.")
     augmentation_args.add_argument('--random_crop', action='store_true',
-                                   help='beta: broken. random_crop')
+                                   help="Enable random cropping of images.")
     augmentation_args.add_argument('--random_width', action='store_true',
-                                   help='data augmentation option: '
-                                   'random_width, stretches the textline '
-                                   'horizontally to random width')
+                                   help="Randomly stretch images horizontally "
+                                   "during augmentation.")
     augmentation_args.add_argument('--distort_jpeg', action='store_true',
-                                   help='beta: distort_jpeg')
+                                   help="Apply JPEG distortion to images for "
+                                   "augmentation.")
     augmentation_args.add_argument('--do_random_shear', action='store_true',
-                                   help='beta: do_random_shear')
+                                   help="Apply random shearing "
+                                   "transformations to images.")
     augmentation_args.add_argument('--do_blur', action='store_true',
-                                   help='blur the images for training purposes'
-                                   )
+                                   help="Apply blurring to images during "
+                                   "training for augmentation.")
     augmentation_args.add_argument('--do_invert', action='store_true',
-                                   help='use with images that have light ink '
-                                   'and dark background')
+                                   help="Invert images with light ink on dark "
+                                   "backgrounds for augmentation.")
     augmentation_args.add_argument('--do_binarize_otsu', action='store_true',
-                                   help='beta: do_binarize_otsu')
+                                   help="Apply Otsu's binarization method to "
+                                   "images for augmentation.")
     augmentation_args.add_argument('--do_binarize_sauvola',
-                                   action='store_true', help='beta: '
-                                   'do_binarize_sauvola')
+                                   action='store_true', help="Use Sauvola's "
+                                   "method for image binarization during "
+                                   "augmentation.")
 
     # WBS and decoding configuration
     decoding_args = parser.add_argument_group('Decoding arguments')
@@ -212,20 +232,19 @@ def get_arg_parser():
     # Miscellaneous configuration
     misc_args = parser.add_argument_group('Miscellaneous arguments')
     misc_args.add_argument('--ignore_lines_unknown_character',
-                           action='store_true', help='beta: '
-                           'ignore_lines_unknown_character. Ignores during '
-                           'training/validation lines that contain characters '
-                           'that are not in charlist.')
+                           action='store_true', help="Ignore lines during "
+                           "training/validation that contain characters not "
+                           "in the charlist.")
     misc_args.add_argument('--check_missing_files', action='store_true',
-                           help='beta: check_missing_files')
+                           help="Check for missing files in the dataset "
+                           "before starting training or inference.")
     misc_args.add_argument('--normalization_file', default=None, type=str,
-                           help='The location of a json file that contains '
-                           'the characters to be normalized. The keys are the '
-                           'characters to be replaced, the values are the '
-                           'characters to replace with.')
+                           help="Path to a JSON file specifying character "
+                           "normalizations. Format: {'original': "
+                           "'replacement'}.")
     misc_args.add_argument('--deterministic', action='store_true',
-                           help='beta: deterministic mode (reproducible '
-                           'results')
+                           help="Enable deterministic mode for reproducible "
+                           "results, at the cost of performance.")
 
     # Deprecation zone
     depr_args = parser.add_argument_group(
