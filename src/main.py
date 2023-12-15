@@ -48,8 +48,10 @@ def main():
         charlist = []
 
     # Set the custom objects
+    from model.optimization import LoghiLearningRateSchedule
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
-                      'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock}
+                      'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock,
+                      'LoghiLearningRateSchedule': LoghiLearningRateSchedule}
 
     # Create the model
     with strategy.scope():
@@ -58,7 +60,7 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, validation_dataset, test_dataset, \
-            inference_dataset, utilsObject, train_batches\
+            inference_dataset, utilsObject, train_batches \
             = loader.generators()
 
         # Replace the charlist with the one from the data loader
@@ -74,8 +76,15 @@ def main():
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
-            args.learning_rate, args.decay_rate, args.decay_steps,
-            train_batches, args.do_train)
+            learning_rate=args.learning_rate,
+            decay_rate=args.decay_rate,
+            decay_steps=args.decay_steps,
+            train_batches=train_batches,
+            do_train=args.do_train,
+            warmup_ratio=args.warmup_ratio,
+            epochs=args.epochs,
+            decay_per_epoch=args.decay_per_epoch,
+            linear_decay=args.linear_decay)
 
         # Create the optimizer
         optimizer = get_optimizer(args.optimizer, lr_schedule)
@@ -98,7 +107,8 @@ def main():
         tick = time.time()
 
         history = train_model(model, args, training_dataset,
-                              validation_dataset, loader)
+                              validation_dataset, loader,
+                              lr_schedule)
 
         # Plot the training history
         plot_training_history(history, args)

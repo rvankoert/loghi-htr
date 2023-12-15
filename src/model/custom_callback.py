@@ -7,14 +7,15 @@ import json
 # > Local dependencies
 
 # > Third party libraries
-from tensorflow import keras
+import tensorflow as tf
 
 
-class LoghiCustomCallback(keras.callbacks.Callback):
+class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
     previous_loss = float('inf')
 
-    def __init__(self, save_best=True, save_checkpoint=True, output='output', charlist=None, metadata=None):
+    def __init__(self, save_best=True, save_checkpoint=True, output='output',
+                 charlist=None, metadata=None):
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output

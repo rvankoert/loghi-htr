@@ -63,3 +63,10 @@ jobs:
         python -m unittest tests/test_model_replacement.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
+        
+    - name: Test custom LR schedule
+      if: always()
+      run: |
+        python -m unittest tests/test_lr_schedule.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'

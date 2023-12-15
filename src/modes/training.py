@@ -2,7 +2,7 @@
 
 # > Standard library
 import os
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 # > Third-party dependencies
 import matplotlib.pyplot as plt
@@ -11,14 +11,16 @@ import tensorflow as tf
 # > Local dependencies
 from data.loader import DataLoader
 from setup.config_metadata import get_config
-from model.model import train_batch
+from model.custom_callback import LoghiCustomCallback
+from model.optimization import LoghiLearningRateSchedule
 
 
 def train_model(model: tf.keras.Model,
                 args: Any,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                loader: DataLoader) -> Any:
+                loader: DataLoader,
+                lr_schedule: LoghiLearningRateSchedule) -> Any:
     """
     Trains a Keras model using the provided training and validation datasets,
     along with additional arguments.
@@ -36,6 +38,8 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for validation.
     loader : DataLoader
         A DataLoader containing additional information like character list.
+    lr_schedule : LoghiLearningRateSchedule
+        The learning rate schedule to be used for training.
 
     Returns
     -------
@@ -57,6 +61,7 @@ def train_model(model: tf.keras.Model,
         training_dataset,
         validation_dataset,
         epochs=args.epochs,
+        lr_schedule=lr_schedule,
         output=args.output,
         model_name=model.name,
         steps_per_epoch=args.steps_per_epoch,
@@ -68,6 +73,114 @@ def train_model(model: tf.keras.Model,
         verbosity_mode=args.training_verbosity_mode
     )
 
+    return history
+
+
+def train_batch(model: tf.keras.Model,
+                train_dataset: tf.data.Dataset,
+                validation_dataset: Optional[tf.data.Dataset],
+                epochs: int,
+                lr_schedule: Union[float, LoghiLearningRateSchedule],
+                output: str,
+                model_name: str,
+                steps_per_epoch: Optional[int] = None,
+                early_stopping_patience: int = 20,
+                num_workers: int = 20,
+                max_queue_size: int = 256,
+                output_checkpoints: bool = False,
+                metadata: Optional[Dict] = None,
+                charlist: Optional[List[str]] = None,
+                verbosity_mode: str = 'auto') -> tf.keras.callbacks.History:
+    """
+    Train a given Keras model using specified datasets and training
+    configurations.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        The Keras model to be trained.
+    train_dataset : tf.data.Dataset
+        The training dataset.
+    validation_dataset : tf.data.Dataset, optional
+        The validation dataset. If not provided, validation is skipped.
+    epochs : int
+        Number of epochs to train the model.
+    lr_schedule : Any
+        Learning rate schedule. The precise type depends on how learning rate
+        is scheduled.
+    output : str
+        Directory path to save training outputs.
+    model_name : str
+        Name of the model.
+    steps_per_epoch : int, optional
+        Number of steps per epoch. If not provided, it's inferred from the
+        dataset.
+    early_stopping_patience : int, default 20
+        Number of epochs with no improvement after which training will be
+        stopped.
+    num_workers : int, default 20
+        Number of workers for data loading.
+    max_queue_size : int, default 256
+        Maximum size for the generator queue.
+    output_checkpoints : bool, default False
+        Whether to output model checkpoints.
+    metadata : dict, optional
+        Metadata associated with the training process.
+    charlist : list of str, optional
+        List of characters involved in the training process.
+    verbosity_mode : str, default 'auto'
+        Verbosity mode, 'auto', 'silent', or 'verbose'.
+
+    Returns
+    -------
+    tf.keras.callbacks.History
+        Training history object.
+
+    Notes
+    -----
+    This function sets up a custom training routine for a Keras model, with
+    logging and early stopping functionalities. The actual training process
+    depends on the specific model and data provided.
+    """
+
+    # CSV logger
+    log_filename = os.path.join(output, 'log.csv')
+    logging_callback = tf.keras.callbacks.CSVLogger(
+        log_filename, separator=",", append=True)
+
+    # Loghi custom callback
+    loghi_custom_callback = \
+        LoghiCustomCallback(save_best=True,
+                            save_checkpoint=output_checkpoints,
+                            output=output,
+                            charlist=charlist,
+                            metadata=metadata)
+
+    # Add all default callbacks
+    callbacks = [logging_callback, loghi_custom_callback]
+
+    # If we defined an early stopping patience, add it to the callbacks
+    if early_stopping_patience > 0 and validation_dataset:
+        early_stopping = tf.keras.callbacks.EarlyStopping(
+            monitor='val_CER_metric',
+            patience=early_stopping_patience,
+            restore_best_weights=True,
+            mode='min'
+        )
+        callbacks.append(early_stopping)
+
+    # Train the model
+    history = model.fit(
+        train_dataset,
+        validation_data=validation_dataset,
+        epochs=epochs,
+        callbacks=callbacks,
+        shuffle=True,
+        workers=num_workers,
+        max_queue_size=max_queue_size,
+        steps_per_epoch=steps_per_epoch,
+        verbose=verbosity_mode
+    )
     return history
 
 
