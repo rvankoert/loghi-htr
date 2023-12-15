@@ -28,6 +28,9 @@ def get_arg_parser():
                               "character list used during training/inference. "
                               "If not specified, the charlist is saved to"
                               "'output/charlist.txt'.")
+    general_args.add_argument('--config_file', metavar='config_file', type=str,
+                              help="Path to a JSON file containing arguments "
+                              "for the model.")
     general_args.add_argument('--config_file_output',
                               metavar='config_file_output', type=str,
                               default=None, help="Path to save the "
@@ -307,9 +310,10 @@ def arg_future_warning(args):
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
-    arg_future_warning(args)
+    defaults = {k: parser.get_default(k) for k, v in vars(args).items()}
 
-    # TODO: use config
+    # TODO: remove after deprecation period
+    arg_future_warning(args)
     fix_args(args)
 
-    return args
+    return args, defaults

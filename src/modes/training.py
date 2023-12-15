@@ -2,7 +2,7 @@
 
 # > Standard library
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 # > Third-party dependencies
 import matplotlib.pyplot as plt
@@ -10,13 +10,13 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.loader import DataLoader
-from setup.config_metadata import get_config
+from setup.config import Config
 from model.custom_callback import LoghiCustomCallback
 from model.optimization import LoghiLearningRateSchedule
 
 
 def train_model(model: tf.keras.Model,
-                args: Any,
+                config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
                 loader: DataLoader,
@@ -53,8 +53,7 @@ def train_model(model: tf.keras.Model,
     model, and handles various aspects of training like early stopping,
     checkpointing, and setting up metadata.
     """
-
-    metadata = get_config(args, model)
+    args = config.args
 
     history = train_batch(
         model,
@@ -69,7 +68,7 @@ def train_model(model: tf.keras.Model,
         early_stopping_patience=args.early_stopping_patience,
         output_checkpoints=args.output_checkpoints,
         charlist=loader.charList,
-        metadata=metadata,
+        config=config,
         verbosity_mode=args.training_verbosity_mode
     )
 
@@ -88,7 +87,7 @@ def train_batch(model: tf.keras.Model,
                 num_workers: int = 20,
                 max_queue_size: int = 256,
                 output_checkpoints: bool = False,
-                metadata: Optional[Dict] = None,
+                config: Config = None,
                 charlist: Optional[List[str]] = None,
                 verbosity_mode: str = 'auto') -> tf.keras.callbacks.History:
     """
@@ -124,8 +123,8 @@ def train_batch(model: tf.keras.Model,
         Maximum size for the generator queue.
     output_checkpoints : bool, default False
         Whether to output model checkpoints.
-    metadata : dict, optional
-        Metadata associated with the training process.
+    config : Config, optional
+        A Config object containing additional metadata.
     charlist : list of str, optional
         List of characters involved in the training process.
     verbosity_mode : str, default 'auto'
@@ -154,7 +153,7 @@ def train_batch(model: tf.keras.Model,
                             save_checkpoint=output_checkpoints,
                             output=output,
                             charlist=charlist,
-                            metadata=metadata)
+                            config=config)
 
     # Add all default callbacks
     callbacks = [logging_callback, loghi_custom_callback]

@@ -22,18 +22,22 @@ from modes.validation import perform_validation
 
 # Setup and configuration
 from setup.arg_parser import get_args
-from setup.config_metadata import store_info
+from setup.config import Config
 from setup.environment import setup_environment, setup_logging
+
+from utils.print import summarize_model
 
 
 def main():
     setup_logging()
 
     # Get the arguments
-    args = get_args()
+    args, default_args = get_args()
+    config = Config(args, default_args)
+    args = config.args
 
     # Set up the environment
-    strategy = setup_environment(args)
+    strategy = setup_environment(config)
 
     # Create the output directory if it doesn't exist
     if args.output:
@@ -97,7 +101,9 @@ def main():
     model.summary()
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
-    store_info(args, model)
+    config.change_key("model", summarize_model(model))
+    config.change_arg("channels", model.input_shape[-1])
+    config.save()
 
     # Store timestamps
     timestamps = {'start_time': time.time()}
@@ -106,7 +112,7 @@ def main():
     if args.do_train:
         tick = time.time()
 
-        history = train_model(model, args, training_dataset,
+        history = train_model(model, config, training_dataset,
                               validation_dataset, loader,
                               lr_schedule)
 
