@@ -241,7 +241,8 @@ class Config:
                             if getattr(self.args, subkey) == subvalue:
                                 continue
                             logging.info("Overriding config file argument "
-                                         f"{subkey}")
+                                         f"'{subkey}' with command line "
+                                         "argument.")
 
                     except AttributeError:
                         logging.warning(f"Invalid argument: {subkey}. "
