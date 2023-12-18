@@ -217,6 +217,17 @@ class Config:
             config = json.load(file)
             config_args = config.get("args", {})
 
+            if not config_args:
+                logging.warning("No arguments found in config file.")
+                return
+            # For backwards compatibility, we check if the config file has
+            # a "general" key. If not, we assume that all arguments are
+            # general arguments.
+            if not isinstance(config_args.get("general", None), dict):
+                logging.warning("No general arguments found in config file. "
+                                "Assuming v1 config file.")
+                config_args = {"general": config_args}
+
             for key, value in config_args.items():
                 for subkey, subvalue in value.items():
                     try:

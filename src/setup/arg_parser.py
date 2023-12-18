@@ -325,9 +325,6 @@ def get_args():
                                      for key, value in
                                      vars(sentinel_ns).items()})
 
-    print("Explicitly passed arguments:")
-    print(explicit)
-
     # TODO: remove after deprecation period
     arg_future_warning(args)
     fix_args(args)
