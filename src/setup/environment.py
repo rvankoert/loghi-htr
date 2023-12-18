@@ -65,7 +65,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     args = config.args
 
     # Initial setup
-    logging.info(f"Running with args: {args}")
+    logging.info(f"Running with config: {config}")
 
     # Set the random seed
     if args.deterministic:
