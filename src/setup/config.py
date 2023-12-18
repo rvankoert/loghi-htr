@@ -143,7 +143,7 @@ class Config:
                             # config file, we warn the user that we are
                             # overriding the value.
                             if getattr(self.args, subkey) != subvalue:
-                                logging.warning(
+                                logging.info(
                                     f"Overriding {subkey} from config")
                         else:
                             setattr(self.args, subkey, subvalue)
