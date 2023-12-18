@@ -341,8 +341,11 @@ def get_model_channels(config_path: str) -> int:
         config = json.load(file)
 
     # Extract the number of channels
-    num_channels = config.get("args", {}).get("channels")
+    # First, check the "model_channels" key, then the "args" key
+    num_channels = config.get("model_channels",
+                              config.get("args", {}).get("channels", None))
     if num_channels is None:
-        raise ValueError("Number of channels not found in the config file.")
+        raise ValueError(
+            "Number of channels not found in the config file.")
 
     return num_channels

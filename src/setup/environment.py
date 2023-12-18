@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
 import random
@@ -9,6 +8,9 @@ import random
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
+
+# > Local dependencies
+from setup.config import Config
 
 
 def set_deterministic(seed: int) -> None:
@@ -37,7 +39,7 @@ def set_deterministic(seed: int) -> None:
     tf.random.set_seed(seed)
 
 
-def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
+def setup_environment(config: Config) -> tf.distribute.Strategy:
     """
     Sets up the environment for running the TensorFlow model, including GPU
     configuration and distribution strategy.
@@ -60,9 +62,10 @@ def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
     the GPU devices being used and the precision policy (float32 or
     mixed_float16) based on the 'use_float32' and 'gpu' arguments.
     """
+    args = config.args
 
     # Initial setup
-    logging.info(f"Running with args: {vars(args)}")
+    logging.info(f"Running with config: {config}")
 
     # Set the random seed
     if args.deterministic:
