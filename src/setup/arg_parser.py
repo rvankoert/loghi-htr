@@ -310,10 +310,26 @@ def arg_future_warning(args):
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
-    defaults = {k: parser.get_default(k) for k, v in vars(args).items()}
+
+    # Determine which arguments were explicitly passed.
+    # https://stackoverflow.com/questions/58594956/find-out-which-arguments-were-passed-explicitly-in-argparse
+    sentinel = object()
+
+    # Make a copy of args where everything is the sentinel.
+    sentinel_ns = argparse.Namespace(**{key: sentinel for key in vars(args)})
+    parser.parse_args(namespace=sentinel_ns)
+
+    # Now everything in sentinel_ns that is still the sentinel was not
+    # explicitly passed.
+    explicit = argparse.Namespace(**{key: (value is not sentinel)
+                                     for key, value in
+                                     vars(sentinel_ns).items()})
+
+    print("Explicitly passed arguments:")
+    print(explicit)
 
     # TODO: remove after deprecation period
     arg_future_warning(args)
     fix_args(args)
 
-    return args, defaults
+    return args, explicit

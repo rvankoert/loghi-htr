@@ -43,7 +43,7 @@ class Config:
     """
 
     def __init__(self, args: argparse.Namespace = None,
-                 default_args: argparse.Namespace = None):
+                 explicit_args: argparse.Namespace = None):
         """
         Initialize the Config object with provided arguments and default
         arguments.
@@ -56,7 +56,7 @@ class Config:
             Default command line arguments.
         """
 
-        self.default_args = default_args or argparse.Namespace()
+        self.explicit_args = explicit_args or argparse.Namespace()
         self.args = args or argparse.Namespace()
         if self.args.config_file:
             self.update_args_from_file(self.args.config_file)
@@ -220,20 +220,17 @@ class Config:
             for key, value in config_args.items():
                 for subkey, subvalue in value.items():
                     try:
-                        # If the arg does not have the default value, it means
-                        # it was set by the user. In this case, we don't want
-                        # to override it.
-                        if getattr(self.args, subkey) != \
-                                self.default_args[subkey]:
-
-                            # If it is also different from the value in the
-                            # config file, we warn the user that we are
-                            # overriding the value.
-                            if getattr(self.args, subkey) != subvalue:
-                                logging.info(
-                                    f"Overriding {subkey} from config")
-                        else:
+                        # If the argument was explicitly provided by the user,
+                        # we do not override it.
+                        if not getattr(self.explicit_args, subkey):
                             setattr(self.args, subkey, subvalue)
+                        else:
+                            # If the argument is the same as the config file,
+                            # There is no need to log it.
+                            if getattr(self.args, subkey) == subvalue:
+                                continue
+                            logging.info("Overriding config file argument "
+                                         f"{subkey}")
 
                     except AttributeError:
                         logging.warning(f"Invalid argument: {subkey}. "
@@ -252,7 +249,7 @@ class Config:
             The new value to assign to the argument.
         """
 
-        self.args.__setattr__(key, value)
+        setattr(self.args, key, value)
         self.config["args"] = self.organize_args(self.args)
 
     def update_config_key(self, key: str, value: any) -> None:

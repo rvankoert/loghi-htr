@@ -32,8 +32,8 @@ def main():
     setup_logging()
 
     # Get the arguments
-    args, default_args = get_args()
-    config = Config(args, default_args)
+    parsed_args = get_args()
+    config = Config(*parsed_args)
     args = config.args
 
     # Set up the environment
