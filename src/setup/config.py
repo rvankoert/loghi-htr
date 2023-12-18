@@ -10,7 +10,52 @@ import uuid
 
 
 class Config:
-    def __init__(self, args=None, default_args=None):
+    """
+    A class for managing configuration settings for an application.
+
+    This class handles the loading, organizing, and saving of configuration
+    parameters. It supports reading from a file and writing to a file, as well
+    as updating parameters at runtime.
+
+    Parameters
+    ----------
+    args : argparse.Namespace, optional
+        Command line arguments provided by the user.
+    default_args : argparse.Namespace, optional
+        Default command line arguments.
+
+    Attributes
+    ----------
+    default_args : argparse.Namespace
+        Default command line arguments.
+    args : argparse.Namespace
+        Command line arguments provided by the user.
+    git_hash : str
+        Git hash of the current codebase.
+    notes : str
+        Custom notes or comments.
+    uuid : str
+        Unique identifier for the configuration.
+    url_code : str
+        URL of the code repository.
+    config : dict
+        Dictionary containing organized configuration settings.
+    """
+
+    def __init__(self, args: argparse.Namespace = None,
+                 default_args: argparse.Namespace = None):
+        """
+        Initialize the Config object with provided arguments and default
+        arguments.
+
+        Parameters
+        ----------
+        args : argparse.Namespace, optional
+            Command line arguments provided by the user.
+        default_args : argparse.Namespace, optional
+            Default command line arguments.
+        """
+
         self.default_args = default_args or argparse.Namespace()
         self.args = args or argparse.Namespace()
         if self.args.config_file:
@@ -26,10 +71,28 @@ class Config:
                        "uuid": self.uuid,
                        "url_code": self.url_code}
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        String representation of the Config object.
+
+        Returns
+        -------
+        str
+            JSON string representation of the config dictionary.
+        """
+
         return json.dumps(self.config, indent=4, sort_keys=True)
 
-    def save(self, output_file=None):
+    def save(self, output_file: str = None) -> None:
+        """
+        Save the configuration settings to a file.
+
+        Parameters
+        ----------
+        output_file : str, optional
+            The path of the file where the configuration will be saved.
+        """
+
         if not output_file:
             output_file = self.args.config_file_output or \
                 f"{self.args.output}/config.json"
@@ -39,7 +102,22 @@ class Config:
         except IOError:
             logging.error(f"Could not write to {output_file}.")
 
-    def organize_args(self, args):
+    def organize_args(self, args: argparse.Namespace) -> dict:
+        """
+        Organize arguments into a structured dictionary.
+
+        Parameters
+        ----------
+        args : argparse.Namespace
+            The arguments to organize.
+
+        Returns
+        -------
+        dict
+            A dictionary with organized arguments categorized into
+            sub-dictionaries.
+        """
+
         return {
             "general": {
                 "gpu": args.gpu,
@@ -125,7 +203,16 @@ class Config:
             }
         }
 
-    def update_args_from_file(self, config_file):
+    def update_args_from_file(self, config_file: str) -> None:
+        """
+        Update arguments from a configuration file.
+
+        Parameters
+        ----------
+        config_file : str
+            Path to the configuration file to load arguments from.
+        """
+
         with open(config_file) as file:
             config = json.load(file)
             config_args = config.get("args", {})
@@ -153,11 +240,33 @@ class Config:
                                         f"Skipping...")
                         continue
 
-    def change_arg(self, key, value):
+    def change_arg(self, key: str, value: any) -> None:
+        """
+        Change a specific argument's value.
+
+        Parameters
+        ----------
+        key : str
+            The key of the argument to change.
+        value : any
+            The new value to assign to the argument.
+        """
+
         self.args.__setattr__(key, value)
         self.config["args"] = self.organize_args(self.args)
 
-    def change_key(self, key, value):
+    def update_config_key(self, key: str, value: any) -> None:
+        """
+        Change a specific key in the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the configuration to change.
+        value : any
+            The new value to assign to the key.
+        """
+
         self.config[key] = value
 
 

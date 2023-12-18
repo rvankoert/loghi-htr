@@ -101,9 +101,9 @@ def main():
     model.summary()
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
-    config.change_key("model", summarize_model(model))
-    config.change_key("model_name", model.name)
-    config.change_key("model_channels", model.input_shape[-1])
+    config.update_config_key("model", summarize_model(model))
+    config.update_config_key("model_name", model.name)
+    config.update_config_key("model_channels", model.input_shape[-1])
     config.save()
 
     # Store timestamps
