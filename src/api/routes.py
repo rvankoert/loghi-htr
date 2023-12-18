@@ -72,7 +72,8 @@ def predict() -> flask.Response:
 
         response.status_code = 429
 
-        logger.error("Request queue is full.")
+        logger.warning("Request queue is full. Maybe one of the workers has "
+                       "died?")
 
         return response
 

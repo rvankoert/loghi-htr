@@ -108,10 +108,11 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                     normalize_confidence)
             except Exception as e:
                 logger.error(e)
-                logger.error("Error making predictions. Skipping batch.")
-                logger.error("Failed batch:")
+                failed_ids = [id for group, id in batch_info]
+                logger.error("Error making predictions. Skipping batch:\n" +
+                             "\n".join(failed_ids))
+
                 for group, id in batch_info:
-                    logger.error(id)
                     output_prediction_error(output_path, group, id, e)
                 predictions = []
 
