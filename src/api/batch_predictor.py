@@ -192,22 +192,12 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
     - Logs various messages regarding the model and utility initialization.
     """
 
-    from model.custom_layers import ResidualBlock
-    from model.model import CERMetric, WERMetric, CTCLoss
-    from model.optimization import LoghiLearningRateSchedule
     from utils.utils import Utils, load_model_from_directory
 
     logger = logging.getLogger(__name__)
 
     logger.info("Loading model...")
-    custom_objects = {
-        'CERMetric': CERMetric,
-        'WERMetric': WERMetric,
-        'CTCLoss': CTCLoss,
-        'ResidualBlock': ResidualBlock,
-        'LoghiLearningRateSchedule': LoghiLearningRateSchedule
-    }
-    model = load_model_from_directory(model_path, custom_objects)
+    model = load_model_from_directory(model_path, compile=False)
     logger.info(f"Model {model.name} loaded successfully")
 
     if logger.isEnabledFor(logging.DEBUG):
@@ -215,7 +205,7 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
 
     try:
         with open(f"{model_path}/charlist.txt") as file:
-            charlist = list(char for char in file.read())
+            charlist = [char for char in file.read()]
     except FileNotFoundError:
         logger.error(f"charlist.txt not found at {model_path}. Exiting...")
         sys.exit(1)
