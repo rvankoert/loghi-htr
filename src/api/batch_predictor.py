@@ -5,12 +5,131 @@ import logging
 import multiprocessing
 import os
 import sys
-from typing import Callable, List, Tuple
-import gc
+from typing import Any, Callable, List, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
-from tensorflow.keras import mixed_precision
+
+# Add parent directory to path for imports
+current_path = os.path.dirname(os.path.realpath(__file__))
+parent_path = os.path.dirname(current_path)
+sys.path.append(parent_path)
+
+from utils.utils import Utils, decode_batch_predictions, \
+        normalize_confidence, load_model_from_directory  # noqa: E402
+
+
+def create_model(model_path: str, strategy: tf.distribute.Strategy) \
+        -> Tuple[tf.keras.Model, object]:
+    """
+    Load a pre-trained model and create utility methods.
+
+    Parameters
+    ----------
+    model_path : str
+        Path to the pre-trained model file.
+    strategy : tf.distribute.Strategy
+        Strategy for distributing the model across multiple GPUs.
+
+    Returns
+    -------
+    tuple of (tf.keras.Model, object)
+        model : tf.keras.Model
+            Loaded pre-trained model.
+        utils : object
+            Utility methods created from the character list.
+
+    Side Effects
+    ------------
+    - Registers custom objects needed for the model.
+    - Logs various messages regarding the model and utility initialization.
+    """
+
+    logging.info("Loading model...")
+    with strategy.scope():
+        try:
+            model = load_model_from_directory(model_path, compile=False)
+            logging.info(f"Model {model.name} loaded successfully")
+
+            if logging.getLogger().isEnabledFor(logging.DEBUG):
+                model.summary()
+        except Exception as e:
+            logging.error(f"Error loading model: {e}")
+            sys.exit(1)
+
+    # Load the character list
+    charlist_path = f"{model_path}/charlist.txt"
+    try:
+        with open(charlist_path) as file:
+            charlist = [char for char in file.read()]
+        utils = Utils(charlist, use_mask=True)
+        logging.debug("Utilities initialized")
+    except FileNotFoundError:
+        logging.error(f"charlist.txt not found at {model_path}. Exiting...")
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"Error loading utilities: {e}")
+        sys.exit(1)
+
+    return model, utils
+
+
+def setup_gpu_environment(gpus: str) -> bool:
+    """
+    Set up the environment for batch prediction.
+
+    Parameters:
+    -----------
+    gpus : str
+        IDs of GPUs to be used (comma-separated).
+
+    Returns:
+    --------
+    bool
+        True if all GPUs support mixed precision, otherwise False.
+    """
+
+    # Set the GPU
+    gpu_devices = tf.config.list_physical_devices('GPU')
+    logging.info(f"Available GPUs: {gpu_devices}")
+
+    # Set the active GPUs depending on the 'gpus' argument
+    if gpus == "-1":
+        active_gpus = []
+    elif gpus.lower() == "all":
+        active_gpus = gpu_devices
+    else:
+        gpus = gpus.split(",")
+        active_gpus = []
+        for i, gpu in enumerate(gpu_devices):
+            if str(i) in gpus:
+                active_gpus.append(gpu)
+
+    if active_gpus:
+        logging.info(f"Using GPU(s): {active_gpus}")
+    else:
+        logging.info("Using CPU")
+
+    tf.config.set_visible_devices(active_gpus, 'GPU')
+
+    # Check if all GPUs support mixed precision
+    gpus_support_mixed_precision = True if active_gpus else False
+    for device in active_gpus:
+        tf.config.experimental.set_memory_growth(device, True)
+        if tf.config.experimental.\
+                get_device_details(device)['compute_capability'][0] < 7:
+            gpus_support_mixed_precision = False
+
+    # If all GPUs support mixed precision, enable it
+    if gpus_support_mixed_precision:
+        tf.keras.mixed_precision.set_global_policy('mixed_float16')
+        logging.debug("Mixed precision set to 'mixed_float16'")
+    else:
+        logging.debug(
+            "Not all GPUs support efficient mixed precision. Running in "
+            "standard mode.")
+
+    return gpus_support_mixed_precision
 
 
 def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
@@ -44,177 +163,89 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     - Logs various messages regarding the batch processing status.
     """
 
-    # Add parent directory to path for imports
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    parent_path = os.path.dirname(current_path)
-    sys.path.append(parent_path)
-
-    from utils.utils import decode_batch_predictions, normalize_confidence
-
     logger = logging.getLogger(__name__)
     logger.info("Batch Prediction Worker process started")
 
     # If all GPUs support mixed precision, enable it
-    gpus_support_mixed_precision = setup_gpu_environment(gpus, logger)
-    if gpus_support_mixed_precision:
-        mixed_precision.set_global_policy('mixed_float16')
-        logger.debug("Mixed precision set to 'mixed_float16'")
-    else:
-        logger.debug(
-            "Not all GPUs support efficient mixed precision. Running in "
-            "standard mode.")
-
+    mixed_precision_enabled = setup_gpu_environment(gpus)
     strategy = tf.distribute.MirroredStrategy()
 
     # Create the model and utilities
-    try:
-        with strategy.scope():
-            model, utils = create_model(model_path)
-        logger.info("Model created and utilities initialized")
-    except Exception as e:
-        logger.error(e)
-        logger.error("Error creating model. Exiting...")
-        return
+    model, utils = create_model(model_path, strategy)
 
     total_predictions = 0
     old_model_path = model_path
 
     try:
         while True:
-            batch_images, batch_groups, batch_identifiers, model_path = \
-                prepared_queue.get()
-            logger.debug(f"Retrieved batch of size {len(batch_images)} from "
-                         "prepared_queue")
-
-            batch_info = list(zip(batch_groups, batch_identifiers))
+            batch_data = prepared_queue.get()
+            logging.debug("Received batch from prepared_queue")
 
             if model_path != old_model_path:
                 old_model_path = model_path
-                try:
-                    logger.warning("Model changed, adjusting batch prediction")
-                    with strategy.scope():
-                        model, utils = create_model(model_path)
-                    logger.info("Model created and utilities initialized")
-                except Exception as e:
-                    logger.error(e)
-                    logger.error("Error creating model. Exiting...")
-                    return
+                model, utils = create_model(model_path, strategy)
+                logging.info("Model reloaded due to change in model path")
 
-            # Here, make the batch prediction
-            try:
-                predictions = safe_batch_predict(
-                    model, batch_images, batch_info, utils,
-                    decode_batch_predictions, output_path,
-                    normalize_confidence)
-            except Exception as e:
-                logger.error(e)
-                failed_ids = [id for group, id in batch_info]
-                logger.error("Error making predictions. Skipping batch:\n" +
-                             "\n".join(failed_ids))
+            # Make predictions on the batch
+            num_predictions = handle_batch_prediction(
+                model, batch_data, utils, output_path)
+            total_predictions += num_predictions
 
-                for group, id in batch_info:
-                    output_prediction_error(output_path, group, id, e)
-                predictions = []
-
-            # Update the total number of predictions made
-            total_predictions += len(predictions)
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Predictions:")
-                for prediction in predictions:
-                    logger.debug(prediction)
-
-            logger.info(
-                f"Made {len(predictions)} predictions")
+            logger.info(f"Made {num_predictions} predictions")
             logger.info(f"Total predictions: {total_predictions}")
-            logger.info(
-                f"{prepared_queue.qsize()} batches waiting on prediction")
-
-            # Clear the batch images to free up memory
-            logger.debug("Clearing batch images and predictions")
-            del batch_images
-            del predictions
-            gc.collect()
+            logger.info(f"{prepared_queue.qsize()} batches waiting on "
+                        "prediction")
 
     except KeyboardInterrupt:
         logger.warning(
             "Batch Prediction Worker process interrupted. Exiting...")
 
 
-def setup_gpu_environment(gpus: str, logger: logging.Logger):
+def handle_batch_prediction(model: tf.keras.Model,
+                            batch_data: Tuple[List[Any], ...],
+                            utils: Any,
+                            output_path: str) -> int:
     """
-    Setup the GPU environment for batch prediction.
+    Handle the batch prediction process.
 
-    Parameters
-    ----------
-    gpus : str
-        IDs of GPUs to be used (comma-separated).
-    logger : logging.Logger
-        A logging.Logger object for logging messages.
+    Parameters:
+    -----------
+    model : Any
+        The loaded model for predictions.
+    batch_data : Tuple[List[Any], ...]
+        Tuple containing batch images, groups, and identifiers.
+    utils : Any
+        Utilities for processing predictions.
+    output_path : str
+        Path where predictions should be saved.
 
-    Returns
-    -------
-    bool
-        True if all GPUs support mixed precision, False otherwise.
-    """
-
-    os.environ['CUDA_VISIBLE_DEVICES'] = gpus
-    physical_devices = tf.config.list_physical_devices('GPU')
-    if not physical_devices:
-        logger.warning("No GPUs found. Running in CPU mode.")
-        return False
-    for device in physical_devices:
-        tf.config.experimental.set_memory_growth(device, True)
-        if tf.config.experimental.\
-                get_device_details(device)['compute_capability'][0] < 7:
-            return False
-    return True
-
-
-def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
-    """
-    Load a pre-trained model and create utility methods.
-
-    Parameters
-    ----------
-    model_path : str
-        Path to the pre-trained model file.
-
-    Returns
-    -------
-    tuple of (tf.keras.Model, object)
-        model : tf.keras.Model
-            Loaded pre-trained model.
-        utils : object
-            Utility methods created from the character list.
-
-    Side Effects
-    ------------
-    - Registers custom objects needed for the model.
-    - Logs various messages regarding the model and utility initialization.
+    Returns:
+    --------
+    int
+        Number of predictions made.
     """
 
-    from utils.utils import Utils, load_model_from_directory
-
-    logger = logging.getLogger(__name__)
-
-    logger.info("Loading model...")
-    model = load_model_from_directory(model_path, compile=False)
-    logger.info(f"Model {model.name} loaded successfully")
-
-    if logger.isEnabledFor(logging.DEBUG):
-        model.summary()
+    batch_images, batch_groups, batch_identifiers, _ = batch_data
+    batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
-        with open(f"{model_path}/charlist.txt") as file:
-            charlist = [char for char in file.read()]
-    except FileNotFoundError:
-        logger.error(f"charlist.txt not found at {model_path}. Exiting...")
-        sys.exit(1)
+        predictions = safe_batch_predict(
+            model, batch_images, batch_info, utils,
+            decode_batch_predictions, output_path,
+            normalize_confidence)
+        for prediction in predictions:
+            logging.debug(f"Prediction: {prediction}")
+        return len(predictions)
 
-    utils = Utils(charlist, use_mask=True)
-    logger.debug("Utilities initialized")
+    except Exception as e:
+        logging.error(e)
+        failed_ids = [id for _, id in batch_info]
+        logging.error("Error making predictions. Skipping batch:\n" +
+                      "\n".join(failed_ids))
 
-    return model, utils
+        for group, id in batch_info:
+            output_prediction_error(output_path, group, id, e)
+        return 0
 
 
 def safe_batch_predict(model: tf.keras.Model,
@@ -298,6 +329,8 @@ def safe_batch_predict(model: tf.keras.Model,
             normalize_confidence)
 
         return first_half_predictions + second_half_predictions
+    except Exception as e:
+        raise e
 
 
 def batch_predict(model: tf.keras.Model,
