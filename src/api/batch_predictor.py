@@ -5,7 +5,7 @@ import logging
 import multiprocessing
 import os
 import sys
-from typing import Any, Callable, List, Tuple
+from typing import Any, List, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -163,8 +163,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     - Logs various messages regarding the batch processing status.
     """
 
-    logger = logging.getLogger(__name__)
-    logger.info("Batch Prediction Worker process started")
+    logging.info("Batch Prediction Worker process started")
 
     # If all GPUs support mixed precision, enable it
     mixed_precision_enabled = setup_gpu_environment(gpus)
@@ -191,19 +190,19 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
                 model, batch_data, utils, output_path)
             total_predictions += num_predictions
 
-            logger.info(f"Made {num_predictions} predictions")
-            logger.info(f"Total predictions: {total_predictions}")
-            logger.info(f"{prepared_queue.qsize()} batches waiting on "
-                        "prediction")
+            logging.info(f"Made {num_predictions} predictions")
+            logging.info(f"Total predictions: {total_predictions}")
+            logging.info(f"{prepared_queue.qsize()} batches waiting on "
+                         "prediction")
 
     except KeyboardInterrupt:
-        logger.warning(
+        logging.warning(
             "Batch Prediction Worker process interrupted. Exiting...")
 
 
 def handle_batch_prediction(model: tf.keras.Model,
                             batch_data: Tuple[List[Any], ...],
-                            utils: Any,
+                            utils: Utils,
                             output_path: str) -> int:
     """
     Handle the batch prediction process.
@@ -229,10 +228,8 @@ def handle_batch_prediction(model: tf.keras.Model,
     batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
-        predictions = safe_batch_predict(
-            model, batch_images, batch_info, utils,
-            decode_batch_predictions, output_path,
-            normalize_confidence)
+        predictions = safe_batch_predict(model, batch_images, batch_info,
+                                         utils, output_path)
         for prediction in predictions:
             logging.debug(f"Prediction: {prediction}")
         return len(predictions)
@@ -251,10 +248,8 @@ def handle_batch_prediction(model: tf.keras.Model,
 def safe_batch_predict(model: tf.keras.Model,
                        batch_images: List[tf.Tensor],
                        batch_info: List[Tuple[str, str]],
-                       utils: object,
-                       decode_batch_predictions: Callable,
-                       output_path: str,
-                       normalize_confidence: Callable) -> List[str]:
+                       utils: Utils,
+                       output_path: str) -> List[str]:
     """
     Attempt to predict on a batch of images using the provided model. If a
     TensorFlow Out of Memory (OOM) error occurs, the batch is split in half and
@@ -265,22 +260,15 @@ def safe_batch_predict(model: tf.keras.Model,
     ----------
     model : TensorFlow model
         The model used for making predictions.
-    batch_images : List or ndarray
+    batch_images : List[tf.Tensor]
         A list or numpy array of images for which predictions need to be made.
     batch_info : List of tuples
         A list of tuples containing additional information (e.g., group and
         identifier) for each image in `batch_images`.
-    utils : module or object
-        Utility module/object containing necessary utility functions or
-        settings.
-    decode_batch_predictions : function
-        A function to decode the predictions made by the model.
+    utils : Utils
+        Utility methods for handling predictions.
     output_path : str
         Path where any output files should be saved.
-    normalize_confidence : function
-        A function to normalize the confidence of the predictions.
-    logger : Logger
-        A logging.Logger object for logging messages.
 
     Returns
     -------
@@ -289,17 +277,14 @@ def safe_batch_predict(model: tf.keras.Model,
         error, it is skipped, and no prediction is returned for it.
     """
 
-    logger = logging.getLogger(__name__)
     try:
-        return batch_predict(
-            model, batch_images, batch_info, utils,
-            decode_batch_predictions, output_path,
-            normalize_confidence)
+        return batch_predict(model, batch_images, batch_info, utils,
+                             output_path)
     except tf.errors.ResourceExhaustedError as e:
         # If the batch size is 1 and still causing OOM, then skip the image and
         # return an empty list
         if len(batch_images) == 1:
-            logger.error(
+            logging.error(
                 "OOM error with single image. Skipping image"
                 f"{batch_info[0][1]}.")
 
@@ -307,7 +292,7 @@ def safe_batch_predict(model: tf.keras.Model,
                 output_path, batch_info[0][0], batch_info[0][1], e)
             return []
 
-        logger.warning(
+        logging.warning(
             f"OOM error with batch size {len(batch_images)}. Splitting batch "
             "in half and retrying.")
 
@@ -334,12 +319,10 @@ def safe_batch_predict(model: tf.keras.Model,
 
 
 def batch_predict(model: tf.keras.Model,
-                  images: List[Tuple[tf.Tensor, str, str]],
+                  images: List[tf.Tensor],
                   batch_info: List[Tuple[str, str]],
-                  utils: object,
-                  decoder: Callable,
-                  output_path: str,
-                  confidence_normalizer: Callable) -> List[str]:
+                  utils: Utils,
+                  output_path: str) -> List[str]:
     """
     Process a batch of images using the provided model and decode the
     predictions.
@@ -348,16 +331,15 @@ def batch_predict(model: tf.keras.Model,
     ----------
     model : tf.keras.Model
         Pre-trained model for predictions.
-    batch : List[Tuple[tf.Tensor, str, str]]
-        List of tuples containing images, groups, and identifiers.
-    utils : object
+    images : List[tf.Tensor]
+        List of images for which predictions need to be made.
+    batch_info : List[Tuple[str, str]]
+        List of tuples containing group and identifier for each image in the
+        batch.
+    utils : Utils
         Utility methods for handling predictions.
-    decoder : Callable
-        Function to decode batch predictions.
     output_path : str
         Path where predictions should be saved.
-    confidence_normalizer : Callable
-        Function to normalize the confidence of the predictions.
 
     Returns
     -------
@@ -370,28 +352,26 @@ def batch_predict(model: tf.keras.Model,
     status.
     """
 
-    logger = logging.getLogger(__name__)
-
-    logger.debug(f"Initial batch size: {len(images)}")
+    logging.debug(f"Initial batch size: {len(images)}")
 
     # Unpack the batch
     groups, identifiers = zip(*batch_info)
 
-    logger.info(f"Making {len(images)} predictions...")
+    logging.info(f"Making {len(images)} predictions...")
     encoded_predictions = model.predict_on_batch(images)
-    logger.debug("Predictions made")
+    logging.debug("Predictions made")
 
-    logger.debug("Decoding predictions...")
-    decoded_predictions = decoder(encoded_predictions, utils)[0]
-    logger.debug("Predictions decoded")
+    logging.debug("Decoding predictions...")
+    decoded_predictions = decode_batch_predictions(
+        encoded_predictions, utils)[0]
+    logging.debug("Predictions decoded")
 
-    logger.debug("Outputting predictions...")
+    logging.debug("Outputting predictions...")
     predicted_texts = output_predictions(decoded_predictions,
                                          groups,
                                          identifiers,
-                                         output_path,
-                                         confidence_normalizer)
-    logger.debug("Predictions outputted")
+                                         output_path)
+    logging.debug("Predictions outputted")
 
     return predicted_texts
 
@@ -399,8 +379,7 @@ def batch_predict(model: tf.keras.Model,
 def output_predictions(predictions: List[Tuple[float, str]],
                        groups: List[str],
                        identifiers: List[str],
-                       output_path: str,
-                       confidence_normalizer: Callable) -> List[str]:
+                       output_path: str) -> List[str]:
     """
     Generate output texts based on the predictions and save to files.
 
@@ -414,8 +393,6 @@ def output_predictions(predictions: List[Tuple[float, str]],
         List of identifiers for each image.
     output_path : str
         Base path where prediction outputs should be saved.
-    confidence_normalizer : Callable
-        Function to normalize the confidence of the predictions.
 
     Returns
     -------
@@ -429,13 +406,11 @@ def output_predictions(predictions: List[Tuple[float, str]],
     - Logs messages regarding directory creation and saving.
     """
 
-    logger = logging.getLogger(__name__)
-
     outputs = []
     for i, (confidence, pred_text) in enumerate(predictions):
         group_id = groups[i]
         identifier = identifiers[i]
-        confidence = confidence_normalizer(confidence, pred_text)
+        confidence = normalize_confidence(confidence, pred_text)
 
         text = f"{identifier}\t{str(confidence)}\t{pred_text}"
         outputs.append(text)
@@ -444,7 +419,7 @@ def output_predictions(predictions: List[Tuple[float, str]],
         output_dir = os.path.join(output_path, group_id)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-            logger.debug(f"Created output directory: {output_dir}")
+            logging.debug(f"Created output directory: {output_dir}")
         with open(os.path.join(output_dir, identifier + ".txt"), "w") as f:
             f.write(text + "\n")
 
