@@ -159,7 +159,8 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
 
 def start_processes(batch_size: int, max_queue_size: int,
-                    output_path: str, gpus: str, model_path: str):
+                    output_path: str, gpus: str, model_path: str,
+                    patience: int):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -175,9 +176,11 @@ def start_processes(batch_size: int, max_queue_size: int,
     logger.info(f"Prediction queue size: {max_prepared_queue_size}")
 
     # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge('request_queue_size', "Request queue size")
+    request_queue_size_gauge = Gauge(
+        'request_queue_size', "Request queue size")
     request_queue_size_gauge.set_function(lambda: request_queue.qsize())
-    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Prepared queue size")
+    prepared_queue_size_gauge = Gauge(
+        'prepared_queue_size', "Prepared queue size")
     prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
 
     # Start the image preparation process
@@ -185,7 +188,8 @@ def start_processes(batch_size: int, max_queue_size: int,
     preparation_process = Process(
         target=image_preparation_worker,
         args=(batch_size, request_queue,
-              prepared_queue, model_path),
+              prepared_queue, model_path,
+              patience),
         name="Image Preparation Process")
     preparation_process.daemon = True
     preparation_process.start()

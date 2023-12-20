@@ -306,6 +306,7 @@ LOGHI_MODEL_PATH         # Path to the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images before predicting current batch
 ```
 
 **GPU Options:**

@@ -178,6 +178,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
     try:
         while True:
             batch_data = prepared_queue.get()
+            model_path = batch_data[3]
             logging.debug("Received batch from prepared_queue")
 
             if model_path != old_model_path:

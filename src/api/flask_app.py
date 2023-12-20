@@ -59,6 +59,7 @@ if __name__ == '__main__':
     model_path = get_env_variable("LOGHI_MODEL_PATH")
     output_path = get_env_variable("LOGHI_OUTPUT_PATH")
     max_queue_size = int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000"))
+    patience = float(get_env_variable("LOGHI_PATIENCE", "0.5"))
 
     # Get GPU options from environment variables
     logger.info("Getting GPU options from environment variables")
@@ -71,7 +72,8 @@ if __name__ == '__main__':
         max_queue_size,
         output_path,
         gpus,
-        model_path
+        model_path,
+        patience
     )
 
     # Create and run the Flask app

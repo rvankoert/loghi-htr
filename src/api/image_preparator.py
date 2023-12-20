@@ -6,16 +6,144 @@ import logging
 import multiprocessing
 from multiprocessing.queues import Empty
 import os
+import time
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
 
 
+def handle_model_change(prepared_queue: multiprocessing.Queue,
+                        batch_images: list,
+                        batch_groups: list,
+                        batch_identifiers: list,
+                        new_model: str,
+                        old_model: str):
+    """
+    Handles the change of the image processing model.
+
+    Parameters
+    ----------
+    prepared_queue : multiprocessing.Queue
+        Queue to which prepared images are pushed.
+    batch_images : list
+        Current batch of images being processed.
+    batch_groups : list
+        Group information for each image in the batch.
+    batch_identifiers : list
+        Identifiers for each image in the batch.
+    new_model : str
+        Path of the new model.
+    old_model : str
+        Path of the old model.
+    """
+
+    logging.info("Detected model change. Switching to the new model.")
+
+    # If there are images in the current batch, process them before changing
+    # the model
+    if batch_images:
+        logging.info(
+            f"Processing the current batch of {len(batch_images)} images "
+            "before model change.")
+        pad_and_queue_batch(old_model, batch_images,
+                            batch_groups, batch_identifiers, prepared_queue)
+
+        # Clearing the current batch
+        batch_images.clear()
+        batch_groups.clear()
+        batch_identifiers.clear()
+
+    # Update the model channels
+    num_channels = update_channels(new_model)
+
+    return num_channels, new_model
+
+
+def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
+                             prepared_queue: multiprocessing.Queue,
+                             batch_size: int,
+                             patience: float,
+                             num_channels: int,
+                             model: str):
+    """
+    Fetches and prepares images for processing.
+
+    Parameters
+    ----------
+    request_queue : multiprocessing.Queue
+        Queue from which raw images are fetched.
+    prepared_queue : multiprocessing.Queue
+        Queue to which prepared images are pushed.
+    batch_size : int
+        Max number of images to process in a batch.
+    patience : float
+        Max time to wait for new images.
+    num_channels : int
+        Number of channels for the images.
+    old_model : str
+        Path of the old model.
+    """
+
+    last_image_time = None
+    batch_images, batch_groups, batch_identifiers = [], [], []
+
+    while True:
+        try:
+            image, group, identifier, new_model = request_queue.get(
+                timeout=0.1)
+            logging.debug(f"Retrieved {identifier} from request_queue")
+
+            # Model change detection
+            if new_model and new_model != model:
+                num_channels, model = handle_model_change(prepared_queue,
+                                                          batch_images,
+                                                          batch_groups,
+                                                          batch_identifiers,
+                                                          new_model,
+                                                          model)
+
+            # Prepare the image
+            image = prepare_image(image, num_channels)
+            batch_images.append(image)
+            batch_groups.append(group)
+            batch_identifiers.append(identifier)
+            request_queue.task_done()
+
+            # Reset the last image time
+            last_image_time = time.time()
+
+            # Check if batch is full or max wait time is exceeded or model
+            # change is detected
+            if len(batch_images) >= batch_size or \
+                    (time.time() - last_image_time) >= patience:
+                break
+
+        except Empty:
+            # If there are no images in the queue, log the time
+            if last_image_time is not None:
+                logging.debug("Time without new images: "
+                              f"{time.time() - last_image_time}s")
+
+            # Check if there's at least one image and max wait time is exceeded
+            if last_image_time is not None and \
+                    (time.time() - last_image_time) >= patience:
+                break
+
+    pad_and_queue_batch(model, batch_images, batch_groups,
+                        batch_identifiers, prepared_queue)
+    batch_images.clear()
+    batch_groups.clear()
+    batch_identifiers.clear()
+
+    return num_channels, model
+
+
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
                              prepared_queue: multiprocessing.Queue,
-                             model_path: str):
+                             model_path: str,
+                             patience: float):
     """
     Worker process to prepare images for batch processing.
 
@@ -25,111 +153,58 @@ def image_preparation_worker(batch_size: int,
     Parameters
     ----------
     batch_size : int
-        Number of images to process in a batch.
+        Max number of images to process in a batch.
     request_queue : multiprocessing.Queue
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
     model_path : str
         Path to the initial model used for image preparation.
+    patience : float
+        Max time to wait for new images.
 
     Side Effects
     ------------
     - Logs various messages regarding the image preparation status.
     """
 
-    logger = logging.getLogger(__name__)
-    logger.info("Image Preparation Worker process started")
+    logging.info("Image Preparation Worker process started")
 
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
     # Define the number of channels for the images
-    num_channels = update_channels(model_path, logger)
+    num_channels = update_channels(model_path)
 
-    # Define the maximum time to wait for new images
-    TIMEOUT_DURATION = 1
-    MAX_WAIT_COUNT = 1
-
-    wait_count = 0
-    old_model = model_path
-    batch_images, batch_groups, batch_identifiers = [], [], []
+    # Define the model path
+    model = model_path
 
     try:
         while True:
-            while len(batch_images) < batch_size:
-                try:
-                    image, group, identifier, model_path = request_queue.get(
-                        timeout=TIMEOUT_DURATION)
-                    logger.debug(f"Retrieved {identifier} from request_queue")
-
-                    # Check if the model has changed
-                    if model_path and model_path != old_model:
-                        logger.warning(
-                            "Model changed, adjusting image preparation")
-                        if batch_images:
-                            # Add the existing batch to the prepared_queue
-                            logger.info(
-                                f"Sending old batch of {len(batch_images)} "
-                                "images")
-
-                            # Reset the batches after sending
-                            batch_images, batch_groups, batch_identifiers = \
-                                pad_and_queue_batch(batch_images, batch_groups,
-                                                    batch_identifiers,
-                                                    prepared_queue, old_model)
-
-                        old_model = model_path
-                        num_channels = update_channels(model_path, logger)
-
-                    image = prepare_image(image, num_channels)
-                    logger.debug(
-                        f"Prepared image {identifier} with shape: "
-                        f"{image.shape}")
-
-                    # Append the image to the batch
-                    batch_images.append(image)
-                    batch_groups.append(group)
-                    batch_identifiers.append(identifier)
-
-                    request_queue.task_done()
-                    wait_count = 0
-
-                # If no new images are available, wait for a while
-                except Empty:
-                    wait_count += 1
-                    logger.debug(
-                        "Time without new images: "
-                        f"{wait_count * TIMEOUT_DURATION} seconds")
-
-                    if wait_count > MAX_WAIT_COUNT and len(batch_images) > 0:
-                        break
-
-            # Add the existing batch to the prepared_queue
-            batch_images, batch_groups, batch_identifiers = \
-                pad_and_queue_batch(batch_images, batch_groups,
-                                    batch_identifiers, prepared_queue,
-                                    old_model)
-            logger.debug(
-                f"{request_queue.qsize()} images waiting to be processed")
+            num_channels, model = \
+                fetch_and_prepare_images(request_queue, prepared_queue,
+                                         batch_size, patience, num_channels,
+                                         model)
 
     except KeyboardInterrupt:
-        logger.warning(
+        logging.warning(
             "Image Preparation Worker process interrupted. Exiting...")
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logging.error(f"Error: {e}")
 
 
-def pad_and_queue_batch(batch_images: np.ndarray,
+def pad_and_queue_batch(model_path: str,
+                        batch_images: np.ndarray,
                         batch_groups: list,
                         batch_identifiers: list,
-                        prepared_queue: multiprocessing.Queue,
-                        model_path: str) -> tuple:
+                        prepared_queue: multiprocessing.Queue) -> None:
     """
     Pad and queue a batch of images for prediction.
 
     Parameters
     ----------
+    model_path : str
+        Path to the model used for image preparation.
     batch_images : np.ndarray
         Batch of images to be padded and queued.
     batch_groups : list
@@ -138,28 +213,18 @@ def pad_and_queue_batch(batch_images: np.ndarray,
         List of identifiers for the images.
     prepared_queue : multiprocessing.Queue
         Queue to which the padded batch should be pushed.
-    model_path : str
-        Path to the model used for image preparation.
-
-    Returns
-    -------
-    tuple
-        Tuple containing the empty batch images, groups, and identifiers.
     """
-
-    logger = logging.getLogger(__name__)
 
     # Pad the batch
     padded_batch = pad_batch(batch_images)
 
     # Push the prepared batch to the prepared_queue
+    # TODO: Add TF padded batch, not numpy
     prepared_queue.put(
         (np.array(padded_batch), batch_groups, batch_identifiers, model_path))
-    logger.debug("Pushed prepared batch to prepared_queue")
-    logger.debug(
+    logging.debug("Pushed prepared batch to prepared_queue")
+    logging.debug(
         f"{prepared_queue.qsize()} batches ready for prediction")
-
-    return [], [], []
 
 
 def pad_batch(batch_images: np.ndarray) -> np.ndarray:
@@ -230,7 +295,7 @@ def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
     return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
 
 
-def update_channels(model_path: str, logger):
+def update_channels(model_path: str) -> int:
     """
     Update the model used for image preparation.
 
@@ -239,21 +304,16 @@ def update_channels(model_path: str, logger):
     model_path : str
         The path to the directory containing the 'config.json' file.
         The function will append "/config.json" to this path.
-    logger : logging.Logger
-        Logger object to log messages.
     """
 
     try:
         num_channels = get_model_channels(model_path)
-        logger.debug(
+        logging.debug(
             f"New number of channels: "
             f"{num_channels}")
         return num_channels
     except Exception as e:
-        logger.error(f"Error: {e}")
-        logger.error(
-            "Error retrieving number of channels. "
-            "Exiting...")
+        logging.error(f"Error retrieving number of channels: {e}")
         return
 
 
