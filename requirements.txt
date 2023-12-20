@@ -12,4 +12,4 @@ blinker==1.4
 fpdf==1.7.2
 scikit-image==0.22.0
 prometheus-client==0.19.0
-tf-models-official==2.13.2
+tf-models-official==2.15.0
