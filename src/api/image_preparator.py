@@ -326,7 +326,7 @@ def prepare_image(image_bytes: bytes,
 
 
 def pad_and_queue_batch(model_path: str,
-                        batch_images: np.ndarray,
+                        batch_images: list,
                         batch_groups: list,
                         batch_identifiers: list,
                         prepared_queue: multiprocessing.Queue) -> None:
@@ -337,7 +337,7 @@ def pad_and_queue_batch(model_path: str,
     ----------
     model_path : str
         Path to the model used for image preparation.
-    batch_images : np.ndarray
+    batch_images : list
         Batch of images to be padded and queued.
     batch_groups : list
         List of groups to which the images belong.
@@ -352,20 +352,20 @@ def pad_and_queue_batch(model_path: str,
 
     # Push the prepared batch to the prepared_queue
     # TODO: Add TF padded batch, not numpy
-    prepared_queue.put(
-        (np.array(padded_batch), batch_groups, batch_identifiers, model_path))
+    prepared_queue.put((padded_batch, batch_groups,
+                        batch_identifiers, model_path))
     logging.debug("Pushed prepared batch to prepared_queue")
     logging.debug(
         f"{prepared_queue.qsize()} batches ready for prediction")
 
 
-def pad_batch(batch_images: np.ndarray) -> np.ndarray:
+def pad_batch(batch_images: list) -> np.ndarray:
     """
     Pad a batch of images to the same width.
 
     Parameters
     ----------
-    batch_images : np.ndarray
+    batch_images : list
         Batch of images to be padded.
 
     Returns
@@ -382,7 +382,7 @@ def pad_batch(batch_images: np.ndarray) -> np.ndarray:
         batch_images[i] = pad_to_width(
             batch_images[i], max_width, -10)
 
-    return batch_images
+    return np.array(batch_images)
 
 
 def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):

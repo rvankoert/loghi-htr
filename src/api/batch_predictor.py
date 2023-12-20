@@ -306,13 +306,11 @@ def safe_batch_predict(model: tf.keras.Model,
 
         # Recursive calls for each half
         first_half_predictions = safe_batch_predict(
-            model, first_half_images, first_half_info, utils,
-            decode_batch_predictions, output_path,
-            normalize_confidence)
+            model, first_half_images, first_half_info, utils, output_path,
+        )
         second_half_predictions = safe_batch_predict(
-            model, second_half_images, second_half_info, utils,
-            decode_batch_predictions, output_path,
-            normalize_confidence)
+            model, second_half_images, second_half_info, utils, output_path
+        )
 
         return first_half_predictions + second_half_predictions
     except Exception as e:
