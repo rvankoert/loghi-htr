@@ -5,7 +5,7 @@ import logging
 import multiprocessing
 import os
 import sys
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -15,12 +15,11 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import Utils, decode_batch_predictions, \
-        normalize_confidence, load_model_from_directory  # noqa: E402
+from utils.utils import load_model_from_directory  # noqa: E402
 
 
 def create_model(model_path: str, strategy: tf.distribute.Strategy) \
-        -> Tuple[tf.keras.Model, object]:
+        -> tf.keras.Model:
     """
     Load a pre-trained model and create utility methods.
 
@@ -33,11 +32,9 @@ def create_model(model_path: str, strategy: tf.distribute.Strategy) \
 
     Returns
     -------
-    tuple of (tf.keras.Model, object)
+    tf.keras.Model
         model : tf.keras.Model
             Loaded pre-trained model.
-        utils : object
-            Utility methods created from the character list.
 
     Side Effects
     ------------
@@ -57,21 +54,7 @@ def create_model(model_path: str, strategy: tf.distribute.Strategy) \
             logging.error(f"Error loading model: {e}")
             sys.exit(1)
 
-    # Load the character list
-    charlist_path = f"{model_path}/charlist.txt"
-    try:
-        with open(charlist_path) as file:
-            charlist = [char for char in file.read()]
-        utils = Utils(charlist, use_mask=True)
-        logging.debug("Utilities initialized")
-    except FileNotFoundError:
-        logging.error(f"charlist.txt not found at {model_path}. Exiting...")
-        sys.exit(1)
-    except Exception as e:
-        logging.error(f"Error loading utilities: {e}")
-        sys.exit(1)
-
-    return model, utils
+    return model
 
 
 def setup_gpu_environment(gpus: str) -> bool:
@@ -133,6 +116,7 @@ def setup_gpu_environment(gpus: str) -> bool:
 
 
 def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
+                            predicted_queue: multiprocessing.Queue,
                             output_path: str,
                             model_path: str,
                             gpus: str = '0'):
@@ -167,7 +151,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     strategy = tf.distribute.MirroredStrategy()
 
     # Create the model and utilities
-    model, utils = create_model(model_path, strategy)
+    model = create_model(model_path, strategy)
 
     total_predictions = 0
     old_model_path = model_path
@@ -180,16 +164,16 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
             if model_path != old_model_path:
                 old_model_path = model_path
-                model, utils = create_model(model_path, strategy)
+                model = create_model(model_path, strategy)
                 logging.info("Model reloaded due to change in model path")
 
             # Make predictions on the batch
             num_predictions = handle_batch_prediction(
-                model, batch_data, utils, output_path)
+                model, model_path, predicted_queue, batch_data, output_path)
             total_predictions += num_predictions
 
-            logging.info(f"Made {num_predictions} predictions")
-            logging.info(f"Total predictions: {total_predictions}")
+            logging.debug(f"Made {num_predictions} predictions")
+            logging.info(f"Total predictions made: {total_predictions}")
             logging.info(f"{prepared_queue.qsize()} batches waiting on "
                          "prediction")
 
@@ -199,8 +183,9 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
 
 def handle_batch_prediction(model: tf.keras.Model,
+                            model_path: str,
+                            predicted_queue: multiprocessing.Queue,
                             batch_data: Tuple[tf.Tensor, ...],
-                            utils: Utils,
                             output_path: str) -> int:
     """
     Handle the batch prediction process.
@@ -209,10 +194,12 @@ def handle_batch_prediction(model: tf.keras.Model,
     -----------
     model : Any
         The loaded model for predictions.
+    model_path : str
+        Path to the current model.
+    predicted_queue : multiprocessing.Queue
+        Queue where predictions are sent.
     batch_data : Tuple[tf.Tensor, ...]
         Tuple containing batch images, groups, and identifiers.
-    utils : Any
-        Utilities for processing predictions.
     output_path : str
         Path where predictions should be saved.
 
@@ -226,16 +213,16 @@ def handle_batch_prediction(model: tf.keras.Model,
     batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
-        predictions = safe_batch_predict(model, batch_images, batch_info,
-                                         utils, output_path)
-        for prediction in predictions:
-            logging.debug(f"Prediction: {prediction}")
+        predictions = safe_batch_predict(model, model_path,
+                                         predicted_queue, batch_images,
+                                         batch_info, output_path)
         return len(predictions)
 
     except Exception as e:
         failed_ids = [id for _, id in batch_info]
         logging.error("Error making predictions. Skipping batch:\n" +
                       "\n".join(failed_ids))
+        print(e)
 
         for group, id in batch_info:
             output_prediction_error(output_path, group, id, e)
@@ -243,9 +230,10 @@ def handle_batch_prediction(model: tf.keras.Model,
 
 
 def safe_batch_predict(model: tf.keras.Model,
+                       model_path: str,
+                       predicted_queue: multiprocessing.Queue,
                        batch_images: tf.Tensor,
                        batch_info: List[Tuple[str, str]],
-                       utils: Utils,
                        output_path: str) -> List[str]:
     """
     Attempt to predict on a batch of images using the provided model. If a
@@ -257,13 +245,15 @@ def safe_batch_predict(model: tf.keras.Model,
     ----------
     model : TensorFlow model
         The model used for making predictions.
+    model_path : str
+        Path to the current model.
+    predicted_queue : multiprocessing.Queue
+        Queue where predictions are sent.
     batch_images : tf.Tensor
         A tensor of images for which predictions need to be made.
     batch_info : List of tuples
         A list of tuples containing additional information (e.g., group and
         identifier) for each image in `batch_images`.
-    utils : Utils
-        Utility methods for handling predictions.
     output_path : str
         Path where any output files should be saved.
 
@@ -275,8 +265,9 @@ def safe_batch_predict(model: tf.keras.Model,
     """
 
     try:
-        return batch_predict(model, batch_images, batch_info, utils,
-                             output_path)
+        return batch_predict(model, model_path,
+                             predicted_queue, batch_images,
+                             batch_info, output_path)
     except tf.errors.ResourceExhaustedError as e:
         # If the batch size is 1 and still causing OOM, then skip the image and
         # return an empty list
@@ -302,10 +293,12 @@ def safe_batch_predict(model: tf.keras.Model,
 
         # Recursive calls for each half
         first_half_predictions = safe_batch_predict(
-            model, first_half_images, first_half_info, utils, output_path,
+            model, model_path, predicted_queue, first_half_images,
+            first_half_info, output_path,
         )
         second_half_predictions = safe_batch_predict(
-            model, second_half_images, second_half_info, utils, output_path
+            model, model_path, predicted_queue, second_half_images,
+            second_half_info, output_path
         )
 
         return first_half_predictions + second_half_predictions
@@ -314,9 +307,10 @@ def safe_batch_predict(model: tf.keras.Model,
 
 
 def batch_predict(model: tf.keras.Model,
+                  model_path: str,
+                  predicted_queue: multiprocessing.Queue,
                   images: tf.Tensor,
                   batch_info: List[Tuple[str, str]],
-                  utils: Utils,
                   output_path: str) -> List[str]:
     """
     Process a batch of images using the provided model and decode the
@@ -326,13 +320,15 @@ def batch_predict(model: tf.keras.Model,
     ----------
     model : tf.keras.Model
         Pre-trained model for predictions.
+    model_path : str
+        Path to the current model.
+    predicted_queue : multiprocessing.Queue
+        Queue where predictions are sent.
     images : tf.Tensor
         Tensor of images for which predictions need to be made.
     batch_info : List[Tuple[str, str]]
         List of tuples containing group and identifier for each image in the
         batch.
-    utils : Utils
-        Utility methods for handling predictions.
     output_path : str
         Path where predictions should be saved.
 
@@ -356,69 +352,11 @@ def batch_predict(model: tf.keras.Model,
     encoded_predictions = model.predict_on_batch(images)
     logging.debug("Predictions made")
 
-    logging.debug("Decoding predictions...")
-    decoded_predictions = decode_batch_predictions(
-        encoded_predictions, utils)[0]
-    logging.debug("Predictions decoded")
+    # Decode the predictions
+    predicted_queue.put((encoded_predictions, groups, identifiers,
+                         output_path, model_path))
 
-    logging.debug("Outputting predictions...")
-    predicted_texts = output_predictions(decoded_predictions,
-                                         groups,
-                                         identifiers,
-                                         output_path)
-    logging.debug("Predictions outputted")
-
-    return predicted_texts
-
-
-def output_predictions(predictions: List[Tuple[float, str]],
-                       groups: List[str],
-                       identifiers: List[str],
-                       output_path: str) -> List[str]:
-    """
-    Generate output texts based on the predictions and save to files.
-
-    Parameters
-    ----------
-    predictions : List[Tuple[float, str]]
-        List of tuples containing confidence and predicted text for each image.
-    groups : List[str]
-        List of group IDs for each image.
-    identifiers : List[str]
-        List of identifiers for each image.
-    output_path : str
-        Base path where prediction outputs should be saved.
-
-    Returns
-    -------
-    List[str]
-        List of output texts for each image.
-
-    Side Effects
-    ------------
-    - Creates directories for groups if they don't exist.
-    - Saves output texts to files within the respective group directories.
-    - Logs messages regarding directory creation and saving.
-    """
-
-    outputs = []
-    for i, (confidence, pred_text) in enumerate(predictions):
-        group_id = groups[i]
-        identifier = identifiers[i]
-        confidence = normalize_confidence(confidence, pred_text)
-
-        text = f"{identifier}\t{str(confidence)}\t{pred_text}"
-        outputs.append(text)
-
-        # Output the text to a file
-        output_dir = os.path.join(output_path, group_id)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
-            logging.debug(f"Created output directory: {output_dir}")
-        with open(os.path.join(output_dir, identifier + ".txt"), "w") as f:
-            f.write(text + "\n")
-
-    return outputs
+    return encoded_predictions
 
 
 def output_prediction_error(output_path: str,

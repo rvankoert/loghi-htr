@@ -9,6 +9,7 @@ from typing import Tuple
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
 from image_preparator import image_preparation_worker
+from batch_decoder import batch_decoding_worker
 
 # > Third-party dependencies
 from flask import request
@@ -174,6 +175,9 @@ def start_processes(batch_size: int, max_queue_size: int,
     prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
     logger.info(f"Prediction queue size: {max_prepared_queue_size}")
 
+    # Create a thread-safe Queue for predictions
+    predicted_queue = mp.Queue()
+
     # Add request queue size to prometheus statistics
     request_queue_size_gauge = Gauge("request_queue_size",
                                      "Request queue size")
@@ -197,9 +201,19 @@ def start_processes(batch_size: int, max_queue_size: int,
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, output_path, model_path, gpus),
+        args=(prepared_queue, predicted_queue,
+              output_path, model_path, gpus),
         name="Batch Prediction Process")
     prediction_process.daemon = True
     prediction_process.start()
+
+    # Start the batch decoding process
+    logger.info("Starting batch decoding process")
+    decoding_process = mp.Process(
+        target=batch_decoding_worker,
+        args=(predicted_queue, model_path),
+        name="Batch Decoding Process")
+    decoding_process.daemon = True
+    decoding_process.start()
 
     return request_queue, preparation_process, prediction_process
