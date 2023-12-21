@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import os
 import sys
+import time
 from typing import List, Tuple
 
 # > Third-party dependencies
@@ -153,14 +154,14 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     # Create the model and utilities
     model = create_model(model_path, strategy)
 
-    total_predictions = 0
+    batch_num = 0
     old_model_path = model_path
 
     try:
         while True:
             batch_data = prepared_queue.get()
             model_path = batch_data[3]
-            logging.debug("Received batch from prepared_queue")
+            logging.debug(f"Received batch {batch_num} from prepared_queue")
 
             if model_path != old_model_path:
                 old_model_path = model_path
@@ -168,14 +169,19 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                 logging.info("Model reloaded due to change in model path")
 
             # Make predictions on the batch
+            tick = time.time()
             num_predictions = handle_batch_prediction(
-                model, model_path, predicted_queue, batch_data, output_path)
-            total_predictions += num_predictions
+                model, model_path, predicted_queue, batch_data, output_path,
+                batch_num)
 
-            logging.debug(f"Made {num_predictions} predictions")
-            logging.info(f"Total predictions made: {total_predictions}")
+            logging.info(f"Made {num_predictions} predictions in "
+                         f"{time.time() - tick:.2f} seconds")
+            logging.info(f"Sent batch {batch_num} ({num_predictions} items) "
+                         "to prediction queue")
             logging.info(f"{prepared_queue.qsize()} batches waiting on "
                          "prediction")
+
+            batch_num += 1
 
     except KeyboardInterrupt:
         logging.warning(
@@ -186,7 +192,8 @@ def handle_batch_prediction(model: tf.keras.Model,
                             model_path: str,
                             predicted_queue: multiprocessing.Queue,
                             batch_data: Tuple[tf.Tensor, ...],
-                            output_path: str) -> int:
+                            output_path: str,
+                            batch_num: int) -> int:
     """
     Handle the batch prediction process.
 
@@ -202,6 +209,8 @@ def handle_batch_prediction(model: tf.keras.Model,
         Tuple containing batch images, groups, and identifiers.
     output_path : str
         Path where predictions should be saved.
+    batch_num : int
+        Batch number.
 
     Returns:
     --------
@@ -220,9 +229,9 @@ def handle_batch_prediction(model: tf.keras.Model,
 
     except Exception as e:
         failed_ids = [id for _, id in batch_info]
-        logging.error("Error making predictions. Skipping batch:\n" +
-                      "\n".join(failed_ids))
-        print(e)
+        logging.error(f"Error making predictions. Skipping batch {batch_num}"
+                      ":\n" + "\n".join(failed_ids))
+        logging.error(e)
 
         for group, id in batch_info:
             output_prediction_error(output_path, group, id, e)

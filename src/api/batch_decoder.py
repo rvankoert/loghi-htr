@@ -26,6 +26,8 @@ def batch_decoding_worker(predicted_queue, model_path):
 
     total_outputs = 0
 
+    batch_num = 0
+
     try:
         while True:
             encoded_predictions, groups, identifiers, output_path, model = \
@@ -49,8 +51,13 @@ def batch_decoding_worker(predicted_queue, model_path):
             for output in outputted_predictions:
                 logging.debug(f"Outputted prediction: {output}")
 
-            logging.info(f"Outputted {len(outputted_predictions)} predictions")
-            logging.info(f"Total outputs: {total_outputs}")
+            logging.info(
+                f"Outputted batch {batch_num} ({len(decoded_predictions)} "
+                "items)")
+            logging.info(f"Total predictions outputted: {total_outputs}")
+
+            batch_num += 1
+
     except KeyboardInterrupt:
         logging.warning("Batch decoding process terminated")
 
