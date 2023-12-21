@@ -2,9 +2,10 @@
 
 # > Standard Library
 from typing import Tuple
+import logging
 
 # > Local dependencies
-from augments import *
+from data.augments import *
 
 # > Third party libraries
 import tensorflow as tf
@@ -76,6 +77,11 @@ class DataGenerator(tf.keras.utils.Sequence):
         preprocessed_image, encoded_label = loader.load_images(image_info_tuple)
         ```
         """
+
+        # Set up the basic logging configuration
+        logger = logging.getLogger(__name__)
+
+        # Read in image info tuple
         image = tf.io.read_file(image_info_tuple[0])
         try:
             image = tf.image.decode_png(image, channels=self.channels)
@@ -86,45 +92,53 @@ class DataGenerator(tf.keras.utils.Sequence):
             image, (self.height, 99999), preserve_aspect_ratio=True) / 255.0
 
         if self.distort_jpeg:
+            logger.info("Data augment: distort_jpeg")
             image = distort_image(image, self.channels)
 
         image_width = tf.shape(image)[1]
         if self.do_elastic_transform:
+            logger.info("Data augment: elastic_transform")
             image = elastic_transform(image)
 
         if self.random_crop:
+            logger.info("Data augment: random_crop")
             image = random_crop(image, self.channels)
 
         if self.random_width:
+            logger.info("Data augment: random_width")
             image = random_width(image)
 
         image = tf.image.resize_with_pad(image,
                                          self.height, tf.shape(image)[1] + 50)
 
         if self.do_random_shear:
+            logger.info("Data augment: shear_x")
             # Add padding to make sure that shear does not "fall off" image
             image = tf.image.resize_with_pad(
                 image, self.height, image_width + 64 + 50)
-            if self.channels in [3, 4]:
-                image = shear_x(image)
-            elif self.channels == 1:
-                image = shear_x(image)
-                image = np.expand_dims(image, axis=-1)
-            else:
+            image = shear_x(image)
+            if self.channels == 2:
                 raise NotImplementedError(
                     "Unsupported number of channels. Supported values are 1, "
                     "3, or 4.")
 
         if self.do_binarize_sauvola:
+            tf.config.run_functions_eagerly(True)
+            tf.data.experimental.enable_debug_mode()
+            print(image)
+            logger.info("Data augment: binarize_sauvola")
             image = binarize_sauvola(image, self.channels)
 
         if self.do_binarize_otsu:
+            logger.info("Data augment: binarize_otsu")
             image = binarize_otsu(image, self.channels)
 
         if self.do_blur:
+            logger.info("Data augment: blur_image")
             image = blur_image(image)
 
         if self.do_invert:
+            logger.info("Data augment: do_invert")
             image = invert_image(image, self.channels)
 
         label = image_info_tuple[1]

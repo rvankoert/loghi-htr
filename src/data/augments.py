@@ -33,6 +33,7 @@ def shear_x(image: tf.Tensor) -> tf.Tensor:
     >>> input_image = np.random.rand(256, 256, 3)
     >>> sheared_result = shear_x(input_image, 0.5)
     """
+
     # Calculate random shear_factor
     shear_factor = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
 
@@ -40,7 +41,7 @@ def shear_x(image: tf.Tensor) -> tf.Tensor:
     shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
     # Add batch dimension to the input image
-    image_rgb = np.expand_dims(image, axis=0)
+    image_rgb = tf.expand_dims(image, axis=0)
 
     # Flatten the shear matrix for batch processing
     shear_matrix_tf = tf.reshape(
@@ -54,7 +55,7 @@ def shear_x(image: tf.Tensor) -> tf.Tensor:
     sheared_image = tf.raw_ops.ImageProjectiveTransformV3(
         images=image_rgb,
         transforms=shear_matrix_tf,
-        output_shape=tf.constant([image.shape[0], image.shape[1]],
+        output_shape=tf.constant([image.shape[0], image_rgb.shape[1]],
                                  dtype=tf.int32),
         fill_value=fill_value,
         interpolation="BILINEAR"
@@ -189,20 +190,29 @@ def binarize_sauvola(tensor: tf.Tensor, channels: int) -> tf.Tensor:
 
     # 1-channel images don't have to be changed
     if channels == 1:
-        np_array = tensor.numpy()
+        gray_tensor = tensor
     elif channels == 3:
-        np_array = tf.image.rgb_to_grayscale(tensor).numpy()
+        gray_tensor = tf.image.rgb_to_grayscale(tensor)
     elif channels == 4:
         # Drop alpha channel
-        np_array = tf.image.rgb_to_grayscale(tensor[:, :, :3]).numpy()
+        gray_tensor = tf.image.rgb_to_grayscale(tensor[:, :, :3])
     else:
         raise NotImplementedError(
             "Unsupported number of channels. Supported values are 1, "
             "3, or 4.")
-    sauvola_thresh = threshold_sauvola(np_array, window_size=window_size)
-    binary_sauvola = (np_array > sauvola_thresh) * 1
+    # sauvola_thresh = threshold_sauvola(np_array, window_size=window_size)
+    # binary_sauvola = (np_array > sauvola_thresh) * 1
 
-    return tf.convert_to_tensor(binary_sauvola)
+
+    # Apply Sauvola binarization
+    sauvola_thresh = tf.py_function(func=threshold_sauvola,
+                                    inp=[gray_tensor],
+                                    Tout=tf.float32)
+    binary_sauvola = tf.cast(tf.math.greater(gray_tensor, sauvola_thresh),
+                             tf.float32)
+
+    return binary_sauvola
+    # return tf.convert_to_tensor(binary_sauvola)
 
 
 def binarize_otsu(tensor: tf.Tensor, channels: int) -> tf.Tensor:
@@ -266,6 +276,7 @@ def invert_image(tensor: tf.Tensor, channels: int) -> tf.Tensor:
         return tf.concat([channel1, channel2, channel3, alpha], axis=2)
 
     else:
+        print(tensor.numpy())
         return tf.convert_to_tensor(max_value - tensor.numpy())
 
 
