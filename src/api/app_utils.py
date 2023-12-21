@@ -2,7 +2,7 @@
 
 # > Standard library
 import logging
-from multiprocessing import Process, Queue
+import multiprocessing as mp
 import os
 from typing import Tuple
 
@@ -52,9 +52,6 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
         format="[%(process)d] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging_levels[level],
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler("app.log")]
     )
 
     # Get TensorFlow's logger and remove its handlers to prevent duplicate logs
@@ -168,26 +165,26 @@ def start_processes(batch_size: int, max_queue_size: int,
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
-    request_queue = Queue(maxsize=max_queue_size//2)
+    request_queue = mp.Queue(maxsize=max_queue_size//2)
     logger.info(f"Request queue size: {max_queue_size//2}")
 
     # Max size of prepared queue is half of the max size of request queue
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
-    prepared_queue = Queue(maxsize=max_prepared_queue_size)
+    prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
     logger.info(f"Prediction queue size: {max_prepared_queue_size}")
 
     # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge(
-        'request_queue_size', "Request queue size")
+    request_queue_size_gauge = Gauge("request_queue_size",
+                                     "Request queue size")
     request_queue_size_gauge.set_function(lambda: request_queue.qsize())
-    prepared_queue_size_gauge = Gauge(
-        'prepared_queue_size', "Prepared queue size")
+    prepared_queue_size_gauge = Gauge("prepared_queue_size",
+                                      "Prepared queue size")
     prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
-    preparation_process = Process(
+    preparation_process = mp.Process(
         target=image_preparation_worker,
         args=(batch_size, request_queue,
               prepared_queue, model_path,
@@ -198,7 +195,7 @@ def start_processes(batch_size: int, max_queue_size: int,
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
-    prediction_process = Process(
+    prediction_process = mp.Process(
         target=batch_prediction_worker,
         args=(prepared_queue, output_path, model_path, gpus),
         name="Batch Prediction Process")

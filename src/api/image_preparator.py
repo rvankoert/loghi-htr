@@ -351,8 +351,7 @@ def pad_and_queue_batch(model_path: str,
     prepared_queue.put((padded_batch, batch_groups,
                         batch_identifiers, model_path))
     logging.debug("Pushed prepared batch to prepared_queue")
-    logging.debug(
-        f"{prepared_queue.qsize()} batches ready for prediction")
+    logging.debug(f"{prepared_queue.qsize()} batches ready for prediction")
 
 
 def pad_batch(batch_images: list) -> np.ndarray:
@@ -377,7 +376,9 @@ def pad_batch(batch_images: list) -> np.ndarray:
     for i in range(len(batch_images)):
         batch_images[i] = pad_to_width(batch_images[i], max_width, -10)
 
-    return np.array(batch_images)
+    batch_images = tf.convert_to_tensor(batch_images)
+
+    return batch_images
 
 
 def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):

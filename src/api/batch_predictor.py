@@ -132,7 +132,7 @@ def setup_gpu_environment(gpus: str) -> bool:
     return gpus_support_mixed_precision
 
 
-def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
+def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                             output_path: str,
                             model_path: str,
                             gpus: str = '0'):
@@ -146,7 +146,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     Parameters
     ----------
-    prepared_queue : multiprocessing.JoinableQueue
+    prepared_queue : multiprocessing.Queue
         Queue from which preprocessed images are fetched.
     output_path : str
         Path where predictions should be saved.
@@ -157,9 +157,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
     Side Effects
     ------------
-    - Modifies CUDA_VISIBLE_DEVICES environment variable to control GPU
-    visibility.
-    - Alters the system path to enable certain imports.
     - Logs various messages regarding the batch processing status.
     """
 
@@ -202,7 +199,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.JoinableQueue,
 
 
 def handle_batch_prediction(model: tf.keras.Model,
-                            batch_data: Tuple[List[Any], ...],
+                            batch_data: Tuple[tf.Tensor, ...],
                             utils: Utils,
                             output_path: str) -> int:
     """
@@ -212,7 +209,7 @@ def handle_batch_prediction(model: tf.keras.Model,
     -----------
     model : Any
         The loaded model for predictions.
-    batch_data : Tuple[List[Any], ...]
+    batch_data : Tuple[tf.Tensor, ...]
         Tuple containing batch images, groups, and identifiers.
     utils : Any
         Utilities for processing predictions.
@@ -246,7 +243,7 @@ def handle_batch_prediction(model: tf.keras.Model,
 
 
 def safe_batch_predict(model: tf.keras.Model,
-                       batch_images: List[tf.Tensor],
+                       batch_images: tf.Tensor,
                        batch_info: List[Tuple[str, str]],
                        utils: Utils,
                        output_path: str) -> List[str]:
@@ -260,8 +257,8 @@ def safe_batch_predict(model: tf.keras.Model,
     ----------
     model : TensorFlow model
         The model used for making predictions.
-    batch_images : List[tf.Tensor]
-        A list or numpy array of images for which predictions need to be made.
+    batch_images : tf.Tensor
+        A tensor of images for which predictions need to be made.
     batch_info : List of tuples
         A list of tuples containing additional information (e.g., group and
         identifier) for each image in `batch_images`.
@@ -317,7 +314,7 @@ def safe_batch_predict(model: tf.keras.Model,
 
 
 def batch_predict(model: tf.keras.Model,
-                  images: List[tf.Tensor],
+                  images: tf.Tensor,
                   batch_info: List[Tuple[str, str]],
                   utils: Utils,
                   output_path: str) -> List[str]:
@@ -329,8 +326,8 @@ def batch_predict(model: tf.keras.Model,
     ----------
     model : tf.keras.Model
         Pre-trained model for predictions.
-    images : List[tf.Tensor]
-        List of images for which predictions need to be made.
+    images : tf.Tensor
+        Tensor of images for which predictions need to be made.
     batch_info : List[Tuple[str, str]]
         List of tuples containing group and identifier for each image in the
         batch.
