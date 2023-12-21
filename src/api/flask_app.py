@@ -65,16 +65,11 @@ if __name__ == '__main__':
     logger.info("Getting GPU options from environment variables")
     gpus = get_env_variable("LOGHI_GPUS", "0")
 
-    # Start the processing and prediction processes
-    logger.info("Starting processing and prediction processes")
-    request_queue, preparation_process, prediction_process = start_processes(
-        batch_size,
-        max_queue_size,
-        output_path,
-        gpus,
-        model_path,
-        patience
-    )
+    # Start the worker processes
+    logger.info("Starting worker processes")
+    request_queue, preparation_process, prediction_process, decoding_process \
+        = start_processes(batch_size, max_queue_size, output_path,
+                          gpus, model_path, patience)
 
     # Create and run the Flask app
     app = create_app(request_queue)

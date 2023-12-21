@@ -216,4 +216,5 @@ def start_processes(batch_size: int, max_queue_size: int,
     decoding_process.daemon = True
     decoding_process.start()
 
-    return request_queue, preparation_process, prediction_process
+    return request_queue, preparation_process, prediction_process, \
+        decoding_process

@@ -177,7 +177,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
             logging.info(f"Made {num_predictions} predictions in "
                          f"{time.time() - tick:.2f} seconds")
             logging.info(f"Sent batch {batch_num} ({num_predictions} items) "
-                         "to prediction queue")
+                         "to decoding queue")
             logging.info(f"{prepared_queue.qsize()} batches waiting on "
                          "prediction")
 

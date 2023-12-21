@@ -1,10 +1,17 @@
-import logging
-import os
-from typing import List, Tuple
-import sys
+# Imports
 
+# > Standard library
+import logging
+import multiprocessing
+import numpy as np
+import os
+import sys
+from typing import List, Tuple
+
+# > Third-party dependencies
 import tensorflow as tf
 
+# > Local imports
 # Add parent directory to path for imports
 current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
@@ -14,7 +21,18 @@ from utils.utils import Utils, decode_batch_predictions, \
         normalize_confidence  # noqa: E402
 
 
-def batch_decoding_worker(predicted_queue, model_path):
+def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
+                          model_path: str):
+    """
+    Worker function for batch decoding process.
+
+    Parameters
+    ----------
+    predicted_queue: multiprocessing.Queue
+        Queue containing predicted texts and other information.
+    model_path: str
+        Path to the model directory.
+    """
 
     logging.info("Batch decoding process started")
 
@@ -51,19 +69,33 @@ def batch_decoding_worker(predicted_queue, model_path):
             for output in outputted_predictions:
                 logging.debug(f"Outputted prediction: {output}")
 
-            logging.info(
-                f"Outputted batch {batch_num} ({len(decoded_predictions)} "
-                "items)")
+            logging.info(f"Outputted batch {batch_num}")
             logging.info(f"Total predictions outputted: {total_outputs}")
 
             batch_num += 1
 
     except KeyboardInterrupt:
-        logging.warning("Batch decoding process terminated")
+        logging.warning("Batch decoding process interrupted. Exiting...")
 
 
-def batch_decode(encoded_predictions,
+def batch_decode(encoded_predictions: np.ndarray,
                  utils: Utils) -> List[str]:
+    """
+    Decode a batch of encoded predictions.
+
+    Parameters
+    ----------
+    encoded_predictions: np.ndarray
+        Array of encoded predictions.
+    utils: Utils
+        Utilities object containing character list and other information.
+
+    Returns
+    -------
+    List[str]
+        List of decoded predictions.
+    """
+
     logging.debug("Decoding predictions...")
     decoded_predictions = decode_batch_predictions(
         encoded_predictions, utils)[0]
@@ -73,6 +105,20 @@ def batch_decode(encoded_predictions,
 
 
 def create_utils(model_path: str) -> Utils:
+    """
+    Create a utilities object for decoding.
+
+    Parameters
+    ----------
+    model_path: str
+        Path to the model directory.
+
+    Returns
+    -------
+    Utils
+        Utilities object containing character list and other information.
+    """
+
     # Load the character list
     charlist_path = f"{model_path}/charlist.txt"
     try:
