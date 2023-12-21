@@ -4,7 +4,8 @@
 import json
 import logging
 import multiprocessing
-from multiprocessing.queues import Empty
+# from multiprocessing.queues import Empty
+from queue import Empty
 import os
 import time
 
@@ -249,7 +250,6 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             batch_images.append(image)
             batch_groups.append(group)
             batch_identifiers.append(identifier)
-            request_queue.task_done()
 
             # Reset the last image time
             last_image_time = time.time()
@@ -274,9 +274,6 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,
                         batch_identifiers, prepared_queue)
-    batch_images.clear()
-    batch_groups.clear()
-    batch_identifiers.clear()
 
     return num_channels, current_model
 
@@ -303,7 +300,7 @@ def prepare_image(image_bytes: bytes,
         Prepared image tensor.
     """
 
-    image = tf.io.decode_jpeg(image_bytes, channels=num_channels)
+    image = tf.io.decode_image(image_bytes, channels=num_channels)
 
     # Resize while preserving aspect ratio
     target_height = 64
@@ -351,7 +348,6 @@ def pad_and_queue_batch(model_path: str,
     padded_batch = pad_batch(batch_images)
 
     # Push the prepared batch to the prepared_queue
-    # TODO: Add TF padded batch, not numpy
     prepared_queue.put((padded_batch, batch_groups,
                         batch_identifiers, model_path))
     logging.debug("Pushed prepared batch to prepared_queue")
@@ -379,8 +375,7 @@ def pad_batch(batch_images: list) -> np.ndarray:
 
     # Resize each image in the batch to the maximum width
     for i in range(len(batch_images)):
-        batch_images[i] = pad_to_width(
-            batch_images[i], max_width, -10)
+        batch_images[i] = pad_to_width(batch_images[i], max_width, -10)
 
     return np.array(batch_images)
 

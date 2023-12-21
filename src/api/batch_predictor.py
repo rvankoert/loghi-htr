@@ -236,7 +236,6 @@ def handle_batch_prediction(model: tf.keras.Model,
         return len(predictions)
 
     except Exception as e:
-        logging.error(e)
         failed_ids = [id for _, id in batch_info]
         logging.error("Error making predictions. Skipping batch:\n" +
                       "\n".join(failed_ids))
