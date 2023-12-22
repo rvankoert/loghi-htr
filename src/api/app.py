@@ -6,6 +6,7 @@
 import errors
 from routes import main
 from app_utils import setup_logging, get_env_variable, start_workers
+from simple_security import SimpleSecurity
 
 # > Third-party dependencies
 from flask import Flask
@@ -53,6 +54,14 @@ def create_app() -> Flask:
     # Register error handler
     app.register_error_handler(ValueError, errors.handle_invalid_usage)
     app.register_error_handler(405, errors.method_not_allowed)
+
+    # Add security to app
+    enable_security = get_env_variable("SECURITY_ENABLED", False)
+    logger.info(f"Security enabled: {enable_security}")
+
+    # Get API key user JSON string from environment variable
+    api_key_user_json_string = get_env_variable("API_KEY_USER_JSON_STRING", "")
+    SimpleSecurity(app, enable_security, api_key_user_json_string)
 
     # Start the worker processes
     logger.info("Starting worker processes")

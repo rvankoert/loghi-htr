@@ -7,6 +7,7 @@ from multiprocessing.queues import Full
 
 # > Local dependencies
 from app_utils import extract_request_data
+from simple_security import session_key_required
 
 # > Third party dependencies
 import flask
@@ -19,6 +20,7 @@ main = Blueprint('main', __name__)
 
 
 @main.route('/predict', methods=['POST'])
+@session_key_required
 def predict() -> flask.Response:
     """
     Endpoint to receive image data and queue it for prediction.
@@ -91,6 +93,7 @@ def predict() -> flask.Response:
 
 
 @main.route("/prometheus", methods=["GET"])
+@session_key_required
 def prometheus() -> bytes:
     """
     Endpoint for getting prometheus statistics
