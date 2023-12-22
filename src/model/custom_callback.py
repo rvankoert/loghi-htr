@@ -2,23 +2,24 @@
 
 # > Standard Library
 import os
-import json
+
 # > Local dependencies
 
 # > Third party libraries
-from tensorflow import keras
+import tensorflow as tf
 
 
-class LoghiCustomCallback(keras.callbacks.Callback):
+class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
     previous_loss = float('inf')
 
-    def __init__(self, save_best=True, save_checkpoint=True, output='output', charlist=None, metadata=None):
+    def __init__(self, save_best=True, save_checkpoint=True, output='output',
+                 charlist=None, config=None):
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output
         self.charlist = charlist
-        self.metadata = metadata
+        self.config = config
 
     def save_model(self, subdir):
         outputdir = os.path.join(self.output, subdir)
@@ -26,9 +27,8 @@ class LoghiCustomCallback(keras.callbacks.Callback):
         self.model.save(outputdir + '/model.keras')
         with open(os.path.join(outputdir, 'charlist.txt'), 'w') as chars_file:
             chars_file.write(str().join(self.charlist))
-        if self.metadata is not None:
-            with open(os.path.join(outputdir, 'config.json'), 'w') as file:
-                file.write(json.dumps(self.metadata))
+        if self.config is not None:
+            self.config.save(outputdir + '/config.json')
 
     def on_epoch_end(self, epoch, logs=None):
         print(

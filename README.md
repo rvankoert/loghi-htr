@@ -10,7 +10,8 @@ Loghi HTR also works on machine printed text.
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
 4. [API Usage Guide](#api-usage-guide)
-5. [Frequently Asked Questions (FAQ)](#FAQ)
+5. [Model Visualizer Guide](#model-visualizer-guide)
+6. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
 
@@ -75,17 +76,15 @@ Example of 'lines.txt' content:
 
 The command-line options include, but are not limited to:
 
-- `--do_train`: Enable the training stage.
+- `--do_train`: Enable the training stage. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
 - `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference.
+- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `inference_list`.
 - `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
 - `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
 - `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
-- `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
 - `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
 - `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
-- `--height`: Height to scale the textline image. Internal processing requires images of the same height. 64 is recommended for handwriting.
 - `--use_mask`: Enable when using `batch_size` > 1.
 - `--results_file`: The inference results are aggregated in this file.
 - `--config_file_output`: The output location of the config.
@@ -163,21 +162,21 @@ In this example, the string defines a neural network with input layers, convolut
 
 ### Supported Layers and Their Specifications
 
-| **Layer**          | **Spec**                                       | **Example**        | **Description**                                                                                              |
-|--------------------|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------------------------------|
-| Input              | `batch,height,width,depth`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
-| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
-| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
-| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
-| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
-| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
-| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
-| BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                                                                     |
-| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                        |
-| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                    |
-| Dropout            | `D<rate>`                                      | `D25`             | Dropout layer with `dropout` = 0.25                                                                          |
-| Reshape            | `Rc`                                           | `Rc`               | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs |
-| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
+| **Layer**          | **Spec**                                       | **Example**      | **Description**                                                                                                                                   |
+|--------------------|------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| Input              | `batch,height,width,depth`                     | `None,64,None,1` | Input layer with variable batch_size & width, depth of 1 channel                                                                                  |
+| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`          | Dense layer with a 1D sequence as with 10 output classes and softmax                                                                              |
+| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`       | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                                                                   |
+| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`           | Dense layer with softmax and 64 units                                                                                                             |
+| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`           | Forward-only LSTM cell with 64 units                                                                                                              |
+| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`           | Reverse-only GRU cell with 64 units                                                                                                               |
+| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`          | Bidirectional layer wrapping a LSTM RNN with 256 units                                                                                            |
+| BatchNormalization | `Bn`                                           | `Bn`             | BatchNormalization layer                                                                                                                          |
+| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`      | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                                                             |
+| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`      | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                                                         |
+| Dropout            | `D<rate>`                                      | `D25`            | Dropout layer with `dropout` = 0.25                                                                                                               |
+| Reshape            | `Rc`                                           | `Rc`             | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs                                      |
+| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`       | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
 
 ### Layer Details
 #### Input
@@ -278,13 +277,7 @@ You have the choice to run the API using either `gunicorn` (recommended) or `fla
 Using `gunicorn`:
 
 ```bash
-python3 gunicorn_app.py
-```
-
-Or using `flask`:
-
-```bash
-python3 flask_app.py
+gunicorn 'app:create_app()'
 ```
 
 #### Environment Variables Configuration
@@ -295,8 +288,6 @@ Before running the app, you must set several environment variables. The app fetc
 
 ```bash
 GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
-GUNICORN_WORKERS         # Default: "1": Number of worker processes.
-GUNICORN_THREADS         # Default: "1": Number of threads per worker.
 GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 ```
 
@@ -307,6 +298,7 @@ LOGHI_MODEL_PATH         # Path to the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images before predicting current batch
 ```
 
 **GPU Options:**
@@ -334,13 +326,95 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
+To check the health of the server, simply run:
+
+```bash
+curl http://localhost:5000/health
+```
+
+This will respond with a 500 error, and an "unhealthy" status if one of the processes has crashed. Otherwise, it will respond with a 200 error, and a corresponding "healthy" status.
+
 ---
 
 This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
 
+## Model Visualizer Guide
+
+The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
+
+<figure> <img src="https://raw.githubusercontent.com/rvankoert/loghi-htr/visualize-files-revamp/src/visualize/visualize_plots/sample_image.jpg" alt="sample_image" width="650" style="display: block; margin: 0 auto;" /> <figcaption>Example time-step prediction </figcaption></figure>
+
+### 1. Visualize setup
+Navigate to the `src/visualize` directory in your project:
+
+```bash
+cd src/visualize
+```
+
+### 2. Start the visualizers
+
+```bash
+python3 main.py 
+--existing_model /path/to/existing/model 
+--sample_image /path/to/sample/img
+```
+
+This will output various files into the `visualize_plots directory`:
+* A PDF sheet consisting of all made visualizations for the above call
+* Individual PNG and JPG files of these visualizations
+* A `sample_image_preds.csv` which consist of a character prediction table for each prediction timestep. The highest probability is the character that was chosen by the model
+
+Currently, the following visualizers are implemented:
+1. **visualize_timestep_predictions**: Takes the `sample_image` and simulates the model's prediction process for each time step, the top-3 most probable characters per timestep are displayed and the "cleaned" result is shown at the bottom.
+2. **visualize_filter_activations**: Display what the convolutional filters have learned after providing it with random noise + show the activation of conv filters for the `sample_image`. Each unique convolutional layer is displayed once.
+
+Potential future implementations:
+* Implement a SHAP visualizer to show the parts of the image that influence the model's character prediction. Or a similar saliency plot.
+* Plot the raw Conv filters (e.g. a 3x3 filter)
+
+**Note**:  If a model has multiple `Cr3,3,64` layers then only the first instance of this configuration is visualized)
+
+### 3. (Optional parameters)
+```bash
+--do_detailed # Visualize all convolutional layers, not just the first instance of a conv layer
+--light_mode  # Plots and overviews are shown in light mode (instead of dark mode)
+--num_filters_per_row # Changes the number of filters per row in the filter activation plots (default =6)
+# NOTE: increasing the num_filters_per_row requires significant computing resources, you might experience an OOM.
+```
+
+---
+
 ## FAQ
 
 If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
+
+### How Can I Use One of the Loghi HTR Models in My Own Project?
+
+To integrate a Loghi HTR model into your project, follow these steps:
+
+1. **Obtain the Model**: First, you need to get the HTR model file. This could be done by training a model yourself or downloading a pre-trained model [here](https://images.diginfra.net/pim/loghihtrmodels) or [here](https://surfdrive.surf.nl/files/index.php/s/YA8HJuukIUKznSP?path=%2Floghi-htr).
+
+2. **Loading the Model for Inference**: 
+    - Install TensorFlow in your project environment if you haven't already.
+    - Load the model using TensorFlow's `tf.keras.models.load_model` function. Here's a basic code snippet to help you get started:
+
+      ```python
+      import tensorflow as tf
+
+      model_file = 'path_to_your_model.keras'  # Replace with your model file path
+      model = tf.keras.models.load_model(model_file, compile=False)
+      ```
+
+    - Setting `compile=False` is crucial as it indicates the model is being loaded for inference, not training.
+
+3. **Using the Model for Inference**: 
+    - Once the model is loaded, you can use it to make predictions on handwritten text images.
+    - Prepare your input data (images of handwritten text) according to the model's expected input format.
+    - Use the `model.predict()` method to get the recognition results.
+
+4. **Note on Training**: 
+    - The provided model is pre-trained and configured for inference purposes.
+    - If you wish to retrain or fine-tune the model, this must be done within the Loghi framework, as the model structure and training configurations are tailored to their system.
 
 ### How can I determine the VGSL spec of a model I previously used?
 
@@ -359,7 +433,7 @@ Replace `/path/on/host/to/your/model_directory` with the path to your model dire
 2. Once inside the container, run the VGSL spec generator:
 
 ```bash
-python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
 ```
 
 Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
@@ -369,7 +443,7 @@ Replace `/path/in/container/to/model_directory` with the path you specified in t
 1. Run the VGSL spec generator:
 
 ```bash
-python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
 ```
 
 Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.

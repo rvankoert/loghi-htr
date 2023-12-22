@@ -15,6 +15,7 @@ from flask import Blueprint, jsonify, current_app as app
 from prometheus_client import generate_latest
 
 
+logger = logging.getLogger(__name__)
 main = Blueprint('main', __name__)
 
 
@@ -52,8 +53,6 @@ def predict() -> flask.Response:
     # Here, we're just queuing the raw data.
     image_file, group_id, identifier, model = extract_request_data()
 
-    logger = logging.getLogger(__name__)
-
     logger.debug(f"Data received: {group_id}, {identifier}")
     logger.debug(f"Adding {identifier} to queue")
     logger.debug(f"Using model {model}")
@@ -74,7 +73,8 @@ def predict() -> flask.Response:
 
         response.status_code = 429
 
-        logger.error("Request queue is full.")
+        logger.warning("Request queue is full. Maybe one of the workers has "
+                       "died?")
 
         return response
 
@@ -99,3 +99,33 @@ def prometheus() -> bytes:
     Endpoint for getting prometheus statistics
     """
     return generate_latest()
+
+
+@main.route("/health", methods=["GET"])
+def health() -> flask.Response:
+    """
+    Endpoint for getting health status
+    """
+
+    for name, worker in app.workers.items():
+        if not worker.is_alive():
+            logger.error(f"{name} worker is not alive")
+            response = jsonify({
+                "status": "unhealthy",
+                "code": 500,
+                "message": f"{name} worker is not alive",
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            response.status_code = 500
+
+            return response
+
+    response = jsonify({
+        "status": "healthy",
+        "code": 200,
+        "message": "All workers are alive",
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+    response.status_code = 200
+
+    return response

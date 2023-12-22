@@ -5,8 +5,8 @@ from __future__ import division
 from __future__ import print_function
 
 # > Local dependencies
-from data_generator import DataGenerator
-from utils import Utils
+from data.generator import DataGenerator
+from utils.utils import Utils
 
 # > Third party dependencies
 import tensorflow as tf
@@ -148,7 +148,8 @@ class DataLoader:
                 inference_files, non_train_params, deterministic=True)
 
         self.partition = partition
-        return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
+        return training_generator, validation_generator, test_generator, \
+            inference_generator, self.utils, int(train_batches)
 
     def __init__(self,
                  batch_size,

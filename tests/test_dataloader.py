@@ -76,10 +76,10 @@ class DataLoaderTest(unittest.TestCase):
                                        cls.sample_labels):
                 f.write(f"{img_path}.png\t{label}\n")
 
-        from data_loader import DataLoader
+        from data.loader import DataLoader
         cls.DataLoader = DataLoader
 
-        from utils import Utils
+        from utils.utils import Utils
         cls.Utils = Utils
 
     def _create_temp_file(self, additional_lines=None):
