@@ -184,9 +184,9 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
             batch_num += 1
 
-    except KeyboardInterrupt:
-        logging.warning(
-            "Batch Prediction Worker process interrupted. Exiting...")
+    except Exception as e:
+        logging.error(f"Error in Batch Prediction Worker process: {e}")
+        raise e
 
 
 def handle_batch_prediction(model: tf.keras.Model,

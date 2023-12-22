@@ -160,42 +160,9 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def monitor_puppets(process_creators, restart_delay=5, check_interval=0.1):
-    # Start the processes
-    processes = {name: creator() for name, creator in process_creators.items()}
-    for process in processes.values():
-        process.start()
-
-
-def create_preparation_puppet(batch_size, request_queue, prepared_queue,
-                              model_path, patience):
-    return mp.Process(
-        target=image_preparation_worker,
-        args=(batch_size, request_queue, prepared_queue, model_path, patience),
-        name="Image Preparation Process",
-        daemon=True)
-
-
-def create_prediction_puppet(prepared_queue, predicted_queue, output_path,
-                             model_path, gpus):
-    return mp.Process(
-        target=batch_prediction_worker,
-        args=(prepared_queue, predicted_queue, output_path, model_path, gpus),
-        name="Batch Prediction Process",
-        daemon=True)
-
-
-def create_decoding_puppet(predicted_queue, model_path):
-    return mp.Process(
-        target=batch_decoding_worker,
-        args=(predicted_queue, model_path),
-        name="Batch Decoding Process",
-        daemon=True)
-
-
-def create_puppet_master(batch_size: int, max_queue_size: int,
-                         output_path: str, gpus: str, model_path: str,
-                         patience: int):
+def start_workers(batch_size: int, max_queue_size: int,
+                  output_path: str, gpus: str, model_path: str,
+                  patience: int):
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -220,19 +187,46 @@ def create_puppet_master(batch_size: int, max_queue_size: int,
                                       "Prepared queue size")
     prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
 
-    # Dictionary of functions to create the puppets
-    puppet_makers = {
-        "Preparation": lambda: create_preparation_puppet(
-            batch_size, request_queue, prepared_queue, model_path, patience),
-        "Prediction": lambda: create_prediction_puppet(
-            prepared_queue, predicted_queue, output_path, model_path, gpus),
-        "Decoding": lambda: create_decoding_puppet(predicted_queue, model_path)
+    # Start the image preparation process
+    logger.info("Starting image preparation process")
+    preparation_process = mp.Process(
+        target=image_preparation_worker,
+        args=(batch_size, request_queue,
+              prepared_queue, model_path,
+              patience),
+        name="Image Preparation Process",
+        daemon=True)
+    preparation_process.start()
+
+    # Start the batch prediction process
+    logger.info("Starting batch prediction process")
+    prediction_process = mp.Process(
+        target=batch_prediction_worker,
+        args=(prepared_queue, predicted_queue,
+              output_path, model_path, gpus),
+        name="Batch Prediction Process",
+        daemon=True)
+    prediction_process.start()
+
+    # Start the batch decoding process
+    logger.info("Starting batch decoding process")
+    decoding_process = mp.Process(
+        target=batch_decoding_worker,
+        args=(predicted_queue, model_path),
+        name="Batch Decoding Process",
+        daemon=True)
+    decoding_process.start()
+
+    workers = {
+        "Preparation": preparation_process,
+        "Prediction": prediction_process,
+        "Decoding": decoding_process
     }
 
-    # Start the puppet master thread
-    # This thread will monitor the puppets and restart them if they crash
-    puppet_master = threading.Thread(
-        target=monitor_puppets, args=(puppet_makers,), name="Puppet Master",
-        daemon=False)
+    queues = {
+        "Request": request_queue,
+        "Prepared": prepared_queue,
+        "Predicted": predicted_queue
+    }
 
-    return puppet_master, request_queue
+    return workers, queues

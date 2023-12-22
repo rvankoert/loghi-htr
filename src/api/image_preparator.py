@@ -55,20 +55,16 @@ def image_preparation_worker(batch_size: int,
     # Define the model path
     model = model_path
 
-    while True:
-        try:
+    try:
+        while True:
             num_channels, model = \
                 fetch_and_prepare_images(request_queue, prepared_queue,
                                          batch_size, patience, num_channels,
                                          model)
 
-        except KeyboardInterrupt:
-            logging.warning(
-                "Image Preparation Worker process interrupted. Exiting...")
-            sys.exit(0)
-            break
-        except Exception as e:
-            logging.error(f"Error: {e}")
+    except Exception as e:
+        logging.error(f"Exception in image preparation worker: {e}")
+        raise
 
 
 def update_channels(model_path: str) -> int:

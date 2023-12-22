@@ -43,7 +43,6 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     utils = create_utils(model_path)
 
     total_outputs = 0
-
     batch_num = 0
 
     try:
@@ -74,9 +73,9 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
             batch_num += 1
 
-    except KeyboardInterrupt:
-        logging.warning("Batch decoding process interrupted. Exiting...")
-        sys.exit(0)
+    except Exception as e:
+        logging.error(f"Error in batch decoding process: {e}")
+        raise e
 
 
 def batch_decode(encoded_predictions: np.ndarray,

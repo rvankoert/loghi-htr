@@ -5,7 +5,7 @@
 # > Local dependencies
 import errors
 from routes import main
-from app_utils import setup_logging, get_env_variable, create_puppet_master
+from app_utils import setup_logging, get_env_variable, start_workers
 
 # > Third-party dependencies
 from flask import Flask
@@ -56,13 +56,14 @@ def create_app() -> Flask:
 
     # Start the worker processes
     logger.info("Starting worker processes")
-    puppet_master, request_queue \
-        = create_puppet_master(batch_size, max_queue_size, output_path,
-                               gpus, model_path, patience)
-    puppet_master.start()
+    workers, queues = start_workers(batch_size, max_queue_size, output_path,
+                                    gpus, model_path, patience)
 
-    app.puppet_master = puppet_master
-    app.request_queue = request_queue
+    # Add request queue to the app
+    app.request_queue = queues["Request"]
+
+    # Add the workers to the app
+    app.workers = workers
 
     # Register blueprints
     app.register_blueprint(main)
