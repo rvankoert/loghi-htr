@@ -56,12 +56,11 @@ def create_app() -> Flask:
     app.register_error_handler(405, errors.method_not_allowed)
 
     # Add security to app
-    enable_security = get_env_variable("SECURITY_ENABLED", False)
-    logger.info(f"Security enabled: {enable_security}")
-
-    # Get API key user JSON string from environment variable
-    api_key_user_json_string = get_env_variable("API_KEY_USER_JSON_STRING", "")
-    SimpleSecurity(app, enable_security, api_key_user_json_string)
+    security_config = \
+        {"enabled": get_env_variable("SECURITY_ENABLED", False),
+         "key_user_json": get_env_variable("API_KEY_USER_JSON_STRING", "{}")}
+    security = SimpleSecurity(app, security_config)
+    logger.info(f"Security enabled: {security.enabled}")
 
     # Start the worker processes
     logger.info("Starting worker processes")

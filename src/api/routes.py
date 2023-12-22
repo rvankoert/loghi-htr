@@ -102,6 +102,7 @@ def prometheus() -> bytes:
 
 
 @main.route("/health", methods=["GET"])
+@session_key_required
 def health() -> flask.Response:
     """
     Endpoint for getting health status
