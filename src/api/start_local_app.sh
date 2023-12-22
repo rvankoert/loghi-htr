@@ -1,6 +1,4 @@
 export GUNICORN_RUN_HOST='0.0.0.0:5000'
-export GUNICORN_WORKERS=1
-export GUNICORN_THREADS=1
 export GUNICORN_ACCESSLOG='-'
 
 export LOGHI_BATCH_SIZE=300
@@ -12,4 +10,6 @@ export LOGHI_PATIENCE=0.5
 export LOGGING_LEVEL="INFO"
 export LOGHI_GPUS="0"
 
-python3 gunicorn_app.py
+gunicorn -w 1 -t 1 \
+    -b $GUNICORN_RUN_HOST --access-logfile $GUNICORN_ACCESSLOG \
+    'app:create_app()'

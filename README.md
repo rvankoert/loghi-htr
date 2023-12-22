@@ -277,13 +277,7 @@ You have the choice to run the API using either `gunicorn` (recommended) or `fla
 Using `gunicorn`:
 
 ```bash
-python3 gunicorn_app.py
-```
-
-Or using `flask`:
-
-```bash
-python3 flask_app.py
+gunicorn 'app:create_app()'
 ```
 
 #### Environment Variables Configuration
@@ -294,8 +288,6 @@ Before running the app, you must set several environment variables. The app fetc
 
 ```bash
 GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
-GUNICORN_WORKERS         # Default: "1": Number of worker processes.
-GUNICORN_THREADS         # Default: "1": Number of threads per worker.
 GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 ```
 
@@ -333,6 +325,14 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
+
+To check the health of the server, simply run:
+
+```bash
+curl http://localhost:5000/health
+```
+
+This will respond with a 500 error, and an "unhealthy" status if one of the processes has crashed. Otherwise, it will respond with a 200 error, and a corresponding "healthy" status.
 
 ---
 

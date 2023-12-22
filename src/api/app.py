@@ -26,7 +26,7 @@ def create_app() -> Flask:
 
     Side Effects
     ------------
-    - Initializes and starts image preparation and batch prediction processes.
+    - Initializes and starts preparation, prediction, and decoding processes.
     - Logs various messages regarding the app and process initialization.
     """
 
