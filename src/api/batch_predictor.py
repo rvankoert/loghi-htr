@@ -9,6 +9,7 @@ import time
 from typing import List, Tuple
 
 # > Third-party dependencies
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # noqa: E402
 import tensorflow as tf
 
 # Add parent directory to path for imports

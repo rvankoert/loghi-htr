@@ -76,6 +76,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
     except KeyboardInterrupt:
         logging.warning("Batch decoding process interrupted. Exiting...")
+        sys.exit(0)
 
 
 def batch_decode(encoded_predictions: np.ndarray,

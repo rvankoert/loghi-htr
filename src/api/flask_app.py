@@ -1,18 +1,17 @@
 # Imports
 
 # > Standard library
-import logging
 
 # > Local dependencies
 import errors
 from routes import main
-from app_utils import setup_logging, get_env_variable, start_processes
+from app_utils import setup_logging, get_env_variable, create_puppet_master
 
 # > Third-party dependencies
 from flask import Flask
 
 
-def create_app(request_queue) -> Flask:
+def create_app() -> Flask:
     """
     Create and configure a Flask app for image prediction.
 
@@ -31,27 +30,9 @@ def create_app(request_queue) -> Flask:
     - Logs various messages regarding the app and process initialization.
     """
 
-    logger = logging.getLogger(__name__)
-
-    # Create Flask app
-    logger.info("Creating Flask app")
-    app = Flask(__name__)
-
-    # Register error handler
-    app.register_error_handler(ValueError, errors.handle_invalid_usage)
-    app.register_error_handler(405, errors.method_not_allowed)
-
-    app.request_queue = request_queue
-
-    # Register blueprints
-    app.register_blueprint(main)
-
-    return app
-
-
-if __name__ == '__main__':
     # Set up logging
-    logger = setup_logging("INFO")
+    logging_level = get_env_variable("LOGGING_LEVEL", "INFO")
+    logger = setup_logging(logging_level)
 
     # Get Loghi-HTR options from environment variables
     logger.info("Getting Loghi-HTR options from environment variables")
@@ -65,13 +46,25 @@ if __name__ == '__main__':
     logger.info("Getting GPU options from environment variables")
     gpus = get_env_variable("LOGHI_GPUS", "0")
 
+    # Create Flask app
+    logger.info("Creating Flask app")
+    app = Flask(__name__)
+
+    # Register error handler
+    app.register_error_handler(ValueError, errors.handle_invalid_usage)
+    app.register_error_handler(405, errors.method_not_allowed)
+
     # Start the worker processes
     logger.info("Starting worker processes")
-    request_queue, preparation_process, prediction_process, decoding_process \
-        = start_processes(batch_size, max_queue_size, output_path,
-                          gpus, model_path, patience)
+    puppet_master, request_queue \
+        = create_puppet_master(batch_size, max_queue_size, output_path,
+                               gpus, model_path, patience)
+    puppet_master.start()
 
-    # Create and run the Flask app
-    app = create_app(request_queue)
+    app.puppet_master = puppet_master
+    app.request_queue = request_queue
 
-    app.run(debug=True)
+    # Register blueprints
+    app.register_blueprint(main)
+
+    return app

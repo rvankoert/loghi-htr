@@ -4,14 +4,15 @@
 import json
 import logging
 import multiprocessing
-# from multiprocessing.queues import Empty
-from queue import Empty
+from multiprocessing.queues import Empty
 import os
 import time
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
+
+import sys
 
 
 def image_preparation_worker(batch_size: int,
@@ -54,18 +55,20 @@ def image_preparation_worker(batch_size: int,
     # Define the model path
     model = model_path
 
-    try:
-        while True:
+    while True:
+        try:
             num_channels, model = \
                 fetch_and_prepare_images(request_queue, prepared_queue,
                                          batch_size, patience, num_channels,
                                          model)
 
-    except KeyboardInterrupt:
-        logging.warning(
-            "Image Preparation Worker process interrupted. Exiting...")
-    except Exception as e:
-        logging.error(f"Error: {e}")
+        except KeyboardInterrupt:
+            logging.warning(
+                "Image Preparation Worker process interrupted. Exiting...")
+            sys.exit(0)
+            break
+        except Exception as e:
+            logging.error(f"Error: {e}")
 
 
 def update_channels(model_path: str) -> int:
