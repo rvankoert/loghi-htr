@@ -50,7 +50,7 @@ def create_app(request_queue) -> Flask:
 
     # Add security to app
     enable_security = get_env_variable("SECURITY_ENABLED", False)
-    print("enable_security: ", enable_security)
+    logger.info(f"Enable security: {enable_security}")
     api_key_user_json_string = get_env_variable("API_KEY_USER_JSON_STRING", "")
     SimpleSecurity(app, enable_security, api_key_user_json_string)
 

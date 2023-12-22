@@ -60,7 +60,6 @@ def session_key_required(func):
             response.status_code = 401
             return response
         else:
-            print("security disabled")
             return func(*args, **kwargs)
 
     return decorator
