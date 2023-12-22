@@ -2,11 +2,13 @@
 
 # > Standard library
 import logging
+import os
 
 # > Local dependencies
 import errors
 from routes import main
 from app_utils import setup_logging, get_env_variable, start_processes
+from simple_security import SimpleSecurity
 
 # > Third-party dependencies
 from flask import Flask
@@ -45,6 +47,12 @@ def create_app(request_queue) -> Flask:
 
     # Register blueprints
     app.register_blueprint(main)
+
+    # Add security to app
+    enable_security = get_env_variable("SECURITY_ENABLED", False)
+    print("enable_security: ", enable_security)
+    api_key_user_json_string = get_env_variable("API_KEY_USER_JSON_STRING", "")
+    SimpleSecurity(app, enable_security, api_key_user_json_string)
 
     return app
 
