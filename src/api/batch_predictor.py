@@ -54,7 +54,7 @@ def create_model(model_path: str, strategy: tf.distribute.Strategy) \
                 model.summary()
         except Exception as e:
             logging.error(f"Error loading model: {e}")
-            sys.exit(1)
+            raise e
 
     return model
 

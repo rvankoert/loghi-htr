@@ -86,7 +86,7 @@ def update_channels(model_path: str) -> int:
         return num_channels
     except Exception as e:
         logging.error(f"Error retrieving number of channels: {e}")
-        return
+        raise e
 
 
 def get_model_channels(config_path: str) -> int:

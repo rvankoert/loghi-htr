@@ -128,10 +128,10 @@ def create_utils(model_path: str) -> Utils:
         logging.debug("Utilities initialized")
     except FileNotFoundError:
         logging.error(f"charlist.txt not found at {model_path}. Exiting...")
-        sys.exit(1)
+        raise FileNotFoundError
     except Exception as e:
         logging.error(f"Error loading utilities: {e}")
-        sys.exit(1)
+        raise e
 
     return utils
 
