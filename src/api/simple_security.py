@@ -1,10 +1,15 @@
-import functools
-import uuid
+# Imports
 
-import flask
-from flask import request, Response, jsonify, Flask
+# > Standard library
+import datetime
+import functools
 import json
 import logging
+import uuid
+
+# > Third-party dependencies
+import flask
+from flask import request, Response, jsonify, Flask
 
 
 class SimpleSecurity:
@@ -15,7 +20,7 @@ class SimpleSecurity:
         app.extensions["security"] = self
         self.app = app
         self.config = config
-        self.enabled = self._str_to_bool(config.get("enabled", "false"))
+        self.enabled = self._security_enabled(config.get("enabled", "false"))
 
         # Load API key user only if security is enabled
         if self.enabled:
@@ -27,8 +32,7 @@ class SimpleSecurity:
             self.api_key_user = {}
             self.session_key_user = {}
 
-    @staticmethod
-    def _str_to_bool(s):
+    def _security_enabled(self, s):
         """Convert a string to a boolean."""
         return s.lower() in ["true", "1", "yes", "t"]
 
@@ -53,9 +57,19 @@ class SimpleSecurity:
             if api_key:
                 session_key = self._login(api_key)
                 if session_key:
-                    return Response(status=204,
-                                    headers={"X_AUTH_TOKEN": session_key})
-            return jsonify(message="Unauthorized"), 401
+                    response = jsonify({"status": "success",
+                                        "code": 204,
+                                        "message": "Login successful",
+                                        "timestamp": datetime.datetime.now().isoformat()})
+                    response.status_code = 204
+                    response.headers["X_AUTH_TOKEN"] = session_key
+                    return response
+            response = jsonify({"status": "unauthorized",
+                                "code": 401,
+                                "message": "Expected a valid API key",
+                                "timestamp": datetime.datetime.now().isoformat()})
+            response.status_code = 401
+            return response
 
     def _login(self, api_key: str) -> str:
         if self.enabled and api_key in self.api_key_user:
@@ -67,13 +81,19 @@ class SimpleSecurity:
 def session_key_required(func):
     @functools.wraps(func)
     def decorator(*args, **kwargs) -> Response:
-        if not (security_ := flask.current_app.extensions.get("security")):
+        security_ = flask.current_app.extensions.get("security")
+        if not security_ or (security_ and not security_.enabled):
             return func(*args, **kwargs)
 
         session_key = request.headers.get("Authorization")
         if security_.enabled and security_.is_known_session_key(session_key):
             return func(*args, **kwargs)
 
-        return jsonify(message="Expected a valid session key"), 401
+        response = jsonify({"status": "unauthorized",
+                            "code": 401,
+                            "message": "Expected a valid session key",
+                            "timestamp": datetime.datetime.now().isoformat()})
+        response.status_code = 401
+        return response
 
     return decorator

@@ -11,6 +11,7 @@ from typing import List, Tuple
 # > Third-party dependencies
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # noqa: E402
 import tensorflow as tf
+import numpy as np
 
 # Add parent directory to path for imports
 current_path = os.path.dirname(os.path.realpath(__file__))
@@ -226,6 +227,11 @@ def handle_batch_prediction(model: tf.keras.Model,
         predictions = safe_batch_predict(model, model_path,
                                          predicted_queue, batch_images,
                                          batch_info, output_path)
+
+        # Decode the predictions
+        predicted_queue.put((predictions, batch_groups, batch_identifiers,
+                             output_path, model_path))
+
         return len(predictions)
 
     except Exception as e:
@@ -275,9 +281,7 @@ def safe_batch_predict(model: tf.keras.Model,
     """
 
     try:
-        return batch_predict(model, model_path,
-                             predicted_queue, batch_images,
-                             batch_info, output_path)
+        return batch_predict(model, model_path, batch_images)
     except tf.errors.ResourceExhaustedError as e:
         # If the batch size is 1 and still causing OOM, then skip the image and
         # return an empty list
@@ -311,17 +315,15 @@ def safe_batch_predict(model: tf.keras.Model,
             second_half_info, output_path
         )
 
-        return first_half_predictions + second_half_predictions
+        return np.concatenate((first_half_predictions,
+                               second_half_predictions))
     except Exception as e:
         raise e
 
 
 def batch_predict(model: tf.keras.Model,
                   model_path: str,
-                  predicted_queue: multiprocessing.Queue,
-                  images: tf.Tensor,
-                  batch_info: List[Tuple[str, str]],
-                  output_path: str) -> List[str]:
+                  images: tf.Tensor) -> List[str]:
     """
     Process a batch of images using the provided model and decode the
     predictions.
@@ -332,15 +334,8 @@ def batch_predict(model: tf.keras.Model,
         Pre-trained model for predictions.
     model_path : str
         Path to the current model.
-    predicted_queue : multiprocessing.Queue
-        Queue where predictions are sent.
     images : tf.Tensor
         Tensor of images for which predictions need to be made.
-    batch_info : List[Tuple[str, str]]
-        List of tuples containing group and identifier for each image in the
-        batch.
-    output_path : str
-        Path where predictions should be saved.
 
     Returns
     -------
@@ -355,16 +350,9 @@ def batch_predict(model: tf.keras.Model,
 
     logging.debug(f"Initial batch size: {len(images)}")
 
-    # Unpack the batch
-    groups, identifiers = zip(*batch_info)
-
     logging.info(f"Making {len(images)} predictions...")
     encoded_predictions = model.predict_on_batch(images)
-    logging.debug("Predictions made")
-
-    # Decode the predictions
-    predicted_queue.put((encoded_predictions, groups, identifiers,
-                         output_path, model_path))
+    logging.info(f"{len(images)} predictions made")
 
     return encoded_predictions
 

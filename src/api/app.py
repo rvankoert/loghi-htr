@@ -57,7 +57,7 @@ def create_app() -> Flask:
 
     # Add security to app
     security_config = \
-        {"enabled": get_env_variable("SECURITY_ENABLED", False),
+        {"enabled": get_env_variable("SECURITY_ENABLED", "False"),
          "key_user_json": get_env_variable("API_KEY_USER_JSON_STRING", "{}")}
     security = SimpleSecurity(app, security_config)
     logger.info(f"Security enabled: {security.enabled}")
