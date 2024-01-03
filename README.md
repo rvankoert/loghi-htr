@@ -333,6 +333,8 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
+Optionally, you can add `"whitelist="` fields to add extra metadata to your output. The field values will be used as keys to lookup values in the model config.
+
 **Security and Authentication:**
 
 If security is enabled, you need to first authenticate by obtaining a session key. Use the `/login` endpoint with your API key:
