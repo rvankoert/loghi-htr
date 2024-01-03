@@ -43,12 +43,11 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     utils = create_utils(model_path)
 
     total_outputs = 0
-    batch_num = 0
 
     try:
         while True:
-            encoded_predictions, groups, identifiers, output_path, model = \
-                predicted_queue.get()
+            encoded_predictions, groups, identifiers, output_path, model, \
+                batch_id = predicted_queue.get()
 
             # Re-initialize utilities if model has changed
             if model != model_path:
@@ -68,10 +67,9 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             for output in outputted_predictions:
                 logging.debug(f"Outputted prediction: {output}")
 
-            logging.info(f"Outputted batch {batch_num}")
-            logging.info(f"Total predictions outputted: {total_outputs}")
-
-            batch_num += 1
+            logging.info(f"Decoded and outputted batch {batch_id} "
+                         f"({len(decoded_predictions)} items)")
+            logging.info(f"Total predictions complete: {total_outputs}")
 
     except Exception as e:
         logging.error(f"Error in batch decoding process: {e}")

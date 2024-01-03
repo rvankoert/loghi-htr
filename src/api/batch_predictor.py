@@ -156,14 +156,14 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     # Create the model and utilities
     model = create_model(model_path, strategy)
 
-    batch_num = 0
     old_model_path = model_path
 
     try:
         while True:
             batch_data = prepared_queue.get()
             model_path = batch_data[3]
-            logging.debug(f"Received batch {batch_num} from prepared_queue")
+            batch_id = batch_data[4]
+            logging.debug(f"Received batch {batch_id} from prepared_queue")
 
             if model_path != old_model_path:
                 old_model_path = model_path
@@ -174,16 +174,14 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
             tick = time.time()
             num_predictions = handle_batch_prediction(
                 model, model_path, predicted_queue, batch_data, output_path,
-                batch_num)
+                batch_id)
 
             logging.info(f"Made {num_predictions} predictions in "
                          f"{time.time() - tick:.2f} seconds")
-            logging.info(f"Sent batch {batch_num} ({num_predictions} items) "
+            logging.info(f"Sent batch {batch_id} ({num_predictions} items) "
                          "to decoding queue")
             logging.info(f"{prepared_queue.qsize()} batches waiting on "
                          "prediction")
-
-            batch_num += 1
 
     except Exception as e:
         logging.error(f"Error in Batch Prediction Worker process: {e}")
@@ -195,7 +193,7 @@ def handle_batch_prediction(model: tf.keras.Model,
                             predicted_queue: multiprocessing.Queue,
                             batch_data: Tuple[tf.Tensor, ...],
                             output_path: str,
-                            batch_num: int) -> int:
+                            batch_id: str) -> int:
     """
     Handle the batch prediction process.
 
@@ -220,7 +218,7 @@ def handle_batch_prediction(model: tf.keras.Model,
         Number of predictions made.
     """
 
-    batch_images, batch_groups, batch_identifiers, _ = batch_data
+    batch_images, batch_groups, batch_identifiers, _, batch_id = batch_data
     batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
@@ -230,13 +228,13 @@ def handle_batch_prediction(model: tf.keras.Model,
 
         # Decode the predictions
         predicted_queue.put((predictions, batch_groups, batch_identifiers,
-                             output_path, model_path))
+                             output_path, model_path, batch_id))
 
         return len(predictions)
 
     except Exception as e:
         failed_ids = [id for _, id in batch_info]
-        logging.error(f"Error making predictions. Skipping batch {batch_num}"
+        logging.error(f"Error making predictions. Skipping batch {batch_id}"
                       ":\n" + "\n".join(failed_ids))
         logging.error(e)
 
@@ -352,7 +350,7 @@ def batch_predict(model: tf.keras.Model,
 
     logging.info(f"Making {len(images)} predictions...")
     encoded_predictions = model.predict_on_batch(images)
-    logging.info(f"{len(images)} predictions made")
+    logging.debug("Predictions made")
 
     return encoded_predictions
 

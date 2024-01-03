@@ -60,14 +60,16 @@ class SimpleSecurity:
                     response = jsonify({"status": "success",
                                         "code": 204,
                                         "message": "Login successful",
-                                        "timestamp": datetime.datetime.now().isoformat()})
+                                        "timestamp":
+                                        datetime.datetime.now().isoformat()})
                     response.status_code = 204
                     response.headers["X_AUTH_TOKEN"] = session_key
                     return response
             response = jsonify({"status": "unauthorized",
                                 "code": 401,
                                 "message": "Expected a valid API key",
-                                "timestamp": datetime.datetime.now().isoformat()})
+                                "timestamp":
+                                datetime.datetime.now().isoformat()})
             response.status_code = 401
             return response
 

@@ -7,12 +7,11 @@ import multiprocessing
 from multiprocessing.queues import Empty
 import os
 import time
+import uuid
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
-
-import sys
 
 
 def image_preparation_worker(batch_size: int,
@@ -343,13 +342,17 @@ def pad_and_queue_batch(model_path: str,
         Queue to which the padded batch should be pushed.
     """
 
+    # Generate a unique identifier for the batch
+    batch_id = str(uuid.uuid4())
+
     # Pad the batch
     padded_batch = pad_batch(batch_images)
 
     # Push the prepared batch to the prepared_queue
     prepared_queue.put((padded_batch, batch_groups,
-                        batch_identifiers, model_path))
-    logging.debug("Pushed prepared batch to prepared_queue")
+                        batch_identifiers, model_path, batch_id))
+    logging.info(f"Prepared batch {batch_id} ({len(batch_images)} items) for "
+                 "prediction")
     logging.debug(f"{prepared_queue.qsize()} batches ready for prediction")
 
 
