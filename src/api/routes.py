@@ -51,15 +51,16 @@ def predict() -> flask.Response:
 
     # Add incoming request to queue
     # Here, we're just queuing the raw data.
-    image_file, group_id, identifier, model = extract_request_data()
+    image_file, group_id, identifier, model, whitelist = extract_request_data()
 
     logger.debug(f"Data received: {group_id}, {identifier}")
     logger.debug(f"Adding {identifier} to queue")
     logger.debug(f"Using model {model}")
+    logger.debug(f"Using whitelist {whitelist}")
 
     try:
-        app.request_queue.put((image_file, group_id, identifier, model),
-                              block=True, timeout=15)
+        app.request_queue.put((image_file, group_id, identifier,
+                               model, whitelist), block=True, timeout=15)
     except Full:
         response = jsonify({
             "status": "error",

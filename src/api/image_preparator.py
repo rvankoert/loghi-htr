@@ -142,6 +142,7 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
                         batch_images: list,
                         batch_groups: list,
                         batch_identifiers: list,
+                        batch_metadata: list,
                         new_model: str,
                         old_model: str) -> (int, str):
     """
@@ -157,6 +158,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
         Group information for each image in the batch.
     batch_identifiers : list
         Identifiers for each image in the batch.
+    batch_metadata : list
+        Metadata for each image in the batch.
     new_model : str
         Path of the new model.
     old_model : str
@@ -178,8 +181,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
         logging.info(
             f"Processing the current batch of {len(batch_images)} images "
             "before model change.")
-        pad_and_queue_batch(old_model, batch_images,
-                            batch_groups, batch_identifiers, prepared_queue)
+        pad_and_queue_batch(old_model, batch_images, batch_groups,
+                            batch_metadata, batch_identifiers, prepared_queue)
 
         # Clearing the current batch
         batch_images.clear()
@@ -225,12 +228,13 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
     """
 
     last_image_time = None
-    batch_images, batch_groups, batch_identifiers = [], [], []
+    batch_images, batch_groups, batch_identifiers, batch_metadata \
+        = [], [], [], []
 
     while True:
         try:
-            image, group, identifier, new_model = request_queue.get(
-                timeout=0.1)
+            image, group, identifier, new_model, whitelist = \
+                request_queue.get(timeout=0.1)
             logging.debug(f"Retrieved {identifier} from request_queue")
 
             # Model change detection
@@ -240,6 +244,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                                         batch_images,
                                         batch_groups,
                                         batch_identifiers,
+                                        batch_metadata,
                                         new_model,
                                         current_model)
 
@@ -248,6 +253,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             batch_images.append(image)
             batch_groups.append(group)
             batch_identifiers.append(identifier)
+            batch_metadata.append(fetch_metadata(whitelist, current_model))
 
             # Reset the last image time
             last_image_time = time.time()
@@ -271,7 +277,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
 
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,
-                        batch_identifiers, prepared_queue)
+                        batch_identifiers, batch_metadata, prepared_queue)
 
     return num_channels, current_model
 
@@ -320,10 +326,73 @@ def prepare_image(image_bytes: bytes,
     return image
 
 
+def fetch_metadata(whitelist: list, model_path: str):
+    """
+    Fetch metadata values based on the whitelist keys from a JSON configuration
+    file. If a key is not found, 'NOT_FOUND' is recorded as its value.
+
+    Parameters
+    ----------
+    whitelist : list
+        A list of keys to search for in the JSON configuration.
+    model_path : str
+        Path to the directory containing the JSON configuration file.
+
+    Returns
+    -------
+    dict
+        A dictionary with keys from the whitelist and their corresponding
+        values or 'NOT_FOUND'.
+    """
+
+    # Define the path to the config.json file
+    config_path = os.path.join(model_path, "config.json")
+
+    # Load the configuration file
+    with open(config_path, 'r') as file:
+        config = json.load(file)
+
+    # Initialize a dictionary to store the found values
+    values = {}
+
+    # Function to recursively search for keys in a nested dictionary
+    def search_key(data, key):
+        if key in data:
+            return data[key]
+        for sub_key, sub_value in data.items():
+            if isinstance(sub_value, dict):
+                result = search_key(sub_value, key)
+                if result is not None:
+                    return result
+        return None
+
+    # Check top level and under 'args'
+    for key in whitelist:
+        if key in config:
+            values[key] = config[key]
+        elif "args" in config and key in config["args"]:
+            values[key] = config["args"][key]
+        else:
+            # Search in nested structures under 'args'
+            value = search_key(config.get("args", {}), key)
+
+            if value is None:
+                # If the key is not found, record 'NOT_FOUND'
+                logging.warning(f"Key {key} not found in config file. "
+                                "Recording 'NOT_FOUND'")
+                values[key] = "NOT_FOUND"
+            else:
+                # Otherwise, record the found value
+                values[key] = value
+
+    return values
+
+
 def pad_and_queue_batch(model_path: str,
                         batch_images: list,
                         batch_groups: list,
                         batch_identifiers: list,
+                        batch_metadata: list,
                         prepared_queue: multiprocessing.Queue) -> None:
     """
     Pad and queue a batch of images for prediction.
@@ -338,6 +407,8 @@ def pad_and_queue_batch(model_path: str,
         List of groups to which the images belong.
     batch_identifiers : list
         List of identifiers for the images.
+    batch_metadata : list
+        List of metadata for the images.
     prepared_queue : multiprocessing.Queue
         Queue to which the padded batch should be pushed.
     """
@@ -349,8 +420,8 @@ def pad_and_queue_batch(model_path: str,
     padded_batch = pad_batch(batch_images)
 
     # Push the prepared batch to the prepared_queue
-    prepared_queue.put((padded_batch, batch_groups,
-                        batch_identifiers, model_path, batch_id))
+    prepared_queue.put((padded_batch, batch_groups, batch_identifiers,
+                        batch_metadata, model_path, batch_id))
     logging.info(f"Prepared batch {batch_id} ({len(batch_images)} items) for "
                  "prediction")
     logging.debug(f"{prepared_queue.qsize()} batches ready for prediction")

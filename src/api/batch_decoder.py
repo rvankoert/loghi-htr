@@ -22,7 +22,8 @@ from utils.utils import Utils, decode_batch_predictions, \
 
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
-                          model_path: str):
+                          model_path: str,
+                          output_path: str) -> None:
     """
     Worker function for batch decoding process.
 
@@ -32,6 +33,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
         Queue containing predicted texts and other information.
     model_path: str
         Path to the model directory.
+    output_path: str
+        Base path where prediction outputs should be saved.
     """
 
     logging.info("Batch decoding process started")
@@ -46,8 +49,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
     try:
         while True:
-            encoded_predictions, groups, identifiers, output_path, model, \
-                batch_id = predicted_queue.get()
+            encoded_predictions, batch_groups, batch_identifiers, model, \
+                batch_id, batch_metadata = predicted_queue.get()
 
             # Re-initialize utilities if model has changed
             if model != model_path:
@@ -59,9 +62,10 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
             logging.debug("Outputting predictions...")
             outputted_predictions = output_predictions(decoded_predictions,
-                                                       groups,
-                                                       identifiers,
-                                                       output_path)
+                                                       batch_groups,
+                                                       batch_identifiers,
+                                                       output_path,
+                                                       batch_metadata)
             total_outputs += len(outputted_predictions)
 
             for output in outputted_predictions:
@@ -137,7 +141,8 @@ def create_utils(model_path: str) -> Utils:
 def output_predictions(predictions: List[Tuple[float, str]],
                        groups: List[str],
                        identifiers: List[str],
-                       output_path: str) -> List[str]:
+                       output_path: str,
+                       batch_metadata: List[dict]) -> List[str]:
     """
     Generate output texts based on the predictions and save to files.
 
@@ -168,9 +173,10 @@ def output_predictions(predictions: List[Tuple[float, str]],
     for i, (confidence, pred_text) in enumerate(predictions):
         group_id = groups[i]
         identifier = identifiers[i]
+        metadata = batch_metadata[i]
         confidence = normalize_confidence(confidence, pred_text)
 
-        text = f"{identifier}\t{str(confidence)}\t{pred_text}"
+        text = f"{identifier}\t{metadata}\t{confidence}\t{pred_text}"
         outputs.append(text)
 
         # Output the text to a file

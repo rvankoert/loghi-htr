@@ -4,7 +4,6 @@
 import logging
 import multiprocessing as mp
 import os
-import threading
 from typing import Tuple
 
 # > Local dependencies
@@ -65,7 +64,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def extract_request_data() -> Tuple[bytes, str, str, str]:
+def extract_request_data() -> Tuple[bytes, str, str, str, list]:
     """
     Extract image and other form data from the current request.
 
@@ -80,11 +79,13 @@ def extract_request_data() -> Tuple[bytes, str, str, str]:
             Identifier from form data.
         model : str
             Location of the model to use for prediction.
+        whitelist : list of str
+            List of classes to whitelist for output.
 
     Raises
     ------
     ValueError
-        If required data (image, group_id, identifier, model) is missing or if
+        If required data (image, group_id, identifier) is missing or if
         the image format is invalid.
     """
 
@@ -116,7 +117,9 @@ def extract_request_data() -> Tuple[bytes, str, str, str]:
         if not os.path.exists(model):
             raise ValueError(f"Model directory {model} does not exist.")
 
-    return image_content, group_id, identifier, model
+    whitelist = request.form.getlist('whitelist')
+
+    return image_content, group_id, identifier, model, whitelist
 
 
 def get_env_variable(var_name: str, default_value: str = None) -> str:
@@ -212,7 +215,7 @@ def start_workers(batch_size: int, max_queue_size: int,
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, model_path),
+        args=(predicted_queue, model_path, output_path),
         name="Batch Decoding Process",
         daemon=True)
     decoding_process.start()

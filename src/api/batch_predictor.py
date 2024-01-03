@@ -161,8 +161,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     try:
         while True:
             batch_data = prepared_queue.get()
-            model_path = batch_data[3]
-            batch_id = batch_data[4]
+            model_path = batch_data[4]
+            batch_id = batch_data[5]
             logging.debug(f"Received batch {batch_id} from prepared_queue")
 
             if model_path != old_model_path:
@@ -172,9 +172,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
             # Make predictions on the batch
             tick = time.time()
-            num_predictions = handle_batch_prediction(
-                model, model_path, predicted_queue, batch_data, output_path,
-                batch_id)
+            num_predictions = handle_batch_prediction(model, predicted_queue,
+                                                      batch_data, output_path)
 
             logging.info(f"Made {num_predictions} predictions in "
                          f"{time.time() - tick:.2f} seconds")
@@ -189,11 +188,9 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
 
 def handle_batch_prediction(model: tf.keras.Model,
-                            model_path: str,
                             predicted_queue: multiprocessing.Queue,
                             batch_data: Tuple[tf.Tensor, ...],
-                            output_path: str,
-                            batch_id: str) -> int:
+                            output_path: str) -> int:
     """
     Handle the batch prediction process.
 
@@ -201,16 +198,12 @@ def handle_batch_prediction(model: tf.keras.Model,
     -----------
     model : Any
         The loaded model for predictions.
-    model_path : str
-        Path to the current model.
     predicted_queue : multiprocessing.Queue
         Queue where predictions are sent.
     batch_data : Tuple[tf.Tensor, ...]
         Tuple containing batch images, groups, and identifiers.
     output_path : str
         Path where predictions should be saved.
-    batch_num : int
-        Batch number.
 
     Returns:
     --------
@@ -218,19 +211,22 @@ def handle_batch_prediction(model: tf.keras.Model,
         Number of predictions made.
     """
 
-    batch_images, batch_groups, batch_identifiers, _, batch_id = batch_data
+    # Unpack the batch data
+    batch_images, batch_groups, batch_identifiers, batch_metadata, \
+        model_path, batch_id = batch_data
     batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
-        predictions = safe_batch_predict(model, model_path,
-                                         predicted_queue, batch_images,
-                                         batch_info, output_path)
+        encoded_predictions = safe_batch_predict(model, model_path,
+                                                 predicted_queue, batch_images,
+                                                 batch_info, output_path)
 
         # Decode the predictions
-        predicted_queue.put((predictions, batch_groups, batch_identifiers,
-                             output_path, model_path, batch_id))
+        predicted_queue.put((encoded_predictions, batch_groups,
+                             batch_identifiers, model_path, batch_id,
+                             batch_metadata))
 
-        return len(predictions)
+        return len(encoded_predictions)
 
     except Exception as e:
         failed_ids = [id for _, id in batch_info]
