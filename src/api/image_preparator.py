@@ -203,10 +203,13 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                              patience: float,
                              num_channels: int,
                              current_model: str,
-                             metadata,
-                             old_whitelist) -> (int, str):
+                             metadata: dict,
+                             old_whitelist: list) -> (int, str):
     """
-    Fetches and prepares images for processing.
+    Fetches and prepares images for processing. We pass the current model, the
+    current number of channels, the current metadata, and the current whitelist
+    to this function so that we can detect changes in these values without
+    having to reload the configuration file every time.
 
     Parameters
     ----------
@@ -222,6 +225,10 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
         Number of channels for the images.
     current_model : str
         Path of the old model.
+    metadata : dict
+        Metadata for the images.
+    old_whitelist : list
+        Whitelist for the images.
 
     Returns
     -------
