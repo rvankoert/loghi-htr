@@ -54,12 +54,15 @@ def image_preparation_worker(batch_size: int,
     # Define the model path
     model = model_path
 
+    # Initialize the metadata and whitelist as None
+    metadata, whitelist = None, None
+
     try:
         while True:
-            num_channels, model = \
+            num_channels, model, metadata, whitelist = \
                 fetch_and_prepare_images(request_queue, prepared_queue,
                                          batch_size, patience, num_channels,
-                                         model)
+                                         model, metadata, whitelist)
 
     except Exception as e:
         logging.error(f"Exception in image preparation worker: {e}")
@@ -79,9 +82,7 @@ def update_channels(model_path: str) -> int:
 
     try:
         num_channels = get_model_channels(model_path)
-        logging.debug(
-            f"New number of channels: "
-            f"{num_channels}")
+        logging.debug(f"New number of channels: {num_channels}")
         return num_channels
     except Exception as e:
         logging.error(f"Error retrieving number of channels: {e}")
@@ -182,12 +183,13 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
             f"Processing the current batch of {len(batch_images)} images "
             "before model change.")
         pad_and_queue_batch(old_model, batch_images, batch_groups,
-                            batch_metadata, batch_identifiers, prepared_queue)
+                            batch_identifiers, batch_metadata, prepared_queue)
 
         # Clearing the current batch
         batch_images.clear()
         batch_groups.clear()
         batch_identifiers.clear()
+        batch_metadata.clear()
 
     # Update the model channels
     num_channels = update_channels(new_model)
@@ -200,7 +202,9 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                              batch_size: int,
                              patience: float,
                              num_channels: int,
-                             current_model: str) -> (int, str):
+                             current_model: str,
+                             metadata,
+                             old_whitelist) -> (int, str):
     """
     Fetches and prepares images for processing.
 
@@ -237,7 +241,20 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                 request_queue.get(timeout=0.1)
             logging.debug(f"Retrieved {identifier} from request_queue")
 
+            # Metadata change detection
+            # If the metadata is None or the model has changed or the
+            # whitelist has changed, update the metadata
+            if metadata is None or new_model != current_model or \
+                    whitelist != old_whitelist:
+                # Update the metadata
+                logging.info("Detected metadata change. Updating metadata.")
+                metadata = fetch_metadata(whitelist, new_model)
+                old_whitelist = whitelist
+                logging.debug(f"Metadata updated: {metadata}")
+
             # Model change detection
+            # If the model has changed, process the current batch before
+            # continuing
             if new_model and new_model != current_model:
                 num_channels, current_model = \
                     handle_model_change(prepared_queue,
@@ -253,7 +270,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             batch_images.append(image)
             batch_groups.append(group)
             batch_identifiers.append(identifier)
-            batch_metadata.append(fetch_metadata(whitelist, current_model))
+            batch_metadata.append(metadata)
 
             # Reset the last image time
             last_image_time = time.time()
@@ -279,7 +296,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
     pad_and_queue_batch(current_model, batch_images, batch_groups,
                         batch_identifiers, batch_metadata, prepared_queue)
 
-    return num_channels, current_model
+    return num_channels, current_model, metadata, old_whitelist
 
 
 def prepare_image(image_bytes: bytes,
