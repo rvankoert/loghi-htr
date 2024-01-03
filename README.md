@@ -307,7 +307,7 @@ LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images b
 LOGHI_GPUS               # Default: "0": GPU configuration.
 ```
 
-**Security options:**
+**Security Options:**
 
 ```bash
 SECURITY_ENABLED         # Default: "false": Enable or disable API security.
@@ -333,7 +333,7 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
-**Security and authentication:**
+**Security and Authentication:**
 
 If security is enabled, you need to first authenticate by obtaining a session key. Use the `/login` endpoint with your API key:
 
@@ -365,7 +365,7 @@ This guide should help you get started with the API. For advanced configurations
 
 The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
 
-<figure> <img src="https://raw.githubusercontent.com/rvankoert/loghi-htr/visualize-files-revamp/src/visualize/visualize_plots/sample_image.jpg" alt="sample_image" width="650" style="display: block; margin: 0 auto;" /> <figcaption>Example time-step prediction </figcaption></figure>
+![Example time-step prediction](src/visualize/visualize_plots/sample_image.jpg "Example time-step prediction")
 
 ### 1. Visualize setup
 Navigate to the `src/visualize` directory in your project:
