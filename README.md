@@ -307,7 +307,14 @@ LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images b
 LOGHI_GPUS               # Default: "0": GPU configuration.
 ```
 
-You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh`.
+**Security options:**
+
+```bash
+SECURITY_ENABLED         # Default: "false": Enable or disable API security.
+SECURITY_KEY_USER_JSON   # JSON string with API key and associated user data.
+```
+
+You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh` or `src/api/start_local_app_with_security.sh` for using security.
 
 ### 2. Interacting with the running API
 
@@ -325,6 +332,22 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
+
+**Security and authentication:**
+
+If security is enabled, you need to first authenticate by obtaining a session key. Use the `/login` endpoint with your API key:
+
+```bash
+curl -v -X POST -H "Authorization: Bearer <your_api_key>" http://localhost:5000/login
+```
+
+Your session key will be returned in the header of the response. Once authenticated, include the received session key in the Authorization header for all subsequent requests:
+
+```bash
+curl -X POST -H "Authorization: Bearer <your_session_key>" -F "image=@$input_path" ... http://localhost:5000/predict
+```
+
+### 3. Server Health Check
 
 To check the health of the server, simply run:
 
