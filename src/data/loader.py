@@ -241,7 +241,7 @@ class DataLoader:
                                 ignoreLine = True
                                 break
                     if ignoreLine or len(gtText) == 0:
-                        logging.warning(f"Empty ground truth: {gtText}. "
+                        logging.warning(f"Empty ground truth on {line}. "
                                         "Skipping...")
                         continue
                     counter = counter + 1
