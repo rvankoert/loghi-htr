@@ -276,10 +276,10 @@ def get_arg_parser():
 
 def fix_args(args):
     if not args.no_auto and args.train_list:
-        print('do_train implied by providing a train_list')
+        logging.warning('do_train implied by providing a train_list')
         args.__dict__['do_train'] = True
     if not args.no_auto and args.batch_size > 1:
-        print('batch_size > 1, setting use_mask=True')
+        logging.warning('batch_size > 1, setting use_mask=True')
         args.__dict__['use_mask'] = True
 
 

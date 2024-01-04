@@ -185,7 +185,8 @@ def get_optimizer(optimizer_name: str,
         "adagrad": tf.keras.optimizers.Adagrad,
         "adamax": tf.keras.optimizers.Adamax,
         "adafactor": tf.keras.optimizers.Adafactor,
-        "nadam": tf.keras.optimizers.Nadam
+        "nadam": tf.keras.optimizers.Nadam,
+        "rmsprop": tf.keras.optimizers.RMSprop,
     }
 
     if optimizer_name in optimizers:

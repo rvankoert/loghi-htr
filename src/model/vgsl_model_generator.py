@@ -245,7 +245,7 @@ class VGSLModelGenerator:
                 x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
 
-        logging.info("Model has been built\n")
+        logging.info("Model has been built")
 
         return models.Model(inputs=self.inputs,
                             outputs=output,

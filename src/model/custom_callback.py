@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard Library
+import logging
 import os
 
 # > Local dependencies
@@ -31,12 +32,9 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
             self.config.save(outputdir + '/config.json')
 
     def on_epoch_end(self, epoch, logs=None):
-        print(
-            "The average cer for epoch {} is {:7.2f} "
-            .format(
-                epoch, logs["CER_metric"]
-            )
-        )
+        logging.info(f"The average CER for epoch {epoch} is "
+                     f"{logs['CER_metric']:7.2f}")
+
         if logs["val_CER_metric"] is not None:
             current_loss = logs["val_CER_metric"]
         else:
@@ -44,14 +42,16 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
         if self.save_best:
             if self.previous_loss is None or self.previous_loss > current_loss:
-                print('cer has improved from {:7.2f} to {:7.2f}'.format(
-                    self.previous_loss, current_loss))
+                logging.info(f"CER has improved from {self.previous_loss:7.2f}"
+                             f" to {current_loss:7.2f}")
                 self.previous_loss = current_loss
                 self.save_model('best_val')
         if self.save_checkpoint:
             if logs["val_CER_metric"]:
-                loss_part = "_val_CER_metric"+str(logs["val_CER_metric"])
+                loss_part = f"_val_CER_metric{logs['val_CER_metric']}"
             else:
-                loss_part = "_CER_metric" + str(logs["CER_metric"])
-            print('saving checkpoint')
+                loss_part = f"_CER_metric{logs['CER_metric']}"
+
+            logging.info('Saving checkpoint...')
             self.save_model('epoch_' + str(epoch) + loss_part)
+            logging.info('Checkpoint saved')

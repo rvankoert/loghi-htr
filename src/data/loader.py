@@ -1,8 +1,7 @@
 # Imports
 
 # > Standard library
-from __future__ import division
-from __future__ import print_function
+import logging
 
 # > Local dependencies
 from data.generator import DataGenerator
@@ -100,7 +99,7 @@ class DataLoader:
 
         # list of all chars in dataset
         if self.injected_charlist and not self.replace_final_layer:
-            print('using injected charlist')
+            logging.info('Using injected charlist')
             self.charList = self.injected_charlist
         else:
             self.charList = sorted(list(chars))
@@ -208,8 +207,7 @@ class DataLoader:
         files = []
         for sublist in data_file_list.split():
             if not os.path.exists(sublist):
-                print(sublist + "does not exist, enter a valid filename. exiting...")
-                exit(1)
+                raise FileNotFoundError(f"{sublist} does not exist")
             with open(sublist) as f:
                 counter = 0
                 for line in f:
@@ -221,8 +219,10 @@ class DataLoader:
 
                     # filename
                     fileName = lineSplit[0]
-                    if not include_missing_files and self.check_missing_files and not os.path.exists(fileName):
-                        print("missing: " + fileName)
+                    if not include_missing_files and self.check_missing_files \
+                            and not os.path.exists(fileName):
+                        logging.warning(f"Missing: {fileName} in {sublist}. "
+                                        "Skipping...")
                         continue
                     if is_inference:
                         gtText = 'to be determined'
@@ -235,11 +235,14 @@ class DataLoader:
                     if not include_unsupported_chars and self.injected_charlist and not self.replace_final_layer:
                         for char in gtText:
                             if char not in self.injected_charlist:
-                                print('a ignoring line: ' + gtText)
+                                logging.warning("Unsupported character: "
+                                                f"{char} in {gtText}. "
+                                                "Skipping...")
                                 ignoreLine = True
                                 break
                     if ignoreLine or len(gtText) == 0:
-                        print(line)
+                        logging.warning(f"Empty ground truth: {gtText}. "
+                                        "Skipping...")
                         continue
                     counter = counter + 1
                     if use_multiply:
@@ -254,8 +257,9 @@ class DataLoader:
                     if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(
                             set(char for label in gtText for char in label))
-                print('found ' + str(counter) +
-                      ' lines suitable for ' + partition_name)
+
+                logging.info(f"Found {counter} lines suitable for "
+                             f"{partition_name}")
         return chars, files
 
     @staticmethod

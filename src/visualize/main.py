@@ -17,7 +17,7 @@ if __name__ == '__main__':
     logger.info("Starting visualization processes...")
     args = get_args()
     dictionary = args.__dict__
-    print(dictionary)
+    logger.info(f"Arguments: {dictionary}")
     logger.info("Starting filter activation visualizer")
     visualize_filters_activations.main(args)
     logger.info("Starting timestep prediction visualizer")
@@ -48,8 +48,10 @@ if __name__ == '__main__':
                 + ("_detailed" if args.do_detailed else "")
                 + ".png")
 
-    pdf.centre_image(ts_plot, "Example prediction for sample image: ", scale_factor=0.5)
-    pdf.centre_image(act_plot, "Learned Conv Filters & Filter Activations", scale_factor=1.25)
+    pdf.centre_image(
+        ts_plot, "Example prediction for sample image: ", scale_factor=0.5)
+    pdf.centre_image(
+        act_plot, "Learned Conv Filters & Filter Activations", scale_factor=1.25)
 
     # Save the PDF
     pdf.output("visualize_plots/"

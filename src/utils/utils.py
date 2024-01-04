@@ -27,10 +27,8 @@ class Utils:
         if num_oov_indices > 0:
             self.charList.insert(1, '[UNK]')
         if not self.charList:
-            print('no charlist :(')
-            return
+            raise Exception('No characters found in character list')
         if use_mask:
-            print('using mask')
             self.char_to_num = tf.keras.layers.StringLookup(
                 vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]',
                 encoding="UTF-8"
@@ -159,31 +157,6 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             output_text.append((confidence, res))
         output_texts.append(output_text)
     return output_texts
-
-
-def deprocess_image(img):
-    img /= 2.0
-    img += 0.5
-    img *= 255.
-    img = np.clip(img, 0, 255).astype("uint8")
-    return img
-
-
-def initialize_image(channels):
-    # We start from a gray image with some random noise
-    img = tf.random.uniform((1, 64, 64, channels))
-    # ResNet50V2 expects inputs in the range [-1, +1].
-    # Here we scale our random inputs to [-0.125, +0.125]
-    return (img - 0.5) * 0.25
-
-
-def get_feature_maps(model, layer_id, input_image):
-    model_ = Model(inputs=[model.input], outputs=[
-                   model.layers[layer_id].output])
-    print(model.layers[layer_id].name)
-    # img = tf.transpose(img, perm=[1, 0, 2])
-
-    return model_.predict(np.expand_dims(input_image, axis=0))[0, :, :, :].transpose((2, 1, 0))
 
 
 def normalize_confidence(confidence, predicted_text):
