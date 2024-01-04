@@ -277,13 +277,7 @@ You have the choice to run the API using either `gunicorn` (recommended) or `fla
 Using `gunicorn`:
 
 ```bash
-python3 gunicorn_app.py
-```
-
-Or using `flask`:
-
-```bash
-python3 flask_app.py
+gunicorn 'app:create_app()'
 ```
 
 #### Environment Variables Configuration
@@ -294,8 +288,6 @@ Before running the app, you must set several environment variables. The app fetc
 
 ```bash
 GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
-GUNICORN_WORKERS         # Default: "1": Number of worker processes.
-GUNICORN_THREADS         # Default: "1": Number of threads per worker.
 GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 ```
 
@@ -306,6 +298,7 @@ LOGHI_MODEL_PATH         # Path to the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images before predicting current batch
 ```
 
 **GPU Options:**
@@ -314,7 +307,14 @@ LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queu
 LOGHI_GPUS               # Default: "0": GPU configuration.
 ```
 
-You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh`.
+**Security Options:**
+
+```bash
+SECURITY_ENABLED         # Default: "false": Enable or disable API security.
+SECURITY_KEY_USER_JSON   # JSON string with API key and associated user data.
+```
+
+You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh` or `src/api/start_local_app_with_security.sh` for using security.
 
 ### 2. Interacting with the running API
 
@@ -333,6 +333,32 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
+Optionally, you can add `"whitelist="` fields to add extra metadata to your output. The field values will be used as keys to lookup values in the model config.
+
+**Security and Authentication:**
+
+If security is enabled, you need to first authenticate by obtaining a session key. Use the `/login` endpoint with your API key:
+
+```bash
+curl -v -X POST -H "Authorization: Bearer <your_api_key>" http://localhost:5000/login
+```
+
+Your session key will be returned in the header of the response. Once authenticated, include the received session key in the Authorization header for all subsequent requests:
+
+```bash
+curl -X POST -H "Authorization: Bearer <your_session_key>" -F "image=@$input_path" ... http://localhost:5000/predict
+```
+
+### 3. Server Health Check
+
+To check the health of the server, simply run:
+
+```bash
+curl http://localhost:5000/health
+```
+
+This will respond with a 500 error, and an "unhealthy" status if one of the processes has crashed. Otherwise, it will respond with a 200 error, and a corresponding "healthy" status.
+
 ---
 
 This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
@@ -341,7 +367,7 @@ This guide should help you get started with the API. For advanced configurations
 
 The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
 
-<figure> <img src="https://raw.githubusercontent.com/rvankoert/loghi-htr/visualize-files-revamp/src/visualize/visualize_plots/sample_image.jpg" alt="sample_image" width="650" style="display: block; margin: 0 auto;" /> <figcaption>Example time-step prediction </figcaption></figure>
+![Example time-step prediction](src/visualize/visualize_plots/sample_image.jpg "Example time-step prediction")
 
 ### 1. Visualize setup
 Navigate to the `src/visualize` directory in your project:
