@@ -212,7 +212,6 @@ def binarize_sauvola(tensor: tf.Tensor, channels: int) -> tf.Tensor:
                              tf.float32)
 
     return binary_sauvola
-    # return tf.convert_to_tensor(binary_sauvola)
 
 
 def binarize_otsu(tensor: tf.Tensor, channels: int) -> tf.Tensor:

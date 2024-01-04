@@ -3,7 +3,7 @@
 # > Standard Library
 import random
 
-
+import keras
 # > Local dependencies
 
 
@@ -43,15 +43,19 @@ class ShearXLayer(tf.keras.layers.Layer):
         shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
         # Add batch dimension to the input image
-        image_rgb = tf.expand_dims(inputs, axis=0)
+        image_rgb = inputs
+
+        print(inputs.shape)
+        # image_rgb = tf.expand_dims(inputs, axis=0)
+        # print("IMAGE RGB DIMS: ", image_rgb.shape)
 
         # Flatten the shear matrix for batch processing
         shear_matrix_tf = tf.reshape(
             tf.convert_to_tensor(shear_matrix,
                                  dtype=tf.dtypes.float32), [1, 8])
 
-        # Fill value
-        fill_value = tf.convert_to_tensor(0.0, dtype=tf.float32)
+        # Fill value with max value from image across all axes
+        fill_value = tf.get_static_value(tf.math.reduce_max(inputs))
 
         # Apply the shear transformation on the GPU
         sheared_image = tf.raw_ops.ImageProjectiveTransformV3(
@@ -60,8 +64,8 @@ class ShearXLayer(tf.keras.layers.Layer):
             output_shape=tf.constant([inputs.shape[0], inputs.shape[1]],
                                      dtype=tf.int32),
             fill_value=fill_value,
-            interpolation="BILINEAR"
-        )
+            fill_mode="CONSTANT",
+            interpolation="NEAREST")
 
         # Remove the batch dimension from the resulting tensor
         sheared_image = tf.squeeze(sheared_image, axis=0)
@@ -99,8 +103,13 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
         ```
         """
         displacement_val = tf.random.normal([2, 3, 3]) * 5
+        # Check highest value in input
+        max_val = tf.math.reduce_max(inputs)
+        # Interpolation-order heavily influences result
         x_deformed = etf.deform_grid(
-            inputs, displacement_val, axis=(0, 1), order=3)
+            inputs, displacement_val, axis=(0, 1), order=1,
+            cval=tf.get_static_value(max_val)
+        )
         return x_deformed
 
 
@@ -116,7 +125,9 @@ class DistortImageLayer(tf.keras.layers.Layer):
         Returns:
         - tf.Tensor: Distorted image as a TensorFlow tensor.
         """
-
+        print("before distort shaep: ",inputs.shape)
+        image_width = tf.shape(inputs)[1]
+        image_height = tf.shape(inputs)[0]
         if inputs.shape[-1] == 4:
             # Workaround for a bug in shear_x where alpha causes errors
             channel1, channel2, channel3, alpha = tf.split(inputs, 4, axis=2)
@@ -136,6 +147,10 @@ class DistortImageLayer(tf.keras.layers.Layer):
         else:
             # Apply random JPEG quality to the image
             image = tf.image.random_jpeg_quality(inputs, 20, 100)
+        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+        print(image)
+        image = tf.image.resize(image, [image_height, image_width])
+        print("after distort shape: ", image.shape)
 
         return image
 
@@ -155,12 +170,14 @@ class RandomCropLayer(tf.keras.layers.Layer):
         # Get the channels from the input
         channels = inputs.shape[-1]
 
+        print("INPUT SHAPE RANDOM CROP: ",inputs.shape)
+
         # Generate random seed for stateless operation
         random_seed = (random.randint(0, 100000), random.randint(0, 1000000))
 
         # Generate a random crop factor between 0.6 and 1.0
         random_crop_factor = \
-        tf.random.uniform(shape=[1], minval=0.6, maxval=1.0)[0]
+            tf.random.uniform(shape=[1], minval=0.6, maxval=1.0)[0]
 
         # Get the original width and height of the image
         original_width = tf.shape(inputs)[1]
@@ -285,6 +302,11 @@ class InvertImageLayer(tf.keras.layers.Layer):
 
 
 class BlurImageLayer(tf.keras.layers.Layer):
+
+    def __init__(self, mild_blur=False, **kwargs):
+        super(BlurImageLayer, self).__init__(**kwargs)
+        self.mild_blur = mild_blur
+
     def call(self, inputs):
         """
         Apply random Gaussian blur to the input tensor
@@ -295,7 +317,10 @@ class BlurImageLayer(tf.keras.layers.Layer):
         Returns:
         - tf.Tensor: Blurred image tensor.
         """
-        blur_factor = round(random.uniform(0.1, 5), 1)
+        if self.mild_blur:
+            blur_factor = 1
+        else:
+            blur_factor = round(random.uniform(0.1, 2), 1)
         return tfm.vision.augment.gaussian_filter2d(inputs,
                                                     filter_shape=(10, 10),
                                                     sigma=blur_factor)
@@ -332,32 +357,134 @@ class RandomWidthLayer(tf.keras.layers.Layer):
 
         return image
 
-def inspect_augments(image, augment_model):
-    fig,ax = plt.subplots(nrows=10, figsize=(16, 10))
+
+def inspect_augments(image, augment_model, file_name="augment_test.png"):
+    fig, ax = plt.subplots(nrows=10, figsize=(16, 10))
     fig.suptitle('Image augments:', fontsize=16)
     for i in range(10):
-      augmented_image = augment_model(image)
-      ax[i].imshow(augmented_image, cmap='gray')
-      ax[i].set_title(str([layer.name for layer in augment_model.layers]))
+        augmented_image = augment_model(image)
+        ax[i].imshow(augmented_image, cmap='gray')
+        ax[i].set_title(str([layer.name for layer in augment_model.layers]))
     plt.tight_layout()
+    plt.savefig(file_name)
     plt.show()
 
-# Test img
-img_path = ""
-image = tf.io.read_file(img_path)
-image = tf.image.decode_png(image, channels=4)
 
-# Build the Keras Sequential model
-data_augmentation_lw = tf.keras.Sequential([
-    ShearXLayer(),
-    ElasticTransformLayer(),
-    # DistortImageLayer(),
-    # RandomCropLayer(),
-    # BinarizeSauvolaLayer(),
-    # BinarizeOtsuLayer(),
-    # InvertImageLayer(),
-    # BlurImageLayer(),
-    # RandomWidthLayer(),
-])
+def generate_random_augment_list(augment_options):
+    # Ensure there are at least 2 elements in the list
+    num_rand_augments = random.randint(2, len(augment_options))
 
-inspect_augments(image, data_augmentation_lw)
+    # Randomly select unique elements from the input list
+    augment_layers = random.sample(augment_options, num_rand_augments)
+
+    # If invert_image and binarize otsu is done -> remove te invert_image
+    if ((BinarizeSauvolaLayer() in augment_layers) or (BinarizeOtsuLayer in
+                                                       augment_layers)
+            and (InvertImageLayer() in augment_layers)):
+        augment_layers = augment_layers.remove(InvertImageLayer())
+
+    return augment_layers
+
+
+def get_augment_classes():
+    # Retrieve a list of possible augmentations
+    g = globals().copy()
+    augment_options = []
+    for name, obj in g.items():
+        # EXCLUDE INVERT FOR NOW WHILE FIXING
+        if name.startswith("Invert"):
+            continue
+        if isinstance(obj, type):
+            layer_instance = obj()
+            augment_options.append(layer_instance)
+    return augment_options
+
+
+def inspect_sequential_augments(augment_options, input_img_or_path,
+                                output_img_name="augment_tests.png",
+                                augment_selection=None):
+    if isinstance(input_img_or_path, tf.Tensor):
+        # Just take the tf image if provided
+        base_img = input_img_or_path
+    elif isinstance(input_img_or_path, str):
+        # Load image
+        base_img = tf.io.read_file(input_img_or_path)
+        base_img = tf.image.decode_png(base_img)
+    else:
+        raise ValueError("Provide either a tf.image or a path to an img ")
+
+    # Take random augments from all possible augment options
+    if augment_selection is None:
+        augment_selection = generate_random_augment_list(augment_options)
+
+    # Check if both types of binarization are present, remove sauvola if true
+    if (any(isinstance(obj, BinarizeOtsuLayer) for obj in augment_selection)
+            and any(isinstance(obj, BinarizeSauvolaLayer)
+                    for obj in augment_selection)):
+        # Remove the object of type BinarizeSauvolaLayer
+        augment_selection = [obj for obj in augment_selection if
+                             not isinstance(obj, BinarizeSauvolaLayer)]
+
+    # Init blur params
+    mild_blur = False
+    blur_index = -1
+
+    # Check if a blur occurs before binarization, if so replace with mild blur
+    for i, augment in enumerate(augment_selection):
+        if isinstance(augment, BlurImageLayer):
+            mild_blur = True
+            blur_index = i
+        elif mild_blur and ((isinstance(augment, BinarizeOtsuLayer)
+                             or (isinstance(augment, BinarizeSauvolaLayer)))):
+            augment_selection[blur_index] = BlurImageLayer(mild_blur=True)
+
+    # Check if blur/distort occurs after binarization, if so move it to before
+    binarize = False
+    binarize_index = -1
+    for i, augment in enumerate(augment_selection):
+        if (isinstance(augment, BinarizeOtsuLayer)) or (
+                isinstance(augment, BinarizeSauvolaLayer)):
+            binarize = True
+            binarize_index = i
+        elif binarize and (isinstance(augment, BlurImageLayer)):
+            # Remove BlurImageLayer that occurs after binarization
+            augment_selection.remove(augment)
+            # Insert a mild blur object right before binarize
+            augment_selection.insert(binarize_index,
+                                     BlurImageLayer(mild_blur=True))
+        elif binarize and (isinstance(augment, DistortImageLayer)):
+            # Remove DistortImageLayer that occurs after binarization
+            augment_selection.remove(augment)
+            # Insert the Distort layer before the binarization
+            augment_selection.insert(binarize_index, augment)
+
+    # Init plot and set original image
+    # fig, ax = plt.subplots(nrows=len(augment_selection) + 1, figsize=(16, 8))
+    # fig.suptitle('Sequential Image augments:', fontsize=16)
+    # ax[0].imshow(base_img, cmap='gray')
+    # ax[0].set_title("Original Image")
+    # COMBINED SEQUENTIAL for all lists
+    aug_model = tf.keras.Sequential(augment_selection)
+    # aug_model.summary()
+    # print(aug_model.layers)
+    output_img = aug_model(base_img)
+
+
+    # # SINGLE Sequential for each img to show progress
+    # for i, aug in enumerate(augment_selection, start=1):
+    #     # Create a 1-layer keras model using a single augmentation
+    #     print("STARTING WITH AUGMENT: ", aug)
+    #     print("Shape for this augment: ",base_img.shape)
+    #     mini_aug_model = keras.Sequential(aug)
+    #
+    #     # Process image with single augment
+    #     augmented_inter_img = mini_aug_model(base_img)
+    #
+    #     # Overwrite old image
+    #     base_img = augmented_inter_img
+    #     # ax[i].imshow(augmented_inter_img, cmap='gray')
+    #     # ax[i].set_title("augment " + str(i) + " "
+    #     #                 + str([layer.name for layer in mini_aug_model.layers]))
+    # plt.tight_layout()
+    # plt.savefig(output_img_name)
+    return output_img
