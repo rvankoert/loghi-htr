@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard Library
+import json
 import logging
 import os
 import threading
@@ -29,7 +30,9 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         List of characters used in the model, saved alongside the model.
     config : object, optional
         Configuration object to be saved with the model.
-    logging_level : str
+    normalization_file : str, optional
+        Path to the normalization file to be saved with the model.
+    logging_level : str, default 'info'
         Logging level to be used in the callback.
 
     Attributes
@@ -43,7 +46,8 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
     def __init__(self, save_best: bool = True, save_checkpoint: bool = True,
                  output: str = "output", charlist: str = None,
-                 config: Config = None, logging_level: str = "info"):
+                 config: Config = None, normalization_file: str = None,
+                 logging_level: str = "info"):
         """
         Initialize the callback with provided configuration.
         """
@@ -54,6 +58,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         self.output = output
         self.charlist = charlist
         self.config = config
+        self.normalization_file = normalization_file
         self.logging_level = logging_level
         self.best_val_metric = float("inf")
         self._setup_logging()
@@ -109,6 +114,13 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
                     chars_file.write("".join(self.charlist))
             if self.config:
                 self.config.save(os.path.join(outputdir, "config.json"))
+            if self.normalization_file:
+                with open(self.normalization_file, "r") as norm_file:
+                    normalization = json.load(norm_file)
+                with open(os.path.join(outputdir, "normalization.json"),
+                          "w") as norm_file:
+                    json.dump(normalization, norm_file, indent=4,
+                              ensure_ascii=False)
 
         except Exception as e:
             self.logger.error(f"Error saving model: {e}")
