@@ -262,20 +262,5 @@ class DataLoader:
                              f"{partition_name}")
         return chars, files
 
-    @staticmethod
-    def truncate_label(text, max_text_len):
-        # ctc_loss can't compute loss if it cannot find a mapping between text label and input
-        # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
-        # If a too-long label is provided, ctc_loss returns an infinite gradient
-        cost = 0
-        for i in range(len(text)):
-            if i != 0 and text[i] == text[i - 1]:
-                cost += 2
-            else:
-                cost += 1
-            if cost > max_text_len:
-                return text[:i]
-        return text
-
     def get_item(self, partition, item_id):
         return self.partition[partition][item_id]

@@ -6,7 +6,7 @@ import re
 import logging
 
 # > Local dependencies
-from model.custom_layers import CTCLayer, ResidualBlock
+from model.custom_layers import ResidualBlock
 
 # > Third party dependencies
 import tensorflow as tf
