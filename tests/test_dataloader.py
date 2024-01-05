@@ -79,8 +79,8 @@ class DataLoaderTest(unittest.TestCase):
         from data.loader import DataLoader
         cls.DataLoader = DataLoader
 
-        from utils.utils import Utils
-        cls.Utils = Utils
+        from utils.utils import Tokenizer
+        cls.Tokenizer = Tokenizer
 
     def _create_temp_file(self, additional_lines=None):
         temp_sample_list_file = tempfile.NamedTemporaryFile(
@@ -298,7 +298,7 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.inference_list = self._create_temp_file()
 
         training_generator, validation_generator, test_generator, \
-            inference_generator, utils, train_batches\
+            inference_generator, tokenizer, train_batches\
             = data_loader.generators()
 
         # Basic tests

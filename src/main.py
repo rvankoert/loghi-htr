@@ -66,7 +66,7 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, validation_dataset, test_dataset, \
-            inference_dataset, utilsObject, train_batches \
+            inference_dataset, tokenizer, train_batches \
             = loader.generators()
 
         # Replace the charlist with the one from the data loader

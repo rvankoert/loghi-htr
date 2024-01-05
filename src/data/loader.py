@@ -5,7 +5,7 @@ import logging
 
 # > Local dependencies
 from data.generator import DataGenerator
-from utils.utils import Utils
+from utils.utils import Tokenizer
 
 # > Third party dependencies
 import tensorflow as tf
@@ -104,9 +104,9 @@ class DataLoader:
         else:
             self.charList = sorted(list(chars))
 
-        self.utils = Utils(self.charList, self.use_mask)
+        self.tokenizer = Tokenizer(self.charList, self.use_mask)
 
-        train_params = {'utils': self.utils,
+        train_params = {'tokenizer': self.tokenizer,
                         'height': self.height,
                         'batch_size': self.batch_size,
                         'channels': self.channels,
@@ -118,7 +118,7 @@ class DataLoader:
                         'distort_jpeg': self.distort_jpeg,
                         'do_random_shear': self.do_random_shear
                         }
-        non_train_params = {'utils': self.utils,
+        non_train_params = {'tokenizer': self.tokenizer,
                             'batch_size': self.batch_size,
                             'height': self.height,
                             'channels': self.channels,
@@ -148,7 +148,7 @@ class DataLoader:
 
         self.partition = partition
         return training_generator, validation_generator, test_generator, \
-            inference_generator, self.utils, int(train_batches)
+            inference_generator, self.tokenizer, int(train_batches)
 
     def __init__(self,
                  batch_size,

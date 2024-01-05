@@ -19,7 +19,7 @@ import numpy as np
 class DataGenerator(tf.keras.utils.Sequence):
 
     def __init__(self,
-                 utils,
+                 tokenizer,
                  batch_size,
                  height=64,
                  do_binarize_sauvola=False,
@@ -41,7 +41,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.random_crop = random_crop
         self.random_width = random_width
         self.distort_jpeg = distort_jpeg
-        self.utils = utils
+        self.tokenizer = tokenizer
         self.height = height
         self.channels = channels
         self.do_random_shear = do_random_shear
@@ -326,7 +326,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             image = self.invert(image)
 
         label = image_path[1]
-        encoded_label = self.utils.char_to_num(
+        encoded_label = self.tokenizer.char_to_num(
             tf.strings.unicode_split(label, input_encoding="UTF-8"))
 
         label_counter = 0

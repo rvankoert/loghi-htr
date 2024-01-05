@@ -17,7 +17,8 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import Utils, decode_batch_predictions  # noqa: E402
+from utils.utils import Tokenizer  # noqa: E402
+from utils.decoding import decode_batch_predictions  # noqa: E402
 
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
@@ -42,7 +43,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     tf.config.experimental.set_visible_devices([], 'GPU')
 
     # Initialize utilities
-    utils = create_utils(model_path)
+    tokenizer = create_tokenizer(model_path)
 
     total_outputs = 0
 
@@ -53,11 +54,11 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
             # Re-initialize utilities if model has changed
             if model != model_path:
-                utils = create_utils(model)
+                tokenizer = create_tokenizer(model)
                 logging.info(f"Utilities re-initialized for {model}")
                 model_path = model
 
-            decoded_predictions = batch_decode(encoded_predictions, utils)
+            decoded_predictions = batch_decode(encoded_predictions, tokenizer)
 
             logging.debug("Outputting predictions...")
             outputted_predictions = output_predictions(decoded_predictions,
@@ -80,7 +81,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
 
 
 def batch_decode(encoded_predictions: np.ndarray,
-                 utils: Utils) -> List[str]:
+                 tokenizer: Tokenizer) -> List[str]:
     """
     Decode a batch of encoded predictions.
 
@@ -88,7 +89,7 @@ def batch_decode(encoded_predictions: np.ndarray,
     ----------
     encoded_predictions: np.ndarray
         Array of encoded predictions.
-    utils: Utils
+    tokenizer: Tokenizer
         Utilities object containing character list and other information.
 
     Returns
@@ -99,13 +100,13 @@ def batch_decode(encoded_predictions: np.ndarray,
 
     logging.debug("Decoding predictions...")
     decoded_predictions = decode_batch_predictions(
-        encoded_predictions, utils)
+        encoded_predictions, tokenizer)
     logging.debug("Predictions decoded")
 
     return decoded_predictions
 
 
-def create_utils(model_path: str) -> Utils:
+def create_tokenizer(model_path: str) -> Tokenizer:
     """
     Create a utilities object for decoding.
 
@@ -116,7 +117,7 @@ def create_utils(model_path: str) -> Utils:
 
     Returns
     -------
-    Utils
+    Tokenizer
         Utilities object containing character list and other information.
     """
 
@@ -125,7 +126,7 @@ def create_utils(model_path: str) -> Utils:
     try:
         with open(charlist_path) as file:
             charlist = [char for char in file.read()]
-        utils = Utils(charlist, use_mask=True)
+        tokenizer = Tokenizer(charlist, use_mask=True)
         logging.debug("Utilities initialized")
     except FileNotFoundError:
         logging.error(f"charlist.txt not found at {model_path}. Exiting...")
@@ -134,7 +135,7 @@ def create_utils(model_path: str) -> Utils:
         logging.error(f"Error loading utilities: {e}")
         raise e
 
-    return utils
+    return tokenizer
 
 
 def output_predictions(predictions: List[Tuple[float, str]],
