@@ -17,7 +17,8 @@ from utils.calculate import calculate_confidence_intervals, \
     calculate_edit_distances, process_cer_type, process_prediction_type
 from utils.print import print_predictions, display_statistics
 from utils.text import preprocess_text
-from utils.utils import Tokenizer, decode_batch_predictions
+from utils.decoding import decode_batch_predictions
+from utils.utils import Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
