@@ -17,8 +17,7 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import Utils, decode_batch_predictions, \
-        normalize_confidence  # noqa: E402
+from utils.utils import Utils, decode_batch_predictions  # noqa: E402
 
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
@@ -100,7 +99,7 @@ def batch_decode(encoded_predictions: np.ndarray,
 
     logging.debug("Decoding predictions...")
     decoded_predictions = decode_batch_predictions(
-        encoded_predictions, utils)[0]
+        encoded_predictions, utils)
     logging.debug("Predictions decoded")
 
     return decoded_predictions
@@ -174,7 +173,6 @@ def output_predictions(predictions: List[Tuple[float, str]],
         group_id = groups[i]
         identifier = identifiers[i]
         metadata = batch_metadata[i]
-        confidence = normalize_confidence(confidence, pred_text)
 
         text = f"{identifier}\t{metadata}\t{confidence}\t{pred_text}"
         outputs.append(text)

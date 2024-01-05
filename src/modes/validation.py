@@ -65,10 +65,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     X, y_true = batch
 
     # Get the predictions
-    predictions = prediction_model.predict(X, verbose=0)
+    predictions = prediction_model.predict_on_batch(X)
     y_pred = decode_batch_predictions(
         predictions, utils_object, args.greedy,
-        args.beam_width, args.num_oov_indices)[0]
+        args.beam_width, args.num_oov_indices)
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
@@ -86,9 +86,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
-        # Normalize the confidence before processing because it was determined
-        # on the original prediction
-        normalized_confidence = normalize_confidence(confidence, prediction)
 
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
@@ -107,7 +104,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
             wbs_str = char_str[index] if wbs else None
             print_predictions(filename, original_text,
                               prediction, wbs_str)
-            logging.info(f"Confidence = {normalized_confidence:.4f}")
+            logging.info(f"Confidence = {confidence:.4f}")
             logging.info("")
 
         batch_info = process_prediction_type(prediction,

@@ -74,97 +74,95 @@ def shape(x):
     return array_ops.shape(x)
 
 
-def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
-    """Decodes the output of a softmax.
-
-    Can use either greedy search (also known as best path)
-    or a constrained dictionary search.
-
-    Args:
-        y_pred: tensor `(samples, time_steps, num_categories)`
-            containing the prediction, or output of the softmax.
-        input_length: tensor `(samples, )` containing the sequence length for
-            each batch item in `y_pred`.
-        greedy: perform much faster best-path search if `true`.
-            This does not use a dictionary.
-        beam_width: if `greedy` is `false`: a beam search decoder will be used
-            with a beam of this width.
-        top_paths: if `greedy` is `false`,
-            how many of the most probable paths will be returned.
-
-    Returns:
-        Tuple:
-            List: if `greedy` is `true`, returns a list of one element that
-                contains the decoded sequence.
-                If `false`, returns the `top_paths` most probable
-                decoded sequences.
-                Each decoded sequence has shape (samples, time_steps).
-                Important: blank labels are returned as `-1`.
-            Tensor `(top_paths, )` that contains
-                the log probability of each decoded sequence.
+def ctc_decode(y_pred, input_length, greedy=True, beam_width=100):
     """
-    input_shape = shape(y_pred)
-    num_samples, num_steps = input_shape[0], input_shape[1]
-    y_pred = math_ops.log(array_ops.transpose(
+    Decodes the prediction using CTC Decoder.
+
+    Parameters
+    ----------
+    y_pred : ndarray
+        Predicted probabilities.
+    input_length : ndarray
+        Length of the input sequences.
+    greedy : bool, optional
+        If true, use greedy decoder, else use beam search decoder.
+    beam_width : int, optional
+        Width of the beam for beam search decoder.
+
+    Returns
+    -------
+    list of ndarray
+        Decoded sequences.
+    ndarray
+        Log probabilities of the decoded sequences.
+    """
+
+    num_samples, num_steps = y_pred.shape[:2]
+    y_pred = tf.math.log(tf.transpose(
         y_pred, perm=[1, 0, 2]) + tf.keras.backend.epsilon())
-    input_length = math_ops.cast(input_length, dtypes.int32)
+    input_length = tf.cast(input_length, tf.int32)
 
     if greedy:
-        (decoded, log_prob) = ctc.ctc_greedy_decoder(
-            inputs=y_pred, sequence_length=input_length)
+        decoded, log_prob = tf.nn.ctc_greedy_decoder(
+            inputs=y_pred, sequence_length=input_length, merge_repeated=True)
     else:
-        (decoded, log_prob) = ctc.ctc_beam_search_decoder(
-            inputs=y_pred,
-            sequence_length=input_length,
-            beam_width=beam_width,
-            top_paths=top_paths,
-            merge_repeated=False)
-    decoded_dense = []
-    for st in decoded:
-        st = sparse_tensor.SparseTensor(
-            st.indices, st.values, (num_samples, num_steps))
-        decoded_dense.append(
-            sparse_ops.sparse_tensor_to_dense(sp_input=st, default_value=-1))
+        decoded, log_prob = tf.nn.ctc_beam_search_decoder(
+            inputs=y_pred, sequence_length=input_length,
+            beam_width=beam_width, top_paths=1)
+
+    decoded_dense = [tf.sparse.to_dense(
+        st, default_value=-1) for st in decoded]
     return decoded_dense, log_prob
 
 
-def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=0):
+def decode_batch_predictions(pred, utils, greedy=True,
+                             beam_width=1, num_oov_indices=0):
+    """
+    Decodes batch predictions using CTC Decoder.
+
+    Parameters
+    ----------
+    pred : ndarray
+        Predicted probabilities from the model.
+    utils : object
+        Utility object for character conversion.
+    greedy : bool, optional
+        If true, use greedy decoder, else use beam search decoder.
+    beam_width : int, optional
+        Width of the beam for beam search decoder.
+    num_oov_indices : int, optional
+        Number of out-of-vocabulary indices.
+
+    Returns
+    -------
+    list of tuple
+        List of tuples containing confidence and decoded text.
+    """
+
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
+    pred = tf.cast(pred, tf.float32)
+    ctc_decoded, log_probs = ctc_decode(pred, input_length=input_len,
+                                        greedy=greedy, beam_width=beam_width)
 
-    # Use greedy search. For complex tasks, you can use beam search
-    pred = tf.dtypes.cast(pred, tf.float32)
-    top_paths = 1
     output_texts = []
-    ctc_decoded = ctc_decode(pred, input_length=input_len,
-                             greedy=greedy, beam_width=beam_width, top_paths=top_paths)
-    for top_path in range(0, top_paths):
-        results = ctc_decoded[0][top_path][:, :]
+    for i, decoded_array in enumerate(ctc_decoded[0]):
+        decoded_array += num_oov_indices
+        chars = utils.num_to_char(decoded_array)
+        text = tf.strings.reduce_join(chars).numpy().decode("utf-8")
 
-        # Iterate over the results and get back the text
-        output_text = []
-        i = 0
-        for res in results:
-            log_prob = ctc_decoded[1][i][top_path]
-            if greedy:
-                confidence = np.exp(-log_prob)
-            else:
-                confidence = np.exp(log_prob)
-            i = i + 1
-            res = res + num_oov_indices
-            chars = utils.num_to_char(res)
-            res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
-            output_text.append((confidence, res))
-        output_texts.append(output_text)
+        # Calculate the effective steps for each sample in the batch
+        # That is before the first blank character
+        # Find indices of the first occurrence of -1 in each sequence
+        time_steps = np.array(decoded_array == -1).argmax(axis=0)
+        time_steps = time_steps if time_steps > 0 else len(decoded_array)
+
+        # Normalize the confidence score based on the number of timesteps
+        confidence = np.exp(-log_probs[i][0] / time_steps
+                            if greedy else log_probs[i][0] / time_steps)
+
+        output_texts.append((confidence, text))
+
     return output_texts
-
-
-def normalize_confidence(confidence, predicted_text):
-    if len(predicted_text) > 0:
-        # we really want 1/number of timesteps in CTC matrix, but len(predicted_text) is next best for now
-        confidence = pow(confidence, (1 / len(predicted_text)))
-        if confidence < 0:
-            confidence = -confidence
-    return confidence
 
 
 def load_model_from_directory(directory: str,
