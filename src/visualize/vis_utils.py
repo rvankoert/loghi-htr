@@ -11,7 +11,7 @@ from typing import Tuple
 from vis_arg_parser import get_args
 
 # Add the above directory to the path
-sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
+sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))  # noqa: E402
 from model import CERMetric, WERMetric, CTCLoss
 from custom_layers import ResidualBlock
 
@@ -57,7 +57,8 @@ def prep_image_for_model(img_path: str, model_channels: int) -> Tuple[np.ndarray
     # Remake data_generator parts
     target_height = 64
     original_image = tf.io.read_file(img_path)
-    original_image = tf.image.decode_image(original_image, channels=model_channels)
+    original_image = tf.image.decode_image(
+        original_image, channels=model_channels)
     original_image = tf.image.resize(original_image,
                                      [target_height, tf.cast(target_height * tf.shape(original_image)[1]
                                                              / tf.shape(original_image)[0], tf.int32)],

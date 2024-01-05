@@ -10,7 +10,7 @@ import tensorflow as tf
 
 # > Local dependencies
 from utils.utils import load_model_from_directory
-from model.model import replace_final_layer, replace_recurrent_layer
+from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 
 

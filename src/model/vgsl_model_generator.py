@@ -1311,7 +1311,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    from model.model import CERMetric, WERMetric, CTCLoss
+    from model.metrics import CERMetric, WERMetric
+    from model.losses import CTCLoss
 
     # Load the model
     model = tf.keras.models.load_model(args.model_dir,

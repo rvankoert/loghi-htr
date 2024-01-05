@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any
 # > Third party libraries
 import tensorflow as tf
 import numpy as np
-from keras.models import Model
 from tensorflow.python.framework import sparse_tensor, dtypes
 from tensorflow.python.ops import sparse_ops, array_ops, math_ops
 from tensorflow.python.ops import ctc_ops as ctc
