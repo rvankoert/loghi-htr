@@ -42,7 +42,7 @@ class TestDataGenerator(unittest.TestCase):
         from data.generator import DataGenerator
         cls.DataGenerator = DataGenerator
 
-        from utils.utils import Tokenizer
+        from utils.text import Tokenizer
         cls.Tokenizer = Tokenizer
 
     def test_initialization(self):

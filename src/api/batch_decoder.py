@@ -17,8 +17,8 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import Tokenizer  # noqa: E402
 from utils.decoding import decode_batch_predictions  # noqa: E402
+from utils.text import Tokenizer  # noqa: E402
 
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,

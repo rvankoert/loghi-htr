@@ -79,7 +79,7 @@ class DataLoaderTest(unittest.TestCase):
         from data.loader import DataLoader
         cls.DataLoader = DataLoader
 
-        from utils.utils import Tokenizer
+        from utils.text import Tokenizer
         cls.Tokenizer = Tokenizer
 
     def _create_temp_file(self, additional_lines=None):

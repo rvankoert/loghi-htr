@@ -9,8 +9,8 @@ from typing import List
 from data.generator import DataGenerator
 from data.loader import DataLoader
 from utils.decoding import decode_batch_predictions
-from utils.utils import Tokenizer
 from model.management import get_prediction_model
+from utils.text import Tokenizer
 
 # > Third-party dependencies
 import tensorflow as tf

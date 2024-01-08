@@ -24,7 +24,7 @@ class TestTokenizer(unittest.TestCase):
         # Add the src directory to the path
         sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
-        from utils.utils import Tokenizer
+        from utils.text import Tokenizer
         cls.Tokenizer = Tokenizer
 
     def test_tokenizer_class(self):

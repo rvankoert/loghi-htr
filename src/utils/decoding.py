@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 # > Local imports
-from utils.utils import Tokenizer
+from utils.text import Tokenizer
 
 
 def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,

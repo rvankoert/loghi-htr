@@ -18,7 +18,7 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import load_model_from_directory  # noqa: E402
+from model.management import load_model_from_directory  # noqa: E402
 
 
 def create_model(model_path: str, strategy: tf.distribute.Strategy) \

@@ -5,7 +5,7 @@ import logging
 
 # > Local dependencies
 from data.generator import DataGenerator
-from utils.utils import Tokenizer
+from utils.text import Tokenizer
 
 # > Third party dependencies
 import tensorflow as tf
