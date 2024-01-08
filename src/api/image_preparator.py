@@ -10,7 +10,6 @@ import time
 import uuid
 
 # > Third-party dependencies
-import numpy as np
 import tensorflow as tf
 
 
@@ -280,8 +279,6 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                                         new_model,
                                         current_model)
 
-            # Prepare the image
-            # image = prepare_image(image, num_channels)
             batch_images.append(image)
             batch_groups.append(group)
             batch_identifiers.append(identifier)
