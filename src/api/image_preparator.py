@@ -145,6 +145,7 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
                         batch_groups: list,
                         batch_identifiers: list,
                         batch_metadata: list,
+                        old_channels: int,
                         new_model: str,
                         old_model: str) -> (int, str):
     """
@@ -164,6 +165,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
         Identifiers for each image in the batch.
     batch_metadata : list
         Metadata for each image in the batch.
+    old_channels : int
+        Number of channels for the old model.
     new_model : str
         Path of the new model.
     old_model : str
@@ -186,8 +189,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
             f"Processing the current batch of {len(batch_images)} images "
             "before model change.")
         pad_and_queue_batch(old_model, batch_images, batch_groups,
-                            batch_identifiers, batch_metadata, prepared_queue,
-                            request_queue)
+                            batch_identifiers, batch_metadata, old_channels,
+                            prepared_queue, request_queue)
 
         # Clearing the current batch
         batch_images.clear()
@@ -306,8 +309,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
 
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,
-                        batch_identifiers, batch_metadata, prepared_queue,
-                        request_queue)
+                        batch_identifiers, batch_metadata, num_channels,
+                        prepared_queue, request_queue)
 
     return num_channels, current_model, metadata, old_whitelist
 
