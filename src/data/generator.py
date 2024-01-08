@@ -326,8 +326,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             image = self.invert(image)
 
         label = image_path[1]
-        encoded_label = self.tokenizer.char_to_num(
-            tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        encoded_label = self.tokenizer(label)
 
         label_counter = 0
         last_char = None

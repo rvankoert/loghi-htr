@@ -40,10 +40,8 @@ class TestTokenizer(unittest.TestCase):
 
         # Test set_charlist function with no oov indices.
         # Setting OOV indices to a value > 1 is broken.
-        tokenizer = self.Tokenizer(chars=['a', 'b', 'c'],
-                                   use_mask=False)
-        tokenizer.set_charlist(chars=['a', 'b', 'c', 'd'],
-                               use_mask=False, num_oov_indices=0)
+        tokenizer = self.Tokenizer(chars=['a', 'b', 'c', 'd'],
+                                   use_mask=False, num_oov_indices=0)
         self.assertEqual(tokenizer.charlist, ['a', 'b', 'c', 'd'])
         self.assertTrue(isinstance(tokenizer.char_to_num,
                         tf.keras.layers.StringLookup))

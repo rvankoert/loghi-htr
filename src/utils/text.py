@@ -2,9 +2,10 @@
 
 # > Standard library
 import re
-from typing import Tuple
+from typing import Tuple, Union
 
 # > Third-party dependencies
+import numpy as np
 import tensorflow as tf
 
 
@@ -28,11 +29,16 @@ class Tokenizer:
 
     Methods
     -------
-    set_charlist(chars, use_mask=False, num_oov_indices=0):
-        Sets the character list and initializes the StringLookup layers.
+    __call__(texts):
+        Tokenizes the input text(s) into a sequence of integers.
+    encode(texts):
+        Encodes the input text(s) into a sequence of integers.
+    decode(tokenized_texts):
+        Decodes the tokenized sequences back into text.
     """
 
-    def __init__(self, chars: list, use_mask: bool = False):
+    def __init__(self, chars: list, use_mask: bool = False,
+                 num_oov_indices: int = 0):
         """
         Initializes the Tokenizer with a given character list and mask option.
 
@@ -42,37 +48,19 @@ class Tokenizer:
             A list of characters to be used for tokenization.
         use_mask : bool, optional
             A flag to indicate whether to use a mask token (default is False).
-        """
-
-        self.set_charlist(chars=chars, use_mask=use_mask)
-
-    def set_charlist(self,
-                     chars: list,
-                     use_mask: bool = False,
-                     num_oov_indices: int = 0):
-        """
-        Sets the character list and initializes the StringLookup layers.
-
-        Parameters
-        ----------
-        chars : list
-            A list of characters for the tokenizer.
-        use_mask : bool, optional
-            Whether to include a mask token in the StringLookup layer (default
-            is False).
         num_oov_indices : int, optional
             The number of out-of-vocabulary indices (default is 0).
 
         Raises
         ------
-        Exception
+        ValueError
             If the character list is empty.
         """
 
-        if not chars:
-            raise Exception('No characters found in character list')
+        self.charlist = list(chars)
+        if not self.charlist:
+            raise ValueError("The character list cannot be empty.")
 
-        self.charlist = chars
         if num_oov_indices > 0:
             self.charlist = ['[UNK]'] + self.charlist
 
@@ -93,6 +81,61 @@ class Tokenizer:
             encoding="UTF-8",
             invert=True
         )
+
+    def __call__(self, texts: Union[str, list]) -> tf.Tensor:
+        """
+        Tokenizes the input text(s) into a sequence of integers.
+
+        Parameters
+        ----------
+        texts : str or list of str
+            The text or a list of texts to be tokenized.
+
+        Returns
+        -------
+        tf.Tensor
+            A tensor of tokenized integer sequences.
+        """
+        return self.char_to_num(tf.strings.unicode_split(texts, 'UTF-8'))
+
+    def encode(self, texts: Union[str, list]) -> tf.Tensor:
+        """
+        Encodes the input text(s) into a sequence of integers.
+
+        Parameters
+        ----------
+        texts : str or list of str
+            The text or a list of texts to be encoded.
+
+        Returns
+        -------
+        tf.Tensor
+            A tensor of encoded integer sequences.
+        """
+        return self(texts)
+
+    def decode(self, tokenized_texts: Union[tf.Tensor, list]) -> tf.Tensor:
+        """
+        Decodes the tokenized sequences back into text.
+
+        Parameters
+        ----------
+        tokenized_texts : tf.Tensor or list of tf.Tensor
+            The tokenized integer sequences or a list of sequences.
+
+        Returns
+        -------
+        tf.Tensor
+            A tensor of decoded strings.
+        """
+        decoded = tf.strings.reduce_join(self.num_to_char(tokenized_texts),
+                                         axis=-1).numpy()
+        if isinstance(decoded, bytes):
+            return decoded.decode("utf-8")
+        elif isinstance(decoded, np.ndarray):
+            return np.array([d.decode("utf-8") for d in decoded])
+        else:
+            return decoded
 
 
 def remove_tags(text: str) -> str:

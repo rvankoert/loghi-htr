@@ -78,8 +78,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         char_str = None
 
     # Get the original texts
-    orig_texts = [tf.strings.reduce_join(tokenizer.num_to_char(label))
-                  .numpy().decode("utf-8").strip() for label in y_true]
+    orig_texts = tokenizer.decode(y_true)
 
     # Initialize the batch info
     batch_info = defaultdict(int)
@@ -192,20 +191,20 @@ def perform_validation(args: argparse.Namespace,
         metrics, batch_stats, total_stats = [], [], []
 
         # Calculate the CER
-        total_counter, metrics, batch_stats, total_stats \
+        total_counter, metrics, batch_stats, total_stats\
             = process_cer_type(
                 batch_info, total_counter, metrics, batch_stats, total_stats)
 
         # Calculate the normalized CER
         if args.normalization_file:
-            total_normalized_counter, metrics, batch_stats, total_stats \
+            total_normalized_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(
                     batch_info, total_normalized_counter, metrics, batch_stats,
                     total_stats, prefix="Normalized")
 
         # Calculate the WBS CER
         if wbs:
-            total_wbs_counter, metrics, batch_stats, total_stats \
+            total_wbs_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(
                     batch_info, total_wbs_counter, metrics, batch_stats,
                     total_stats, prefix="WBS")
