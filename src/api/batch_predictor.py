@@ -196,7 +196,7 @@ def handle_batch_prediction(model: tf.keras.Model,
 
     Parameters:
     -----------
-    model : Any
+    model : tf.keras.Model
         The loaded model for predictions.
     predicted_queue : multiprocessing.Queue
         Queue where predictions are sent.
