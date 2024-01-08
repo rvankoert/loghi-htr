@@ -43,7 +43,7 @@ def image_preparation_worker(batch_size: int,
     - Logs various messages regarding the image preparation status.
     """
 
-    logging.info("Image Preparation Worker process started")
+    logging.info("Image preparation process started")
 
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
@@ -140,6 +140,7 @@ def get_model_channels(config_path: str) -> int:
 
 
 def handle_model_change(prepared_queue: multiprocessing.Queue,
+                        request_queue: multiprocessing.Queue,
                         batch_images: list,
                         batch_groups: list,
                         batch_identifiers: list,
@@ -153,6 +154,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
     ----------
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
+    request_queue : multiprocessing.Queue
+        Queue from which raw images are fetched.
     batch_images : list
         Current batch of images being processed.
     batch_groups : list
@@ -183,7 +186,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
             f"Processing the current batch of {len(batch_images)} images "
             "before model change.")
         pad_and_queue_batch(old_model, batch_images, batch_groups,
-                            batch_identifiers, batch_metadata, prepared_queue)
+                            batch_identifiers, batch_metadata, prepared_queue,
+                            request_queue)
 
         # Clearing the current batch
         batch_images.clear()
@@ -265,6 +269,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             if new_model and new_model != current_model:
                 num_channels, current_model = \
                     handle_model_change(prepared_queue,
+                                        request_queue,
                                         batch_images,
                                         batch_groups,
                                         batch_identifiers,
@@ -301,7 +306,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
 
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,
-                        batch_identifiers, batch_metadata, prepared_queue)
+                        batch_identifiers, batch_metadata, prepared_queue,
+                        request_queue)
 
     return num_channels, current_model, metadata, old_whitelist
 
@@ -417,7 +423,8 @@ def pad_and_queue_batch(model_path: str,
                         batch_groups: list,
                         batch_identifiers: list,
                         batch_metadata: list,
-                        prepared_queue: multiprocessing.Queue) -> None:
+                        prepared_queue: multiprocessing.Queue,
+                        request_queue: multiprocessing.Queue) -> None:
     """
     Pad and queue a batch of images for prediction.
 
@@ -435,6 +442,8 @@ def pad_and_queue_batch(model_path: str,
         List of metadata for the images.
     prepared_queue : multiprocessing.Queue
         Queue to which the padded batch should be pushed.
+    request_queue : multiprocessing.Queue
+        Queue from which raw images are fetched.
     """
 
     # Generate a unique identifier for the batch
@@ -448,7 +457,7 @@ def pad_and_queue_batch(model_path: str,
                         batch_metadata, model_path, batch_id))
     logging.info(f"Prepared batch {batch_id} ({len(batch_images)} items) for "
                  "prediction")
-    logging.debug(f"{prepared_queue.qsize()} batches ready for prediction")
+    logging.info(f"{request_queue.qsize()} items waiting to be processed")
 
 
 def pad_batch(batch_images: list) -> np.ndarray:

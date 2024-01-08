@@ -147,7 +147,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     - Logs various messages regarding the batch processing status.
     """
 
-    logging.info("Batch Prediction Worker process started")
+    logging.info("Batch prediction process started")
 
     # If all GPUs support mixed precision, enable it
     mixed_precision_enabled = setup_gpu_environment(gpus)
