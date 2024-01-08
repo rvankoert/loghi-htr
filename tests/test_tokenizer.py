@@ -30,7 +30,7 @@ class TestTokenizer(unittest.TestCase):
     def test_tokenizer_class(self):
         # Test without mask and no oov indices
         tokenizer = self.Tokenizer(chars=['a', 'b', 'c'], use_mask=False)
-        self.assertEqual(tokenizer.charList, ['a', 'b', 'c'])
+        self.assertEqual(tokenizer.charlist, ['a', 'b', 'c'])
 
         # Test with mask
         tokenizer = self.Tokenizer(chars=['a', 'b', 'c'], use_mask=True)
@@ -44,7 +44,7 @@ class TestTokenizer(unittest.TestCase):
                                    use_mask=False)
         tokenizer.set_charlist(chars=['a', 'b', 'c', 'd'],
                                use_mask=False, num_oov_indices=0)
-        self.assertEqual(tokenizer.charList, ['a', 'b', 'c', 'd'])
+        self.assertEqual(tokenizer.charlist, ['a', 'b', 'c', 'd'])
         self.assertTrue(isinstance(tokenizer.char_to_num,
                         tf.keras.layers.StringLookup))
 
