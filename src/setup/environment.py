@@ -3,8 +3,6 @@
 # > Standard library
 import logging
 import os
-import sys
-import time
 import random
 
 # > Third-party dependencies
@@ -13,36 +11,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from setup.config import Config
-
-
-class StreamToLogger(object):
-    """
-    Fake file-like stream object that redirects writes to a logger instance.
-    """
-
-    def __init__(self, logger, log_level=logging.INFO):
-        self.logger = logger
-        self.log_level = log_level
-        self.linebuf = ''
-
-    def write(self, buf):
-        temp_linebuf = self.linebuf + buf
-        self.linebuf = ''
-        for line in temp_linebuf.splitlines(True):
-            # From the io.TextIOWrapper docs:
-            #   On output, if newline is None, any '\n' characters written
-            #   are translated to the system default line separator.
-            # By default sys.stdout.write() expects '\n' newlines and then
-            # translates them so this is still cross platform.
-            if line[-1] == '\n':
-                self.logger.log(self.log_level, line.rstrip())
-            else:
-                self.linebuf += line
-
-    def flush(self):
-        if self.linebuf != '':
-            self.logger.log(self.log_level, self.linebuf.rstrip())
-        self.linebuf = ''
 
 
 def set_deterministic(seed: int) -> None:
@@ -132,14 +100,9 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     return strategy
 
 
-def setup_logging(output_dir: str = "logs") -> None:
+def setup_logging() -> None:
     """
     Sets up logging configuration for the application.
-
-    Parameters
-    ----------
-    output_dir : str
-        The directory where the log files should be written.
 
     Notes
     -----
@@ -149,29 +112,17 @@ def setup_logging(output_dir: str = "logs") -> None:
     used.
     """
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
-    file_handler = logging.FileHandler(f"{output_dir}/{timestamp}.log",
-                                       mode="w")
-    console_handler = logging.StreamHandler()
-
     # Set up logging
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging.INFO,
-        handlers=[file_handler, console_handler]
     )
 
     # Remove the default Tensorflow logger handlers and use our own
     tf_logger = tf.get_logger()
     while tf_logger.handlers:
         tf_logger.handlers.pop()
-
-    stdout_logger = logging.getLogger('STDOUT')
-    sl = StreamToLogger(stdout_logger, logging.INFO)
-    sys.stdout = sl
 
 
 def initialize_strategy(use_float32: bool,
