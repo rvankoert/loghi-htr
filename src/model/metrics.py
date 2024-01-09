@@ -25,8 +25,7 @@ class CERMetric(tf.keras.metrics.Metric):
             shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
         decode, log = K.ctc_decode(y_pred,
                                    input_length,
-                                   greedy=True,
-                                   beam_width=10)
+                                   greedy=True)
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))
