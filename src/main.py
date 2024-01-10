@@ -458,22 +458,20 @@ def main():
                         # Apply normalisation from DataLoader
                         original_text_normalised = loader.normalize(
                             original_text, args.normalization_file)
-                        predicted_text_normalised = loader.normalize(
-                            predicted_text, args.normalization_file)
-                        predicted_text_normalised_simple = loader.normalize(
-                            predicted_simple, args.normalization_file)
+                        original_text_normalised_simple = re.sub(
+                            '[\W_]+', '', original_text_normalised.lower())
 
                         # Calculate editdistance between original_text and pred
                         norm_current_editdistance = editdistance.eval(original_text_normalised,
-                                                                      predicted_text_normalised)
+                                                                      predicted_text)
 
                         # Calculate editdistance on lowercase original_text and pred
                         norm_current_editdistance_lower = editdistance.eval(original_text_normalised.lower(),
-                                                                            predicted_text_normalised.lower())
+                                                                            predicted_text.lower())
 
                         # Calculate editdistance on simple original_text and pred
-                        norm_current_editdistance_simple = editdistance.eval(ground_truth_simple,
-                                                                             predicted_text_normalised_simple)
+                        norm_current_editdistance_simple = editdistance.eval(original_text_normalised_simple,
+                                                                             predicted_simple)
 
                         # Aggregate cer
                         norm_total_cer += norm_current_editdistance
@@ -481,7 +479,7 @@ def main():
                         norm_total_cer_simple += norm_current_editdistance_simple
                         norm_total_length += len(original_text_normalised)
                         norm_total_length_simple += len(
-                            predicted_text_normalised_simple)
+                            original_text_normalised_simple)
 
                     if cer > 0.0:
                         filename = loader.get_item(
@@ -493,8 +491,6 @@ def main():
                             print("Original (norm): "
                                   f"{original_text_normalised}")
                         print(f"Predicted: {predicted_text}")
-                        if args.normalization_file:
-                            print(f"Predicted (norm): {predicted_simple}")
                         if wbs:
                             [print(s) for s in char_str]
 
