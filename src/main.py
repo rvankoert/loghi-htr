@@ -393,8 +393,8 @@ def main():
         total_cer = total_cer_lower = total_cer_simple = 0
         total_length = total_length_simple = 0
 
-        norm_total_cer = norm_total_cer_lower = 0
-        norm_total_length = 0
+        norm_total_cer = norm_total_cer_lower = norm_total_cer_simple = 0
+        norm_total_length = norm_total_length_simple = 0
 
         total_cer_wbs = total_cer_wbs_lower = total_cer_wbs_simple = 0
         batch_no = pred_counter = 0
@@ -460,6 +460,8 @@ def main():
                             original_text, args.normalization_file)
                         predicted_text_normalised = loader.normalize(
                             predicted_text, args.normalization_file)
+                        predicted_text_normalised_simple = loader.normalize(
+                            predicted_simple, args.normalization_file)
 
                         # Calculate editdistance between original_text and pred
                         norm_current_editdistance = editdistance.eval(original_text_normalised,
@@ -469,10 +471,17 @@ def main():
                         norm_current_editdistance_lower = editdistance.eval(original_text_normalised.lower(),
                                                                             predicted_text_normalised.lower())
 
+                        # Calculate editdistance on simple original_text and pred
+                        norm_current_editdistance_simple = editdistance.eval(ground_truth_simple,
+                                                                             predicted_text_normalised_simple)
+
                         # Aggregate cer
                         norm_total_cer += norm_current_editdistance
                         norm_total_cer_lower += norm_current_editdistance_lower
+                        norm_total_cer_simple += norm_current_editdistance_simple
                         norm_total_length += len(original_text_normalised)
+                        norm_total_length_simple += len(
+                            predicted_text_normalised_simple)
 
                     if cer > 0.0:
                         filename = loader.get_item(
@@ -484,6 +493,8 @@ def main():
                             print("Original (norm): "
                                   f"{original_text_normalised}")
                         print(f"Predicted: {predicted_text}")
+                        if args.normalization_file:
+                            print(f"Predicted (norm): {predicted_simple}")
                         if wbs:
                             [print(s) for s in char_str]
 
@@ -510,6 +521,10 @@ def main():
                             print(
                                 f'avg norm_editdistance lower: {norm_total_cer_lower / norm_total_length}')
 
+                            if norm_total_length_simple > 0:
+                                print(
+                                    f'avg norm_editdistance simple: {norm_total_cer_simple / norm_total_length_simple}')
+
                         if wbs:
                             print(
                                 f'avg editdistance wbs: {total_cer_wbs / total_length}')
@@ -532,6 +547,7 @@ def main():
         if args.normalization_file:
             norm_total_cer /= norm_total_length
             norm_total_cer_lower /= norm_total_length
+            norm_total_cer_simple /= norm_total_length_simple
 
             total_norm_cer_lower = round(
                 norm_total_cer - calc_95_confidence_interval(norm_total_cer, pred_counter), 4)
@@ -542,6 +558,11 @@ def main():
                 norm_total_cer_lower - calc_95_confidence_interval(norm_total_cer_lower, pred_counter), 4)
             total_norm_cer_lower_upper = round(
                 norm_total_cer_lower + calc_95_confidence_interval(norm_total_cer_lower, pred_counter), 4)
+
+            total_norm_cer_simple = round(
+                norm_total_cer_simple - calc_95_confidence_interval(norm_total_cer_simple, pred_counter), 4)
+            total_norm_cer_simple_upper = round(
+                norm_total_cer_simple + calc_95_confidence_interval(norm_total_cer_simple, pred_counter), 4)
 
         if wbs:
             total_cer_wbs_simple /= total_length_simple
@@ -576,12 +597,32 @@ def main():
                 f'norm_totalcer: {norm_total_cer} (95% conf. range [{total_norm_cer_lower},{total_norm_cer_upper}])')
             print(
                 f'norm_totalcer_lower: {norm_total_cer_lower} (95% conf. range [{total_norm_cer_lower_lower},{total_norm_cer_lower_upper}])')
+            print(
+                f'norm_totalcersimple: {norm_total_cer_simple} (95% conf. range [{total_norm_cer_simple},{total_norm_cer_simple_upper}])')
             print("--------------------------------------------------------")
 
         if wbs:
             print(f'totalcerwbs: {total_cer_wbs}')
             print(f'totalcerwbslower: {total_cer_wbs_lower}')
             print(f'totalcerwbssimple: {total_cer_wbs_simple}')
+
+        # Output to CSV file
+        with open(os.path.join(args.output, 'validation.csv'), 'w') as f:
+            header = 'cer,cer_lower,cer_simple'
+            if args.normalization_file:
+                header += ',normalized_cer,normalized_cer_lower,normalized_cer_simple'
+            if wbs:
+                header += ',cer_wbs,cer_wbs_lower,cer_wbs_simple'
+
+            f.write(header + '\n')
+            f.write(f'{total_cer},{total_cer_lower},{total_cer_simple}')
+            if args.normalization_file:
+                f.write(
+                    f',{norm_total_cer},{norm_total_cer_lower},{norm_total_cer_simple}')
+            if wbs:
+                f.write(
+                    f',{total_cer_wbs},{total_cer_wbs_lower},{total_cer_wbs_simple}')
+            f.write('\n')
 
     if args.do_inference:
         print('inferencing')
