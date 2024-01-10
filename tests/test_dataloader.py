@@ -244,9 +244,9 @@ class DataLoaderTest(unittest.TestCase):
             additional_lines)
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
