@@ -225,7 +225,10 @@ class DataLoader:
                         continue
                     if is_inference:
                         gtText = 'to be determined'
-                    elif self.normalization_file:
+
+                    # Normalize text if normalization file is provided and
+                    # we're training
+                    elif self.normalization_file and partition_name == 'train':
                         gtText = self.normalize(
                             lineSplit[1], self.normalization_file)
                     else:
