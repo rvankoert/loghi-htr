@@ -180,7 +180,7 @@ def main():
                             )
 
         print("creating generators")
-        training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
+        training_generator, evaluation_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Testing
         print(len(loader.charList))
@@ -301,15 +301,9 @@ def main():
         exit(1)
 
     if args.do_train:
-        validation_dataset = None
+        evaluation_dataset = None
         if args.validation_list:
-            validation_dataset = validation_generator
-
-            # Normalize validation dataset only during training
-            if args.normalization_file:
-                raise NotImplementedError(
-                    "Validation normalization not implemented yet")
-                # Recon
+            evaluation_dataset = evaluation_generator
 
         store_info(args, model)
 
@@ -320,7 +314,7 @@ def main():
         history = train_batch(
             model,
             training_dataset,
-            validation_dataset,
+            evaluation_dataset,
             epochs=args.epochs,
             output=args.output,
             model_name=model.name,

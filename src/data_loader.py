@@ -78,15 +78,19 @@ class DataLoader:
 
     def generators(self):
         chars = set()
-        partition = {'train': [], 'validation': [],
+        partition = {'train': [], 'evaluation': [], 'validation': [],
                      'test': [], 'inference': []}
-        labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
+        labels = {'train': [], 'evaluation': [], 'validation': [],
+                  'test': [], 'inference': []}
 
         if self.train_list:
             chars, train_files = self.create_data(
                 chars, labels, partition, 'train', self.train_list, use_multiply=True)
 
         if self.validation_list:
+            chars, evaluation_files = self.create_data(
+                chars, labels, partition, 'evaluation', self.validation_list)
+
             chars, validation_files = self.create_data(
                 chars, labels, partition, 'validation', self.validation_list)
 
@@ -128,6 +132,7 @@ class DataLoader:
                             }
 
         training_generator = None
+        evaluation_generator = None
         validation_generator = None
         test_generator = None
         inference_generator = None
@@ -138,6 +143,8 @@ class DataLoader:
             # Explicitly set train batches otherwise training is not initialised
             train_batches = np.ceil(len(train_files) / self.batch_size)
         if self.validation_list:
+            evaluation_generator = self.init_data_generator(
+                evaluation_files, non_train_params, deterministic=True)
             validation_generator = self.init_data_generator(
                 validation_files, non_train_params, deterministic=True)
         if self.test_list:
@@ -148,7 +155,7 @@ class DataLoader:
                 inference_files, non_train_params, deterministic=True)
 
         self.partition = partition
-        return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
+        return training_generator, evaluation_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
 
     def __init__(self,
                  batch_size,
@@ -227,8 +234,10 @@ class DataLoader:
                         gtText = 'to be determined'
 
                     # Normalize text if normalization file is provided and
-                    # we're training
-                    elif self.normalization_file and partition_name == 'train':
+                    # we're training or evaluating
+                    elif self.normalization_file and \
+                            (partition_name == 'train'
+                             or partition_name == 'evaluation'):
                         gtText = self.normalize(
                             lineSplit[1], self.normalization_file)
                     else:
