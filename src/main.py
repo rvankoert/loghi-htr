@@ -464,14 +464,16 @@ def main():
                         # Apply normalisation from DataLoader
                         original_text_normalised = loader.normalize(
                             original_text, args.normalization_file)
+                        predicted_text_normalised = loader.normalize(
+                            predicted_text, args.normalization_file)
 
                         # Calculate editdistance between original_text and pred
                         norm_current_editdistance = editdistance.eval(original_text_normalised,
-                                                                      predicted_text)
+                                                                      predicted_text_normalised)
 
                         # Calculate editdistance on lowercase original_text and pred
                         norm_current_editdistance_lower = editdistance.eval(original_text_normalised.lower(),
-                                                                            predicted_text.lower())
+                                                                            predicted_text_normalised.lower())
 
                         # Aggregate cer
                         norm_total_cer += norm_current_editdistance
