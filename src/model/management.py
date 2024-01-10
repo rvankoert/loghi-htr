@@ -3,14 +3,14 @@
 # > Standard library
 import argparse
 import logging
-from typing import Any, List, Dict
+import os
+from typing import Any, List, Dict, Optional
 
 # > Third-party dependencies
 import tensorflow as tf
 
 # > Local dependencies
-from utils.utils import load_model_from_directory
-from model.model import replace_final_layer, replace_recurrent_layer
+from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 
 
@@ -120,6 +120,55 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
         model = adjust_model_for_float32(model)
 
     return model
+
+
+def load_model_from_directory(directory: str,
+                              custom_objects: Optional[Dict[str, Any]] = None,
+                              compile: bool = True) -> tf.keras.Model:
+    """
+    Load a TensorFlow Keras model from a specified directory.
+
+    This function supports loading models in both the SavedModel format (.pb)
+    and the Keras format (.keras). It first searches for a .pb file to identify
+    a SavedModel. If not found, it looks for a .keras file.
+
+    Parameters
+    ----------
+    directory : str
+        The directory where the model is saved.
+    custom_objects : Optional[Dict[str, Any]], optional
+        Optional dictionary mapping names (strings) to custom classes or
+        functions to be considered during deserialization, by default None.
+    compile : bool, optional
+        Whether to compile the model after loading, by default True.
+
+    Returns
+    -------
+    tf.keras.Model
+        The loaded Keras model.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no suitable model file is found in the specified directory.
+    """
+
+    # Check for a .pb file (indicating SavedModel format)
+    if any(file.endswith('.pb') for file in os.listdir(directory)):
+        return tf.keras.models.load_model(directory,
+                                          custom_objects=custom_objects,
+                                          compile=compile)
+
+    # Look for a .keras file
+    model_file = next((os.path.join(directory, file) for file in os.listdir(
+        directory) if file.endswith(".keras")), None)
+
+    if model_file:
+        return tf.keras.models.load_model(model_file,
+                                          custom_objects=custom_objects,
+                                          compile=compile)
+
+    raise FileNotFoundError("No suitable model file found in the directory.")
 
 
 def load_or_create_model(args: argparse.Namespace,

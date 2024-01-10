@@ -42,12 +42,12 @@ class TestDataGenerator(unittest.TestCase):
         from data.generator import DataGenerator
         cls.DataGenerator = DataGenerator
 
-        from utils.utils import Utils
-        cls.utils = Utils
+        from utils.text import Tokenizer
+        cls.Tokenizer = Tokenizer
 
     def test_initialization(self):
-        utils = self.utils(chars="ABC", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batch_size=32, height=128)
+        tokenizer = self.Tokenizer(chars="ABC", use_mask=False)
+        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=32, height=128)
 
         # Verify that the instance variables are initialized correctly.
         self.assertEqual(dg.batch_size, 32)
@@ -65,8 +65,8 @@ class TestDataGenerator(unittest.TestCase):
     @patch("elasticdeform.tf.deform_grid")
     def test_elastic_transform(self, mock_deform_grid, mock_random_normal):
         # Create an instance of DataGeneratorNew2
-        utils = self.utils(chars="ABC", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batch_size=32, height=128)
+        tokenizer = self.Tokenizer(chars="ABC", use_mask=False)
+        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=32, height=128)
 
         # Mock return value for tf.random.normal
         mock_random_normal.return_value = np.zeros((2, 3, 3))
@@ -92,10 +92,10 @@ class TestDataGenerator(unittest.TestCase):
     @patch("tensorflow.image.decode_png", return_value=np.ones((100, 100, 3)))
     def test_load_with_distort(self, *mocks):
         # Create an instance of DataGeneratorNew2
-        utils = self.utils(chars="mock", use_mask=False)
+        tokenizer = self.Tokenizer(chars="mock", use_mask=False)
 
         height = 128
-        dg = self.DataGenerator(utils=utils, batch_size=32,
+        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=32,
                                 height=height, distort_jpeg=True)
 
         # Call the function
@@ -122,8 +122,8 @@ class TestDataGenerator(unittest.TestCase):
     def test_load_with_random_width(self, mock_uniform, mock_shape, *mocks):
         # Create an instance of DataGeneratorNew2
         height = 128
-        utils = self.utils(chars="mock", use_mask=False)
-        dg = self.DataGenerator(utils=utils, batch_size=32,
+        tokenizer = self.Tokenizer(chars="mock", use_mask=False)
+        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=32,
                                 height=height, random_width=True)
 
         # Call the function

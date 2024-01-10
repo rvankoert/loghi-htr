@@ -23,9 +23,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Test utils
+    - name: Test tokenizer
       run: |
-        python -m unittest tests/test_utils.py
+        python -m unittest tests/test_tokenizer.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 

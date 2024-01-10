@@ -67,9 +67,8 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         from model.vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
 
-        from model.custom_layers import CTCLayer, ResidualBlock
+        from model.custom_layers import ResidualBlock
         cls.ResidualBlock = ResidualBlock
-        cls.CTCLayer = CTCLayer
 
     def test_create_simple_model(self):
         # VGSL-spec string for a basic model with an input layer, a convolution

@@ -65,7 +65,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     args = config.args
 
     # Initial setup
-    logging.info(f"Running with config: {config}")
+    logging.info(f"Running with config:\n{config}")
 
     # Set the random seed
     if args.deterministic:
@@ -123,8 +123,6 @@ def setup_logging() -> None:
     tf_logger = tf.get_logger()
     while tf_logger.handlers:
         tf_logger.handlers.pop()
-    tf_logger.propagate = True
-    tf_logger.setLevel("ERROR")
 
 
 def initialize_strategy(use_float32: bool,

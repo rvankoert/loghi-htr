@@ -69,7 +69,8 @@ def train_model(model: tf.keras.Model,
         output_checkpoints=args.output_checkpoints,
         charlist=loader.charList,
         config=config,
-        verbosity_mode=args.training_verbosity_mode
+        verbosity_mode=args.training_verbosity_mode,
+        normalization_file=args.normalization_file
     )
 
     return history
@@ -89,7 +90,8 @@ def train_batch(model: tf.keras.Model,
                 output_checkpoints: bool = False,
                 config: Config = None,
                 charlist: Optional[List[str]] = None,
-                verbosity_mode: str = 'auto') -> tf.keras.callbacks.History:
+                verbosity_mode: str = 'auto',
+                normalization_file: str = None) -> tf.keras.callbacks.History:
     """
     Train a given Keras model using specified datasets and training
     configurations.
@@ -129,6 +131,8 @@ def train_batch(model: tf.keras.Model,
         List of characters involved in the training process.
     verbosity_mode : str, default 'auto'
         Verbosity mode, 'auto', 'silent', or 'verbose'.
+    normalization_file : str, optional
+        Path to the normalization file.
 
     Returns
     -------
@@ -153,7 +157,8 @@ def train_batch(model: tf.keras.Model,
                             save_checkpoint=output_checkpoints,
                             output=output,
                             charlist=charlist,
-                            config=config)
+                            config=config,
+                            normalization_file=normalization_file)
 
     # Add all default callbacks
     callbacks = [logging_callback, loghi_custom_callback]

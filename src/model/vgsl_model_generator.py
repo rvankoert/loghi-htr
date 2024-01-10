@@ -6,7 +6,7 @@ import re
 import logging
 
 # > Local dependencies
-from model.custom_layers import CTCLayer, ResidualBlock
+from model.custom_layers import ResidualBlock
 
 # > Third party dependencies
 import tensorflow as tf
@@ -245,7 +245,7 @@ class VGSLModelGenerator:
                 x = getattr(self, layer)(x)
         output = layers.Activation('linear', dtype=tf.float32)(x)
 
-        logging.info("Model has been built\n")
+        logging.info("Model has been built")
 
         return models.Model(inputs=self.inputs,
                             outputs=output,
@@ -1311,7 +1311,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    from model.model import CERMetric, WERMetric, CTCLoss
+    from model.metrics import CERMetric, WERMetric
+    from model.losses import CTCLoss
 
     # Load the model
     model = tf.keras.models.load_model(args.model_dir,

@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard Library
+import logging
 import random
 from typing import Tuple
 
@@ -18,7 +19,7 @@ import numpy as np
 class DataGenerator(tf.keras.utils.Sequence):
 
     def __init__(self,
-                 utils,
+                 tokenizer,
                  batch_size,
                  height=64,
                  do_binarize_sauvola=False,
@@ -32,7 +33,6 @@ class DataGenerator(tf.keras.utils.Sequence):
                  do_blur=False,
                  do_invert=False
                  ):
-        print(height)
 
         self.batch_size = batch_size
         self.do_binarize_sauvola = do_binarize_sauvola
@@ -41,7 +41,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.random_crop = random_crop
         self.random_width = random_width
         self.distort_jpeg = distort_jpeg
-        self.utils = utils
+        self.tokenizer = tokenizer
         self.height = height
         self.channels = channels
         self.do_random_shear = do_random_shear
@@ -157,7 +157,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         kernel_size = (11, 11)
         sigma_x = 0.0
         sigma_y = 20.0
-        blurred_image = cv2.GaussianBlur(image.numpy(), kernel_size, sigma_x, sigma_y)
+        blurred_image = cv2.GaussianBlur(
+            image.numpy(), kernel_size, sigma_x, sigma_y)
         return blurred_image
         # return tfa.image.gaussian_filter2d(tensor, sigma=[0.0, 20.0], filter_shape=(10, 10))
 
@@ -246,10 +247,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         try:
             image = tf.image.decode_png(image, channels=self.channels)
         except ValueError:
-            print("Invalid number of channels. "
-                  "Supported values are 1, 3, or 4.")
-        image = tf.image.resize(
-            image, (self.height, 99999), preserve_aspect_ratio=True) / 255.0
+            logging.error("Invalid number of channels. "
+                          "Supported values are 1, 3, or 4.")
+        image = tf.image.resize(image, (self.height, 99999),
+                                preserve_aspect_ratio=True) / 255.0
 
         if self.distort_jpeg:
             if self.channels == 4:
@@ -325,8 +326,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             image = self.invert(image)
 
         label = image_path[1]
-        encoded_label = self.utils.char_to_num(
-            tf.strings.unicode_split(label, input_encoding="UTF-8"))
+        encoded_label = self.tokenizer(label)
 
         label_counter = 0
         last_char = None

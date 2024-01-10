@@ -18,7 +18,7 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
-from utils.utils import load_model_from_directory  # noqa: E402
+from model.management import load_model_from_directory  # noqa: E402
 
 
 def create_model(model_path: str, strategy: tf.distribute.Strategy) \
@@ -147,7 +147,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     - Logs various messages regarding the batch processing status.
     """
 
-    logging.info("Batch Prediction Worker process started")
+    logging.info("Batch prediction process started")
 
     # If all GPUs support mixed precision, enable it
     mixed_precision_enabled = setup_gpu_environment(gpus)
@@ -196,7 +196,7 @@ def handle_batch_prediction(model: tf.keras.Model,
 
     Parameters:
     -----------
-    model : Any
+    model : tf.keras.Model
         The loaded model for predictions.
     predicted_queue : multiprocessing.Queue
         Queue where predictions are sent.

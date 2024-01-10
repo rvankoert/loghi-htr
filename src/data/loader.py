@@ -1,12 +1,11 @@
 # Imports
 
 # > Standard library
-from __future__ import division
-from __future__ import print_function
+import logging
 
 # > Local dependencies
 from data.generator import DataGenerator
-from utils.utils import Utils
+from utils.text import Tokenizer
 
 # > Third party dependencies
 import tensorflow as tf
@@ -100,14 +99,14 @@ class DataLoader:
 
         # list of all chars in dataset
         if self.injected_charlist and not self.replace_final_layer:
-            print('using injected charlist')
+            logging.info('Using injected charlist')
             self.charList = self.injected_charlist
         else:
             self.charList = sorted(list(chars))
 
-        self.utils = Utils(self.charList, self.use_mask)
+        self.tokenizer = Tokenizer(self.charList, self.use_mask)
 
-        train_params = {'utils': self.utils,
+        train_params = {'tokenizer': self.tokenizer,
                         'height': self.height,
                         'batch_size': self.batch_size,
                         'channels': self.channels,
@@ -119,7 +118,7 @@ class DataLoader:
                         'distort_jpeg': self.distort_jpeg,
                         'do_random_shear': self.do_random_shear
                         }
-        non_train_params = {'utils': self.utils,
+        non_train_params = {'tokenizer': self.tokenizer,
                             'batch_size': self.batch_size,
                             'height': self.height,
                             'channels': self.channels,
@@ -149,7 +148,7 @@ class DataLoader:
 
         self.partition = partition
         return training_generator, validation_generator, test_generator, \
-            inference_generator, self.utils, int(train_batches)
+            inference_generator, self.tokenizer, int(train_batches)
 
     def __init__(self,
                  batch_size,
@@ -208,8 +207,7 @@ class DataLoader:
         files = []
         for sublist in data_file_list.split():
             if not os.path.exists(sublist):
-                print(sublist + "does not exist, enter a valid filename. exiting...")
-                exit(1)
+                raise FileNotFoundError(f"{sublist} does not exist")
             with open(sublist) as f:
                 counter = 0
                 for line in f:
@@ -221,8 +219,10 @@ class DataLoader:
 
                     # filename
                     fileName = lineSplit[0]
-                    if not include_missing_files and self.check_missing_files and not os.path.exists(fileName):
-                        print("missing: " + fileName)
+                    if not include_missing_files and self.check_missing_files \
+                            and not os.path.exists(fileName):
+                        logging.warning(f"Missing: {fileName} in {sublist}. "
+                                        "Skipping...")
                         continue
                     if is_inference:
                         gtText = 'to be determined'
@@ -235,11 +235,14 @@ class DataLoader:
                     if not include_unsupported_chars and self.injected_charlist and not self.replace_final_layer:
                         for char in gtText:
                             if char not in self.injected_charlist:
-                                print('a ignoring line: ' + gtText)
+                                logging.warning("Unsupported character: "
+                                                f"{char} in {gtText}. "
+                                                "Skipping...")
                                 ignoreLine = True
                                 break
                     if ignoreLine or len(gtText) == 0:
-                        print(line)
+                        logging.warning(f"Empty ground truth on {line}. "
+                                        "Skipping...")
                         continue
                     counter = counter + 1
                     if use_multiply:
@@ -254,24 +257,10 @@ class DataLoader:
                     if not self.injected_charlist or self.replace_final_layer:
                         chars = chars.union(
                             set(char for label in gtText for char in label))
-                print('found ' + str(counter) +
-                      ' lines suitable for ' + partition_name)
-        return chars, files
 
-    @staticmethod
-    def truncate_label(text, max_text_len):
-        # ctc_loss can't compute loss if it cannot find a mapping between text label and input
-        # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
-        # If a too-long label is provided, ctc_loss returns an infinite gradient
-        cost = 0
-        for i in range(len(text)):
-            if i != 0 and text[i] == text[i - 1]:
-                cost += 2
-            else:
-                cost += 1
-            if cost > max_text_len:
-                return text[:i]
-        return text
+                logging.info(f"Found {counter} lines suitable for "
+                             f"{partition_name}")
+        return chars, files
 
     def get_item(self, partition, item_id):
         return self.partition[partition][item_id]

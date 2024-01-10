@@ -15,15 +15,15 @@ from data.loader import DataLoader
 from model.management import get_prediction_model
 from utils.calculate import calculate_confidence_intervals, \
     calculate_edit_distances, process_cer_type, process_prediction_type
+from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
-from utils.text import preprocess_text
-from utils.utils import Utils, decode_batch_predictions, normalize_confidence
+from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
 def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   prediction_model: tf.keras.Model,
-                  utils_object: Utils,
+                  tokenizer: Tokenizer,
                   args: argparse.Namespace,
                   wbs: Optional[Any],
                   loader: DataLoader,
@@ -40,8 +40,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         batch.
     prediction_model : tf.keras.Model
         The prediction model derived from the main model for inference.
-    utils_object : Utils
-        An object containing utility functions for character processing.
+    tokenizer : Tokenizer
+        A tokenizer object for converting between characters and integers.
     args : argparse.Namespace
         A namespace containing arguments for processing the batch, like batch
         size and settings for WBS.
@@ -65,10 +65,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     X, y_true = batch
 
     # Get the predictions
-    predictions = prediction_model.predict(X, verbose=0)
+    predictions = prediction_model.predict_on_batch(X)
     y_pred = decode_batch_predictions(
-        predictions, utils_object, args.greedy,
-        args.beam_width, args.num_oov_indices)[0]
+        predictions, tokenizer, args.greedy,
+        args.beam_width, args.num_oov_indices)
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
@@ -78,17 +78,13 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         char_str = None
 
     # Get the original texts
-    orig_texts = [tf.strings.reduce_join(utils_object.num_to_char(label))
-                  .numpy().decode("utf-8").strip() for label in y_true]
+    orig_texts = tokenizer.decode(y_true)
 
     # Initialize the batch info
     batch_info = defaultdict(int)
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
-        # Normalize the confidence before processing because it was determined
-        # on the original prediction
-        normalized_confidence = normalize_confidence(confidence, prediction)
 
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
@@ -107,7 +103,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
             wbs_str = char_str[index] if wbs else None
             print_predictions(filename, original_text,
                               prediction, wbs_str)
-            logging.info(f"Confidence = {normalized_confidence:.4f}")
+            logging.info(f"Confidence = {confidence:.4f}")
             logging.info("")
 
         batch_info = process_prediction_type(prediction,
@@ -174,7 +170,7 @@ def perform_validation(args: argparse.Namespace,
 
     logging.info("Performing validation...")
 
-    utils_object = Utils(char_list, args.use_mask)
+    tokenizer = Tokenizer(char_list, args.use_mask)
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
@@ -190,25 +186,25 @@ def perform_validation(args: argparse.Namespace,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         # Logic for processing each batch, calculating CER, etc.
-        batch_info = process_batch(batch, prediction_model, utils_object, args,
+        batch_info = process_batch(batch, prediction_model, tokenizer, args,
                                    wbs, dataloader, batch_no, char_list)
         metrics, batch_stats, total_stats = [], [], []
 
         # Calculate the CER
-        total_counter, metrics, batch_stats, total_stats \
+        total_counter, metrics, batch_stats, total_stats\
             = process_cer_type(
                 batch_info, total_counter, metrics, batch_stats, total_stats)
 
         # Calculate the normalized CER
         if args.normalization_file:
-            total_normalized_counter, metrics, batch_stats, total_stats \
+            total_normalized_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(
                     batch_info, total_normalized_counter, metrics, batch_stats,
                     total_stats, prefix="Normalized")
 
         # Calculate the WBS CER
         if wbs:
-            total_wbs_counter, metrics, batch_stats, total_stats \
+            total_wbs_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(
                     batch_info, total_wbs_counter, metrics, batch_stats,
                     total_stats, prefix="WBS")

@@ -10,7 +10,6 @@ import time
 import uuid
 
 # > Third-party dependencies
-import numpy as np
 import tensorflow as tf
 
 
@@ -43,7 +42,7 @@ def image_preparation_worker(batch_size: int,
     - Logs various messages regarding the image preparation status.
     """
 
-    logging.info("Image Preparation Worker process started")
+    logging.info("Image preparation process started")
 
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
@@ -140,10 +139,12 @@ def get_model_channels(config_path: str) -> int:
 
 
 def handle_model_change(prepared_queue: multiprocessing.Queue,
+                        request_queue: multiprocessing.Queue,
                         batch_images: list,
                         batch_groups: list,
                         batch_identifiers: list,
                         batch_metadata: list,
+                        old_channels: int,
                         new_model: str,
                         old_model: str) -> (int, str):
     """
@@ -153,6 +154,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
     ----------
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
+    request_queue : multiprocessing.Queue
+        Queue from which raw images are fetched.
     batch_images : list
         Current batch of images being processed.
     batch_groups : list
@@ -161,6 +164,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
         Identifiers for each image in the batch.
     batch_metadata : list
         Metadata for each image in the batch.
+    old_channels : int
+        Number of channels for the old model.
     new_model : str
         Path of the new model.
     old_model : str
@@ -183,7 +188,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
             f"Processing the current batch of {len(batch_images)} images "
             "before model change.")
         pad_and_queue_batch(old_model, batch_images, batch_groups,
-                            batch_identifiers, batch_metadata, prepared_queue)
+                            batch_identifiers, batch_metadata, old_channels,
+                            prepared_queue, request_queue)
 
         # Clearing the current batch
         batch_images.clear()
@@ -265,6 +271,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             if new_model and new_model != current_model:
                 num_channels, current_model = \
                     handle_model_change(prepared_queue,
+                                        request_queue,
                                         batch_images,
                                         batch_groups,
                                         batch_identifiers,
@@ -272,8 +279,6 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                                         new_model,
                                         current_model)
 
-            # Prepare the image
-            image = prepare_image(image, num_channels)
             batch_images.append(image)
             batch_groups.append(group)
             batch_identifiers.append(identifier)
@@ -301,7 +306,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
 
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,
-                        batch_identifiers, batch_metadata, prepared_queue)
+                        batch_identifiers, batch_metadata, num_channels,
+                        prepared_queue, request_queue)
 
     return num_channels, current_model, metadata, old_whitelist
 
@@ -320,7 +326,7 @@ def prepare_image(image_bytes: bytes,
         Raw bytes of the image.
     num_channels : int
         Number of channels desired for the output image (e.g., 1 for grayscale,
-        3 for RGB).
+        3 for RGB, 4 for RGBA).
 
     Returns
     -------
@@ -328,7 +334,8 @@ def prepare_image(image_bytes: bytes,
         Prepared image tensor.
     """
 
-    image = tf.io.decode_image(image_bytes, channels=num_channels)
+    image = tf.io.decode_image(image_bytes, channels=num_channels,
+                               expand_animations=False)
 
     # Resize while preserving aspect ratio
     target_height = 64
@@ -417,7 +424,9 @@ def pad_and_queue_batch(model_path: str,
                         batch_groups: list,
                         batch_identifiers: list,
                         batch_metadata: list,
-                        prepared_queue: multiprocessing.Queue) -> None:
+                        channels: int,
+                        prepared_queue: multiprocessing.Queue,
+                        request_queue: multiprocessing.Queue) -> None:
     """
     Pad and queue a batch of images for prediction.
 
@@ -433,88 +442,37 @@ def pad_and_queue_batch(model_path: str,
         List of identifiers for the images.
     batch_metadata : list
         List of metadata for the images.
+    channels : int
+        Number of channels for the images.
     prepared_queue : multiprocessing.Queue
         Queue to which the padded batch should be pushed.
+    request_queue : multiprocessing.Queue
+        Queue from which raw images are fetched.
     """
 
     # Generate a unique identifier for the batch
     batch_id = str(uuid.uuid4())
 
+    # Convert the batch to a TensorFlow dataset
+    dataset = tf.data.Dataset.from_tensor_slices(batch_images)
+
+    # Preprocess the images
+    dataset = dataset.map(lambda image: prepare_image(image, channels),
+                          num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     # Pad the batch
-    padded_batch = pad_batch(batch_images)
+    dataset = dataset.padded_batch(len(batch_images),
+                                   padded_shapes=(
+                                       [None, None, channels]),
+                                   padding_values=(
+                                       tf.constant(-10, dtype=tf.float32)))
+
+    # Convert the dataset to a padded batch
+    padded_batch = next(iter(dataset))
 
     # Push the prepared batch to the prepared_queue
     prepared_queue.put((padded_batch, batch_groups, batch_identifiers,
                         batch_metadata, model_path, batch_id))
     logging.info(f"Prepared batch {batch_id} ({len(batch_images)} items) for "
                  "prediction")
-    logging.debug(f"{prepared_queue.qsize()} batches ready for prediction")
-
-
-def pad_batch(batch_images: list) -> np.ndarray:
-    """
-    Pad a batch of images to the same width.
-
-    Parameters
-    ----------
-    batch_images : list
-        Batch of images to be padded.
-
-    Returns
-    -------
-    np.ndarray
-        Batch of padded images.
-    """
-
-    # Determine the maximum width among all images in the batch
-    max_width = max(image.shape[0] for image in batch_images)
-
-    # Resize each image in the batch to the maximum width
-    for i in range(len(batch_images)):
-        batch_images[i] = pad_to_width(batch_images[i], max_width, -10)
-
-    batch_images = tf.convert_to_tensor(batch_images)
-
-    return batch_images
-
-
-def pad_to_width(image: tf.Tensor, target_width: int, pad_value: float):
-    """
-    Pads a transposed image (where the first dimension is width) to a specified
-    target width, adding padding equally on the top and bottom sides of the
-    image. The padding is applied such that the image content is centered.
-
-    Parameters
-    ----------
-    image : tf.Tensor
-        A 3D TensorFlow tensor representing an image, where the image is
-        already transposed such that the width is the first dimension and the
-        height is the second dimension.
-        The shape of the tensor is expected to be [width, height, channels].
-    target_width : int
-        The target width to which the image should be padded. If the current
-        width of the image is greater than this value, no padding will be
-        added.
-    pad_value : float
-        The scalar value to be used for padding.
-
-    Returns
-    -------
-    tf.Tensor
-        A 3D TensorFlow tensor of the same type as the input 'image', with
-        padding applied to reach the target width. The shape of the output
-        tensor will be [target_width, original_height, channels].
-    """
-    current_width = tf.shape(image)[0]
-
-    # Calculate the padding size
-    pad_width = target_width - current_width
-
-    # Ensure no negative padding
-    pad_width = max(pad_width, 0)
-
-    # Configure padding to add only on the right side
-    padding = [[0, pad_width], [0, 0], [0, 0]]
-
-    # Pad the image
-    return tf.pad(image, padding, "CONSTANT", constant_values=pad_value)
+    logging.info(f"{request_queue.qsize()} items waiting to be processed")

@@ -2,26 +2,28 @@
 
 # > Standard Library
 import os
+import sys
 import random
 from pathlib import Path
-import sys
 
-# > Local dependencies
-from vis_arg_parser import get_args
-
-# Add the above directory to the path so it can be used when ran from root dir
-sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
-from vis_utils import prep_image_for_model, init_pre_trained_model
-
-# > Third party libraries
+# > Third-party dependencies
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
+
+# > Local dependencies
+# Add the above directory to the path so it can be used when ran from root dir
+sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
+
+from vis_arg_parser import get_args  # noqa: E402
+from vis_utils import prep_image_for_model, init_pre_trained_model  # noqa: E402
 
 
-def visualize_filter(filter_index, channels, feature_extractor, image_width=256):
+def visualize_filter(filter_index, channels,
+                     feature_extractor, image_width=256):
     """
-    Visualize the activation of a specific filter in a convolutional layer using gradient ascent.
+    Visualize the activation of a specific filter in a convolutional layer
+    using gradient ascent.
 
     Parameters
     ----------
@@ -41,14 +43,17 @@ def visualize_filter(filter_index, channels, feature_extractor, image_width=256)
         - loss : tf.Tensor
             The loss value associated with the filter activation.
         - img : numpy.ndarray
-            The visualized image showing the activation of the specified filter.
+            The visualized image showing the activation of the specified
+            filter.
 
     Examples
     --------
     >>> filter_idx = 0
     >>> num_channels = 3
-    >>> resnet50_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False)
-    >>> loss_value, visualization = visualize_filter(filter_idx, num_channels, resnet50_model)
+    >>> resnet50_model = tf.keras.applications.ResNet50(weights='imagenet',
+    ... include_top=False)
+    >>> loss_value, visualization = visualize_filter(filter_idx, num_channels,
+    ... resnet50_model)
     # Returns a tuple with the loss value and the visualized image.
     """
     iterations = 20
@@ -84,7 +89,8 @@ def deprocess_image(img):
 
     Notes
     -----
-    This function reverses the preprocessing steps applied to an image for visualization purposes.
+    This function reverses the preprocessing steps applied to an image for
+    visualization purposes.
 
     Examples
     --------
@@ -112,7 +118,8 @@ def select_number_of_row_plots(model, do_detailed=False):
     tuple
         A tuple containing the following elements:
         - layer_info : list
-            Information about selected layers, including name, kernel size, and filters.
+            Information about selected layers, including name, kernel size, and
+            filters.
         - sub_list_indices : list
             Indices of selected layers in the original layer list.
         - conv_layers : list
@@ -120,21 +127,25 @@ def select_number_of_row_plots(model, do_detailed=False):
 
     Notes
     -----
-    This function analyzes the layers of a given model and selects layers for plotting.
-    If detailed analysis is requested, it returns information for all convolutional layers;
-    otherwise, it selects layers based on unique filter values.
+    This function analyzes the layers of a given model and selects layers for
+    plotting. If detailed analysis is requested, it returns information for all
+    convolutional layers; otherwise, it selects layers based on unique filter
+    values.
 
     Examples
     --------
-    >>> model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False)
+    >>> model = tf.keras.applications.ResNet50(weights='imagenet',
+    ... include_top=False)
     >>> layer_info, indices = select_number_of_row_plots(model, True)
     # Returns a tuple with information about selected layers and their indices.
     """
     layer_info = [{"layer_name": layer.name.lower(),
                    "kernel_size": str(layer.kernel_size),
                    "filters": str(layer.filters)}
-                  for layer in model.layers if layer.name.lower().startswith("conv")]
-    conv_layers = [layer for layer in model.layers if layer.name.lower().startswith("conv")]
+                  for layer in model.layers if
+                  layer.name.lower().startswith("conv")]
+    conv_layers = [layer for layer in model.layers
+                   if layer.name.lower().startswith("conv")]
     if not do_detailed:
         filter_occurrence_dict = {}
         sub_list_indices = []
@@ -164,80 +175,110 @@ def main(args=None):
     num_filters_per_row = args.num_filters_per_row  # Number of filters per row
 
     # Get the conv layer info, indices in layer list and the actual conv layers
-    layer_info, sub_list_indices, conv_layers = select_number_of_row_plots(model)
+    layer_info, sub_list_indices, conv_layers = select_number_of_row_plots(
+        model)
 
     # Top level plot
     if not args.light_mode:
         plt.style.use('dark_background')
-    fig = plt.figure(figsize=(5 * num_filters_per_row, num_filters_per_row), dpi=200)
+    fig = plt.figure(figsize=(5 * num_filters_per_row,
+                     num_filters_per_row), dpi=200)
     sub_figs = fig.subfigures(len(layer_info), 1)
 
     # Get layout parameters for later plots
     fig.tight_layout()
-    dic = {par: getattr(fig.subplotpars, par) for par in ["left", "right", "bottom", "wspace"]}
+    dic = {par: getattr(fig.subplotpars, par)
+           for par in ["left", "right", "bottom", "wspace"]}
 
     # Set base row_index
     row_index = 0
 
     # Select relevant layers
-    layer_list = conv_layers if len(sub_list_indices) == 0 else [conv_layers[i] for i in sub_list_indices]
+    layer_list = conv_layers if len(sub_list_indices) == 0 else [
+        conv_layers[i] for i in sub_list_indices]
 
     for layer in layer_list:
         print("Plotting filters for layer: ", layer_info[row_index])
-        feature_extractor = tf.keras.Model(inputs=model.inputs, outputs=layer.output)
+        feature_extractor = tf.keras.Model(
+            inputs=model.inputs, outputs=layer.output)
 
         # Set subplot layout
         num_subplot_rows = 2 if args.sample_image_path else 1
-        filter_plot = sub_figs[row_index].subplots(num_subplot_rows, num_filters_per_row)
+        filter_plot = sub_figs[row_index].subplots(
+            num_subplot_rows, num_filters_per_row)
         filter_cmap = 'viridis' if model_channels > 1 else 'gray'
 
+        selected_filters = int(layer_info[row_index].get("filters"))
+
         # Randomly select filter indices
-        if num_filters_per_row > len(range(int(layer_info[row_index].get("filters")))):
-            raise ValueError("The num_filters_per_row is higher than the number of filters in the conv layer, "
-                             "please select a lower num_filters_per_row")
-        random_filter_indices = random.sample(range(int(layer_info[row_index].get("filters"))), num_filters_per_row)
+        if num_filters_per_row > selected_filters:
+            raise ValueError("The num_filters_per_row is higher than the "
+                             "number of filters in the conv layer, please "
+                             "select a lower num_filters_per_row")
+        random_filter_indices = random.sample(range(selected_filters),
+                                              num_filters_per_row)
         filter_images = []
         feature_maps = []
         for filter_index in range(num_filters_per_row):
             try:
                 if args.sample_image_path:
                     if not os.path.exists(args.sample_image_path):
-                        raise FileNotFoundError("Please provide a valid path to a sample image, you provided: "
+                        raise FileNotFoundError("Please provide a valid path "
+                                                "to a sample image, you "
+                                                "provided: "
                                                 + args.sample_image_path)
                     img_path = args.sample_image_path
 
                     # Prepare image based on model channels
-                    img, image_width, image_height = prep_image_for_model(img_path, model_channels)
+                    img, image_width, image_height = prep_image_for_model(
+                        img_path, model_channels)
                     maps = feature_extractor.predict(img)
 
                     # Add the filter images
-                    _, img = visualize_filter(random_filter_indices[filter_index],
-                                              model_channels,
-                                              feature_extractor,
-                                              image_width)
+                    _, img = visualize_filter(
+                        random_filter_indices[filter_index],
+                        model_channels,
+                        feature_extractor,
+                        image_width
+                    )
                     filter_images.append(img)
 
                     # Add the feature maps
-                    feature_maps.append(maps[0, :, :, random_filter_indices[filter_index]].T)
+                    feature_maps.append(
+                        maps[0, :, :, random_filter_indices[filter_index]].T)
 
-                    # If filter_plot has 2 rows then fill each row else do the regular one
-                    filter_plot[0, filter_index].imshow(filter_images[filter_index], cmap=filter_cmap)
-                    filter_plot[0, filter_index].set_title("Conv Filter: " + str(filter_index))
-                    filter_plot[1, filter_index].imshow(feature_maps[filter_index], cmap='viridis')
-                    filter_plot[1, filter_index].set_title("Layer Activations: " + str(filter_index))
+                    # If filter_plot has 2 rows then fill each row else do the
+                    # regular one
+                    filter_plot[0, filter_index].imshow(
+                        filter_images[filter_index], cmap=filter_cmap)
+                    filter_plot[0, filter_index].set_title(
+                        "Conv Filter: " + str(filter_index))
+                    filter_plot[1, filter_index].imshow(
+                        feature_maps[filter_index], cmap='viridis')
+                    filter_plot[1, filter_index].set_title(
+                        "Layer Activations: " + str(filter_index))
 
                 else:
                     # Add the filter images
-                    _, img = visualize_filter(random_filter_indices[filter_index], feature_extractor, model_channels)
+                    _, img = visualize_filter(
+                        random_filter_indices[filter_index],
+                        feature_extractor,
+                        model_channels
+                    )
                     filter_images.append(img)
 
                     # Individual plot level
-                    filter_plot[filter_index].imshow(filter_images[filter_index], cmap=filter_cmap)
-                    filter_plot[filter_index].set_title("Conv Filter: " + str(filter_index))
+                    filter_plot[filter_index].imshow(
+                        filter_images[filter_index], cmap=filter_cmap)
+                    filter_plot[filter_index].set_title(
+                        "Conv Filter: " + str(filter_index))
             except IndexError:
-                print("filter_index has surpassed the filters in the layer, select a lower number of filters to plot")
+                raise IndexError("filter_index has surpassed the filters in "
+                                 "the layer, select a lower number of filters "
+                                 "to plot")
 
-        # Fix layout parameters and keep some extra space at the top for suptitle
+        # Fix layout parameters and keep some extra space at the top for
+        # suptitle
         fig.subplots_adjust(**dic, top=0.7, hspace=0.5)
 
         # Disable axes
@@ -246,8 +287,10 @@ def main(args=None):
 
         # Display the layer_name above the subplots
         layer_info_dict = layer_info[row_index]
-        sub_figs[row_index].suptitle(f"{layer_info_dict.get('layer_name')}: kernel_size: "
-                                     f"{layer_info_dict.get('kernel_size')}: filters: "
+        sub_figs[row_index].suptitle(f"{layer_info_dict.get('layer_name')}: "
+                                     "kernel_size: "
+                                     f"{layer_info_dict.get('kernel_size')}: "
+                                     "filters: "
                                      f"{layer_info_dict.get('filters')}",
                                      fontsize=20)
         row_index += 1
@@ -256,11 +299,17 @@ def main(args=None):
             os.makedirs(Path(__file__).with_name("visualize_plots"))
 
         output_name = (model.name
-                       + ("_1channel" if model_channels == 1 else "_" + str(model_channels) + "channels")
-                       + ("_filters_act" if args.sample_image_path else "_filters")
-                       + ("_light" if args.light_mode else "_dark")
-                       + ("_detailed.png" if args.do_detailed else ".png"))
-        plt.savefig(os.path.join(str(Path(__file__).with_name("visualize_plots")) + "/" + output_name),
+                       + ("_1channel" if model_channels == 1
+                          else "_" + str(model_channels) + "channels")
+                       + ("_filters_act" if args.sample_image_path
+                          else "_filters")
+                       + ("_light" if args.light_mode
+                          else "_dark")
+                       + ("_detailed.png" if args.do_detailed
+                          else ".png"))
+        plt.savefig(os.path.join(str(Path(__file__)
+                                     .with_name("visualize_plots"))
+                                 + "/" + output_name),
                     bbox_inches='tight')
 
 

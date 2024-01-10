@@ -8,8 +8,9 @@ from typing import List
 # > Local dependencies
 from data.generator import DataGenerator
 from data.loader import DataLoader
-from utils.utils import Utils, decode_batch_predictions, normalize_confidence
+from utils.decoding import decode_batch_predictions
 from model.management import get_prediction_model
+from utils.text import Tokenizer
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -47,7 +48,7 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
     results.
     """
 
-    utils_object = Utils(char_list, args.use_mask)
+    tokenizer = Tokenizer(char_list, args.use_mask)
     prediction_model = get_prediction_model(model)
 
     with open(args.results_file, "w") as results_file:
@@ -55,16 +56,11 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
             # Get the predictions
             predictions = prediction_model.predict(batch[0], verbose=0)
             y_pred = decode_batch_predictions(
-                predictions, utils_object, args.greedy,
-                args.beam_width, args.num_oov_indices)[0]
+                predictions, tokenizer, args.greedy,
+                args.beam_width, args.num_oov_indices)
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):
-                # Normalize the confidence before processing because it was
-                # determined on the original prediction
-                normalized_confidence = normalize_confidence(
-                    confidence, prediction)
-
                 # Remove the special characters from the prediction
                 prediction = prediction.strip().replace('', '')
 
@@ -73,8 +69,7 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
                     'inference', (batch_no * args.batch_size) + index)
 
                 # Write the results to the results file
-                result_str = f"{filename}\t{normalized_confidence}\t" \
-                    f"{prediction}"
+                result_str = f"{filename}\t{confidence}\t{prediction}"
                 logging.info(result_str)
                 results_file.write(result_str+"\n")
 

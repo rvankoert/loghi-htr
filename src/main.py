@@ -13,7 +13,8 @@ from data.data_handling import load_initial_charlist, initialize_data_loader, \
 # Model-specific
 from model.custom_layers import ResidualBlock
 from modes.inference import perform_inference
-from model.model import CERMetric, WERMetric, CTCLoss
+from model.losses import CTCLoss
+from model.metrics import CERMetric, WERMetric
 from model.management import load_or_create_model, customize_model, \
     verify_charlist_length
 from model.optimization import create_learning_rate_schedule, get_optimizer
@@ -25,6 +26,7 @@ from setup.arg_parser import get_args
 from setup.config import Config
 from setup.environment import setup_environment, setup_logging
 
+# Utilities
 from utils.print import summarize_model
 
 
@@ -64,7 +66,7 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, validation_dataset, test_dataset, \
-            inference_dataset, utilsObject, train_batches \
+            inference_dataset, tokenizer, train_batches \
             = loader.generators()
 
         # Replace the charlist with the one from the data loader
