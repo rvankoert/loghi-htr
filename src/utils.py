@@ -26,8 +26,8 @@ class Utils:
 
     def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
         self.charList = chars
-        if num_oov_indices > 0:
-            self.charList.insert(1, '[UNK]')
+        # if num_oov_indices > 0:
+        # self.charList.insert(1, '[UNK]')
         if not self.charList:
             print('no charlist :(')
             return
