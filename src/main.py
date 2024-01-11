@@ -177,11 +177,10 @@ def main():
                             normalization_file=args.normalization_file,
                             use_mask=args.use_mask,
                             do_random_shear=args.do_random_shear,
-                            num_oov_indices=args.num_oov_indices,
                             )
 
         print("creating generators")
-        training_generator, evaluation_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
+        training_generator, evaluation_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches, val_labels = loader.generators()
 
         # Testing
         print(len(loader.charList))
@@ -400,10 +399,10 @@ def main():
         total_cer_wbs = total_cer_wbs_lower = total_cer_wbs_simple = 0
         batch_no = pred_counter = 0
 
-        for batch in validation_dataset:
+        for batch_no, batch in enumerate(validation_dataset):
             predictions = prediction_model.predict(batch[0])
-            predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
-                                                       args.num_oov_indices)
+            predicted_texts = decode_batch_predictions(
+                predictions, utilsObject, args.greedy, args.beam_width)
             predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
 
             if wbs:
@@ -413,13 +412,11 @@ def main():
                             for curr_label_str in label_str]
                 [print(s) for s in char_str]
 
-            orig_texts = [tf.strings.reduce_join(utilsObject.num_to_char(label)).numpy().decode("utf-8").strip() for
-                          label in batch[1]]
-
             for prediction in predicted_texts:
                 for i in range(len(prediction)):
-                    confidence, predicted_text, original_text = prediction[
-                        i][0], prediction[i][1], orig_texts[i]
+                    confidence, predicted_text, original_text = \
+                        prediction[i][0], prediction[i][1], \
+                        val_labels[i + (batch_no * args.batch_size)]
 
                     original_text = original_text.strip().replace('', '')
                     predicted_text = predicted_text.strip().replace('', '')
@@ -626,11 +623,6 @@ def main():
     if args.test_list:
         print("testing")
         utilsObject = Utils(char_list, args.use_mask)
-
-        # Set charlist in utilsObject with num_oov_indices because it is not
-        # an arg for the Utils constructor
-        utilsObject.set_charlist(
-            char_list, args.use_mask, args.num_oov_indices)
         test_dataset = test_generator
 
         # Get the prediction model by taking the last dense layer of the full
@@ -676,10 +668,10 @@ def main():
         batch_no = pred_counter = 0
 
         for batch in test_dataset:
-            print(f"Batch {batch_no+1} / {len(test_dataset)}", end='\r')
+            print(f"Batch {batch_no+1} / {len(test_dataset)}")
             predictions = prediction_model.predict(batch[0])
-            predicted_texts = decode_batch_predictions(predictions, utilsObject, args.greedy, args.beam_width,
-                                                       args.num_oov_indices)
+            predicted_texts = decode_batch_predictions(
+                predictions, utilsObject, args.greedy, args.beam_width)
             predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
 
             if wbs:
