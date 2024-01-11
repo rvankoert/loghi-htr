@@ -63,6 +63,12 @@ def get_arg_parser():
                                "transcriptions for training. Use "
                                "space-separated quotes for multiple files: "
                                "'training_file1.txt training_file2.txt'.")
+    general_args.add_argument('--test_list', metavar='test_list',
+                              type=str, default=None, help="File(s) with "
+                              "textline locations and transcriptions for "
+                              "testing. For multiple files, separate with "
+                              "spaces and use quotes: 'test_file1.txt "
+                              "test_file2.txt'.")
     training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch',
                                type=int, default=None, help="Number of steps "
                                "per training epoch. Default: None (calculated "

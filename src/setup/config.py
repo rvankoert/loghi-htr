@@ -133,6 +133,7 @@ class Config:
                 "epochs": args.epochs,
                 "width": args.width,
                 "train_list": args.train_list,
+                "test_list": args.test_list,
                 "steps_per_epoch": args.steps_per_epoch,
                 "output_checkpoints": args.output_checkpoints,
                 "early_stopping_patience": args.early_stopping_patience,

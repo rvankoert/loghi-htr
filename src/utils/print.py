@@ -9,6 +9,7 @@ from typing import List, Optional, Tuple, Union
 
 
 def print_predictions(filename: str, original_text: str, predicted_text: str,
+                      normalized_text: Optional[str] = None,
                       char_str: Optional[str] = None) -> None:
     """
     Logs the original and predicted text for a given file, and optionally logs
@@ -22,6 +23,8 @@ def print_predictions(filename: str, original_text: str, predicted_text: str,
         The original text corresponding to the file.
     predicted_text : str
         The text predicted by the model.
+    normalized_text : Optional[str]
+        The normalized text, if applicable.
     char_str : Optional[str]
         The result from Word Beam Search, if applicable.
 
@@ -36,6 +39,8 @@ def print_predictions(filename: str, original_text: str, predicted_text: str,
     logging.info(f"File: {filename}")
     logging.info("")
     logging.info(f"Original text  - {original_text}")
+    if normalized_text:
+        logging.info(f"Normalized text - {normalized_text}")
     logging.info(f"Predicted text - {predicted_text}")
     if char_str:
         logging.info(f"WordBeamSearch - {char_str}")

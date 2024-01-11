@@ -50,6 +50,7 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
         batch_size=args.batch_size,
         img_size=img_size,
         train_list=args.train_list,
+        test_list=args.test_list,
         validation_list=args.validation_list,
         inference_list=args.inference_list,
         char_list=char_list,
@@ -65,7 +66,8 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
         replace_final_layer=args.replace_final_layer,
         normalization_file=args.normalization_file,
         use_mask=args.use_mask,
-        do_random_shear=args.do_random_shear
+        do_random_shear=args.do_random_shear,
+        num_oov_indices=args.num_oov_indices
     )
 
 

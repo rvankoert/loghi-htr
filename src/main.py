@@ -12,7 +12,6 @@ from data.data_handling import load_initial_charlist, initialize_data_loader, \
 
 # Model-specific
 from model.custom_layers import ResidualBlock
-from modes.inference import perform_inference
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
 from model.management import load_or_create_model, customize_model, \
@@ -20,6 +19,8 @@ from model.management import load_or_create_model, customize_model, \
 from model.optimization import create_learning_rate_schedule, get_optimizer
 from modes.training import train_model, plot_training_history
 from modes.validation import perform_validation
+from modes.test import perform_test
+from modes.inference import perform_inference
 
 # Setup and configuration
 from setup.arg_parser import get_args
@@ -65,8 +66,8 @@ def main():
 
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
-        training_dataset, validation_dataset, test_dataset, \
-            inference_dataset, tokenizer, train_batches \
+        training_dataset, evaluation_dataset, validation_dataset, \
+            test_dataset, inference_dataset, tokenizer, train_batches \
             = loader.generators()
 
         # Replace the charlist with the one from the data loader
@@ -130,14 +131,18 @@ def main():
 
         tick = time.time()
         perform_validation(args, model, validation_dataset, charlist, loader)
-
         timestamps['validate_time'] = time.time() - tick
+
+    # Test the model
+    if args.test_list:
+        tick = time.time()
+        perform_test(args, model, test_dataset, charlist, loader)
+        timestamps['test_time'] = time.time() - tick
 
     # Infer with the model
     if args.do_inference:
         tick = time.time()
         perform_inference(args, model, inference_dataset, charlist, loader)
-
         timestamps['inference_time'] = time.time() - tick
 
     # Log the timestamps
@@ -148,6 +153,9 @@ def main():
     if args.do_validate:
         logging.info("Validation completed in "
                      f"{timestamps['validate_time']:.2f} seconds")
+    if args.test_list:
+        logging.info("Test completed in "
+                     f"{timestamps['test_time']:.2f} seconds")
     if args.do_inference:
         logging.info("Inference completed in "
                      f"{timestamps['inference_time']:.2f} seconds")

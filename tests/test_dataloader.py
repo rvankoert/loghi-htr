@@ -244,9 +244,9 @@ class DataLoaderTest(unittest.TestCase):
             additional_lines)
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
@@ -297,13 +297,15 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.test_list = self._create_temp_file()
         data_loader.inference_list = self._create_temp_file()
 
-        training_generator, validation_generator, test_generator, \
-            inference_generator, tokenizer, train_batches\
+        training_generator, evaluation_generator, validation_generator, \
+            test_generator, inference_generator, tokenizer, train_batches \
             = data_loader.generators()
 
         # Basic tests
         self.assertIsNotNone(training_generator,
                              "Training generator is None")
+        self.assertIsNotNone(evaluation_generator,
+                             "Evaluation generator is None")
         self.assertIsNotNone(validation_generator,
                              "Validation generator is None")
         self.assertIsNotNone(test_generator,
@@ -341,7 +343,7 @@ class DataLoaderTest(unittest.TestCase):
         self._remove_temp_file(data_loader.train_list)
         data_loader.train_list = None
 
-        training_generator, _, _, _, _, _ = data_loader.generators()
+        training_generator, _, _, _, _, _, _ = data_loader.generators()
         self.assertIsNone(training_generator, "Training generator not None")
 
         # Cleanup: Remove temporary files

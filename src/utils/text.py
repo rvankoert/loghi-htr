@@ -61,9 +61,6 @@ class Tokenizer:
         if not self.charlist:
             raise ValueError("The character list cannot be empty.")
 
-        if num_oov_indices > 0:
-            self.charlist = ['[UNK]'] + self.charlist
-
         mask_token = '' if use_mask else None
         self.char_to_num = tf.keras.layers.StringLookup(
             vocabulary=self.charlist,

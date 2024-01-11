@@ -1,5 +1,3 @@
-# Imports
-
 # > Standard library
 import argparse
 from collections import defaultdict
@@ -15,9 +13,8 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from utils.calculate import calculate_confidence_intervals, \
-    calculate_edit_distances, process_cer_type, process_prediction_type
+    process_cer_type, process_prediction_type
 from utils.decoding import decode_batch_predictions
-from utils.print import print_predictions, display_statistics
 from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
@@ -89,39 +86,22 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
-        original_text = preprocess_text(orig_texts[index])
+        original_text = preprocess_text(orig_texts[index])\
+            .replace("[UNK]", "�")
         normalized_original = None if not args.normalization_file else \
             loader.normalize(original_text, args.normalization_file)
-
-        # Calculate edit distances here so we can use them for printing the
-        # predictions
-        distances = \
-            calculate_edit_distances(prediction, original_text)
-        do_print = distances[0] > 0
-
-        # Print the predictions if there are any errors
-        if do_print:
-            filename = loader.get_item('validation',
-                                       (batch_no * args.batch_size) + index)
-            wbs_str = char_str[index] if wbs else None
-
-            print_predictions(filename, original_text, prediction,
-                              normalized_original, wbs_str)
-            logging.info(f"Confidence = {confidence:.4f}")
-            logging.info("")
 
         batch_info = process_prediction_type(prediction,
                                              original_text,
                                              batch_info,
-                                             do_print)
+                                             do_print=False)
 
         if args.normalization_file:
-
             # Process the normalized CER
             batch_info = process_prediction_type(prediction,
                                                  normalized_original,
                                                  batch_info,
-                                                 do_print,
+                                                 do_print=False,
                                                  prefix="Normalized")
 
         if wbs:
@@ -129,19 +109,19 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
             batch_info = process_prediction_type(char_str[index],
                                                  original_text,
                                                  batch_info,
-                                                 do_print,
+                                                 do_print=False,
                                                  prefix="WBS")
 
     return batch_info
 
 
-def perform_validation(args: argparse.Namespace,
-                       model: tf.keras.Model,
-                       validation_dataset: DataGenerator,
-                       char_list: List[str],
-                       dataloader: DataLoader) -> None:
+def perform_test(args: argparse.Namespace,
+                 model: tf.keras.Model,
+                 test_dataset: DataGenerator,
+                 char_list: List[str],
+                 dataloader: DataLoader) -> None:
     """
-    Performs validation on a dataset using a given model and calculates various
+    Performs test run on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).
 
     Parameters
@@ -151,8 +131,8 @@ def perform_validation(args: argparse.Namespace,
         mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    validation_dataset : DataGenerator
-        The dataset to be used for validation.
+    test_dataset : DataGenerator
+        The dataset to be used for testing.
     char_list : List[str]
         A list of characters used in the model.
     dataloader : DataLoader
@@ -167,9 +147,9 @@ def perform_validation(args: argparse.Namespace,
     throughout the validation process.
     """
 
-    logging.info("Performing validation...")
+    logging.info("Performing test...")
 
-    tokenizer = Tokenizer(char_list, args.use_mask)
+    tokenizer = Tokenizer(char_list, args.use_mask, args.num_oov_indices)
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
@@ -182,8 +162,10 @@ def perform_validation(args: argparse.Namespace,
     total_normalized_counter = defaultdict(int)
     total_wbs_counter = defaultdict(int)
 
-    # Process each batch in the validation dataset
-    for batch_no, batch in enumerate(validation_dataset):
+    # Process each batch in the test dataset
+    for batch_no, batch in enumerate(test_dataset):
+        logging.info(f"Batch {batch_no+1}/{len(test_dataset)}")
+
         # Logic for processing each batch, calculating CER, etc.
         batch_info = process_batch(batch, prediction_model, tokenizer, args,
                                    wbs, dataloader, batch_no, char_list)
@@ -214,13 +196,10 @@ def perform_validation(args: argparse.Namespace,
         batch_stats.append(len(batch[1]))
         total_stats.append(n_items)
 
-        display_statistics(batch_stats, total_stats, metrics)
-        logging.info("")
-
-    # Print the final validation statistics
+    # Print the final test statistics
     logging.info("--------------------------------------------------------")
     logging.info("")
-    logging.info("Final validation statistics")
+    logging.info("Final test statistics")
     logging.info("---------------------------")
 
     # Calculate the CER confidence intervals on all metrics except Items
@@ -235,7 +214,7 @@ def perform_validation(args: argparse.Namespace,
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(args.output, 'validation.csv'), 'w') as f:
+    with open(os.path.join(args.output, 'test.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
         if args.normalization_file:
             header += ",normalized_cer,normalized_cer_lower,"
