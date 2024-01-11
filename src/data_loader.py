@@ -110,6 +110,9 @@ class DataLoader:
             self.charList = sorted(list(chars))
 
         self.utils = Utils(self.charList, self.use_mask)
+        # Explicitly set charlist otherwise it is not initialized
+        self.utils.set_charlist(self.charList, self.use_mask,
+                                self.num_oov_indices)
 
         train_params = {'utils': self.utils,
                         'height': self.height,

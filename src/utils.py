@@ -26,31 +26,31 @@ class Utils:
 
     def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
         self.charList = chars
-        if num_oov_indices > 0:
-            self.charList.insert(1, '[UNK]')
+        # if num_oov_indices > 0:
+        # self.charList.insert(1, '[UNK]')
         if not self.charList:
             print('no charlist :(')
             return
         if use_mask:
             print('using mask')
             self.char_to_num = tf.keras.layers.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='', oov_token='[UNK]',
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token='',
                 encoding="UTF-8"
             )
             # Mapping integers back to original characters
             self.num_to_char = tf.keras.layers.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token='',
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, oov_token='🔔', mask_token='',
                 encoding="UTF-8",
                 invert=True
             )
         else:
             self.char_to_num = tf.keras.layers.StringLookup(
-                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None, oov_token='[UNK]',
+                vocabulary=list(self.charList), num_oov_indices=num_oov_indices, mask_token=None,
                 encoding="UTF-8"
             )
             # Mapping integers back to original characters
             self.num_to_char = tf.keras.layers.StringLookup(
-                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=0, oov_token='', mask_token=None,
+                vocabulary=self.char_to_num.get_vocabulary(), num_oov_indices=num_oov_indices, oov_token='🔔', mask_token=None,
                 encoding="UTF-8",
                 invert=True
             )
