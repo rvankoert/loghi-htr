@@ -700,6 +700,9 @@ def main():
                     original_text = remove_tags(original_text)
                     predicted_text = remove_tags(predicted_text)
 
+                    # Replace [UNK] with � to make OOV errors countable
+                    original_text = original_text.replace('[UNK]', '�')
+
                     ground_truth_simple = re.sub(
                         '[\W_]+', '', original_text).lower()
                     predicted_simple = re.sub(
@@ -963,4 +966,7 @@ def calc_95_confidence_interval(cer_metric, n):
 
 
 if __name__ == '__main__':
+    main()
+    main()
+    main()
     main()
