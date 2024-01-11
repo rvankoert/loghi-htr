@@ -74,8 +74,8 @@ def get_config(args: argparse.Namespace, model: tf.keras.Model) \
     passed to the script, and a summarized model description. It also generates
     a unique identifier (UUID) for the configuration.
     """
+    args.channels = model.layers[0].get_input_at(0).shape[-1]
 
-    args.channels = model.layers[0].input_shape[0][2]
     return {
         'git_hash': get_git_hash(),
         'args': vars(args),

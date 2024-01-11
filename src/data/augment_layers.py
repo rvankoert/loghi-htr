@@ -2,10 +2,11 @@
 
 # > Standard Library
 import random
+import logging
 
 import keras
 # > Local dependencies
-
+from setup.arg_parser import get_args
 
 # > Third party libraries
 import tensorflow as tf
@@ -42,33 +43,26 @@ class ShearXLayer(tf.keras.layers.Layer):
         # Define the shear matrix
         shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
-        # Add batch dimension to the input image
-        image_rgb = inputs
+        # Get the dynamic shape of the input tensor
+        input_shape = tf.shape(inputs)
 
-        print(inputs.shape)
-        # image_rgb = tf.expand_dims(inputs, axis=0)
-        # print("IMAGE RGB DIMS: ", image_rgb.shape)
+        # Ensure the output shape is the same as input shape for height and width
+        output_shape = [input_shape[1], input_shape[2]]
 
         # Flatten the shear matrix for batch processing
-        shear_matrix_tf = tf.reshape(
-            tf.convert_to_tensor(shear_matrix,
-                                 dtype=tf.dtypes.float32), [1, 8])
+        shear_matrix_tf = tf.reshape(tf.convert_to_tensor(shear_matrix,
+                                                          dtype=tf.dtypes.float32),
+                                     [1, 8])
 
-        # Fill value with max value from image across all axes
-        fill_value = tf.get_static_value(tf.math.reduce_max(inputs))
-
-        # Apply the shear transformation on the GPU
+        # Apply the shear transformation
         sheared_image = tf.raw_ops.ImageProjectiveTransformV3(
-            images=image_rgb,
+            images=inputs,
             transforms=shear_matrix_tf,
-            output_shape=tf.constant([inputs.shape[0], inputs.shape[1]],
-                                     dtype=tf.int32),
-            fill_value=fill_value,
+            output_shape=output_shape,
+            fill_value=0,
             fill_mode="CONSTANT",
             interpolation="NEAREST")
 
-        # Remove the batch dimension from the resulting tensor
-        sheared_image = tf.squeeze(sheared_image, axis=0)
         return sheared_image
 
 
@@ -125,7 +119,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
         Returns:
         - tf.Tensor: Distorted image as a TensorFlow tensor.
         """
-        print("before distort shaep: ",inputs.shape)
+        print("before distort shaep: ", inputs.shape)
         image_width = tf.shape(inputs)[1]
         image_height = tf.shape(inputs)[0]
         if inputs.shape[-1] == 4:
@@ -147,125 +141,133 @@ class DistortImageLayer(tf.keras.layers.Layer):
         else:
             # Apply random JPEG quality to the image
             image = tf.image.random_jpeg_quality(inputs, 20, 100)
-        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-        print(image)
-        image = tf.image.resize(image, [image_height, image_width])
+        # image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+        # print(image)
+        # image = tf.image.resize(image, [image_height, image_width])
         print("after distort shape: ", image.shape)
 
         return image
 
 
-class RandomCropLayer(tf.keras.layers.Layer):
+class RandomVerticalCropLayer(tf.keras.layers.Layer):
+    def __init__(self, **kwargs):
+        super(RandomVerticalCropLayer, self).__init__(**kwargs)
+
     def call(self, inputs):
         """
-        Applies random crop to the input image based on specified parameters.
+        Applies random crop to each image in the input batch.
 
         Parameters:
-        - image (tf.Tensor): Input image as a TensorFlow tensor.
-        - channels (int): Number of channels in the image.
+        - inputs (tf.Tensor): Input batch of images as a TensorFlow tensor.
 
         Returns:
-        - tf.Tensor: Image after applying random crop as a TensorFlow tensor.
+        - tf.Tensor: Batch of images after applying random crop.
         """
-        # Get the channels from the input
-        channels = inputs.shape[-1]
+        # Get the dtype of the input tensor
+        input_dtype = inputs.dtype
 
-        print("INPUT SHAPE RANDOM CROP: ",inputs.shape)
+        # Get the original height and width of the images
+        height, width, channels = tf.unstack(tf.shape(inputs)[1:])
 
-        # Generate random seed for stateless operation
-        random_seed = (random.randint(0, 100000), random.randint(0, 1000000))
-
-        # Generate a random crop factor between 0.6 and 1.0
-        random_crop_factor = \
-            tf.random.uniform(shape=[1], minval=0.6, maxval=1.0)[0]
-
-        # Get the original width and height of the image
-        original_width = tf.shape(inputs)[1]
-        original_height = tf.cast(tf.shape(inputs)[0], tf.float32)
-
-        # Calculate the crop height based on the random factor
-        crop_height = tf.cast(random_crop_factor * original_height, tf.int32)
+        # Generate a random crop factor for each image in the batch
+        min_crop_factor = tf.constant(0.6, dtype=tf.float32)
+        crop_height = tf.cast(min_crop_factor * tf.cast(height,
+                                                        tf.float32), tf.int32)
 
         # Define the crop size
-        crop_size = (crop_height, original_width, channels)
+        crop_size = (crop_height, width, channels)
 
-        # Apply stateless random crop to the image
-        image = tf.image.stateless_random_crop(inputs, crop_size, random_seed)
+        # Crop each image in the batch
+        def crop_image(image):
+            cropped = tf.image.random_crop(image, crop_size)
+            # Cast back to the original dtype
+            return tf.cast(cropped, input_dtype)
 
-        return image
+        # Ensure the output dtype matches the input
+        cropped_images = tf.map_fn(crop_image, inputs, dtype=input_dtype)
+
+        return cropped_images
 
 
-class BinarizeSauvolaLayer(tf.keras.layers.Layer):
+class ResizeWithPadLayer(tf.keras.layers.Layer):
+    def __init__(self, additional_width=50, **kwargs):
+        super(ResizeWithPadLayer, self).__init__(**kwargs)
+        self.additional_width = additional_width
+
     def call(self, inputs):
         """
-        Binarize the input tensor using Sauvola's adaptive thresholding.
+        Resize and pad the input images.
 
         Parameters:
-        - tensor (tf.Tensor): Input image tensor.
+        - inputs (tf.Tensor): Input image tensor.
+
+        Returns:
+        - tf.Tensor: Resized and padded image tensor.
+        """
+        new_width = tf.shape(inputs)[2] + self.additional_width
+        print("PRE PADDING SHAPE ", inputs.shape)
+        padded_img = tf.image.resize_with_pad(inputs, tf.shape(inputs)[1], new_width)
+        print("POST PADDING SHAPE ", padded_img.shape)
+        return padded_img
+
+
+class BinarizeLayer(tf.keras.layers.Layer):
+    def __init__(self, method='otsu', window_size=51, **kwargs):
+        super(BinarizeLayer, self).__init__(**kwargs)
+        self.method = method
+        self.window_size = window_size
+
+    def call(self, inputs):
+        """
+        Binarize the input tensor using either Otsu's or Sauvola's thresholding.
+
+        Parameters:
+        - inputs (tf.Tensor): Input image tensor.
+        - method (str): Thresholding method ('otsu' or 'sauvola').
 
         Returns:
         - tf.Tensor: Binarized image tensor.
         """
-        window_size = 51
 
-        # Get the channels from the input
-        channels = inputs.shape[-1]
+        # Handle different channels
+        # channels = inputs.shape[-1]
+        # if channels == 1:
+        #     processed_input = inputs
+        # elif channels in [3, 4]:
+        #     processed_input = tf.image.rgb_to_grayscale(inputs[:, :, :3])
+        # else:
+        #     raise NotImplementedError(
+        #         "Unsupported number of channels. Supported values are 1, 3, or 4.")
 
-        # 1-channel images don't have to be changed
-        if channels == 1:
-            np_array = inputs.numpy()
-        elif channels == 3:
-            np_array = tf.image.rgb_to_grayscale(inputs).numpy()
-        elif channels == 4:
-            # Drop alpha channel
-            np_array = tf.image.rgb_to_grayscale(inputs[:, :, :3]).numpy()
+        # Convert tensor to float32 for thresholding
+        processed_input = tf.cast(inputs, tf.float32)
+
+        # Apply the selected thresholding method
+        if self.method == 'otsu':
+            def otsu_thresh(image):
+                thresh = threshold_otsu(image)
+                return ((image > thresh) * 1).astype(np.float32)
+
+            binarized = tf.numpy_function(otsu_thresh, [processed_input],
+                                          tf.float32)
+
+        elif self.method == 'sauvola':
+            def sauvola_thresh(image):
+                thresh = threshold_sauvola(image, window_size=self.window_size)
+                return ((image > thresh) * 1).astype(np.float32)
+
+            binarized = tf.numpy_function(sauvola_thresh, [processed_input],
+                                          tf.float32)
+
         else:
-            raise NotImplementedError(
-                "Unsupported number of channels. Supported values are 1, "
-                "3, or 4.")
-        sauvola_thresh = threshold_sauvola(np_array, window_size=window_size)
-        binary_sauvola = (np_array > sauvola_thresh) * 1
+            raise ValueError(
+                "Invalid method. Supported methods are 'otsu' and 'sauvola'.")
 
-        return tf.convert_to_tensor(binary_sauvola)
+        # Ensure output shape is set correctly after numpy_function
+        binarized.set_shape(processed_input.shape)
 
-
-class BinarizeOtsuLayer(tf.keras.layers.Layer):
-    def call(self, inputs):
-        """
-        Binarize the input tensor using Otsu's thresholding.
-
-        Parameters:
-        - tensor (tf.Tensor): Input image tensor.
-        - channels (int): Number of channels in the image.
-
-        Returns:
-        - tf.Tensor: Binarized image tensor.
-
-        Raises
-        ------
-        NotImplementedError
-            If the number of channels is not supported.
-            Supported values are 1, 3, or 4.
-
-        """
-        # Get the channels from the input
-        channels = inputs.shape[-1]
-
-        # 1-channel images don't have to be changed
-        if channels == 1:
-            np_array = inputs.numpy()
-        elif channels == 3:
-            np_array = tf.image.rgb_to_grayscale(inputs).numpy()
-        elif channels == 4:
-            # Drop alpha channel
-            np_array = tf.image.rgb_to_grayscale(inputs[:, :, :3]).numpy()
-        else:
-            raise NotImplementedError(
-                "Unsupported number of channels. Supported values are 1, "
-                "3, or 4.")
-        otsu_threshold = threshold_otsu(np_array)
-
-        return tf.convert_to_tensor((np_array > otsu_threshold) * 1)
+        # Convert the binary image to float32
+        return tf.cast(binarized, tf.float32)
 
 
 class InvertImageLayer(tf.keras.layers.Layer):
@@ -317,6 +319,16 @@ class BlurImageLayer(tf.keras.layers.Layer):
         Returns:
         - tf.Tensor: Blurred image tensor.
         """
+        # Get the dynamic shape of the input tensor
+        input_shape = tf.shape(inputs)
+
+        # Check if the input tensor is large enough for the desired blur
+        min_dimension = tf.minimum(input_shape[1], input_shape[2])
+        if min_dimension < 10:  # Example threshold, adjust as needed
+            # Skip the blur or apply a milder blur if the image is too small
+            return inputs
+
+
         if self.mild_blur:
             blur_factor = 1
         else:
@@ -341,6 +353,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         # Get the width and height of the input image
         image_width = tf.shape(inputs)[1]
         image_height = tf.shape(inputs)[0]
+        channels = tf.shape(inputs)[2]
 
         # Generate a random width scaling factor between 0.75 and 1.25
         random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
@@ -353,7 +366,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         image = tf.image.convert_image_dtype(inputs, dtype=tf.float32)
 
         # Resize the image to the new width while maintaining the original height
-        image = tf.image.resize(image, [image_height, image_width])
+        # image = tf.reshape(image, (image_height, image_width, channels))
 
         return image
 
@@ -378,9 +391,7 @@ def generate_random_augment_list(augment_options):
     augment_layers = random.sample(augment_options, num_rand_augments)
 
     # If invert_image and binarize otsu is done -> remove te invert_image
-    if ((BinarizeSauvolaLayer() in augment_layers) or (BinarizeOtsuLayer in
-                                                       augment_layers)
-            and (InvertImageLayer() in augment_layers)):
+    if BinarizeLayer and (InvertImageLayer() in augment_layers):
         augment_layers = augment_layers.remove(InvertImageLayer())
 
     return augment_layers
@@ -400,30 +411,76 @@ def get_augment_classes():
     return augment_options
 
 
-def inspect_sequential_augments(augment_options, input_img_or_path,
-                                output_img_name="augment_tests.png",
-                                augment_selection=None):
-    if isinstance(input_img_or_path, tf.Tensor):
-        # Just take the tf image if provided
-        base_img = input_img_or_path
-    elif isinstance(input_img_or_path, str):
-        # Load image
-        base_img = tf.io.read_file(input_img_or_path)
-        base_img = tf.image.decode_png(base_img)
-    else:
-        raise ValueError("Provide either a tf.image or a path to an img ")
+def get_augment_model():
+    logger = logging.getLogger(__name__)
+    args = get_args()
+    augment_selection = []
 
+    if args.aug_distort_jpeg:
+        logger.info("Data augment: distort_jpeg")
+        augment_selection.append(DistortImageLayer())
+
+    if args.aug_elastic_transform:
+        logger.info("Data augment: elastic_transform")
+        augment_selection.append(ElasticTransformLayer())
+
+    if args.aug_random_crop:
+        logger.info("Data augment: random_crop")
+        augment_selection.append(RandomVerticalCropLayer())
+
+    if args.aug_random_width:
+        logger.info("Data augment: random_width")
+        augment_selection.append(RandomWidthLayer())
+
+    # ADD PaddingLayer below v
+    # image = tf.image.resize_with_pad(image,
+    #                                  self.height, tf.shape(image)[1] + 50)
+    # Add padding to ensure text line does not fall of the image
+
+    # augment_selection.append(ResizeWithPadLayer())
+
+
+
+    if args.aug_random_shear:
+        logger.info("Data augment: shear_x")
+        augment_selection.append(ShearXLayer())
+
+    if args.aug_binarize_sauvola:
+        logger.info("Data augment: binarize_sauvola")
+        augment_selection.append(BinarizeLayer(method='sauvola',
+                                               window_size=51))
+    if args.aug_binarize_otsu:
+        logger.info("Data augment: binarize_otsu")
+        augment_selection.append(BinarizeLayer(method="otsu"))
+
+    if args.aug_blur:
+        logger.info("Data augment: blur_image")
+        augment_selection.append(BlurImageLayer())
+
+    if args.aug_invert:
+        logger.info("Data augment: aug_invert")
+        augment_selection.append(InvertImageLayer())
+
+    return augment_selection
+
+
+def make_augment_model(augment_options, augment_selection=None):
     # Take random augments from all possible augment options
     if augment_selection is None:
         augment_selection = generate_random_augment_list(augment_options)
 
-    # Check if both types of binarization are present, remove sauvola if true
-    if (any(isinstance(obj, BinarizeOtsuLayer) for obj in augment_selection)
-            and any(isinstance(obj, BinarizeSauvolaLayer)
-                    for obj in augment_selection)):
-        # Remove the object of type BinarizeSauvolaLayer
-        augment_selection = [obj for obj in augment_selection if
-                             not isinstance(obj, BinarizeSauvolaLayer)]
+    # Check if both types of binarization are present, remove Sauvola if true
+    otsu_present = any(isinstance(obj, BinarizeLayer)
+                       and obj.method == 'otsu' for obj in augment_selection)
+    sauvola_present = any(isinstance(obj, BinarizeLayer)
+                          and obj.method == 'sauvola' for obj in
+                          augment_selection)
+
+    if otsu_present and sauvola_present:
+        # Remove the object of type BinarizeLayer with Sauvola method
+        augment_selection = [obj for obj in augment_selection
+                             if not (isinstance(obj, BinarizeLayer)
+                                     and obj.method == 'sauvola')]
 
     # Init blur params
     mild_blur = False
@@ -434,16 +491,14 @@ def inspect_sequential_augments(augment_options, input_img_or_path,
         if isinstance(augment, BlurImageLayer):
             mild_blur = True
             blur_index = i
-        elif mild_blur and ((isinstance(augment, BinarizeOtsuLayer)
-                             or (isinstance(augment, BinarizeSauvolaLayer)))):
+        elif mild_blur and isinstance(augment, BinarizeLayer):
             augment_selection[blur_index] = BlurImageLayer(mild_blur=True)
 
     # Check if blur/distort occurs after binarization, if so move it to before
     binarize = False
     binarize_index = -1
     for i, augment in enumerate(augment_selection):
-        if (isinstance(augment, BinarizeOtsuLayer)) or (
-                isinstance(augment, BinarizeSauvolaLayer)):
+        if isinstance(augment, BinarizeLayer):
             binarize = True
             binarize_index = i
         elif binarize and (isinstance(augment, BlurImageLayer)):
@@ -458,33 +513,9 @@ def inspect_sequential_augments(augment_options, input_img_or_path,
             # Insert the Distort layer before the binarization
             augment_selection.insert(binarize_index, augment)
 
-    # Init plot and set original image
-    # fig, ax = plt.subplots(nrows=len(augment_selection) + 1, figsize=(16, 8))
-    # fig.suptitle('Sequential Image augments:', fontsize=16)
-    # ax[0].imshow(base_img, cmap='gray')
-    # ax[0].set_title("Original Image")
-    # COMBINED SEQUENTIAL for all lists
-    aug_model = tf.keras.Sequential(augment_selection)
-    # aug_model.summary()
-    # print(aug_model.layers)
-    output_img = aug_model(base_img)
+    print("changed aug selection list = ",
+          tf.keras.Sequential(augment_selection).layers)
 
-
-    # # SINGLE Sequential for each img to show progress
-    # for i, aug in enumerate(augment_selection, start=1):
-    #     # Create a 1-layer keras model using a single augmentation
-    #     print("STARTING WITH AUGMENT: ", aug)
-    #     print("Shape for this augment: ",base_img.shape)
-    #     mini_aug_model = keras.Sequential(aug)
-    #
-    #     # Process image with single augment
-    #     augmented_inter_img = mini_aug_model(base_img)
-    #
-    #     # Overwrite old image
-    #     base_img = augmented_inter_img
-    #     # ax[i].imshow(augmented_inter_img, cmap='gray')
-    #     # ax[i].set_title("augment " + str(i) + " "
-    #     #                 + str([layer.name for layer in mini_aug_model.layers]))
-    # plt.tight_layout()
-    # plt.savefig(output_img_name)
-    return output_img
+    adjusted_aug_model = tf.keras.Sequential(augment_selection,
+                                             name="data_augment_model")
+    return adjusted_aug_model

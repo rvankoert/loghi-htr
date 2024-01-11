@@ -5,11 +5,14 @@ import argparse
 import logging
 from typing import Any, List, Dict
 
+import keras
+import matplotlib.pyplot as plt
 # > Third-party dependencies
 import tensorflow as tf
 
 # > Local dependencies
 from utils.utils import load_model_from_directory
+from data.augment_layers import *
 from model.model import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 
@@ -44,7 +47,6 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     # Create a new model from the modified configuration
     model_new = tf.keras.Model.from_config(config)
     model_new.set_weights(model.get_weights())
-
     model = model_new
 
     # Verify float32
@@ -100,8 +102,8 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
                 layer.trainable = True
                 logging.info(f"Thawing layer: {layer.name}")
             elif args.freeze_conv_layers and \
-                (layer.name.lower().startswith("conv") or
-                 layer.name.lower().startswith("residual")):
+                    (layer.name.lower().startswith("conv") or
+                     layer.name.lower().startswith("residual")):
                 logging.info(f"Freezing layer: {layer.name}")
                 layer.trainable = False
             elif args.freeze_recurrent_layers and \
@@ -119,7 +121,109 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
         logging.info("Adjusting model for float32")
         model = adjust_model_for_float32(model)
 
+    # Include data augments as separate Sequential object
+    if any([args.aug_elastic_transform, args.aug_random_crop,
+            args.aug_random_width, args.aug_distort_jpeg,
+            args.aug_random_shear, args.aug_binarize_otsu,
+            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert]):
+        batch_size, width, height, channels = model.layers[0].get_input_at(
+            0).get_shape().as_list()
+
+        augment_options = get_augment_classes()
+        augment_selection = get_augment_model()
+        aug_model = make_augment_model(augment_options, augment_selection)
+        # aug_model.build(input_shape=[batch_size, width, height, channels])
+        #
+        # # Take the outputs from the aug_model in shapes
+        # batch_size, width, height, channels = (aug_model.layers[-1]
+        #                                        .get_input_at(0)
+        #                                        .get_shape().as_list())
+
+        print("TEST: ", batch_size, width, height, channels)
+
+        # aug_model.build(input_shape=[batch_size, height, width, channels])
+
+        # If binarization is active then override the channels to 1
+        if args.aug_binarize_sauvola or args.aug_binarize_otsu:
+            print("OVERRIDING channels")
+            channels = 1
+
+        # batch_size, width, height, channels = (aug_model.layers[-1]
+        #                                        .get_input_at(0).get_shape()
+        #                                        .as_list())
+        # print("POST:",batch_size, height, width, channels)
+
+        if args.visualize_augments:
+            # Save example plot locally with the pre and post from aug_model
+            save_augment_steps_plot(aug_model,
+                                    sample_image_path="test-image1.png",
+                                    save_path="visualization.png",
+                                    channels=channels)
+
+        model = tf.keras.Sequential(aug_model.layers + model.layers[1:])
+        model.build(input_shape=[batch_size, height, width, channels])
+
     return model
+
+def blend_with_background(image, background_color=[1, 1, 1]):
+    """
+    Blend the image with a background color. Assumes the image is in the format RGBA.
+    """
+    rgb = image[..., :3]
+    alpha = tf.expand_dims(image[..., 3], axis=-1)
+    return rgb * alpha + background_color * (1 - alpha)
+
+
+def save_augment_steps_plot(aug_model, sample_image_path, save_path, channels):
+    """
+    Apply each layer of aug_model to the sample_image sequentially and display
+    the transformations step by step.
+
+    Parameters:
+    - aug_model (tf.keras.Sequential): The augmentation model.
+    - sample_image_path (str): Path to the sample image.
+    """
+
+    # Load the sample image
+    sample_image = tf.io.read_file(sample_image_path)
+    sample_image = tf.image.decode_png(sample_image, channels=channels)
+    sample_image = tf.image.convert_image_dtype(sample_image, dtype=tf.float32)
+    sample_image = tf.expand_dims(sample_image, 0)  # Add batch dimension
+
+    # Container for each step's image
+    augment_images = [sample_image[0]]
+
+    # Apply each augmentation layer to the image
+    for layer in aug_model.layers:
+        sample_image = layer(sample_image)
+        augment_images.append(sample_image[0])
+
+    # Plot the original and each augmentation step
+    num_of_images = len(augment_images)
+    plt.figure(figsize=(8, 1 * num_of_images))
+
+    for idx, image in enumerate(augment_images):
+        layer_name = aug_model.layers[idx-1].name if idx > 0 else 'Original'
+        print(layer_name)
+        print(image.shape)
+        print(image.dtype)
+
+        # Adjust the image based on the number of channels
+        if image.shape[-1] == 4:  # RGBA
+            image = blend_with_background(image)
+        elif image.shape[-1] == 1:  # Grayscale
+            image = tf.squeeze(image)
+
+        # Ensure the image is of type float32 for plotting
+        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+
+        plt.subplot(num_of_images,1, idx + 1)
+        plt.title(f'Step {idx}: {layer_name}')
+        plt.imshow(image,vmin=0, vmax=1)
+        plt.axis('off')
+
+    plt.tight_layout()
+    plt.savefig(save_path)
 
 
 def load_or_create_model(args: argparse.Namespace,
@@ -181,9 +285,17 @@ def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
 
     # Verify that the length of the charlist is correct
     if use_mask:
-        expected_length = model.layers[-1].output_shape[2] - 2
+        # expected_length = model.layers[-1].output_shape[2] - 2
+        # print(new_model.get_layer('activation_1').get_output_at(0))
+
+        expected_length = model.get_layer(('activation_1')) \
+                              .get_output_at(0).shape[2] - 2
     else:
-        expected_length = model.layers[-1].output_shape[2] - 1
+        # expected_length = model.layers[-1].output_shape[2] - 1
+        # expected_length = model.get_output_shape_at(-1)[2] - 1
+        expected_length = model.get_layer(('activation_1')) \
+                              .get_output_at(0).shape[2] - 1
+
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "

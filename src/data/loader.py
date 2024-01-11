@@ -62,7 +62,7 @@ class DataLoader:
         if is_training:
             # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
-        generator = (generator
+            generator = (generator
                      .map(data_generator.load_images,
                           num_parallel_calls=AUTOTUNE,
                           deterministic=deterministic)
@@ -111,20 +111,20 @@ class DataLoader:
                         'height': self.height,
                         'batch_size': self.batch_size,
                         'channels': self.channels,
-                        'do_binarize_sauvola': self.do_binarize_sauvola,
-                        'do_binarize_otsu': self.do_binarize_otsu,
-                        'do_elastic_transform': self.elastic_transform,
-                        'random_crop': self.random_crop,
-                        'random_width': self.random_width,
-                        'distort_jpeg': self.distort_jpeg,
-                        'do_random_shear': self.do_random_shear
+                        'aug_binarize_sauvola': self.aug_binarize_sauvola,
+                        'aug_binarize_otsu': self.aug_binarize_otsu,
+                        'aug_elastic_transform': self.aug_elastic_transform,
+                        'aug_random_crop': self.aug_random_crop,
+                        'aug_random_width': self.aug_random_width,
+                        'aug_distort_jpeg': self.aug_distort_jpeg,
+                        'aug_random_shear': self.aug_random_shear
                         }
         non_train_params = {'utils': self.utils,
                             'batch_size': self.batch_size,
                             'height': self.height,
                             'channels': self.channels,
-                            'do_binarize_sauvola': self.do_binarize_sauvola,
-                            'do_binarize_otsu': self.do_binarize_otsu
+                            'aug_binarize_sauvola': self.aug_binarize_sauvola,
+                            'aug_binarize_otsu': self.aug_binarize_otsu
                             }
 
         training_generator = None
@@ -158,20 +158,20 @@ class DataLoader:
                  validation_list='',
                  test_list='',
                  inference_list='',
-                 do_binarize_sauvola=False,
-                 do_binarize_otsu=False,
+                 aug_binarize_sauvola=False,
+                 aug_binarize_otsu=False,
                  normalization_file=None,
                  multiply=1,
                  augment=True,
-                 elastic_transform=False,
+                 aug_elastic_transform=False,
                  num_oov_indices=0,
-                 random_crop=False,
-                 random_width=False,
+                 aug_random_crop=False,
+                 aug_random_width=False,
                  check_missing_files=True,
-                 distort_jpeg=False,
+                 aug_distort_jpeg=False,
                  replace_final_layer=False,
                  use_mask=False,
-                 do_random_shear=False
+                 aug_random_shear=False
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
         self.currIdx = 0
@@ -187,20 +187,20 @@ class DataLoader:
         self.validation_list = validation_list
         self.test_list = test_list
         self.inference_list = inference_list
-        self.do_binarize_sauvola = do_binarize_sauvola
-        self.do_binarize_otsu = do_binarize_otsu
+        self.aug_binarize_sauvola = aug_binarize_sauvola
+        self.aug_binarize_otsu = aug_binarize_otsu
         self.normalization_file = normalization_file
         self.multiply = multiply
         self.dataAugmentation = augment
-        self.elastic_transform = elastic_transform
+        self.aug_elastic_transform = aug_elastic_transform
         self.num_oov_indices = num_oov_indices
-        self.random_crop = random_crop
-        self.random_width = random_width
+        self.aug_random_crop = aug_random_crop
+        self.aug_random_width = aug_random_width
         self.check_missing_files = check_missing_files
-        self.distort_jpeg = distort_jpeg
+        self.aug_distort_jpeg = aug_distort_jpeg
         self.replace_final_layer = replace_final_layer
         self.use_mask = use_mask
-        self.do_random_shear = do_random_shear
+        self.aug_random_shear = aug_random_shear
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
                     include_missing_files=False, is_inference=False, use_multiply=False):

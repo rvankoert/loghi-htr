@@ -12,8 +12,8 @@ from vis_arg_parser import get_args
 
 # Add the above directory to the path
 sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
-from model import CERMetric, WERMetric, CTCLoss
-from custom_layers import ResidualBlock
+from model.model import CERMetric, WERMetric, CTCLoss
+from model.custom_layers import ResidualBlock
 
 # > Third party libraries
 import tensorflow as tf

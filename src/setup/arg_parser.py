@@ -119,16 +119,28 @@ def get_arg_parser():
     augmentation_args = parser.add_argument_group('Augmentation arguments')
     augmentation_args.add_argument('--augment', action='store_true',
                                    help='beta: apply data augmentation to training set. In general this is a good idea')
-    augmentation_args.add_argument('--elastic_transform', action='store_true',
+    augmentation_args.add_argument('--aug_elastic_transform',
+                                   action='store_true',
                                    help='beta: elastic_transform, currently disabled')
-    augmentation_args.add_argument('--random_crop', action='store_true',
+    augmentation_args.add_argument('--aug_random_crop', action='store_true',
                                    help='beta: broken. random_crop')
-    augmentation_args.add_argument('--random_width', action='store_true',
+    augmentation_args.add_argument('--aug_random_width', action='store_true',
                                    help='data augmentation option: random_width, stretches the textline horizontally to random width')
-    augmentation_args.add_argument('--distort_jpeg', action='store_true',
+    augmentation_args.add_argument('--aug_distort_jpeg', action='store_true',
                                    help='beta: distort_jpeg')
-    augmentation_args.add_argument('--do_random_shear', action='store_true',
+    augmentation_args.add_argument('--aug_random_shear', action='store_true',
                                    help='beta: do_random_shear')
+    augmentation_args.add_argument('--aug_binarize_otsu', action='store_true',
+                           help='beta: do_binarize_otsu')
+    augmentation_args.add_argument('--aug_binarize_sauvola', action='store_true',
+                           help='beta: do_binarize_sauvola')
+    augmentation_args.add_argument('--aug_blur', action='store_true',
+                           help='blur the images for training purposes')
+    augmentation_args.add_argument('--aug_invert', action='store_true',
+                           help='use with images that have light ink and dark background')
+    augmentation_args.add_argument("--visualize_augments", action='store_true',
+                                   help='prompt to create visualization of '
+                                        'selected augments')
 
     # Word Beam Search arguments
     wbs_args = parser.add_argument_group('Word Beam Search arguments')
@@ -147,10 +159,6 @@ def get_arg_parser():
 
     # Miscellaneous
     misc_args = parser.add_argument_group('Miscellaneous arguments')
-    misc_args.add_argument('--do_binarize_otsu', action='store_true',
-                           help='beta: do_binarize_otsu')
-    misc_args.add_argument('--do_binarize_sauvola', action='store_true',
-                           help='beta: do_binarize_sauvola')
     misc_args.add_argument('--ignore_lines_unknown_character', action='store_true',
                            help='beta: ignore_lines_unknown_character. Ignores during training/validation lines that '
                            'contain characters that are not in charlist.')
@@ -161,10 +169,6 @@ def get_arg_parser():
                            'are the characters to be replaced, the values are the characters to replace with.')
     misc_args.add_argument('--deterministic', action='store_true',
                            help='beta: deterministic mode (reproducible results')
-    misc_args.add_argument('--do_blur', action='store_true',
-                           help='blur the images for training purposes')
-    misc_args.add_argument('--do_invert', action='store_true',
-                           help='use with images that have light ink and dark background')
 
     # Deprecation zone
     depr_args = parser.add_argument_group(
