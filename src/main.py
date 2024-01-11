@@ -967,6 +967,3 @@ def calc_95_confidence_interval(cer_metric, n):
 
 if __name__ == '__main__':
     main()
-    main()
-    main()
-    main()
