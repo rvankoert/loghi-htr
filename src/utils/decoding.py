@@ -97,7 +97,7 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
     output_texts = []
     for i, decoded_array in enumerate(ctc_decoded[0]):
         decoded_array += num_oov_indices
-        text = tokenizer.decode(decoded_array)
+        text = tokenizer.decode(decoded_array).strip().replace("", "")
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character

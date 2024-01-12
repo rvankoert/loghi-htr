@@ -53,8 +53,8 @@ def image_preparation_worker(batch_size: int,
     # Define the model path
     model = model_path
 
-    # Initialize the metadata and whitelist as None
-    metadata, whitelist = None, None
+    # Initialize the metadata and whitelist as default values
+    metadata, whitelist = {}, []
 
     try:
         while True:
@@ -257,11 +257,12 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             # Metadata change detection
             # If the metadata is None or the model has changed or the
             # whitelist has changed, update the metadata
-            if metadata is None or new_model != current_model or \
-                    whitelist != old_whitelist:
+            if (new_model != current_model and new_model is not None) \
+                    or whitelist != old_whitelist:
                 # Update the metadata
+                model_path = new_model if new_model else current_model
                 logging.info("Detected metadata change. Updating metadata.")
-                metadata = fetch_metadata(whitelist, new_model)
+                metadata = fetch_metadata(whitelist, model_path)
                 old_whitelist = whitelist
                 logging.debug(f"Metadata updated: {metadata}")
 
