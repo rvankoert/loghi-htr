@@ -29,6 +29,10 @@ class CERMetric(tf.keras.metrics.Metric):
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))
+
+        # Ugly hack to disregard OOV. See CTCLoss for more details
+        y_true = tf.where(y_true > 0, y_true - 1, y_true)
+
         y_true_sparse = K.ctc_label_dense_to_sparse(
             y_true, K.cast(input_length, 'int32'))
 
@@ -73,6 +77,10 @@ class WERMetric(tf.keras.metrics.Metric):
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))
+
+        # Ugly hack to disregard OOV. See CTCLoss for more details
+        y_true = tf.where(y_true > 0, y_true - 1, y_true)
+
         y_true_sparse = K.ctc_label_dense_to_sparse(
             y_true, K.cast(input_length, 'int32'))
 

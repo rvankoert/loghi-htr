@@ -83,6 +83,14 @@ def CTCLoss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     determining the length of each sequence and using the `ctc_batch_cost`
     function.
     """
+    # Ugly hack to disregard OOV characters, which are part of the tokenizer,
+    # but are not part of the model classes
+    # Since the vocabulary starts with [padding, OOV, ...], the OOV character
+    # is the second one, thus we can simply subtract 1 from the true labels
+    # to get rid of the OOV character
+    # This only works if there is absolutely no chance that the model can
+    # predict the OOV character, otherwise the loss will be wrong
+    y_true = tf.where(y_true > 0, y_true - 1, y_true)
 
     # Determine batch size and dimensions for input and label lengths
     batch_len = tf.shape(y_true, out_type=tf.int64)[0]
