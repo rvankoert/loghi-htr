@@ -167,7 +167,8 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             # print(confidence)
             res = res + num_oov_indices
             chars = utils.num_to_char(res)
-            res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
+            res = tf.strings.reduce_join(chars).numpy().decode(
+                "utf-8").strip().replace('', '')
             output_text.append((confidence, res))
             # print( output_text)
             # exit()
