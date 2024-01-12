@@ -184,10 +184,6 @@ def get_arg_parser():
                                    "size of the training dataset by "
                                    "duplicating images. Default: 1 (no "
                                    "duplication).")
-    augmentation_args.add_argument('--augment', action='store_true',
-                                   help="Enable data augmentation for the "
-                                   "training set. Generally recommended to "
-                                   "improve model robustness.")
     augmentation_args.add_argument('--elastic_transform', action='store_true',
                                    help="Apply elastic transformations to "
                                    "images.")

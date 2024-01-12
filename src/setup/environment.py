@@ -85,6 +85,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
         active_gpus = []
         for i, gpu in enumerate(gpu_devices):
             if str(i) in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
                 active_gpus.append(gpu)
 
     if active_gpus:

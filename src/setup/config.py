@@ -169,7 +169,6 @@ class Config:
             },
             "augmentation": {
                 "multiply": args.multiply,
-                "augment": args.augment,
                 "elastic_transform": args.elastic_transform,
                 "random_crop": args.random_crop,
                 "random_width": args.random_width,

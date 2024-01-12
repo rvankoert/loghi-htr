@@ -175,7 +175,6 @@ class DataLoader:
                  do_binarize_otsu=False,
                  normalization_file=None,
                  multiply=1,
-                 augment=True,
                  elastic_transform=False,
                  random_crop=False,
                  random_width=False,
@@ -203,7 +202,6 @@ class DataLoader:
         self.do_binarize_otsu = do_binarize_otsu
         self.normalization_file = normalization_file
         self.multiply = multiply
-        self.dataAugmentation = augment
         self.elastic_transform = elastic_transform
         self.random_crop = random_crop
         self.random_width = random_width
