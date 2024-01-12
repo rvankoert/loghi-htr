@@ -38,7 +38,7 @@ class Tokenizer:
     """
 
     def __init__(self, chars: list, use_mask: bool = False,
-                 num_oov_indices: int = 0):
+                 num_oov_indices: int = 1):
         """
         Initializes the Tokenizer with a given character list and mask option.
 

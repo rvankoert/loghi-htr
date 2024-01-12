@@ -64,9 +64,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     # Get the predictions
     predictions = prediction_model.predict_on_batch(X)
-    y_pred = decode_batch_predictions(
-        predictions, tokenizer, args.greedy,
-        args.beam_width, args.num_oov_indices)
+    y_pred = decode_batch_predictions(predictions, tokenizer, args.greedy,
+                                      args.beam_width)
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
@@ -149,7 +148,7 @@ def perform_test(args: argparse.Namespace,
 
     logging.info("Performing test...")
 
-    tokenizer = Tokenizer(char_list, args.use_mask, args.num_oov_indices)
+    tokenizer = Tokenizer(char_list, args.use_mask)
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed

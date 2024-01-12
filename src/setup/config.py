@@ -183,7 +183,6 @@ class Config:
             "decoding": {
                 "greedy": args.greedy,
                 "beam_width": args.beam_width,
-                "num_oov_indices": args.num_oov_indices,
                 "corpus_file": args.corpus_file,
                 "wbs_smoothing": args.wbs_smoothing
             },

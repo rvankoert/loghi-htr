@@ -67,8 +67,8 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(args, charlist, model)
         training_dataset, evaluation_dataset, validation_dataset, \
-            test_dataset, inference_dataset, tokenizer, train_batches \
-            = loader.generators()
+            test_dataset, inference_dataset, tokenizer, train_batches, \
+            validation_labels = loader.generators()
 
         # Replace the charlist with the one from the data loader
         charlist = loader.charList
@@ -117,8 +117,7 @@ def main():
         tick = time.time()
 
         history = train_model(model, config, training_dataset,
-                              validation_dataset, loader,
-                              lr_schedule)
+                              evaluation_dataset, loader, lr_schedule)
 
         # Plot the training history
         plot_training_history(history, args)
@@ -130,11 +129,14 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(args, model, validation_dataset, charlist, loader)
+        perform_validation(args, model, validation_dataset,
+                           validation_labels, charlist, loader)
         timestamps['validate_time'] = time.time() - tick
 
     # Test the model
     if args.test_list:
+        logging.warning("Test results are without special markdown tags")
+
         tick = time.time()
         perform_test(args, model, test_dataset, charlist, loader)
         timestamps['test_time'] = time.time() - tick

@@ -60,7 +60,7 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
 
 def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
                              greedy: bool = True, beam_width: int = 1,
-                             num_oov_indices: int = 0) -> list:
+                             num_oov_indices: int = 1) -> list:
     """
     Decodes batch predictions using CTC Decoder.
 

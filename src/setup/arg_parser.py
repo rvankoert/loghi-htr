@@ -225,12 +225,6 @@ def get_arg_parser():
                                default=10, help='beam_width when validating/'
                                'inferencing, higher beam_width gets better '
                                'results, but run slower. Default 10')
-    decoding_args.add_argument('--num_oov_indices', metavar='num_oov_indices ',
-                               type=int, default=0, help='num_oov_indices, '
-                               'default 0, set to 1 if unknown characters are '
-                               'in dataset, but not in charlist. Use when you '
-                               'get the error "consider setting '
-                               '`num_oov_indices=1`"')
     decoding_args.add_argument('--corpus_file', metavar='corpus_file',
                                type=str, default=None, help='beta: '
                                'corpus_file to use, enables WordBeamSearch')

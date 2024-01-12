@@ -67,9 +67,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     # Get the predictions
     predictions = prediction_model.predict_on_batch(X)
-    y_pred = decode_batch_predictions(
-        predictions, tokenizer, args.greedy,
-        args.beam_width, args.num_oov_indices)
+    y_pred = decode_batch_predictions(predictions, tokenizer, args.greedy,
+                                      args.beam_width)
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
@@ -77,9 +76,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         char_str = handle_wbs_results(predsbeam, wbs, args, chars)
     else:
         char_str = None
-
-    # Get the original texts
-    orig_texts = tokenizer.decode(y_true)
 
     # Initialize the batch info
     batch_info = defaultdict(int)
@@ -89,7 +85,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
-        original_text = preprocess_text(orig_texts[index])
+        original_text = preprocess_text(y_true[index])
         normalized_original = None if not args.normalization_file else \
             loader.normalize(original_text, args.normalization_file)
 
@@ -138,6 +134,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 def perform_validation(args: argparse.Namespace,
                        model: tf.keras.Model,
                        validation_dataset: DataGenerator,
+                       validation_labels: List[str],
                        char_list: List[str],
                        dataloader: DataLoader) -> None:
     """
@@ -153,6 +150,8 @@ def perform_validation(args: argparse.Namespace,
         The Keras model to be validated.
     validation_dataset : DataGenerator
         The dataset to be used for validation.
+    validation_labels : List[str]
+        A list of labels for the validation dataset.
     char_list : List[str]
         A list of characters used in the model.
     dataloader : DataLoader
@@ -184,8 +183,12 @@ def perform_validation(args: argparse.Namespace,
 
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
+        X = batch[0]
+        y = validation_labels[batch_no * args.batch_size:
+                              batch_no * args.batch_size + len(X)]
+
         # Logic for processing each batch, calculating CER, etc.
-        batch_info = process_batch(batch, prediction_model, tokenizer, args,
+        batch_info = process_batch((X, y), prediction_model, tokenizer, args,
                                    wbs, dataloader, batch_no, char_list)
         metrics, batch_stats, total_stats = [], [], []
 

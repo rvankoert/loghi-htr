@@ -67,7 +67,6 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
         normalization_file=args.normalization_file,
         use_mask=args.use_mask,
         do_random_shear=args.do_random_shear,
-        num_oov_indices=args.num_oov_indices
     )
 
 

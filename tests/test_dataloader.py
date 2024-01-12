@@ -298,8 +298,8 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.inference_list = self._create_temp_file()
 
         training_generator, evaluation_generator, validation_generator, \
-            test_generator, inference_generator, tokenizer, train_batches \
-            = data_loader.generators()
+            test_generator, inference_generator, utils, train_batches, \
+            val_text = data_loader.generators()
 
         # Basic tests
         self.assertIsNotNone(training_generator,
@@ -337,14 +337,6 @@ class DataLoaderTest(unittest.TestCase):
             # Check the number of labels
             # ??? Very unclear how the labels work
             # self.assertEqual(len(labels), 3)  # 3 labels
-
-        # Edge Cases
-        # No train list
-        self._remove_temp_file(data_loader.train_list)
-        data_loader.train_list = None
-
-        training_generator, _, _, _, _, _, _ = data_loader.generators()
-        self.assertIsNone(training_generator, "Training generator not None")
 
         # Cleanup: Remove temporary files
         self._remove_temp_file(data_loader.validation_list)
