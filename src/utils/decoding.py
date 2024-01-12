@@ -97,15 +97,15 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
     output_texts = []
     for i, decoded_array in enumerate(ctc_decoded[0]):
         decoded_array += num_oov_indices
-        text = tokenizer.decode(decoded_array).strip().replace("", "")
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
-        # Find indices of the first occurrence of -1 in each sequence
-        time_steps = np.array(decoded_array == -1).argmax(axis=0)
+        time_steps = np.array(decoded_array == num_oov_indices-1)\
+            .argmax(axis=0)
         time_steps = time_steps if time_steps > 0 else len(decoded_array)
 
         # Normalize the confidence score based on the number of timesteps
+        text = tokenizer.decode(decoded_array).strip().replace("", "")
         confidence = np.exp(-log_probs[i][0] / time_steps
                             if greedy else log_probs[i][0] / time_steps)
 
