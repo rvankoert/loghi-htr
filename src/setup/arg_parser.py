@@ -119,6 +119,9 @@ def get_arg_parser():
     augmentation_args = parser.add_argument_group('Augmentation arguments')
     augmentation_args.add_argument('--augment', action='store_true',
                                    help='beta: apply data augmentation to training set. In general this is a good idea')
+    augmentation_args.add_argument("--random_augments", action='store_true',
+                                   help='select a random number of data '
+                                        'augments from all available augments (at least 2)')
     augmentation_args.add_argument('--aug_elastic_transform',
                                    action='store_true',
                                    help='beta: elastic_transform, currently disabled')

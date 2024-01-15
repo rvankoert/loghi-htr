@@ -78,13 +78,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         preprocessed_image, encoded_label = loader.load_images(image_info_tuple)
         ```
         """
-
-        # Set up the basic logging configuration
-        logger = logging.getLogger(__name__)
-
-        # Sequential keras layers appends first then run in through
-        augment_options = get_augment_classes()
-
         # Read in image info tuple
         image = tf.io.read_file(image_info_tuple[0])
         try:

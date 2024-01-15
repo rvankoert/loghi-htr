@@ -125,50 +125,41 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
     if any([args.aug_elastic_transform, args.aug_random_crop,
             args.aug_random_width, args.aug_distort_jpeg,
             args.aug_random_shear, args.aug_binarize_otsu,
-            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert]):
-        batch_size, width, height, channels = model.layers[0].get_input_at(
-            0).get_shape().as_list()
+            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert,
+            args.random_augments]):
+        # Set input params from trainings model input spec
+        batch_size, width, height, channels = (model.layers[0]
+                                               .get_input_at(0)
+                                               .get_shape().as_list())
 
         augment_options = get_augment_classes()
         augment_selection = get_augment_model()
         aug_model = make_augment_model(augment_options, augment_selection)
-        # aug_model.build(input_shape=[batch_size, width, height, channels])
-        #
-        # # Take the outputs from the aug_model in shapes
-        # batch_size, width, height, channels = (aug_model.layers[-1]
-        #                                        .get_input_at(0)
-        #                                        .get_shape().as_list())
-
-        print("TEST: ", batch_size, width, height, channels)
-
-        # aug_model.build(input_shape=[batch_size, height, width, channels])
 
         # If binarization is active then override the channels to 1
         if args.aug_binarize_sauvola or args.aug_binarize_otsu:
-            print("OVERRIDING channels")
             channels = 1
-
-        # batch_size, width, height, channels = (aug_model.layers[-1]
-        #                                        .get_input_at(0).get_shape()
-        #                                        .as_list())
-        # print("POST:",batch_size, height, width, channels)
 
         if args.visualize_augments:
             # Save example plot locally with the pre and post from aug_model
-            save_augment_steps_plot(aug_model,
-                                    sample_image_path="test-image1.png",
-                                    save_path="visualization.png",
-                                    channels=channels)
+            save_augment_steps_plot(
+                aug_model,
+                sample_image_path="../tests/data/test-image2.png",
+                save_path="visualization.png",
+                channels=channels)
 
         model = tf.keras.Sequential(aug_model.layers + model.layers[1:])
         model.build(input_shape=[batch_size, height, width, channels])
 
     return model
 
-def blend_with_background(image, background_color=[1, 1, 1]):
+
+def blend_with_background(image, background_color=None):
     """
     Blend the image with a background color. Assumes the image is in the format RGBA.
     """
+    if background_color is None:
+        background_color = [1, 1, 1]
     rgb = image[..., :3]
     alpha = tf.expand_dims(image[..., 3], axis=-1)
     return rgb * alpha + background_color * (1 - alpha)
@@ -201,9 +192,11 @@ def save_augment_steps_plot(aug_model, sample_image_path, save_path, channels):
     # Plot the original and each augmentation step
     num_of_images = len(augment_images)
     plt.figure(figsize=(8, 1 * num_of_images))
+    plt.title("Data Augment steps:")
+    plt.axis('off')
 
     for idx, image in enumerate(augment_images):
-        layer_name = aug_model.layers[idx-1].name if idx > 0 else 'Original'
+        layer_name = aug_model.layers[idx - 1].name if idx > 0 else 'Original'
         print(layer_name)
         print(image.shape)
         print(image.dtype)
@@ -211,15 +204,19 @@ def save_augment_steps_plot(aug_model, sample_image_path, save_path, channels):
         # Adjust the image based on the number of channels
         if image.shape[-1] == 4:  # RGBA
             image = blend_with_background(image)
+            cmap = None
         elif image.shape[-1] == 1:  # Grayscale
             image = tf.squeeze(image)
+            cmap = 'gray'
+        else:
+            cmap = None
 
         # Ensure the image is of type float32 for plotting
         image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
-        plt.subplot(num_of_images,1, idx + 1)
-        plt.title(f'Step {idx}: {layer_name}')
-        plt.imshow(image,vmin=0, vmax=1)
+        plt.subplot(num_of_images, 1, idx + 1)
+        plt.title(f'Step {idx}: {layer_name} {image.shape}')
+        plt.imshow(image, vmin=0, vmax=1, cmap=cmap)
         plt.axis('off')
 
     plt.tight_layout()
