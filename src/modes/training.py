@@ -19,8 +19,7 @@ def train_model(model: tf.keras.Model,
                 config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                loader: DataLoader,
-                lr_schedule: LoghiLearningRateSchedule) -> Any:
+                loader: DataLoader) -> Any:
     """
     Trains a Keras model using the provided training and validation datasets,
     along with additional arguments.
@@ -38,8 +37,6 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for validation.
     loader : DataLoader
         A DataLoader containing additional information like character list.
-    lr_schedule : LoghiLearningRateSchedule
-        The learning rate schedule to be used for training.
 
     Returns
     -------
@@ -60,7 +57,6 @@ def train_model(model: tf.keras.Model,
         training_dataset,
         validation_dataset,
         epochs=args.epochs,
-        lr_schedule=lr_schedule,
         output=args.output,
         model_name=model.name,
         steps_per_epoch=args.steps_per_epoch,
@@ -80,7 +76,6 @@ def train_batch(model: tf.keras.Model,
                 train_dataset: tf.data.Dataset,
                 validation_dataset: Optional[tf.data.Dataset],
                 epochs: int,
-                lr_schedule: Union[float, LoghiLearningRateSchedule],
                 output: str,
                 model_name: str,
                 steps_per_epoch: Optional[int] = None,
@@ -106,9 +101,6 @@ def train_batch(model: tf.keras.Model,
         The validation dataset. If not provided, validation is skipped.
     epochs : int
         Number of epochs to train the model.
-    lr_schedule : Any
-        Learning rate schedule. The precise type depends on how learning rate
-        is scheduled.
     output : str
         Directory path to save training outputs.
     model_name : str
@@ -160,8 +152,12 @@ def train_batch(model: tf.keras.Model,
                             config=config,
                             normalization_file=normalization_file)
 
+    import tensorflow_model_optimization as tfmot
+
     # Add all default callbacks
-    callbacks = [logging_callback, loghi_custom_callback]
+    callbacks = [logging_callback, loghi_custom_callback,
+                 tfmot.sparsity.keras.UpdatePruningStep(),
+                 tfmot.sparsity.keras.PruningSummaries(log_dir=output)]
 
     # If we defined an early stopping patience, add it to the callbacks
     if early_stopping_patience > 0 and validation_dataset:

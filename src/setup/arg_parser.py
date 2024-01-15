@@ -16,26 +16,16 @@ def get_arg_parser():
 
     # General configuration
     general_args = parser.add_argument_group('General arguments')
-    general_args.add_argument('--gpu', metavar='gpu', type=str, default="-1",
+    general_args.add_argument('--gpu', metavar='gpu', type=str, default="0",
                               help="Specify the GPU ID for training/inference."
-                              " Use -1 to run on CPU. Default: '-1'.")
+                              " Use -1 to run on CPU. Default: '0'.")
     general_args.add_argument('--output', metavar='output', type=str,
                               default='output', help="Base directory for "
                               "saving output files such as models and logs. "
                               "Default: 'output'.")
-    general_args.add_argument('--output_charlist', metavar='output_charlist',
-                              type=str, default=None, help="Path to save the "
-                              "character list used during training/inference. "
-                              "If not specified, the charlist is saved to"
-                              "'output/charlist.txt'.")
     general_args.add_argument('--config_file', metavar='config_file', type=str,
                               help="Path to a JSON file containing arguments "
                               "for the model.")
-    general_args.add_argument('--config_file_output',
-                              metavar='config_file_output', type=str,
-                              default=None, help="Path to save the "
-                              "configuration file. If not specified, the "
-                              "configuration is set to 'output/config.json'.")
     general_args.add_argument('--batch_size', metavar='batch_size', type=int,
                               default=4, help="Number of samples processed in "
                               "one iteration. Affects memory usage and "
@@ -266,6 +256,16 @@ def get_arg_parser():
                            default=3, help='number of channels to use. 1 for '
                            'grey-scale/binary images, three for color images, '
                            '4 for png\'s with transparency')
+    depr_args.add_argument('--output_charlist', metavar='output_charlist',
+                           type=str, default=None, help="Path to save the "
+                           "character list used during training/inference. "
+                           "If not specified, the charlist is saved to"
+                           "'output/charlist.txt'.")
+    depr_args.add_argument('--config_file_output',
+                           metavar='config_file_output', type=str,
+                           default=None, help="Path to save the "
+                           "configuration file. If not specified, the "
+                           "configuration is set to 'output/config.json'.")
 
     return parser
 
@@ -301,6 +301,14 @@ def arg_future_warning(args):
     if args.channels:
         logger.warning("Argument will lose support in March 2024: --channels. "
                        "Channels will be inferred from the VGSL spec.")
+    if args.output_charlist:
+        logger.warning("Argument will lose support in March 2024: "
+                       "--output_charlist. The charlist will be saved to "
+                       "output/charlist.txt by default.")
+    if args.config_file_output:
+        logger.warning("Argument will lose support in March 2024: "
+                       "--config_file_output. The configuration will be saved "
+                       "to output/config.json by default.")
 
 
 def get_args():

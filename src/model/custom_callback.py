@@ -142,9 +142,9 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
         # Log epoch metrics
         logging_text = f"Epoch {epoch} - Average CER: " \
-                       f"{logs.get('CER_metric', 0):.2f}"
+                       f"{logs.get('CER_metric', 0):.4f}"
         if current_val_metric is not None:
-            logging_text += f" - Validation CER: {current_val_metric:.2f}"
+            logging_text += f" - Validation CER: {current_val_metric:.4f}"
         print()
         self.logger.info(logging_text)
 
@@ -152,17 +152,17 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         if self.save_best and current_val_metric is not None:
             if current_val_metric < self.best_val_metric:
                 self.logger.info("Validation CER improved from "
-                                 f"{self.best_val_metric:.2f} to "
-                                 f"{current_val_metric:.2f}")
+                                 f"{self.best_val_metric:.4f} to "
+                                 f"{current_val_metric:.4f}")
                 self.best_val_metric = current_val_metric
                 self._async_save_model("best_val")
 
         # Save checkpoint
         if self.save_checkpoint:
-            checkpoint_name = "epoch_{}_CER_{:.2f}".format(
+            checkpoint_name = "epoch_{}_CER_{:.4f}".format(
                 epoch, logs.get("CER_metric", 0))
             if current_val_metric is not None:
-                checkpoint_name += f"_val_{current_val_metric:.2f}"
+                checkpoint_name += f"_val_{current_val_metric:.4f}"
             self.logger.info("Saving checkpoint...")
             self._async_save_model(checkpoint_name)
             self.logger.info("Checkpoint saved.")

@@ -117,7 +117,7 @@ def main():
         tick = time.time()
 
         history = train_model(model, config, training_dataset,
-                              evaluation_dataset, loader, lr_schedule)
+                              evaluation_dataset, loader)
 
         # Plot the training history
         plot_training_history(history, args)

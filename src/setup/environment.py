@@ -73,7 +73,8 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
-    logging.info(f"Available GPUs: {gpu_devices}")
+    logging.info(f"Available GPU(s): {gpu_devices}")
+    logging.info(f"Selected GPU(s): {args.gpu}")
 
     # Set the active GPUs depending on the 'gpu' argument
     if args.gpu == "-1":

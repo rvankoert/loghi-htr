@@ -112,7 +112,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                                              do_print)
 
         if args.normalization_file:
-
             # Process the normalized CER
             batch_info = process_prediction_type(prediction,
                                                  normalized_original,
@@ -193,9 +192,9 @@ def perform_validation(args: argparse.Namespace,
         metrics, batch_stats, total_stats = [], [], []
 
         # Calculate the CER
-        total_counter, metrics, batch_stats, total_stats\
-            = process_cer_type(
-                batch_info, total_counter, metrics, batch_stats, total_stats)
+        total_counter, metrics, batch_stats, total_stats = \
+            process_cer_type(batch_info, total_counter, metrics,
+                             batch_stats, total_stats)
 
         # Calculate the normalized CER
         if args.normalization_file:

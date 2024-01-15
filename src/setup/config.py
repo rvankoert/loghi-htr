@@ -122,9 +122,7 @@ class Config:
             "general": {
                 "gpu": args.gpu,
                 "output": args.output,
-                "output_charlist": args.output_charlist,
                 "config_file": args.config_file,
-                "config_file_output": args.config_file_output,
                 "batch_size": args.batch_size,
                 "seed": args.seed,
                 "charlist": args.charlist
@@ -198,7 +196,9 @@ class Config:
                 "use_mask": args.use_mask,
                 "no_auto": args.no_auto,
                 "height": args.height,
-                "channels": args.channels
+                "channels": args.channels,
+                "output_charlist": args.output_charlist,
+                "config_file_output": args.config_file_output,
             }
         }
 
