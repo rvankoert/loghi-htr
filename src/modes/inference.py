@@ -56,8 +56,7 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
             # Get the predictions
             predictions = prediction_model.predict(batch[0], verbose=0)
             y_pred = decode_batch_predictions(
-                predictions, tokenizer, args.greedy,
-                args.beam_width, args.num_oov_indices)
+                predictions, tokenizer, args.greedy, args.beam_width)
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):

@@ -277,6 +277,9 @@ def fix_args(args):
     if not args.no_auto and args.batch_size > 1:
         logging.warning('batch_size > 1, setting use_mask=True')
         args.__dict__['use_mask'] = True
+    if not args.no_auto and args.inference_list:
+        logging.warning('do_inference implied by providing a inference_list')
+        args.__dict__['do_inference'] = True
 
 
 def arg_future_warning(args):

@@ -1,0 +1,28 @@
+{
+    "args": {
+        "decoding": {
+            "beam_width": 10,
+            "corpus_file": null,
+            "greedy": false,
+            "wbs_smoothing": 0.1
+        },
+        "general": {
+            "batch_size": 200,
+            "gpu": "0",
+            "output": "output",
+            "seed": 42
+        },
+        "inference": {
+            "inference_list": "/path/to/inference.txt",
+            "results_file": "output/results.txt"
+        },
+        "misc": {
+            "check_missing_files": false,
+            "deterministic": false
+        },
+        "model": {
+            "existing_model": "/path/to/model/",
+            "use_float32": false
+        }
+    }
+}
