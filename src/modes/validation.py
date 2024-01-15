@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 from collections import defaultdict
 import logging
 import os
@@ -14,6 +13,7 @@ import tensorflow as tf
 from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
+from setup.config import Config
 from utils.calculate import calculate_confidence_intervals, \
     calculate_edit_distances, process_cer_type, process_prediction_type
 from utils.decoding import decode_batch_predictions
@@ -25,7 +25,7 @@ from utils.wbs import setup_word_beam_search, handle_wbs_results
 def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   prediction_model: tf.keras.Model,
                   tokenizer: Tokenizer,
-                  args: argparse.Namespace,
+                  config: Config,
                   wbs: Optional[Any],
                   loader: DataLoader,
                   batch_no: int,
@@ -43,9 +43,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         The prediction model derived from the main model for inference.
     tokenizer : Tokenizer
         A tokenizer object for converting between characters and integers.
-    args : argparse.Namespace
-        A namespace containing arguments for processing the batch, like batch
-        size and settings for WBS.
+    config : Config
+        A Config object containing the configuration for processing the batch,
+        like batch size and settings for WBS.
     wbs : Optional[Any]
         An optional Word Beam Search object for advanced decoding, if
         applicable.
@@ -63,6 +63,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         the batch processing, such as CER.
     """
 
+    args = config.args
+
     X, y_true = batch
 
     # Get the predictions
@@ -73,7 +75,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     # Transpose the predictions for WordBeamSearch
     if wbs:
         predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
-        char_str = handle_wbs_results(predsbeam, wbs, args, chars)
+        char_str = handle_wbs_results(predsbeam, wbs, chars)
     else:
         char_str = None
 
@@ -82,7 +84,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
-
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(y_true[index])
@@ -91,12 +92,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Calculate edit distances here so we can use them for printing the
         # predictions
-        distances = \
-            calculate_edit_distances(prediction, original_text)
-        do_print = distances[0] > 0
+        distances = calculate_edit_distances(prediction, original_text)
 
         # Print the predictions if there are any errors
-        if do_print:
+        if do_print := distances[0] > 0:
             filename = loader.get_item('validation',
                                        (batch_no * args.batch_size) + index)
             wbs_str = char_str[index] if wbs else None
@@ -109,7 +108,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         batch_info = process_prediction_type(prediction,
                                              original_text,
                                              batch_info,
-                                             do_print)
+                                             do_print,
+                                             distances=distances)
 
         if args.normalization_file:
             # Process the normalized CER
@@ -130,11 +130,11 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     return batch_info
 
 
-def perform_validation(args: argparse.Namespace,
+def perform_validation(config: Config,
                        model: tf.keras.Model,
                        validation_dataset: DataGenerator,
                        validation_labels: List[str],
-                       char_list: List[str],
+                       charlist: List[str],
                        dataloader: DataLoader) -> None:
     """
     Performs validation on a dataset using a given model and calculates various
@@ -142,16 +142,16 @@ def perform_validation(args: argparse.Namespace,
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing arguments for the validation process such as
-        mask usage and file paths.
+    config : Config
+        A Config object containing the configuration for the validation
+        process such as mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
     validation_dataset : DataGenerator
         The dataset to be used for validation.
     validation_labels : List[str]
         A list of labels for the validation dataset.
-    char_list : List[str]
+    charlist : List[str]
         A list of characters used in the model.
     dataloader : DataLoader
         A data loader object for additional operations like normalization and
@@ -167,11 +167,13 @@ def perform_validation(args: argparse.Namespace,
 
     logging.info("Performing validation...")
 
-    tokenizer = Tokenizer(char_list, args.use_mask)
+    args = config.args
+
+    tokenizer = Tokenizer(charlist, args.use_mask)
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(args, char_list, dataloader) \
+    wbs = setup_word_beam_search(config, charlist, dataloader) \
         if args.corpus_file else None
 
     # Initialize variables for CER calculation
@@ -187,8 +189,8 @@ def perform_validation(args: argparse.Namespace,
                               batch_no * args.batch_size + len(X)]
 
         # Logic for processing each batch, calculating CER, etc.
-        batch_info = process_batch((X, y), prediction_model, tokenizer, args,
-                                   wbs, dataloader, batch_no, char_list)
+        batch_info = process_batch((X, y), prediction_model, tokenizer, config,
+                                   wbs, dataloader, batch_no, charlist)
         metrics, batch_stats, total_stats = [], [], []
 
         # Calculate the CER

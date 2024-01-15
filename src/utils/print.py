@@ -8,7 +8,9 @@ import logging
 from typing import List, Optional, Tuple, Union
 
 
-def print_predictions(filename: str, original_text: str, predicted_text: str,
+def print_predictions(filename: str,
+                      original_text: str,
+                      predicted_text: str,
                       normalized_text: Optional[str] = None,
                       char_str: Optional[str] = None) -> None:
     """
@@ -47,7 +49,8 @@ def print_predictions(filename: str, original_text: str, predicted_text: str,
     logging.info("")
 
 
-def print_cer_stats(distances: Tuple[int, int, int], lengths: Tuple[int, int],
+def print_cer_stats(distances: Tuple[int, int, int],
+                    lengths: Tuple[int, int],
                     prefix: str = "") -> None:
     """
     Logs Character Error Rate (CER) statistics including standard, lower case,

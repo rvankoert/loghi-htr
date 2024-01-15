@@ -148,7 +148,8 @@ def calculate_cers(info: Dict[str, int], prefix: str = "") \
     return cer, lower_cer, simple_cer
 
 
-def update_totals(info: Dict[str, int], total: Dict[str, int],
+def update_totals(info: Dict[str, int],
+                  total: Dict[str, int],
                   prefix: str = "") -> Dict[str, int]:
     """
     Updates the cumulative totals of edit distances and lengths for different
@@ -193,9 +194,10 @@ def update_totals(info: Dict[str, int], total: Dict[str, int],
     return total
 
 
-def update_batch_info(info: Dict[str, int], distances: Tuple[int, int, int],
-                      lengths: Tuple[int, int], prefix: str = "") \
-        -> Dict[str, int]:
+def update_batch_info(info: Dict[str, int],
+                      distances: Tuple[int, int, int],
+                      lengths: Tuple[int, int],
+                      prefix: str = "") -> Dict[str, int]:
     """
     Updates the batch information with new edit distances and lengths for
     different text forms.
@@ -240,9 +242,12 @@ def update_batch_info(info: Dict[str, int], distances: Tuple[int, int, int],
 
 # Prediction processing functions
 
-def process_cer_type(batch_info: Dict[str, int], total_counter: Dict[str, int],
-                     metrics: List[str], batch_stats: List[Union[int, float]],
-                     total_stats: List[Union[int, float]], prefix: str = "") \
+def process_cer_type(batch_info: Dict[str, int],
+                     total_counter: Dict[str, int],
+                     metrics: List[str],
+                     batch_stats: List[Union[int, float]],
+                     total_stats: List[Union[int, float]],
+                     prefix: str = "") \
         -> Tuple[Dict[str, int], List[str],
                  List[Union[int, float]], List[Union[int, float]]]:
     """
@@ -288,8 +293,7 @@ def process_cer_type(batch_info: Dict[str, int], total_counter: Dict[str, int],
 
     # Define metric names based on the prefix
     prefix = f"{prefix} " if prefix else prefix
-    cer_names = [f"{prefix}CER", f"{prefix}Lower CER", f"{prefix}Simple CER"] \
-        if prefix else ["CER", "Lower CER", "Simple CER"]
+    cer_names = [f"{prefix}CER", f"{prefix}Lower CER", f"{prefix}Simple CER"]
 
     # Extend metrics and stats
     metrics.extend(cer_names)
@@ -299,9 +303,13 @@ def process_cer_type(batch_info: Dict[str, int], total_counter: Dict[str, int],
     return updated_totals, metrics, batch_stats, total_stats
 
 
-def process_prediction_type(prediction: str, original: str,
-                            batch_info: Dict[str, int], do_print: bool,
-                            prefix: str = "") -> Dict[str, int]:
+def process_prediction_type(prediction: str,
+                            original: str,
+                            batch_info: Dict[str, int],
+                            do_print: bool,
+                            prefix: str = "",
+                            distances: Tuple[int, int, int] = None) \
+        -> Dict[str, int]:
     """
     Processes a single prediction by calculating edit distances and updating
     batch information.
@@ -320,6 +328,9 @@ def process_prediction_type(prediction: str, original: str,
     prefix : str, optional
         A prefix for the keys in the batch information dictionary (e.g.,
         'Normalized').
+    distances : Tuple[int, int, int], optional
+        A tuple containing the edit distances for standard, lower-cased, and
+        simplified texts, if they are already calculated.
 
     Returns
     -------
@@ -335,12 +346,15 @@ def process_prediction_type(prediction: str, original: str,
     # Preprocess the text for CER calculation
     _, simple_original = simplify_text(original)
 
-    # Calculate edit distances
-    distances = calculate_edit_distances(prediction, original)
+    if distances is None:
+        # Calculate edit distances
+        distances = calculate_edit_distances(prediction, original)
+
+    # Determine the lengths
+    lengths = [len(original), len(simple_original)]
 
     # Unpack the distances
     edit_distance, lower_edit_distance, simple_edit_distance = distances
-    lengths = [len(original), len(simple_original)]
 
     # Print the predictions if there are any errors
     if do_print:

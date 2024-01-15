@@ -55,7 +55,8 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     return model
 
 
-def customize_model(model: tf.keras.Model, args: argparse.Namespace,
+def customize_model(model: tf.keras.Model,
+                    args: argparse.Namespace,
                     charlist: List[str]) -> tf.keras.Model:
     """
     Customizes a Keras model based on various arguments including layer
@@ -89,8 +90,8 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
     if args.replace_final_layer or not args.existing_model:
         new_classes = len(charlist) + 2 if args.use_mask else len(charlist) + 1
         logging.info(f"Replacing final layer with {new_classes} classes")
-        model = replace_final_layer(model, len(
-            charlist), model.name, use_mask=args.use_mask)
+        model = replace_final_layer(model, len(charlist), model.name,
+                                    use_mask=args.use_mask)
 
     # Freeze or thaw layers if specified
     if any([args.thaw, args.freeze_conv_layers,
@@ -206,7 +207,8 @@ def load_or_create_model(args: argparse.Namespace,
     return model
 
 
-def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
+def verify_charlist_length(charlist: List[str],
+                           model: tf.keras.Model,
                            use_mask: bool) -> None:
     """
     Verifies if the length of the character list matches the expected output

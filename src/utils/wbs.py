@@ -12,10 +12,11 @@ from word_beam_search import WordBeamSearch
 
 # > Local imports
 from data.loader import DataLoader
+from setup.config import Config
 from utils.text import preprocess_text
 
 
-def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
+def setup_word_beam_search(config: Config, charlist: List[str],
                            loader: DataLoader) -> WordBeamSearch:
     """
     Sets up the Word Beam Search (WBS) algorithm for use in character
@@ -23,9 +24,9 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing arguments related to the WBS setup, such as the
-        path to the corpus file, beam width, and smoothing parameters.
+    config : Config
+        A Config object containing arguments related to the WBS setup, such as
+        the path to the corpus file, beam width, and smoothing parameters.
     charlist : List[str]
         A list of characters used in the model.
     loader : DataLoader
@@ -51,6 +52,8 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
     """
 
     logging.info("Setting up WordBeamSearch...")
+
+    args = config.args
 
     # Check if the corpus file exists
     if not os.path.exists(args.corpus_file):
@@ -80,8 +83,7 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
 
 
 def handle_wbs_results(predsbeam: tf.Tensor, wbs: WordBeamSearch,
-                       args: argparse.Namespace, chars: List[str]) \
-        -> List[str]:
+                       chars: List[str]) -> List[str]:
     """
     Decodes batch predictions using Word Beam Search (WBS).
 
@@ -92,9 +94,6 @@ def handle_wbs_results(predsbeam: tf.Tensor, wbs: WordBeamSearch,
         processing.
     wbs : WordBeamSearch
         The WordBeamSearch object used for decoding.
-    args : argparse.Namespace
-        A namespace containing relevant arguments, potentially used in the
-        decoding process.
     chars : List[str]
         A list of characters corresponding to the indices in the model's
         predictions.

@@ -79,7 +79,7 @@ def main():
 
         # Save the charlist
         verify_charlist_length(charlist, model, args.use_mask)
-        save_charlist(charlist, args.output, args.output_charlist)
+        save_charlist(charlist, args.output)
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
@@ -130,7 +130,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(args, model, validation_dataset,
+        perform_validation(config, model, validation_dataset,
                            validation_labels, charlist, loader)
         timestamps['Validation'] = time.time() - tick
 
@@ -139,13 +139,13 @@ def main():
         logging.warning("Test results are without special markdown tags")
 
         tick = time.time()
-        perform_test(args, model, test_dataset, charlist, loader)
+        perform_test(config, model, test_dataset, charlist, loader)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if args.do_inference:
         tick = time.time()
-        perform_inference(args, model, inference_dataset, charlist, loader)
+        perform_inference(config, model, inference_dataset, charlist, loader)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps

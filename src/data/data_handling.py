@@ -13,7 +13,7 @@ import tensorflow as tf
 from data.loader import DataLoader
 
 
-def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
+def initialize_data_loader(args: argparse.Namespace, charlist: List[str],
                            model: tf.keras.Model) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
@@ -24,7 +24,7 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
     args : argparse.Namespace
         A namespace containing various arguments to configure the data loader
         (e.g., batch size, image size, lists for training, validation, etc.).
-    char_list : List[str]
+    charlist : List[str]
         A list of characters to be used by the data loader.
     model : tf.keras.Model
         The Keras model, used to derive input dimensions for the data loader.
@@ -53,7 +53,7 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
         test_list=args.test_list,
         validation_list=args.validation_list,
         inference_list=args.inference_list,
-        char_list=char_list,
+        char_list=charlist,
         do_binarize_sauvola=args.do_binarize_sauvola,
         do_binarize_otsu=args.do_binarize_otsu,
         multiply=args.multiply,
@@ -125,7 +125,7 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
         else:
             raise FileNotFoundError(
                 f"Charlist not found at: {charlist_location} and "
-                "replace_final_layer is False. Exiting...")
+                "replace_final_layer is False.")
 
         logging.info(f"Using charlist: {char_list}")
         logging.info(f"Charlist length: {len(char_list)}")
@@ -133,8 +133,8 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
     return char_list
 
 
-def save_charlist(charlist: List[str], output: str,
-                  output_charlist_location: Optional[str] = None) -> None:
+def save_charlist(charlist: List[str],
+                  output: str) -> None:
     """
     Saves the given character list to a specified location.
 
@@ -144,9 +144,6 @@ def save_charlist(charlist: List[str], output: str,
         The character list to be saved.
     output : str
         The base output directory where the character list file is to be saved.
-    output_charlist_location : Optional[str]
-        The specific location where the character list file is to be saved. If
-        not provided, it defaults to a location within the output directory.
 
     Notes
     -----
@@ -156,7 +153,5 @@ def save_charlist(charlist: List[str], output: str,
     """
 
     # Save the new charlist
-    if not output_charlist_location:
-        output_charlist_location = output + '/charlist.txt'
-    with open(output_charlist_location, 'w') as chars_file:
+    with open(f"{output}/charlist.txt", 'w') as chars_file:
         chars_file.write(str().join(charlist))

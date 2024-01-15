@@ -46,9 +46,8 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
 
     Parameters
     ----------
-    args : argparse.Namespace
-        The namespace containing runtime arguments related to environment
-        setup, like GPU selection and precision settings.
+    config : Config
+        The configuration object containing the parsed arguments.
 
     Returns
     -------
@@ -62,6 +61,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     the GPU devices being used and the precision policy (float32 or
     mixed_float16) based on the 'use_float32' and 'gpu' arguments.
     """
+
     args = config.args
 
     # Initial setup
@@ -73,8 +73,8 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
+    logging.info(f"Selected GPU indices from config: {args.gpu}")
     logging.info(f"Available GPU(s): {gpu_devices}")
-    logging.info(f"Selected GPU(s): {args.gpu}")
 
     # Set the active GPUs depending on the 'gpu' argument
     if args.gpu == "-1":
