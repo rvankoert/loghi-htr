@@ -52,30 +52,28 @@ def train_model(model: tf.keras.Model,
     depends on the specific model and data provided.
     """
 
-    args = config.args
-
     # CSV logger
-    log_filename = os.path.join(args.output, 'log.csv')
+    log_filename = os.path.join(config["output"], 'log.csv')
     logging_callback = tf.keras.callbacks.CSVLogger(
         log_filename, separator=",", append=True)
 
     # Loghi custom callback
     loghi_custom_callback = \
         LoghiCustomCallback(save_best=True,
-                            save_checkpoint=args.output_checkpoints,
-                            output=args.output,
+                            save_checkpoint=config["output_checkpoints"],
+                            output=config["output"],
                             charlist=loader.charList,
                             config=config,
-                            normalization_file=args.normalization_file)
+                            normalization_file=config["normalization_file"])
 
     # Add all default callbacks
     callbacks = [logging_callback, loghi_custom_callback]
 
     # If we defined an early stopping patience, add it to the callbacks
-    if args.early_stopping_patience > 0 and validation_dataset:
+    if config["early_stopping_patience"] > 0 and validation_dataset:
         early_stopping = tf.keras.callbacks.EarlyStopping(
             monitor='val_CER_metric',
-            patience=args.early_stopping_patience,
+            patience=config["early_stopping_patience"],
             restore_best_weights=True,
             mode='min'
         )
@@ -85,13 +83,13 @@ def train_model(model: tf.keras.Model,
     history = model.fit(
         training_dataset,
         validation_data=validation_dataset,
-        epochs=args.epochs,
+        epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
         workers=num_workers,
-        max_queue_size=args.max_queue_size,
-        steps_per_epoch=args.steps_per_epoch,
-        verbose=args.training_verbosity_mode
+        max_queue_size=config["max_queue_size"],
+        steps_per_epoch=config["steps_per_epoch"],
+        verbose=config["training_verbosity_mode"]
     )
     return history
 

@@ -83,6 +83,26 @@ class Config:
 
         return json.dumps(self.config, indent=4, sort_keys=True)
 
+    def __getitem__(self, key: str) -> any:
+        """
+        Get a value from the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to retrieve.
+
+        Returns
+        -------
+        any
+            The value corresponding to the key.
+        """
+
+        try:
+            return self.config[key]
+        except KeyError:
+            return getattr(self.args, key, None)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.

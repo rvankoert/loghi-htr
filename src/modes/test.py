@@ -60,19 +60,17 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         the batch processing, such as CER.
     """
 
-    args = config.args
-
     X, y_true = batch
 
     # Get the predictions
     predictions = prediction_model.predict_on_batch(X)
-    y_pred = decode_batch_predictions(predictions, tokenizer, args.greedy,
-                                      args.beam_width)
+    y_pred = decode_batch_predictions(predictions, tokenizer, config["greedy"],
+                                      config["beam_width"])
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
         predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
-        char_str = handle_wbs_results(predsbeam, wbs, args, chars)
+        char_str = handle_wbs_results(predsbeam, wbs, chars)
     else:
         char_str = None
 
@@ -88,15 +86,15 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
-        normalized_original = None if not args.normalization_file else \
-            loader.normalize(original_text, args.normalization_file)
+        normalized_original = None if not config["normalization_file"] else \
+            loader.normalize(original_text, config["normalization_file"])
 
         batch_info = process_prediction_type(prediction,
                                              original_text,
                                              batch_info,
                                              do_print=False)
 
-        if args.normalization_file:
+        if config["normalization_file"]:
             # Process the normalized CER
             batch_info = process_prediction_type(prediction,
                                                  normalized_original,
@@ -149,14 +147,12 @@ def perform_test(config: Config,
 
     logging.info("Performing test...")
 
-    args = config.args
-
-    tokenizer = Tokenizer(charlist, args.use_mask)
+    tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist, dataloader) \
-        if args.corpus_file else None
+        if config["corpus_file"] else None
 
     # Initialize variables for CER calculation
     n_items = 0
@@ -179,7 +175,7 @@ def perform_test(config: Config,
                                batch_stats, total_stats)
 
         # Calculate the normalized CER
-        if args.normalization_file:
+        if config["normalization_file"]:
             total_normalized_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(batch_info, total_normalized_counter,
                                    metrics, batch_stats, total_stats,
@@ -215,9 +211,9 @@ def perform_test(config: Config,
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(args.output, 'test.csv'), 'w') as f:
+    with open(os.path.join(config["output"], 'test.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
-        if args.normalization_file:
+        if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower,"
             "normalized_cer_simple"
         if wbs:

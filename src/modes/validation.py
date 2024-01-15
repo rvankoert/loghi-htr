@@ -63,14 +63,12 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         the batch processing, such as CER.
     """
 
-    args = config.args
-
     X, y_true = batch
 
     # Get the predictions
     predictions = prediction_model.predict_on_batch(X)
-    y_pred = decode_batch_predictions(predictions, tokenizer, args.greedy,
-                                      args.beam_width)
+    y_pred = decode_batch_predictions(predictions, tokenizer, config["greedy"],
+                                      config["beam_width"])
 
     # Transpose the predictions for WordBeamSearch
     if wbs:
@@ -87,8 +85,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(y_true[index])
-        normalized_original = None if not args.normalization_file else \
-            loader.normalize(original_text, args.normalization_file)
+        normalized_original = None if not config["normalization_file"] else \
+            loader.normalize(original_text, config["normalization_file"])
 
         # Calculate edit distances here so we can use them for printing the
         # predictions
@@ -97,7 +95,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         # Print the predictions if there are any errors
         if do_print := distances[0] > 0:
             filename = loader.get_item('validation',
-                                       (batch_no * args.batch_size) + index)
+                                       (batch_no * config["batch_size"])
+                                       + index)
             wbs_str = char_str[index] if wbs else None
 
             print_predictions(filename, original_text, prediction,
@@ -111,7 +110,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                                              do_print,
                                              distances=distances)
 
-        if args.normalization_file:
+        if config["normalization_file"]:
             # Process the normalized CER
             batch_info = process_prediction_type(prediction,
                                                  normalized_original,
@@ -167,14 +166,12 @@ def perform_validation(config: Config,
 
     logging.info("Performing validation...")
 
-    args = config.args
-
-    tokenizer = Tokenizer(charlist, args.use_mask)
+    tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist, dataloader) \
-        if args.corpus_file else None
+        if config["corpus_file"] else None
 
     # Initialize variables for CER calculation
     n_items = 0
@@ -185,8 +182,8 @@ def perform_validation(config: Config,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         X = batch[0]
-        y = validation_labels[batch_no * args.batch_size:
-                              batch_no * args.batch_size + len(X)]
+        y = validation_labels[batch_no * config["batch_size"]:
+                              batch_no * config["batch_size"] + len(X)]
 
         # Logic for processing each batch, calculating CER, etc.
         batch_info = process_batch((X, y), prediction_model, tokenizer, config,
@@ -199,7 +196,7 @@ def perform_validation(config: Config,
                              batch_stats, total_stats)
 
         # Calculate the normalized CER
-        if args.normalization_file:
+        if config["normalization_file"]:
             total_normalized_counter, metrics, batch_stats, total_stats\
                 = process_cer_type(
                     batch_info, total_normalized_counter, metrics, batch_stats,
@@ -239,9 +236,9 @@ def perform_validation(config: Config,
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(args.output, 'validation.csv'), 'w') as f:
+    with open(os.path.join(config["output"], 'validation.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
-        if args.normalization_file:
+        if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower,"
             "normalized_cer_simple"
         if wbs:

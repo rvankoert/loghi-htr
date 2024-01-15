@@ -48,17 +48,17 @@ def perform_inference(config: Config, model: tf.keras.Model,
     results.
     """
 
-    args = config.args
-
-    tokenizer = Tokenizer(charlist, args.use_mask)
+    tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
 
-    with open(args.results_file, "w") as results_file:
+    with open(config["results_file"], "w") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
             predictions = prediction_model.predict(batch[0], verbose=0)
-            y_pred = decode_batch_predictions(predictions, tokenizer,
-                                              args.greedy, args.beam_width)
+            y_pred = decode_batch_predictions(predictions,
+                                              tokenizer,
+                                              config["greedy"],
+                                              config["beam_width"])
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):
@@ -67,8 +67,8 @@ def perform_inference(config: Config, model: tf.keras.Model,
 
                 # Format the filename
                 filename = loader.get_item('inference',
-                                           (batch_no * args.batch_size) + index
-                                           )
+                                           (batch_no * config["batch_size"])
+                                           + index)
 
                 # Write the results to the results file
                 result_str = f"{filename}\t{confidence}\t{prediction}"

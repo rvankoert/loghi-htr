@@ -1,19 +1,20 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
-from typing import List, Optional
+from typing import List
 
 # > Third-party dependencies
 import tensorflow as tf
 
 # > Local dependencies
 from data.loader import DataLoader
+from setup.config import Config
 
 
-def initialize_data_loader(args: argparse.Namespace, charlist: List[str],
+def initialize_data_loader(config: Config,
+                           charlist: List[str],
                            model: tf.keras.Model) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
@@ -21,8 +22,8 @@ def initialize_data_loader(args: argparse.Namespace, charlist: List[str],
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing various arguments to configure the data loader
+    config : Config
+        A Config containing various arguments to configure the data loader
         (e.g., batch size, image size, lists for training, validation, etc.).
     charlist : List[str]
         A list of characters to be used by the data loader.
@@ -44,28 +45,28 @@ def initialize_data_loader(args: argparse.Namespace, charlist: List[str],
 
     model_height = model.layers[0].input_shape[0][2]
     model_channels = model.layers[0].input_shape[0][3]
-    img_size = (model_height, args.width, model_channels)
+    img_size = (model_height, config["width"], model_channels)
 
     return DataLoader(
-        batch_size=args.batch_size,
+        batch_size=config["batch_size"],
         img_size=img_size,
-        train_list=args.train_list,
-        test_list=args.test_list,
-        validation_list=args.validation_list,
-        inference_list=args.inference_list,
+        train_list=config["train_list"],
+        test_list=config["test_list"],
+        validation_list=config["validation_list"],
+        inference_list=config["inference_list"],
         char_list=charlist,
-        do_binarize_sauvola=args.do_binarize_sauvola,
-        do_binarize_otsu=args.do_binarize_otsu,
-        multiply=args.multiply,
-        elastic_transform=args.elastic_transform,
-        random_crop=args.random_crop,
-        random_width=args.random_width,
-        check_missing_files=args.check_missing_files,
-        distort_jpeg=args.distort_jpeg,
-        replace_final_layer=args.replace_final_layer,
-        normalization_file=args.normalization_file,
-        use_mask=args.use_mask,
-        do_random_shear=args.do_random_shear,
+        do_binarize_sauvola=config["do_binarize_sauvola"],
+        do_binarize_otsu=config["do_binarize_otsu"],
+        multiply=config["multiply"],
+        elastic_transform=config["elastic_transform"],
+        random_crop=config["random_crop"],
+        random_width=config["random_width"],
+        check_missing_files=config["check_missing_files"],
+        distort_jpeg=config["distort_jpeg"],
+        replace_final_layer=config["replace_final_layer"],
+        normalization_file=config["normalization_file"],
+        use_mask=config["use_mask"],
+        do_random_shear=config["do_random_shear"],
     )
 
 

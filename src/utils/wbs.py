@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
 from typing import List
@@ -53,29 +52,28 @@ def setup_word_beam_search(config: Config, charlist: List[str],
 
     logging.info("Setting up WordBeamSearch...")
 
-    args = config.args
-
     # Check if the corpus file exists
-    if not os.path.exists(args.corpus_file):
-        raise FileNotFoundError(f'Corpus file not found: {args.corpus_file}')
+    if not os.path.exists(config["corpus_file"]):
+        raise FileNotFoundError('Corpus file not found: '
+                                f'{config["corpus_file"]}')
 
     # Load the corpus
-    with open(args.corpus_file) as f:
+    with open(config["corpus_file"]) as f:
         # Create the corpus
         corpus = ''
         for line in f:
-            if args.normalization_file:
-                line = loader.normalize(line, args.normalization_file)
+            if config["normalization_file"]:
+                line = loader.normalize(line, config["normalization_file"])
             corpus += line
-    logging.info(f'Using corpus file: {args.corpus_file}')
+    logging.info(f'Using corpus file: {config["corpus_file"]}')
 
     # Create the WordBeamSearch object
     word_chars = \
         '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
     chars = '' + ''.join(sorted(charlist))
-    wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing,
-                         corpus.encode('utf8'), chars.encode('utf8'),
-                         word_chars.encode('utf8'))
+    wbs = WordBeamSearch(config["beam_width"], 'NGrams',
+                         config["wbs_smoothing"], corpus.encode('utf8'),
+                         chars.encode('utf8'), word_chars.encode('utf8'))
 
     logging.info('Created WordBeamSearch')
 
