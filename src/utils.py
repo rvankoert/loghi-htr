@@ -24,10 +24,8 @@ class Utils:
         e = exp(vector)
         return e / e.sum()
 
-    def set_charlist(self, chars, use_mask=False, num_oov_indices=0):
+    def set_charlist(self, chars, use_mask=False, num_oov_indices=1):
         self.charList = chars
-        if num_oov_indices > 0:
-            self.charList.insert(1, '[UNK]')
         if not self.charList:
             print('no charlist :(')
             return
@@ -133,7 +131,7 @@ def ctc_decode(y_pred, input_length, greedy=True, beam_width=100, top_paths=1):
     return decoded_dense, log_prob
 
 
-def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=0):
+def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_indices=1):
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
     # sequence_lengths = tf.fill(pred.shape[1], maxTextLen)
     # sequence_length = tf.constant(np.array([None], dtype=np.int32))
@@ -169,7 +167,8 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
             # print(confidence)
             res = res + num_oov_indices
             chars = utils.num_to_char(res)
-            res = tf.strings.reduce_join(chars).numpy().decode("utf-8")
+            res = tf.strings.reduce_join(chars).numpy().decode(
+                "utf-8").strip().replace('', '')
             output_text.append((confidence, res))
             # print( output_text)
             # exit()

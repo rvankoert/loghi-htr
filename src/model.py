@@ -86,6 +86,10 @@ class CERMetric(tf.keras.metrics.Metric):
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))
+
+        # Ugly hack to disregard OOV. See CTCLoss for more details
+        y_true = tf.where(y_true > 0, y_true - 1, y_true)
+
         y_true_sparse = K.ctc_label_dense_to_sparse(
             y_true, K.cast(input_length, 'int32'))
 
@@ -134,6 +138,10 @@ class WERMetric(tf.keras.metrics.Metric):
             y_true, K.cast(input_length, 'int32'))
 
         decode = tf.sparse.retain(decode, tf.not_equal(decode.values, -1))
+
+        # Ugly hack to disregard OOV. See CTCLoss for more details
+        y_true = tf.where(y_true > 0, y_true - 1, y_true)
+
         y_true_sparse = tf.sparse.retain(
             y_true_sparse, tf.not_equal(y_true_sparse.values, 0))
         distance = tf.edit_distance(decode, y_true_sparse, normalize=True)
@@ -153,6 +161,15 @@ class WERMetric(tf.keras.metrics.Metric):
 
 
 def CTCLoss(y_true, y_pred):
+    # Ugly hack to disregard OOV characters, which are part of the tokenizer,
+    # but are not part of the model classes
+    # Since the vocabulary starts with [padding, OOV, ...], the OOV character
+    # is the second one, thus we can simply subtract 1 from the true labels
+    # to get rid of the OOV character
+    # This only works if there is absolutely no chance that the model can
+    # predict the OOV character, otherwise the loss will be wrong
+    y_true = tf.where(y_true > 0, y_true - 1, y_true)
+
     batch_len = tf.cast(tf.shape(y_true)[0], dtype="int64")
     input_length = tf.cast(tf.shape(y_pred)[1], dtype="int64")
     label_length = tf.math.count_nonzero(y_true, axis=-1, keepdims=True)
