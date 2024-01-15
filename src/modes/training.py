@@ -179,19 +179,22 @@ def train_batch(model: tf.keras.Model,
     return history
 
 
-def plot_training_history(history: Any, args: Any) -> None:
+def plot_training_history(history: tf.keras.callbacks.History,
+                          output_path: str,
+                          plot_validation: bool = False) -> None:
     """
     Plots the training history of a Keras model, including loss and Character
     Error Rate (CER).
 
     Parameters
     ----------
-    history : Any
+    history : tf.keras.callbacks.History
         The training history object returned by a model training process,
         containing metrics like loss and CER over epochs.
-    args : Any
-        A set of arguments that includes validation information and output
-        paths for saving plots.
+    output_path : str
+        Path to save the plots.
+    plot_validation : bool, default False
+        Whether to plot validation metrics.
 
     Notes
     -----
@@ -204,13 +207,13 @@ def plot_training_history(history: Any, args: Any) -> None:
         plt.style.use("ggplot")
         plt.figure()
         plt.plot(history.history[metric], label=metric)
-        if args.validation_list:
+        if plot_validation:
             plt.plot(history.history[f"val_{metric}"], label=f"val_{metric}")
         plt.title(title)
         plt.xlabel("Epoch #")
         plt.ylabel("Loss/CER")
         plt.legend(loc="lower left")
-        plt.savefig(os.path.join(args.output, filename))
+        plt.savefig(os.path.join(output_path, filename))
 
     plot_metric("loss", "Training Loss", 'loss_plot.png')
     plot_metric("CER_metric", "Character Error Rate (CER)", 'cer_plot.png')

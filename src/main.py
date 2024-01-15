@@ -120,9 +120,10 @@ def main():
                               evaluation_dataset, loader)
 
         # Plot the training history
-        plot_training_history(history, args)
+        plot_training_history(history, args.output,
+                              True if args.validation_list else False)
 
-        timestamps['train_time'] = time.time() - tick
+        timestamps['Training'] = time.time() - tick
 
     # Evaluate the model
     if args.do_validate:
@@ -131,7 +132,7 @@ def main():
         tick = time.time()
         perform_validation(args, model, validation_dataset,
                            validation_labels, charlist, loader)
-        timestamps['validate_time'] = time.time() - tick
+        timestamps['Validation'] = time.time() - tick
 
     # Test the model
     if args.test_list:
@@ -139,28 +140,18 @@ def main():
 
         tick = time.time()
         perform_test(args, model, test_dataset, charlist, loader)
-        timestamps['test_time'] = time.time() - tick
+        timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if args.do_inference:
         tick = time.time()
         perform_inference(args, model, inference_dataset, charlist, loader)
-        timestamps['inference_time'] = time.time() - tick
+        timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps
     logging.info("--------------------------------------------------------")
-    if args.do_train:
-        logging.info(f"Training completed in {timestamps['train_time']:.2f} "
-                     "seconds")
-    if args.do_validate:
-        logging.info("Validation completed in "
-                     f"{timestamps['validate_time']:.2f} seconds")
-    if args.test_list:
-        logging.info("Test completed in "
-                     f"{timestamps['test_time']:.2f} seconds")
-    if args.do_inference:
-        logging.info("Inference completed in "
-                     f"{timestamps['inference_time']:.2f} seconds")
+    for key, value in list(timestamps.items())[1:]:
+        logging.info(f"{key} completed in {value:.2f} seconds")
     logging.info(f"Total time: {time.time() - timestamps['start_time']:.2f} "
                  "seconds")
 
