@@ -67,84 +67,55 @@ With these steps, you should have Loghi HTR and all its dependencies installed a
 Example of 'lines.txt' content:
 
 ```
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-0e54d043-4bab-40d7-9458-59aae79ed8a8.png	This is a ground truth transcription
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-f3d8b3cb-ab90-4b64-8360-d46a81ab1dbc.png	It can be generated from PageXML
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-700de0f9-56e9-45f9-a184-a4acbe6ed4cf.png	And another textline
+/path/to/texline/1.png  This is a ground truth transcription
+/path/to/texline/2.png  It can be generated from PageXML
+/path/to/texline/3.png  And another textline
 ```
 
-### Command-Line Options:
+### Command-Line Options and Config File Usage
 
-The command-line options include, but are not limited to:
+Our tool provides various command-line options for stages such as training, validation, and inference. To simplify usage, especially for newcomers, we've introduced the option to run the script with a configuration file.
 
-- `--do_train`: Enable the training stage. This option will be removed in March 2024 and be inferred by the presense of `train_list`.
-- `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference. This option will be removed in March 2024 and be inferred by the presense of `inference_list`.
-- `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
-- `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
-- `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
-- `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
-- `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
-- `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
-- `--use_mask`: Enable when using `batch_size` > 1.
-- `--results_file`: The inference results are aggregated in this file.
-- `--config_file_output`: The output location of the config.
-- `--replace_recurrent_layer`: Specifies the [VGSL string](#variable-size-graph-specification-language-vgsl) to define the architecture of the recurrent layers that will replace the recurrent layers of an existing model. This argument is required when you want to modify the recurrent layers of a model specified by `--existing_model`. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lf64" describes two LSTM layers with 128 and 64 units respectively. When using this argument, ensure that `--existing_model` is also provided to specify the model whose recurrent layers you want to replace.
-- `--replace_final_layer`: Enables the replacement of the final dense layer of an existing model. This is useful when you want to adjust the number of output characters or change the masking option without modifying the rest of the model. When this argument is used, the model specified by `--existing_model` will have its final dense layer replaced with a new one. The number of output units will be adjusted based on the value of `number_characters` and whether the `--use_mask` option is enabled.
+#### Using a Config File
 
-For detailed options and configurations, you can also refer to the help command:
+Instead of using command-line arguments, you can specify parameters in a JSON configuration file. This is recommended for ease of use. To use a configuration file, run the script with:
 
-```bash
+```
+python3 main.py --config_file "/path/to/config.json"
+```
+
+In the `configs` directory, we provide several minimal configuration files tailored to different use cases:
+
+- `default.json`: Contains default values for general use.
+- `training.json`: Configured specifically for training.
+- `validation.json`: Optimized for validation tasks.
+- `inference.json`: Set up for inference processes.
+- `testing.json`: Suitable for testing scenarios.
+- `finetuning.json`: Adjusted for fine-tuning purposes.
+
+These files are designed to provide a good starting point. You can use and modify them as needed.
+
+#### Overriding Config File Parameters with Command-Line Arguments
+
+You can override specific config file parameters with command-line arguments. For example:
+
+```
+python3 main.py --config_file "/path/to/config.json" --gpu 1
+```
+
+This command will use settings from the config file but overrides the GPU setting to use GPU 1.
+
+#### Available Command-Line Options
+
+You can still use command-line arguments. Some of the options include `--train_list`, `--do_validate`, `--learning_rate`, `--gpu`, `--batch_size`, `--epochs`, etc. For a full list and descriptions, refer to the help command:
+
+```
 python3 main.py --help
 ```
 
-### Usage Examples
+#### Note
 
-**Note**: Ensure that the value of `CUDA_VISIBLE_DEVICES` matches the value provided to `--gpu`. For instance, if you set `CUDA_VISIBLE_DEVICES=0`, then `--gpu` should also be set to 0. If you explicitely want to use CPU (not recommended), make sure to set this value to -1.
-
-**Training on GPU**
-
-```bash
-CUDA_VISIBLE_DEVICES=0 
-python3 main.py 
---model model14
---do_train 
---train_list "train_lines_1.txt train_lines_2.txt" 
---do_validate 
---validation_list "validation_lines_1.txt" 
---height 64 
---channels 4 
---learning_rate 0.0001 
---use_mask 
---gpu 0 
-```
-
-**Inference on GPU**
-
-```bash
-CUDA_VISIBLE_DEVICES=0 
-python3 main.py 
---existing_model /path/to/existing/model 
---charlist /path/to/existing/model/charlist.txt
---do_inference 
---inference_list "inference_lines_1.txt"
---height 64 
---channels 4 
---beam_width 10
---use_mask 
---gpu 0 
---batch_size 10 
---results_file results.txt 
---config_file_output config.txt 
-```
-
-_Note_: During inferencing, certain parameters, such as use_mask, height, and channels, must match the parameters used during the training phase.
-
-### Typical setup
-
-
-Docker images containing trained models are available via (to be inserted). Make sure to install nvidia-docker:
-https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
-
+Ensure that the parameters (via config file or command-line arguments) are consistent and appropriate for your operation mode (training, validation, or inference).
 
 ## Variable-size Graph Specification Language (VGSL)
 
