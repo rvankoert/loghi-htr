@@ -2,7 +2,7 @@
 
 # > Standard library
 import os
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional
 
 # > Third-party dependencies
 import matplotlib.pyplot as plt
@@ -12,7 +12,6 @@ import tensorflow as tf
 from data.loader import DataLoader
 from setup.config import Config
 from model.custom_callback import LoghiCustomCallback
-from model.optimization import LoghiLearningRateSchedule
 
 
 def train_model(model: tf.keras.Model,
@@ -152,12 +151,8 @@ def train_batch(model: tf.keras.Model,
                             config=config,
                             normalization_file=normalization_file)
 
-    import tensorflow_model_optimization as tfmot
-
     # Add all default callbacks
-    callbacks = [logging_callback, loghi_custom_callback,
-                 tfmot.sparsity.keras.UpdatePruningStep(),
-                 tfmot.sparsity.keras.PruningSummaries(log_dir=output)]
+    callbacks = [logging_callback, loghi_custom_callback]
 
     # If we defined an early stopping patience, add it to the callbacks
     if early_stopping_patience > 0 and validation_dataset:
