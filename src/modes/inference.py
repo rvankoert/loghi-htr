@@ -54,7 +54,7 @@ def perform_inference(config: Config, model: tf.keras.Model,
     with open(config["results_file"], "w") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
-            predictions = prediction_model.predict(batch[0], verbose=0)
+            predictions = prediction_model.predict_on_batch(batch[0])
             y_pred = decode_batch_predictions(predictions,
                                               tokenizer,
                                               config["greedy"],
