@@ -239,8 +239,8 @@ def perform_validation(config: Config,
     with open(os.path.join(config["output"], 'validation.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
-            header += ",normalized_cer,normalized_cer_lower,"
-            "normalized_cer_simple"
+            header += ",normalized_cer,normalized_cer_lower," \
+                "normalized_cer_simple"
         if wbs:
             header += ",wbs_cer,wbs_cer_lower,wbs_cer_simple"
 
