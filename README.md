@@ -90,6 +90,26 @@ The command-line options include, but are not limited to:
 - `--config_file_output`: The output location of the config.
 - `--replace_recurrent_layer`: Specifies the [VGSL string](#variable-size-graph-specification-language-vgsl) to define the architecture of the recurrent layers that will replace the recurrent layers of an existing model. This argument is required when you want to modify the recurrent layers of a model specified by `--existing_model`. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lf64" describes two LSTM layers with 128 and 64 units respectively. When using this argument, ensure that `--existing_model` is also provided to specify the model whose recurrent layers you want to replace.
 - `--replace_final_layer`: Enables the replacement of the final dense layer of an existing model. This is useful when you want to adjust the number of output characters or change the masking option without modifying the rest of the model. When this argument is used, the model specified by `--existing_model` will have its final dense layer replaced with a new one. The number of output units will be adjusted based on the value of `number_characters` and whether the `--use_mask` option is enabled.
+- `--aug_*`: Data augmentations to be used while training, a variety of 
+  augments are supported right now:
+  - `--aug_distort_jpeg`: Apply random JPEG quality changes to each image
+  - `--aug_elastic_transform`: Apply an "elastic" deform grid to each image
+  - `--aug_random_crop`: Randomly apply a mild vertical crop to each image
+  - `--aug_random_width`: Adjusts image width randomly and maintains original dimensions by either
+        compressing or padding the image. 
+  - `--aug_binarize_otsu`: Binarize the input tensor using Otsu's tresholding
+  - `--aug_binarize_sauvola`: Binarize the input tensor using Sauvola's 
+    thresholding (**warning**: computationally expensive to run)
+  - `--aug_random_shear`: Randomly shear each image along the X-axis, i.e. 
+    randomly slant the image to the right or left
+  - `--aug_blur_image`: Randomly apply a Gaussian blur over each image (will 
+    be made milder if binarization is active to prevent smudged results)
+  - `--aug_invert`: Invert the pixels in the image
+  - `--aug_random_augments`: Picks at least 2 augments from the above list 
+    and creates a random augmentation model for training
+- `--visualize_augments`: Uses the three test images within `tests/data` to 
+  sequentially demonstrate each data augmentation step 
+  
 
 For detailed options and configurations, you can also refer to the help command:
 

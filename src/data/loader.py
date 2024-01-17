@@ -59,21 +59,21 @@ class DataLoader:
         data_generator = DataGenerator(**params)
         num_batches = np.ceil(len(files) / self.batch_size)
         generator = tf.data.Dataset.from_tensor_slices(files)
+
         if is_training:
             # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
-            generator = (generator
-                     .map(data_generator.load_images,
-                          num_parallel_calls=AUTOTUNE,
-                          deterministic=deterministic)
-                     .padded_batch(self.batch_size,
-                                   padded_shapes=(
-                                       [None, None, self.channels], [None]),
-                                   padding_values=(
-                                       tf.constant(-10, dtype=tf.float32),
-                                       tf.constant(0, dtype=tf.int64)))
-                     .prefetch(AUTOTUNE)
-                     ).apply(tf.data.experimental.assert_cardinality(num_batches))
+        generator = (generator.map(data_generator.load_images,
+                      num_parallel_calls=AUTOTUNE,
+                      deterministic=deterministic)
+                 .padded_batch(self.batch_size,
+                               padded_shapes=(
+                                   [None, None, self.channels], [None]),
+                               padding_values=(
+                                   tf.constant(-10, dtype=tf.float32),
+                                   tf.constant(0, dtype=tf.int64)))
+                 .prefetch(AUTOTUNE)
+                 ).apply(tf.data.experimental.assert_cardinality(num_batches))
         return generator
 
     def generators(self):
@@ -148,6 +148,7 @@ class DataLoader:
                 inference_files, non_train_params, deterministic=True)
 
         self.partition = partition
+
         return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
 
     def __init__(self,

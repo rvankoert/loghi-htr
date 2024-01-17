@@ -20,18 +20,19 @@ class ShearXLayer(tf.keras.layers.Layer):
         """
         Apply shear transformation along the x-axis to the input image.
 
-        This layer applies a shear transformation to the input image, creating an effect of
-        slanting the shape of the image along the x-axis. This can be useful for data augmentation
-        in image processing tasks.
+        This layer applies a shear transformation to the input image, creating
+        an effect of slanting the shape of the image along the x-axis.
 
         Parameters
         ----------
-        - inputs (tf.Tensor): Input image tensor. Can be either a 3-channel (RGB) or
-          4-channel (RGBA) image in tensor format.
+        inputs
+        - inputs (tf.Tensor): Input image tensor. Can be either a 3-channel
+        (RGB) or 4-channel (RGBA) image in tensor format.
 
         Returns
         -------
-        - tf.Tensor: The image tensor after applying shear transformation along the x-axis.
+        - tf.Tensor: The image tensor after applying shear transformation along
+        the x-axis.
 
         Example
         -------
@@ -49,7 +50,7 @@ class ShearXLayer(tf.keras.layers.Layer):
         # Get the dynamic shape of the input tensor
         input_shape = tf.shape(inputs)
 
-        # Ensure the output shape is the same as input shape for height and width
+        # Ensure output shape is the same as input shape for height and width
         output_shape = [input_shape[1], input_shape[2]]
 
         # Flatten the shear matrix for batch processing
@@ -130,7 +131,6 @@ class DistortImageLayer(tf.keras.layers.Layer):
 
     def call(self, inputs):
         """
-        Distorts the input image based on specified parameters.
         This layer applies random JPEG quality changes to each image in the
         batch. It supports different processing for RGB and RGBA images.
 
@@ -142,18 +142,16 @@ class DistortImageLayer(tf.keras.layers.Layer):
         - tf.Tensor: Batch of distorted images as a TensorFlow tensor, with
         the same shape and type as the input.
         """
-        # Set da
-
         # Set data type to float32 for compatibility other layers
         inputs = tf.cast(inputs, tf.float32)
 
         def single_image_distort(img):
-            logging.info("IMG SHAPE: ", img.shape)
+            logging.debug("IMG SHAPE: ", img.shape)
             # Process RGBA images
             if self.channels == 4:
                 # Split RGB and Alpha channels
                 rgb, alpha = img[..., :3], img[..., 3:]
-                logging.info("RGB SHAPE: ", rgb.shape)
+                logging.debug("RGB SHAPE: ", rgb.shape)
 
                 # Apply random JPEG quality to the RGB part
                 rgb = tf.image.random_jpeg_quality(rgb,
@@ -166,7 +164,6 @@ class DistortImageLayer(tf.keras.layers.Layer):
                 img = tf.image.random_jpeg_quality(img,
                                                    min_jpeg_quality=20,
                                                    max_jpeg_quality=100)
-
             return img
 
         # Apply the processing function to each image in the batch
@@ -210,6 +207,7 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         # Crop each image in the batch
         def crop_image(image):
             cropped = tf.image.random_crop(image, crop_size)
+
             # Cast back to the original dtype
             return tf.cast(cropped, input_dtype)
 
@@ -268,9 +266,15 @@ class BinarizeLayer(tf.keras.layers.Layer):
         Returns:
         - tf.Tensor: Binarized image tensor.
         """
+        # Check input shape
+        input_shape = tf.shape(inputs)
 
-        # Set image to grayscale (take first 3 channels)
-        processed_input = tf.image.rgb_to_grayscale(inputs[..., :3])
+        if input_shape[-1] == 1:
+            # Just take grayscale if it is already 1-channel
+            processed_input = inputs
+        else:
+            # Set image to grayscale (take first 3 channels)
+            processed_input = tf.image.rgb_to_grayscale(inputs[..., :3])
 
         # Convert tensor to float32 for thresholding
         processed_input = tf.cast(processed_input, tf.float32)
@@ -312,39 +316,36 @@ class BinarizeLayer(tf.keras.layers.Layer):
 
 
 class InvertImageLayer(tf.keras.layers.Layer):
-    def __init__(self, channels, **kwargs):
+    def __init__(self, **kwargs):
         super(InvertImageLayer, self).__init__(**kwargs)
         args = get_args()
         self.channels = args.channels
 
     def call(self, inputs):
         """
-        Invert the pixel values of the input tensor.
+        Inverts the pixel values of the input tensor.
 
         Parameters:
-        - tensor (tf.Tensor): Input image tensor.
-        - channels (int): Number of channels in the image.
+        - inputs (tf.Tensor): Input image tensor.
 
         Returns:
         - tf.Tensor: Inverted image tensor.
         """
-
-        if (str(inputs.numpy().dtype).startswith("uint") or
-                str(inputs.numpy().dtype).startswith("int")):
-            max_value = 255
+        # Determine max value based on the data type of the input tensor
+        if inputs.dtype.is_integer:
+            max_value = tf.convert_to_tensor(255, dtype=inputs.dtype)
         else:
-            max_value = 1
+            max_value = tf.convert_to_tensor(1.0, dtype=inputs.dtype)
 
+        # If the image has 4 channels, handle alpha channel separately
         if self.channels == 4:
-            channel1, channel2, channel3, alpha = tf.split(inputs, 4, axis=2)
-            channel1 = tf.convert_to_tensor(max_value - channel1.numpy())
-            channel2 = tf.convert_to_tensor(max_value - channel2.numpy())
-            channel3 = tf.convert_to_tensor(max_value - channel3.numpy())
-
-            return tf.concat([channel1, channel2, channel3, alpha], axis=2)
-
+            channels = tf.split(inputs, num_or_size_splits=4, axis=-1)
+            inverted_channels = [max_value - channel for channel in
+                                 channels[:3]]
+            inverted_channels.append(channels[3])
+            return tf.concat(inverted_channels, axis=-1)
         else:
-            return tf.convert_to_tensor(max_value - inputs.numpy())
+            return max_value - inputs
 
 
 class BlurImageLayer(tf.keras.layers.Layer):
@@ -362,16 +363,11 @@ class BlurImageLayer(tf.keras.layers.Layer):
 
         Returns:
         - tf.Tensor: Blurred image tensor.
+
+        Parameters
+        ----------
+        inputs : object
         """
-        # Get the dynamic shape of the input tensor
-        input_shape = tf.shape(inputs)
-
-        # Check if the input tensor is large enough for the desired blur
-        min_dimension = tf.minimum(input_shape[1], input_shape[2])
-        if min_dimension < 10:  # Example threshold, adjust as needed
-            # Skip the blur or apply a milder blur if the image is too small
-            return inputs
-
         if self.mild_blur:
             blur_factor = 1
         else:
@@ -384,53 +380,67 @@ class BlurImageLayer(tf.keras.layers.Layer):
 class RandomWidthLayer(tf.keras.layers.Layer):
     def call(self, inputs):
         """
-        Randomly adjusts the width of the input image.
+        Adjusts image width randomly and maintains original dimensions by either
+        compressing or padding the image.
 
         Parameters:
-        - image (tf.Tensor): Input image as a TensorFlow tensor.
+        - inputs (tf.Tensor): A 3D or 4D tensor representing a single image or a
+          batch of images.
 
         Returns:
-        - tf.Tensor: Processed image as a TensorFlow tensor.
+        - tf.Tensor: Processed image tensor with original height and width. The
+          output might be altered due to resizing and padding.
+
+        Note:
+        - This method randomly scales the image's width between 75% and 125% of
+          the original, then compresses or pads it to the original width.
+        - Padding uses a constant value of 1 for compatibility with binarization
         """
-        # Compute the dynamic shape of the input tensor
-        batch_size = tf.shape(inputs)[0]
+        # Get the width and height of the input image
+        if len(tf.shape(inputs)) < 4:
+            # When input does have a batch size dim
+            original_width = tf.shape(inputs)[1]
+            original_height = tf.shape(inputs)[0]
+        else:
+            # When input does not have a batch size dim
+            original_width = tf.shape(inputs)[2]
+            original_height = tf.shape(inputs)[1]
 
-        # Randomly adjust the width and maintain aspect ratio
-        def adjust_and_compute_width(image):
-            scale_factor = tf.random.uniform([],
-                                             minval=0.75,
-                                             maxval=1.25)
-            new_size = tf.cast(
-                tf.round(scale_factor * tf.cast(tf.shape(image)[1],
-                                                tf.float32)), tf.int32)
-            resized_image = tf.image.resize(image,
-                                            size=[tf.shape(image)[0], new_size])
-            return resized_image, tf.shape(resized_image)[1]
+        # Generate a random width scaling factor between 0.75 and 1.25
+        random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
 
-        inputs = tf.cast(inputs, tf.float32)
-        resized_images, widths = tf.map_fn(adjust_and_compute_width,
-                                           inputs,
-                                           dtype=(inputs.dtype, tf.int32))
-        max_width = tf.reduce_max(widths)
+        # Scale the width of the image by the random factor
+        random_width *= float(original_width)
+        new_width = int(random_width)
 
-        # Determine the largest width in the batch
-        widths = tf.map_fn(lambda x: tf.shape(x)[1], inputs, dtype=tf.int32)
-        max_width = tf.reduce_max(widths)
+        # Convert the image to float32 dtype
+        image = tf.image.convert_image_dtype(inputs, dtype=tf.float32)
 
-        # Pad each image to match the largest width
-        def pad_image(image):
-            image_width = tf.shape(image)[1]
-            padding = max_width - image_width
-            pad_left = padding // 2
-            pad_right = padding - pad_left
-            padded_image = tf.pad(image,
-                                  paddings=[[0, 0],
-                                            [pad_left, pad_right],
-                                            [0, 0]])
+        # Resize image to the new width while maintaining the original height
+        resized_image = tf.image.resize(image,
+                                        size=[original_height, new_width])
+
+        # Handling if new width is greater than original
+        if new_width > original_width:
+            # Resize back to the old width which causes minor compression
+            compressed_image = tf.image.resize(resized_image,
+                                               size=[original_height,
+                                                     original_width])
+            return compressed_image
+        else:
+            # Calculate padding size needed to match original width
+            padding_width = original_width - new_width
+            left_pad = padding_width // 2
+            right_pad = padding_width - left_pad
+
+            # Pad the new image to retain overall width for compatibility
+            padded_image = tf.pad(resized_image,
+                                  paddings=[[0, 0], [0, 0],
+                                            [left_pad, right_pad],
+                                            [0, 0]],
+                                  mode="CONSTANT",
+                                  constant_values=1)
             return padded_image
-
-        padded_images = tf.map_fn(pad_image, inputs, dtype=resized_images.dtype)
-        return padded_images
 
 
 def generate_random_augment_list(augment_options):
@@ -502,9 +512,10 @@ def get_augment_classes():
     augment_options = []
     for name, obj in g.items():
         logging.debug((name, obj))
-        # exclude image invert for now while debugging
+        # exclude invert for random augment selection
         if name.startswith("Invert"):
             continue
+        # exclude padding layer for random augment selection
         if name.startswith("ResizeWithPadLayer"):
             continue
         elif isinstance(obj, type):
@@ -541,9 +552,9 @@ def get_augment_model():
         logger.info("Data augment: random_crop")
         augment_selection.append(RandomVerticalCropLayer())
 
-    # if args.aug_random_width:
-    #     logger.info("Data augment: random_width")
-    #     augment_selection.append(RandomWidthLayer())
+    if args.aug_random_width:
+        logger.info("Data augment: random_width")
+        augment_selection.append(RandomWidthLayer())
 
     if args.aug_binarize_sauvola:
         logger.info("Data augment: binarize_sauvola")
@@ -554,9 +565,10 @@ def get_augment_model():
         augment_selection.append(BinarizeLayer(method="otsu"))
 
     if args.aug_random_shear:
-        logger.info("Data augment: shear_x")
         # Apply padding to make sure that shear does not cut off img
         augment_selection.append(ResizeWithPadLayer())
+
+        logger.info("Data augment: shear_x")
         augment_selection.append(ShearXLayer())
         # Remove earlier padding to ensure correct output shapes
         augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 25)))
@@ -625,7 +637,7 @@ def make_augment_model(augment_options, augment_selection=None):
         elif mild_blur and isinstance(augment, BinarizeLayer):
             augment_selection[blur_index] = BlurImageLayer(mild_blur=True)
 
-    # Check if blur/distort occurs after binarization, if so move it to before
+    # Check if blur/distort occurs after binarization, if so move it in front
     binarize = False
     binarize_index = -1
     for i, augment in enumerate(augment_selection):
@@ -643,9 +655,6 @@ def make_augment_model(augment_options, augment_selection=None):
             augment_selection.remove(augment)
             # Insert the Distort layer before the binarization
             augment_selection.insert(binarize_index, augment)
-
-    print("changed aug selection list = ",
-          tf.keras.Sequential(augment_selection).layers)
 
     adjusted_aug_model = tf.keras.Sequential(augment_selection,
                                              name="data_augment_model")

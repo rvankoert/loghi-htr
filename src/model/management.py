@@ -127,10 +127,12 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
             args.aug_random_shear, args.aug_binarize_otsu,
             args.aug_binarize_sauvola, args.aug_blur, args.aug_invert,
             args.aug_random_augments]):
+
         # Set input params from trainings model input spec
         batch_size, width, height, channels = (model.layers[0]
                                                .get_input_at(0)
                                                .get_shape().as_list())
+
         # Retrieve the (random) augmentation model from the selected augments
         augment_options = get_augment_classes()
         augment_selection = get_augment_model()
@@ -149,7 +151,7 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
                     save_path="augment_test_img_"
                               + str(img_num)
                               + ".png",
-                    channels=channels)
+                    channels=args.channels)
             logging.info("Augment visualizations are stored in the src folder")
 
         model = tf.keras.Sequential(aug_model.layers + model.layers)
