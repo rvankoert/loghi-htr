@@ -43,7 +43,7 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
     input_length = tf.cast(input_length, tf.int32)
 
     # Decode the sequence
-    if greedy:
+    if greedy or beam_width == 1:
         decoded, log_prob = tf.nn.ctc_greedy_decoder(
             inputs=y_pred, sequence_length=input_length, merge_repeated=True)
     else:
@@ -52,8 +52,8 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
             beam_width=beam_width, top_paths=1)
 
     # Convert sparse to dense
-    decoded_dense = [tf.sparse.to_dense(
-        st, default_value=-1) for st in decoded]
+    decoded_dense = [tf.sparse.to_dense(st, default_value=-1)
+                     for st in decoded]
 
     return decoded_dense, log_prob
 

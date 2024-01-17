@@ -2,7 +2,7 @@
 from collections import defaultdict
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -12,15 +12,15 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
-from utils.calculate import calculate_confidence_intervals, \
-    process_cer_type, process_prediction_type
+from utils.calculate import calculate_confidence_intervals, calculate_cers, \
+    process_prediction_type
 from utils.decoding import decode_batch_predictions
 from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
-def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
-                  prediction_model: tf.keras.Model,
+def process_batch(y_true: tf.Tensor,
+                  predictions: tf.Tensor,
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
@@ -33,11 +33,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     Parameters
     ----------
-    batch : Tuple[tf.Tensor, tf.Tensor]
-        A tuple containing the input data (X) and true labels (y_true) for the
-        batch.
-    prediction_model : tf.keras.Model
-        The prediction model derived from the main model for inference.
+    y_true : tf.Tensor
+        A tensor containing the true labels for the batch.
+    predictions : tf.Tensor
+        A tensor containing the predictions for the batch.
     tokenizer : Tokenizer
         A tokenizer object for converting between characters and integers.
     config : Config
@@ -60,10 +59,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         the batch processing, such as CER.
     """
 
-    X, y_true = batch
-
     # Get the predictions
-    predictions = prediction_model.predict_on_batch(X)
     y_pred = decode_batch_predictions(predictions, tokenizer, config["greedy"],
                                       config["beam_width"])
 
@@ -82,12 +78,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
-        # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
-        normalized_original = None if not config["normalization_file"] else \
-            loader.normalize(original_text, config["normalization_file"])
 
         batch_info = process_prediction_type(prediction,
                                              original_text,
@@ -95,6 +88,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                                              do_print=False)
 
         if config["normalization_file"]:
+            normalized_original = loader.normalize(original_text,
+                                                   config["normalization_file"]
+                                                   )
+
             # Process the normalized CER
             batch_info = process_prediction_type(prediction,
                                                  normalized_original,
@@ -154,72 +151,76 @@ def perform_test(config: Config,
     wbs = setup_word_beam_search(config, charlist, dataloader) \
         if config["corpus_file"] else None
 
-    # Initialize variables for CER calculation
-    n_items = 0
+    # Make the predictions
+    logging.info("Making predictions...")
+    predictions = prediction_model.predict(test_dataset)
+
+    # Initialize the counters
     total_counter = defaultdict(int)
-    total_normalized_counter = defaultdict(int)
-    total_wbs_counter = defaultdict(int)
 
-    # Process each batch in the test dataset
+    # Process each batch
+    logging.info("Calculating statistics...")
+    logging.info("")
+
     for batch_no, batch in enumerate(test_dataset):
-        logging.info(f"Batch {batch_no+1}/{len(test_dataset)}")
+        logging.info(f"Batch {batch_no + 1}/{len(test_dataset)}")
 
-        # Logic for processing each batch, calculating CER, etc.
-        batch_info = process_batch(batch, prediction_model, tokenizer, config,
-                                   wbs, dataloader, batch_no, charlist)
-        metrics, batch_stats, total_stats = [], [], []
+        batch_predictions = predictions[batch_no * config["batch_size"]:
+                                        batch_no * config["batch_size"] +
+                                        len(batch[0])].numpy()
+        batch_true = batch[1]
 
-        # Calculate the CER
-        total_counter, metrics, batch_stats, total_stats\
-            = process_cer_type(batch_info, total_counter, metrics,
-                               batch_stats, total_stats)
+        batch_info = process_batch(batch_true, batch_predictions, tokenizer,
+                                   config, wbs, dataloader, batch_no, charlist)
 
-        # Calculate the normalized CER
-        if config["normalization_file"]:
-            total_normalized_counter, metrics, batch_stats, total_stats\
-                = process_cer_type(batch_info, total_normalized_counter,
-                                   metrics, batch_stats, total_stats,
-                                   prefix="Normalized")
+        # Update the total counter
+        for key, value in batch_info.items():
+            total_counter[key] += value
 
-        # Calculate the WBS CER
-        if wbs:
-            total_wbs_counter, metrics, batch_stats, total_stats\
-                = process_cer_type(batch_info, total_wbs_counter, metrics,
-                                   batch_stats, total_stats, prefix="WBS")
+    # Define the initial metrics
+    metrics = ["CER", "Lower CER", "Simple CER"]
 
-        # Print batch info
-        n_items += len(batch[1])
-        metrics.append('Items')
-        batch_stats.append(len(batch[1]))
-        total_stats.append(n_items)
+    # Append additional metrics based on conditions
+    if config["normalization_file"]:
+        metrics += ["Normalized " + m for m in metrics[:3]]
+    if wbs:
+        metrics += ["WBS " + m for m in metrics[:3]]
+
+    # Calculate CERs
+    # Take every third metric (i.e., normalizing, WBS, etc.)
+    total_stats = []
+    for i in range(0, len(metrics), 3):
+        prefix = metrics[i].split(" ")[0] if i > 0 else ""
+        total_stats += [*calculate_cers(total_counter, prefix)]
 
     # Print the final test statistics
+    logging.info("")
     logging.info("--------------------------------------------------------")
     logging.info("")
     logging.info("Final test statistics")
     logging.info("---------------------------")
 
-    # Calculate the CER confidence intervals on all metrics except Items
-    intervals = calculate_confidence_intervals(total_stats[:-1], n_items)
+    # Calculate the CER confidence intervals on all metrics
+    intervals = calculate_confidence_intervals(total_stats,
+                                               predictions.shape[0])
 
     # Print the final statistics
-    for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],
-                                             intervals):
+    for metric, total_value, interval in zip(metrics, total_stats, intervals):
         logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
 
-    logging.info(f"Items = {total_stats[-1]}")
+    logging.info(f"Items = {predictions.shape[0]}")
     logging.info("")
 
     # Output the validation statistics to a csv file
     with open(os.path.join(config["output"], 'test.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
-            header += ",normalized_cer,normalized_cer_lower,"
-            "normalized_cer_simple"
+            header += ",normalized_cer,normalized_cer_lower," \
+                "normalized_cer_simple"
         if wbs:
             header += ",wbs_cer,wbs_cer_lower,wbs_cer_simple"
 
         f.write(header + "\n")
         results = ",".join([str(total_stats[i])
-                           for i in range(len(metrics)-1)])
+                           for i in range(len(metrics))])
         f.write(results + "\n")
