@@ -2,11 +2,8 @@
 
 # > Standard Library
 from typing import Tuple
-import logging
 
 # > Local dependencies
-from data.augment_layers import *
-from setup.arg_parser import get_args
 
 # > Third party libraries
 import tensorflow as tf
@@ -114,22 +111,3 @@ class DataGenerator(tf.keras.utils.Sequence):
         image = 0.5 - image
         image = tf.transpose(image, perm=[1, 0, 2])
         return image, encoded_label
-
-# test_charlist = open("../output/charlist.txt").read()
-# test_utils = Utils(test_charlist, True)
-# test_obj = DataGenerator(utils=test_utils,
-#                          batch_size=32,
-#                          channels=4,
-#                          # aug_elastic_transform=True,
-#                          # aug_binarize_otsu=True,
-#                          aug_blur=True,
-#                          # distort_jpeg=True,
-#                          # aug_random_shear=True,
-#                          height=64
-#                          )
-
-# sample_text = open("../../tests/data/test-image1.txt", 'r').read()
-# img, label = test_obj.load_images(("../../tests/data/test-image1.png",
-#                                    sample_text))
-# tf.keras.utils.save_img("test.png", img)
-#
