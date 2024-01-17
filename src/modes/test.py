@@ -2,7 +2,7 @@
 from collections import defaultdict
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple, Optional
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -19,8 +19,8 @@ from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
-def process_batch(y_true: tf.Tensor,
-                  predictions: tf.Tensor,
+def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
+                  prediction_model: tf.keras.Model,
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
@@ -33,10 +33,11 @@ def process_batch(y_true: tf.Tensor,
 
     Parameters
     ----------
-    y_true : tf.Tensor
-        A tensor containing the true labels for the batch.
-    predictions : tf.Tensor
-        A tensor containing the predictions for the batch.
+    batch : Tuple[tf.Tensor, tf.Tensor]
+        A tuple containing the input data (X) and true labels (y_true) for the
+        batch.
+    prediction_model : tf.keras.Model
+        The prediction model derived from the main model for inference.
     tokenizer : Tokenizer
         A tokenizer object for converting between characters and integers.
     config : Config
@@ -58,6 +59,11 @@ def process_batch(y_true: tf.Tensor,
         A dictionary containing various counts and statistics computed during
         the batch processing, such as CER.
     """
+
+    X, y_true = batch
+
+    # Predict the batch
+    predictions = prediction_model.predict_on_batch(X)
 
     # Get the predictions
     y_pred = decode_batch_predictions(predictions, tokenizer, config["greedy"],
@@ -151,31 +157,21 @@ def perform_test(config: Config,
     wbs = setup_word_beam_search(config, charlist, dataloader) \
         if config["corpus_file"] else None
 
-    # Make the predictions
-    logging.info("Making predictions...")
-    predictions = prediction_model.predict(test_dataset)
-
     # Initialize the counters
     total_counter = defaultdict(int)
-
-    # Process each batch
-    logging.info("Calculating statistics...")
-    logging.info("")
+    n_items = 0
 
     for batch_no, batch in enumerate(test_dataset):
         logging.info(f"Batch {batch_no + 1}/{len(test_dataset)}")
 
-        batch_predictions = predictions[batch_no * config["batch_size"]:
-                                        batch_no * config["batch_size"] +
-                                        len(batch[0])].numpy()
-        batch_true = batch[1]
-
-        batch_info = process_batch(batch_true, batch_predictions, tokenizer,
+        batch_info = process_batch(batch, prediction_model, tokenizer,
                                    config, wbs, dataloader, batch_no, charlist)
 
         # Update the total counter
         for key, value in batch_info.items():
             total_counter[key] += value
+
+        n_items += len(batch[0])
 
     # Define the initial metrics
     metrics = ["CER", "Lower CER", "Simple CER"]
@@ -202,13 +198,13 @@ def perform_test(config: Config,
 
     # Calculate the CER confidence intervals on all metrics
     intervals = calculate_confidence_intervals(total_stats,
-                                               predictions.shape[0])
+                                               n_items)
 
     # Print the final statistics
     for metric, total_value, interval in zip(metrics, total_stats, intervals):
         logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
 
-    logging.info(f"Items = {predictions.shape[0]}")
+    logging.info(f"Items = {n_items}")
     logging.info("")
 
     # Output the validation statistics to a csv file

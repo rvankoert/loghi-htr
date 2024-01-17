@@ -46,6 +46,7 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
     if greedy or beam_width == 1:
         decoded, log_prob = tf.nn.ctc_greedy_decoder(
             inputs=y_pred, sequence_length=input_length, merge_repeated=True)
+        log_prob = -log_prob
     else:
         decoded, log_prob = tf.nn.ctc_beam_search_decoder(
             inputs=y_pred, sequence_length=input_length,
