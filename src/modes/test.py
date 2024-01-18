@@ -183,7 +183,7 @@ def perform_test(config: Config,
         metrics += ["WBS " + m for m in metrics[:3]]
 
     # Calculate CERs
-    # Take every third metric (i.e., normalizing, WBS, etc.)
+    # Take every third metric (i.e., regular, normalizing, WBS)
     total_stats = []
     for i in range(0, len(metrics), 3):
         prefix = metrics[i].split(" ")[0] if i > 0 else ""

@@ -139,13 +139,8 @@ def calculate_cers(info: Dict[str, int], prefix: str = "") \
 # Prediction processing functions
 
 def process_cer_type(batch_info: Dict[str, int],
-                     total_counter: Dict[str, int],
-                     metrics: List[str],
-                     batch_stats: List[Union[int, float]],
-                     total_stats: List[Union[int, float]],
-                     prefix: str = "") \
-        -> Tuple[Dict[str, int], List[str],
-                 List[Union[int, float]], List[Union[int, float]]]:
+                     total_counter: Dict[str, int]) \
+        -> Tuple[List[str], List[Union[int, float]], List[Union[int, float]]]:
     """
     Processes and updates CER statistics for a batch and the overall totals.
 
@@ -156,20 +151,10 @@ def process_cer_type(batch_info: Dict[str, int],
         lengths.
     total_counter : Dict[str, int]
         The running totals of edit distances and lengths.
-    metrics : List[str]
-        The list of metric names to be updated.
-    batch_stats : List[Union[int, float]]
-        The list of batch statistics to be updated.
-    total_stats : List[Union[int, float]]
-        The list of total statistics to be updated.
-    prefix : str, optional
-        A prefix to differentiate between different types of CER calculations
-        (e.g., 'Normalized').
 
     Returns
     -------
-    Tuple[Dict[str, int], List[str],
-          List[Union[int, float]], List[Union[int, float]]]
+    Tuple[List[str], List[Union[int, float]], List[Union[int, float]]]
         A tuple containing updated total counters, metrics, batch statistics,
         and total statistics.
 
@@ -180,25 +165,30 @@ def process_cer_type(batch_info: Dict[str, int],
     accordingly.
     """
 
-    # Update totals with batch information
-    for key in ['edit_distance', 'length', 'lower_edit_distance',
-                'length_simple', 'simple_edit_distance']:
-        total_counter[prefix + key] += batch_info[prefix + key]
+    metrics, batch_stats, total_stats = [], [], []
+    keys = list(batch_info.keys())
 
-    # Calculate CERs for both batch and total
-    batch_cers = calculate_cers(batch_info, prefix=prefix)
-    total_cers = calculate_cers(total_counter, prefix=prefix)
+    # Iterate over the keys in the batch info
+    # We take every 5th key because the batch info contains 3 edit distances
+    # and 2 lengths for each text form
+    for i in range(0, len(batch_info), 5):
+        split_key = keys[i].split(" ")
+        prefix = split_key[0] + " " if len(split_key) > 1 else ""
 
-    # Define metric names based on the prefix
-    prefix = f"{prefix} " if prefix else prefix
-    cer_names = [f"{prefix}CER", f"{prefix}Lower CER", f"{prefix}Simple CER"]
+        # Calculate CERs for both batch and total
+        batch_cers = calculate_cers(batch_info, prefix=prefix)
+        total_cers = calculate_cers(total_counter, prefix=prefix)
 
-    # Extend metrics and stats
-    metrics.extend(cer_names)
-    batch_stats.extend(batch_cers)
-    total_stats.extend(total_cers)
+        # Define metric names based on the prefix
+        cer_names = [f"{prefix}CER", f"{prefix}Lower CER",
+                     f"{prefix}Simple CER"]
 
-    return total_counter, metrics, batch_stats, total_stats
+        # Extend metrics and stats
+        metrics.extend(cer_names)
+        batch_stats.extend(batch_cers)
+        total_stats.extend(total_cers)
+
+    return metrics, batch_stats, total_stats
 
 
 def process_prediction_type(prediction: str,

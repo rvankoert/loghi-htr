@@ -77,8 +77,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     else:
         char_str = None
 
-    # Initialize the batch info
-    batch_info = defaultdict(int)
+    # Initialize the batch counter
+    batch_counter = defaultdict(int)
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
@@ -104,29 +104,29 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
             logging.info(f"Confidence = {confidence:.4f}")
             logging.info("")
 
-        batch_info = process_prediction_type(prediction,
-                                             original_text,
-                                             batch_info,
-                                             do_print,
-                                             distances=distances)
+        batch_counter = process_prediction_type(prediction,
+                                                original_text,
+                                                batch_counter,
+                                                do_print,
+                                                distances=distances)
 
         if config["normalization_file"]:
             # Process the normalized CER
-            batch_info = process_prediction_type(prediction,
-                                                 normalized_original,
-                                                 batch_info,
-                                                 do_print,
-                                                 prefix="Normalized")
+            batch_counter = process_prediction_type(prediction,
+                                                    normalized_original,
+                                                    batch_counter,
+                                                    do_print,
+                                                    prefix="Normalized ")
 
         if wbs:
             # Process the WBS CER
-            batch_info = process_prediction_type(char_str[index],
-                                                 original_text,
-                                                 batch_info,
-                                                 do_print,
-                                                 prefix="WBS")
+            batch_counter = process_prediction_type(char_str[index],
+                                                    original_text,
+                                                    batch_counter,
+                                                    do_print,
+                                                    prefix="WBS ")
 
-    return batch_info
+    return batch_counter
 
 
 def perform_validation(config: Config,
@@ -176,8 +176,6 @@ def perform_validation(config: Config,
     # Initialize variables for CER calculation
     n_items = 0
     total_counter = defaultdict(int)
-    total_normalized_counter = defaultdict(int)
-    total_wbs_counter = defaultdict(int)
 
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
@@ -186,35 +184,25 @@ def perform_validation(config: Config,
                               batch_no * config["batch_size"] + len(X)]
 
         # Logic for processing each batch, calculating CER, etc.
-        batch_info = process_batch((X, y), prediction_model, tokenizer, config,
-                                   wbs, dataloader, batch_no, charlist)
-        metrics, batch_stats, total_stats = [], [], []
+        batch_counter = process_batch((X, y), prediction_model, tokenizer,
+                                      config, wbs, dataloader, batch_no,
+                                      charlist)
+
+        # Update totals with batch information
+        for key, value in batch_counter.items():
+            total_counter[key] += value
 
         # Calculate the CER
-        total_counter, metrics, batch_stats, total_stats = \
-            process_cer_type(batch_info, total_counter, metrics,
-                             batch_stats, total_stats)
+        metrics, batch_stats, total_stats = process_cer_type(batch_counter,
+                                                             total_counter)
 
-        # Calculate the normalized CER
-        if config["normalization_file"]:
-            total_normalized_counter, metrics, batch_stats, total_stats\
-                = process_cer_type(
-                    batch_info, total_normalized_counter, metrics, batch_stats,
-                    total_stats, prefix="Normalized")
-
-        # Calculate the WBS CER
-        if wbs:
-            total_wbs_counter, metrics, batch_stats, total_stats\
-                = process_cer_type(
-                    batch_info, total_wbs_counter, metrics, batch_stats,
-                    total_stats, prefix="WBS")
-
-        # Print batch info
+        # Add the number of items to the total tally
         n_items += len(batch[1])
         metrics.append('Items')
         batch_stats.append(len(batch[1]))
         total_stats.append(n_items)
 
+        # Print batch info
         display_statistics(batch_stats, total_stats, metrics)
         logging.info("")
 
