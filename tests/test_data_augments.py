@@ -83,7 +83,7 @@ class TestDataAugments(unittest.TestCase):
                 self.assertEqual(input_tensor.shape, output_tensor.shape)
 
     def test_binarize_otsu(self):
-        # Test BinarizeLayer for otsu adjustments
+        # Test BinarizeLayer for otsu adjustments and channel check
         for channels in [1, 3, 4]:
             with self.subTest(channels=channels):
                 layer = BinarizeLayer(method='otsu', channels=channels)
@@ -92,7 +92,7 @@ class TestDataAugments(unittest.TestCase):
                 self.assertEqual(input_tensor.shape, output_tensor.shape)
 
     def test_binarize_sauvola(self):
-        # Test BinarizeLayer for sauvola adjustments
+        # Test BinarizeLayer for sauvola adjustments and channel check
         for channels in [1, 3, 4]:
             with self.subTest(channels=channels):
                 layer = BinarizeLayer(method='sauvola', channels=channels)
