@@ -124,10 +124,9 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
 
 
 class DistortImageLayer(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, channels=1, **kwargs):
         super(DistortImageLayer, self).__init__(**kwargs)
-        args = get_args()
-        self.channels = args.channels
+        self.channels = channels
 
     def call(self, inputs):
         """
@@ -247,16 +246,11 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
 
 class BinarizeLayer(tf.keras.layers.Layer):
-    def __init__(self, method='otsu', window_size=51, channels=None, **kwargs):
+    def __init__(self, method='otsu', window_size=51, channels=1, **kwargs):
         super(BinarizeLayer, self).__init__(**kwargs)
-        args = get_args()
         self.method = method
         self.window_size = window_size
-        # Override channels if with args.channels if not explicitly set
-        if channels is None:
-            self.channels = args.channels
-        else:
-            self.channels = channels
+        self.channels = channels
 
     def call(self, inputs):
         """
@@ -320,10 +314,9 @@ class BinarizeLayer(tf.keras.layers.Layer):
 
 
 class InvertImageLayer(tf.keras.layers.Layer):
-    def __init__(self, **kwargs):
+    def __init__(self, channels=1, **kwargs):
         super(InvertImageLayer, self).__init__(**kwargs)
-        args = get_args()
-        self.channels = args.channels
+        self.channels = channels
 
     def call(self, inputs):
         """
@@ -563,10 +556,12 @@ def get_augment_model():
     if args.aug_binarize_sauvola:
         logger.info("Data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
-                                               window_size=51))
+                                               window_size=51,
+                                               channels=args.channels))
     if args.aug_binarize_otsu:
         logger.info("Data augment: binarize_otsu")
-        augment_selection.append(BinarizeLayer(method="otsu"))
+        augment_selection.append(BinarizeLayer(method="otsu",
+                                               channels=args.channels))
 
     if args.aug_random_shear:
         # Apply padding to make sure that shear does not cut off img
