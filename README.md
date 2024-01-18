@@ -105,8 +105,6 @@ The command-line options include, but are not limited to:
   - `--aug_blur_image`: Randomly apply a Gaussian blur over each image (will 
     be made milder if binarization is active to prevent smudged results)
   - `--aug_invert`: Invert the pixels in the image
-  - `--aug_random_augments`: Picks at least 2 augments from the above list 
-    and creates a random augmentation model for training
 - `--visualize_augments`: Uses the three test images within `tests/data` to 
   sequentially demonstrate each data augmentation step 
   

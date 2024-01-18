@@ -124,7 +124,7 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
 
 
 class DistortImageLayer(tf.keras.layers.Layer):
-    def __init__(self, channels=1, **kwargs):
+    def __init__(self, channels=None, **kwargs):
         super(DistortImageLayer, self).__init__(**kwargs)
         self.channels = channels
 
@@ -246,7 +246,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
 
 class BinarizeLayer(tf.keras.layers.Layer):
-    def __init__(self, method='otsu', window_size=51, channels=1, **kwargs):
+    def __init__(self, method='otsu', window_size=51, channels=None, **kwargs):
         super(BinarizeLayer, self).__init__(**kwargs)
         self.method = method
         self.window_size = window_size
@@ -314,7 +314,7 @@ class BinarizeLayer(tf.keras.layers.Layer):
 
 
 class InvertImageLayer(tf.keras.layers.Layer):
-    def __init__(self, channels=1, **kwargs):
+    def __init__(self, channels=None, **kwargs):
         super(InvertImageLayer, self).__init__(**kwargs)
         self.channels = channels
 
@@ -440,61 +440,6 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             return padded_image
 
 
-def generate_random_augment_list(augment_options):
-    """
-    Generates a random list of augmentation layers from a given list,
-    with specific adjustments for certain layer types.
-
-    Parameters:
-    augment_options : list
-        List of augmentation layer instances to choose from.
-
-    Returns:
-    list
-        Randomly selected augmentation layers, adjusted for layer interactions.
-
-    The function ensures at least two layers are chosen and adjusts the
-    selection based on the presence of BinarizeLayer, InvertImageLayer,
-    and ShearXLayer.
-    """
-    # Ensure there are at least 2 elements in the list
-    num_rand_augments = random.randint(2, len(augment_options))
-
-    # Randomly select unique elements from the input list
-    random_augment_layers = random.sample(augment_options, num_rand_augments)
-
-    # Check if BinarizeLayer is in the list
-    is_binarize_layer_present = any(
-        isinstance(layer, BinarizeLayer) for layer in random_augment_layers)
-
-    # Check if InvertImageLayer is in the list
-    is_invert_image_layer_present = any(
-        isinstance(layer, InvertImageLayer) for layer in random_augment_layers)
-
-    # If both are present remove the invert to prevent binarize issues
-    if is_binarize_layer_present and is_invert_image_layer_present:
-        random_augment_layers = random_augment_layers.remove(InvertImageLayer())
-
-    # Check if ShearX is in the list
-    is_shear_x_layer_present = any(
-        isinstance(layer, ShearXLayer) for layer in random_augment_layers)
-
-    if is_shear_x_layer_present:
-        # Find the index of the first instance of ShearXLayer
-        shear_index = next((i for i, layer in enumerate(random_augment_layers)
-                            if isinstance(layer, ShearXLayer)), None)
-
-        # Add additional padding before the shear
-        random_augment_layers.insert(shear_index, ResizeWithPadLayer())
-        shear_index += 1
-
-        # Remove the padding again to ensure correct output sizes
-        random_augment_layers.insert(shear_index + 1,
-                                     tf.keras.layers.Cropping2D(
-                                         cropping=(0, 25)))
-    return random_augment_layers
-
-
 def get_augment_classes():
     """
     Generates a list of possible augment options based on the custom Keras
@@ -539,7 +484,7 @@ def get_augment_model():
 
     if args.aug_distort_jpeg:
         logger.info("Data augment: distort_jpeg")
-        augment_selection.append(DistortImageLayer())
+        augment_selection.append(DistortImageLayer(channels=args.channels))
 
     if args.aug_elastic_transform:
         logger.info("Data augment: elastic_transform")
@@ -556,8 +501,8 @@ def get_augment_model():
     if args.aug_binarize_sauvola:
         logger.info("Data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
-                                               window_size=51,
-                                               channels=args.channels))
+                                               channels=args.channels,
+                                               window_size=51))
     if args.aug_binarize_otsu:
         logger.info("Data augment: binarize_otsu")
         augment_selection.append(BinarizeLayer(method="otsu",
@@ -578,7 +523,7 @@ def get_augment_model():
 
     if args.aug_invert:
         logger.info("Data augment: aug_invert")
-        augment_selection.append(InvertImageLayer())
+        augment_selection.append(InvertImageLayer(channels=args.channels))
 
     return augment_selection
 
@@ -605,11 +550,6 @@ def make_augment_model(augment_options, augment_selection=None):
         augmentation layers.
 
     """
-    # Take random augments from all possible augment options
-    if len(augment_selection) < 1:
-        augment_selection = generate_random_augment_list(augment_options)
-        logging.info(("random augment selection: ", [x.name for x in
-                                                     augment_selection]))
 
     # Check if both types of binarization are present, remove Sauvola if true
     otsu_present = any(isinstance(obj, BinarizeLayer)

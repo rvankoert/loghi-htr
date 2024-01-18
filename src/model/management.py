@@ -125,8 +125,7 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
     if any([args.aug_elastic_transform, args.aug_random_crop,
             args.aug_random_width, args.aug_distort_jpeg,
             args.aug_random_shear, args.aug_binarize_otsu,
-            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert,
-            args.aug_random_augments]):
+            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert]):
 
         # Set input params from trainings model input spec
         batch_size, width, height, channels = (model.layers[0]
