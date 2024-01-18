@@ -46,7 +46,7 @@ def main():
         os.makedirs(config["output"], exist_ok=True)
 
     # Get the initial character list
-    if config["existing_model"]:
+    if config["existing_model"] or config["charlist"]:
         charlist = load_initial_charlist(
             config["charlist"], config["existing_model"],
             config["output"], config["replace_final_layer"])
