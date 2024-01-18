@@ -12,7 +12,7 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
-from utils.calculate import calculate_confidence_intervals, calculate_cers, \
+from utils.calculate import calc_95_confidence_interval, calculate_cers, \
     process_prediction_type
 from utils.decoding import decode_batch_predictions
 from utils.text import preprocess_text, Tokenizer
@@ -197,8 +197,8 @@ def perform_test(config: Config,
     logging.info("---------------------------")
 
     # Calculate the CER confidence intervals on all metrics
-    intervals = calculate_confidence_intervals(total_stats,
-                                               n_items)
+    intervals = [calc_95_confidence_interval(cer_metric, n_items)
+                 for cer_metric in total_stats]
 
     # Print the final statistics
     for metric, total_value, interval in zip(metrics, total_stats, intervals):

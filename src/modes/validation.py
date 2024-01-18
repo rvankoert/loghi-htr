@@ -14,7 +14,7 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
-from utils.calculate import calculate_confidence_intervals, \
+from utils.calculate import calc_95_confidence_interval, \
     calculate_edit_distances, process_cer_type, process_prediction_type
 from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
@@ -225,7 +225,8 @@ def perform_validation(config: Config,
     logging.info("---------------------------")
 
     # Calculate the CER confidence intervals on all metrics except Items
-    intervals = calculate_confidence_intervals(total_stats[:-1], n_items)
+    intervals = [calc_95_confidence_interval(cer_metric, n_items)
+                 for cer_metric in total_stats[:-1]]
 
     # Print the final statistics
     for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],

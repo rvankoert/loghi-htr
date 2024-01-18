@@ -28,11 +28,6 @@ def edit_distance_to_cer(edit_distance: int, length: int) -> float:
     float
         The calculated CER, which is the edit distance divided by the length of
         the original text.
-
-    Notes
-    -----
-    CER is calculated as the edit distance divided by the maximum of length and
-    1, to avoid division by zero.
     """
 
     return edit_distance / max(length, 1)
@@ -54,11 +49,6 @@ def calc_95_confidence_interval(cer_metric: float, n: int) -> float:
     -------
     float
         The 95% confidence interval for the given CER metric.
-
-    Notes
-    -----
-    This function is used to determine the range within which the true CER of
-    the model lies with 95% certainty.
     """
 
     return 1.96 * ((cer_metric*(1-cer_metric))/n) ** 0.5
@@ -132,8 +122,6 @@ def calculate_cers(info: Dict[str, int], prefix: str = "") \
     CERs based on the information provided in the 'info' dictionary.
     """
 
-    prefix = f"{prefix}_" if prefix else prefix
-
     edit_distance = info[prefix + 'edit_distance']
     length = info[prefix + 'length']
     lower_edit_distance = info[prefix + 'lower_edit_distance']
@@ -146,98 +134,6 @@ def calculate_cers(info: Dict[str, int], prefix: str = "") \
     simple_cer = edit_distance_to_cer(simple_edit_distance, length_simple)
 
     return cer, lower_cer, simple_cer
-
-
-def update_totals(info: Dict[str, int],
-                  total: Dict[str, int],
-                  prefix: str = "") -> Dict[str, int]:
-    """
-    Updates the cumulative totals of edit distances and lengths for different
-    text forms.
-
-    Parameters
-    ----------
-    info : Dict[str, int]
-        A dictionary containing the current batch's edit distances and lengths
-        for different text forms.
-    total : Dict[str, int]
-        A dictionary containing the cumulative totals to be updated.
-    prefix : str, optional
-        A prefix to identify the relevant keys in the dictionaries (e.g.,
-        'Normalized' for normalized texts).
-
-    Returns
-    -------
-    Dict[str, int]
-        An updated dictionary containing the new cumulative totals.
-
-    Notes
-    -----
-    This function is typically used to accumulate statistics over multiple
-    batches in a dataset.
-    """
-
-    prefix = f"{prefix}_" if prefix else prefix
-
-    edit_distance = info[prefix + 'edit_distance']
-    length = info[prefix + 'length']
-    lower_edit_distance = info[prefix + 'lower_edit_distance']
-    length_simple = info[prefix + 'length_simple']
-    simple_edit_distance = info[prefix + 'simple_edit_distance']
-
-    total[prefix + 'edit_distance'] += edit_distance
-    total[prefix + 'length'] += length
-    total[prefix + 'lower_edit_distance'] += lower_edit_distance
-    total[prefix + 'length_simple'] += length_simple
-    total[prefix + 'simple_edit_distance'] += simple_edit_distance
-
-    return total
-
-
-def update_batch_info(info: Dict[str, int],
-                      distances: Tuple[int, int, int],
-                      lengths: Tuple[int, int],
-                      prefix: str = "") -> Dict[str, int]:
-    """
-    Updates the batch information with new edit distances and lengths for
-    different text forms.
-
-    Parameters
-    ----------
-    info : Dict[str, int]
-        A dictionary to store the updated batch information.
-    distances : Tuple[int, int, int]
-        A tuple containing the edit distances for standard, lower-cased, and
-        simplified texts.
-    lengths : Tuple[int, int]
-        A tuple containing the lengths of the original texts for standard and
-        simplified text forms.
-    prefix : str, optional
-        A prefix to identify the relevant keys in the dictionary (e.g.,
-       'Normalized' for normalized texts).
-
-    Returns
-    -------
-    Dict[str, int]
-        The updated batch information with new statistics.
-
-    Notes
-    -----
-    This function aggregates edit distances and lengths for each batch
-    processed, which can later be used for CER calculations.
-    """
-
-    prefix = f"{prefix}_" if prefix else prefix
-    edit_distance, lower_edit_distance, simple_edit_distance = distances
-    length, length_simple = lengths
-
-    info[f'{prefix}edit_distance'] += edit_distance
-    info[f'{prefix}length'] += length
-    info[f'{prefix}lower_edit_distance'] += lower_edit_distance
-    info[f'{prefix}length_simple'] += length_simple
-    info[f'{prefix}simple_edit_distance'] += simple_edit_distance
-
-    return info
 
 
 # Prediction processing functions
@@ -284,12 +180,14 @@ def process_cer_type(batch_info: Dict[str, int],
     accordingly.
     """
 
-    # Update totals
-    updated_totals = update_totals(batch_info, total_counter, prefix=prefix)
+    # Update totals with batch information
+    for key in ['edit_distance', 'length', 'lower_edit_distance',
+                'length_simple', 'simple_edit_distance']:
+        total_counter[prefix + key] += batch_info[prefix + key]
 
     # Calculate CERs for both batch and total
     batch_cers = calculate_cers(batch_info, prefix=prefix)
-    total_cers = calculate_cers(updated_totals, prefix=prefix)
+    total_cers = calculate_cers(total_counter, prefix=prefix)
 
     # Define metric names based on the prefix
     prefix = f"{prefix} " if prefix else prefix
@@ -300,7 +198,7 @@ def process_cer_type(batch_info: Dict[str, int],
     batch_stats.extend(batch_cers)
     total_stats.extend(total_cers)
 
-    return updated_totals, metrics, batch_stats, total_stats
+    return total_counter, metrics, batch_stats, total_stats
 
 
 def process_prediction_type(prediction: str,
@@ -361,43 +259,10 @@ def process_prediction_type(prediction: str,
         print_cer_stats(distances, lengths, prefix=prefix)
 
     # Update the counters
-    batch_info = update_batch_info(batch_info,
-                                   distances,
-                                   lengths,
-                                   prefix=prefix)
+    batch_info[prefix + 'edit_distance'] += edit_distance
+    batch_info[prefix + 'length'] += lengths[0]
+    batch_info[prefix + 'lower_edit_distance'] += lower_edit_distance
+    batch_info[prefix + 'length_simple'] += lengths[1]
+    batch_info[prefix + 'simple_edit_distance'] += simple_edit_distance
 
     return batch_info
-
-
-def calculate_confidence_intervals(cer_metrics: List[float], n: int) \
-        -> List[float]:
-    """
-    Calculates the 95% confidence intervals for a list of CER metrics.
-
-    Parameters
-    ----------
-    cer_metrics : List[float]
-        A list of CER metrics for which the confidence intervals are to be
-        calculated.
-    n : int
-        The number of samples used in the calculation of each CER metric.
-
-    Returns
-    -------
-    List[float]
-        A list of confidence intervals corresponding to each CER metric.
-
-    Notes
-    -----
-    This function applies the `calc_95_confidence_interval` function to each
-    CER metric in the list to compute their respective 95% confidence
-    intervals.
-    """
-
-    intervals = []
-
-    # Calculate the confidence intervals
-    for cer_metric in cer_metrics:
-        intervals.append(calc_95_confidence_interval(cer_metric, n))
-
-    return intervals
