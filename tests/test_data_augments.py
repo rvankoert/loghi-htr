@@ -1,12 +1,22 @@
 # Imports
 
 # > Third party dependencies
-
-# > Local dependencies
-from data.augment_layers import *
+import tensorflow as tf
 
 # > Standard library
+import logging
 import unittest
+import sys
+from pathlib import Path
+
+# Add the src directory to the path
+sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
+
+# Local dependencies
+from data.augment_layers import (ShearXLayer, ElasticTransformLayer,
+                            DistortImageLayer, RandomVerticalCropLayer,
+                            RandomWidthLayer, BinarizeLayer,
+                            BlurImageLayer, InvertImageLayer)
 
 
 class TestDataAugments(unittest.TestCase):
@@ -33,6 +43,15 @@ class TestDataAugments(unittest.TestCase):
         9. `test_invert`: Tests InvertImageLayer for color inversion and
            shape consistency.
     """
+
+    @classmethod
+    def setUpClass(cls):
+        # Set up logging
+        logging.basicConfig(
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            datefmt="%d/%m/%Y %H:%M:%S",
+            level=logging.ERROR,
+        )
 
     def test_shear_x_layer(self):
         # Test ShearXLayer to ensure it applies a shear transformation
