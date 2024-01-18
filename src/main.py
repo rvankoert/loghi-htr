@@ -47,11 +47,12 @@ def main():
 
     # Get the initial character list
     if config["existing_model"] or config["charlist"]:
-        charlist = load_initial_charlist(
+        charlist, removed_padding = load_initial_charlist(
             config["charlist"], config["existing_model"],
             config["output"], config["replace_final_layer"])
     else:
         charlist = []
+        removed_padding = False
 
     # Set the custom objects
     from model.optimization import LoghiLearningRateSchedule
@@ -77,7 +78,8 @@ def main():
         model = customize_model(model, config, charlist)
 
         # Save the charlist
-        verify_charlist_length(charlist, model, config["use_mask"])
+        verify_charlist_length(charlist, model, config["use_mask"],
+                               removed_padding)
         save_charlist(charlist, config["output"])
 
         # Create the learning rate schedule
@@ -114,7 +116,7 @@ def main():
     timestamps = {'start_time': time.time()}
 
     # Train the model
-    if config["do_train"]:
+    if config["training_list"]:
         tick = time.time()
 
         history = train_model(model, config, training_dataset,
@@ -144,7 +146,7 @@ def main():
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
-    if config["do_inference"]:
+    if config["inference_list"]:
         tick = time.time()
         perform_inference(config, model, inference_dataset, charlist, loader)
         timestamps['Inference'] = time.time() - tick

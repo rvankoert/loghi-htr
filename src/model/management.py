@@ -210,7 +210,8 @@ def load_or_create_model(config: Config,
 
 def verify_charlist_length(charlist: List[str],
                            model: tf.keras.Model,
-                           use_mask: bool) -> None:
+                           use_mask: bool,
+                           removed_padding: bool) -> None:
     """
     Verifies if the length of the character list matches the expected output
     length of the model.
@@ -223,6 +224,8 @@ def verify_charlist_length(charlist: List[str],
         The model whose output length is to be checked.
     use_mask : bool
         Indicates whether a mask is being used or not.
+    removed_padding : bool
+        Indicates whether padding was removed from the character list.
 
     Raises
     ------
@@ -233,9 +236,11 @@ def verify_charlist_length(charlist: List[str],
 
     # Verify that the length of the charlist is correct
     if use_mask:
-        expected_length = model.layers[-1].output_shape[2] - 2
+        expected_length = model.layers[-1].output_shape[2] - 2 - \
+            int(removed_padding)
     else:
-        expected_length = model.layers[-1].output_shape[2] - 1
+        expected_length = model.layers[-1].output_shape[2] - 1 - \
+            int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "

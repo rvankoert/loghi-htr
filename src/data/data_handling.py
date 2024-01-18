@@ -3,7 +3,7 @@
 # > Standard library
 import logging
 import os
-from typing import List
+from typing import List, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -72,7 +72,7 @@ def initialize_data_loader(config: Config,
 
 def load_initial_charlist(charlist_location: str, existing_model: str,
                           output_directory: str, replace_final_layer: bool) \
-        -> List[str]:
+        -> Tuple[List[str], bool]:
     """
     Loads the initial character list from the specified location or model
     directory.
@@ -92,8 +92,9 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
 
     Returns
     -------
-    List[str]
-        A list of characters loaded from the character list file.
+    Tuple[List[str], bool]
+        A tuple containing the character list and a flag indicating whether
+        padding was removed from the character list.
 
     Raises
     ------
@@ -115,23 +116,30 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
         charlist_location = output_directory + '/charlist.txt'
 
     # Load the character list
-    char_list = []
+    charlist = []
+    removed_padding = False
 
     # We don't need to load the charlist if we are replacing the final layer
     if not replace_final_layer:
         if os.path.exists(charlist_location):
             with open(charlist_location) as file:
-                char_list = [char for char in file.read()]
+                for char in file.read():
+                    if char == '':
+                        logging.warning("Found padding character in the "
+                                        "charlist. Removing it.")
+                        removed_padding = True
+                    else:
+                        charlist.append(char)
             logging.info(f"Using charlist from: {charlist_location}")
         else:
             raise FileNotFoundError(
                 f"Charlist not found at: {charlist_location} and "
                 "replace_final_layer is False.")
 
-        logging.info(f"Using charlist: {char_list}")
-        logging.info(f"Charlist length: {len(char_list)}")
+        logging.info(f"Using charlist: {charlist}")
+        logging.info(f"Charlist length: {len(charlist)}")
 
-    return char_list
+    return charlist, removed_padding
 
 
 def save_charlist(charlist: List[str],
