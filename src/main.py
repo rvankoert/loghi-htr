@@ -93,6 +93,8 @@ def main():
         charlist_location = args.output + '/charlist.txt'
     model_channels = args.channels
     model_height = args.height
+
+    removed_padding = False
     with strategy.scope():
         if args.existing_model:
             if not os.path.exists(args.existing_model):
@@ -103,7 +105,14 @@ def main():
                 exit(1)
             if not args.replace_final_layer:
                 with open(charlist_location) as file:
-                    char_list = list(char for char in file.read())
+                    char_list = []
+                    for char in file.read():
+                        if char == '':
+                            print(' in charlist, removing')
+                            removed_padding = True
+                        else:
+                            char_list.append(char)
+
                 print("using charlist")
                 print("length charlist: " + str(len(char_list)))
                 print(char_list)
@@ -154,9 +163,6 @@ def main():
                 args.__dict__['height'] = model_height
                 if args.no_auto:
                     exit(1)
-            if not args.replace_final_layer:
-                with open(charlist_location) as file:
-                    char_list = list(char for char in file.read())
         img_size = (model_height, args.width, model_channels)
         loader = DataLoader(args.batch_size, img_size,
                             train_list=args.train_list,
@@ -291,7 +297,7 @@ def main():
     model_outputs = model.layers[-1].output_shape[2]
     num_characters = len(char_list) + 1
     if args.use_mask:
-        num_characters = num_characters + 1
+        num_characters = num_characters + 1 + int(removed_padding)
     if model_outputs != num_characters:
         print('model_outputs: ' + str(model_outputs))
         print('charlist: ' + str(num_characters))
@@ -847,16 +853,6 @@ def main():
 
     if args.do_inference:
         print('inferencing')
-        print(char_list)
-        loader = DataLoader(args.batch_size,
-                            img_size,
-                            char_list,
-                            inference_list=args.inference_list,
-                            check_missing_files=args.check_missing_files,
-                            normalization_file=args.normalization_file,
-                            use_mask=args.use_mask
-                            )
-        training_generator, validation_generator, test_generator, inference_generator, utilsObject, train_batches = loader.generators()
 
         # Get the prediction model by taking the last dense layer of the full
         # model
