@@ -36,6 +36,13 @@ jobs:
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
+    - name: Test data augment layers
+      if: always()
+      run: |
+        python -m unittest tests/test_data_augments.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
     - name: Test DataLoader
       if: always()
       run: |

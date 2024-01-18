@@ -148,7 +148,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
         def single_image_distort(img):
             logging.debug("IMG SHAPE: ", img.shape)
             # Process RGBA images
-            if self.channels == 4:
+            if self.channels == 4 or inputs.shape[-1] == 4:
                 # Split RGB and Alpha channels
                 rgb, alpha = img[..., :3], img[..., 3:]
                 logging.debug("RGB SHAPE: ", rgb.shape)
@@ -247,12 +247,16 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
 
 class BinarizeLayer(tf.keras.layers.Layer):
-    def __init__(self, method='otsu', window_size=51, **kwargs):
+    def __init__(self, method='otsu', window_size=51, channels=None, **kwargs):
         super(BinarizeLayer, self).__init__(**kwargs)
         args = get_args()
         self.method = method
         self.window_size = window_size
-        self.channels = args.channels
+        # Override channels if with args.channels if not explicitly set
+        if channels is None:
+            self.channels = args.channels
+        else:
+            self.channels = channels
 
     def call(self, inputs):
         """
