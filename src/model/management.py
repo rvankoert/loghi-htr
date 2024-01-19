@@ -138,7 +138,8 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
 
         if args.visualize_augments:
             root_dir = Path(__file__).resolve().parents[2]
-            os.makedirs(args.output + "/augment-visualizations", exist_ok=True)
+            os.makedirs(args.output + "/augmentation-visualizations",
+                        exist_ok=True)
 
             # Plot augments on three different test images:
             for img_num in range(1, 4):
@@ -152,12 +153,13 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
                         + str(img_num)
                         + ".png"),
                     save_path=args.output
-                    + "/augment-visualizations/test-img"
+                    + "/augmentation-visualizations/test-img"
                     + str(img_num)
                     + ".png",
                     channels=args.channels)
             logging.info("Augment visualizations are stored in the "
-                         f"{args.output} folder")
+                         f"'{args.output}/augmentation-visualizations/' "
+                         "folder")
 
         model = tf.keras.Sequential(aug_model.layers + model.layers)
         model.build(input_shape=[batch_size, height, width, channels])
