@@ -64,16 +64,16 @@ class DataLoader:
             # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
         generator = (generator.map(data_generator.load_images,
-                      num_parallel_calls=AUTOTUNE,
-                      deterministic=deterministic)
-                 .padded_batch(self.batch_size,
-                               padded_shapes=(
-                                   [None, None, self.channels], [None]),
-                               padding_values=(
-                                   tf.constant(-10, dtype=tf.float32),
-                                   tf.constant(0, dtype=tf.int64)))
-                 .prefetch(AUTOTUNE)
-                 ).apply(tf.data.experimental.assert_cardinality(num_batches))
+                                   num_parallel_calls=AUTOTUNE,
+                                   deterministic=deterministic)
+                     .padded_batch(self.batch_size,
+                                   padded_shapes=(
+                                       [None, None, self.channels], [None]),
+                                   padding_values=(
+                                       tf.constant(-10, dtype=tf.float32),
+                                       tf.constant(0, dtype=tf.int64)))
+                     .prefetch(AUTOTUNE)
+                     ).apply(tf.data.experimental.assert_cardinality(num_batches))
         return generator
 
     def generators(self):

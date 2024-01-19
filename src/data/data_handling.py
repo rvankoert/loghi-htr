@@ -54,19 +54,19 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
         test_list=args.test_list,
         inference_list=args.inference_list,
         char_list=char_list,
-        aug_binarize_sauvola=args.aug_binarize_sauvola,
-        aug_binarize_otsu=args.aug_binarize_otsu,
+        aug_binarize_sauvola=args.do_binarize_sauvola,
+        aug_binarize_otsu=args.do_binarize_otsu,
         multiply=args.multiply,
         augment=args.augment,
-        aug_elastic_transform=args.aug_elastic_transform,
-        aug_random_crop=args.aug_random_crop,
-        aug_random_width=args.aug_random_width,
+        aug_elastic_transform=args.elastic_transform,
+        aug_random_crop=args.random_crop,
+        aug_random_width=args.random_width,
         check_missing_files=args.check_missing_files,
-        aug_distort_jpeg=args.aug_distort_jpeg,
+        aug_distort_jpeg=args.distort_jpeg,
         replace_final_layer=args.replace_final_layer,
         normalization_file=args.normalization_file,
         use_mask=args.use_mask,
-        aug_random_shear=args.aug_random_shear
+        aug_random_shear=args.do_random_shear
     )
 
 

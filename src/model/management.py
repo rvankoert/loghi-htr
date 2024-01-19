@@ -3,16 +3,17 @@
 # > Standard library
 import argparse
 import logging
+import os
+from pathlib import Path
 from typing import Any, List, Dict
 
-import keras
-import matplotlib.pyplot as plt
 # > Third-party dependencies
+import matplotlib.pyplot as plt
 import tensorflow as tf
 
 # > Local dependencies
 from utils.utils import load_model_from_directory
-from data.augment_layers import *
+from data.augment_layers import get_augment_model, make_augment_model
 from model.model import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 
@@ -122,36 +123,41 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
         model = adjust_model_for_float32(model)
 
     # Include data augments as separate Sequential object
-    if any([args.aug_elastic_transform, args.aug_random_crop,
-            args.aug_random_width, args.aug_distort_jpeg,
-            args.aug_random_shear, args.aug_binarize_otsu,
-            args.aug_binarize_sauvola, args.aug_blur, args.aug_invert]):
+    if any([args.elastic_transform, args.random_crop,
+            args.random_width, args.distort_jpeg,
+            args.do_random_shear, args.do_binarize_otsu,
+            args.do_binarize_sauvola, args.do_blur, args.do_invert]):
 
         # Set input params from trainings model input spec
         batch_size, width, height, channels = (model.layers[0]
                                                .get_input_at(0)
                                                .get_shape().as_list())
 
-        # Retrieve the (random) augmentation model from the selected augments
-        augment_options = get_augment_classes()
-        augment_selection = get_augment_model()
-        aug_model = make_augment_model(augment_options,
-                                       augment_selection)
+        augment_selection = get_augment_model(args)
+        aug_model = make_augment_model(augment_selection)
 
         if args.visualize_augments:
+            root_dir = Path(__file__).resolve().parents[2]
+            os.makedirs(args.output + "/augment-visualizations", exist_ok=True)
+
             # Plot augments on three different test images:
             for img_num in range(1, 4):
-                # Save example plot locally with the pre and post from aug_model
+                # Save example plot locally with the pre and post from
+                # aug_model
                 save_augment_steps_plot(
                     aug_model,
-                    sample_image_path="../tests/data/test-image"
-                                      + str(img_num)
-                                      + ".png",
-                    save_path="augment_test_img_"
-                              + str(img_num)
-                              + ".png",
+                    sample_image_path=os.path.join(
+                        root_dir,
+                        "tests/data/test-image"
+                        + str(img_num)
+                        + ".png"),
+                    save_path=args.output
+                    + "/augment-visualizations/test-img"
+                    + str(img_num)
+                    + ".png",
                     channels=args.channels)
-            logging.info("Augment visualizations are stored in the src folder")
+            logging.info("Augment visualizations are stored in the "
+                         f"{args.output} folder")
 
         model = tf.keras.Sequential(aug_model.layers + model.layers)
         model.build(input_shape=[batch_size, height, width, channels])
@@ -172,7 +178,10 @@ def blend_with_background(image, background_color=None):
     return rgb * alpha + background_color * (alpha - 1)
 
 
-def save_augment_steps_plot(aug_model, sample_image_path, save_path, channels):
+def save_augment_steps_plot(aug_model: tf.keras.Sequential,
+                            sample_image_path: str,
+                            save_path: str,
+                            channels: int = 3) -> None:
     """
     Applies each layer of an augmentation model to a sample image,
     plotting and saving the transformations sequentially.
@@ -188,6 +197,8 @@ def save_augment_steps_plot(aug_model, sample_image_path, save_path, channels):
     channels : int
         Number of channels in the sample image.
 
+    Notes
+    -----
     This function loads the sample image, applies each augmentation layer in
     the model sequentially, and plots the results, showing the effects of each
     step. The final plot is saved to the specified path.
@@ -302,10 +313,10 @@ def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
     # Verify that the length of the charlist is correct
     if use_mask:
         expected_length = model.get_layer(('activation_1')) \
-                              .get_output_at(0).shape[2] - 2
+            .get_output_at(0).shape[2] - 2
     else:
         expected_length = model.get_layer(('activation_1')) \
-                              .get_output_at(0).shape[2] - 1
+            .get_output_at(0).shape[2] - 1
 
     if len(charlist) != expected_length:
         raise ValueError(

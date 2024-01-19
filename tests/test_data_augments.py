@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
 # Local dependencies
-from data.augment_layers import (ShearXLayer, ElasticTransformLayer,
+from data.augment_layers import (ShearXLayer, ElasticTransformLayer,  # noqa: E402
                             DistortImageLayer, RandomVerticalCropLayer,
                             RandomWidthLayer, BinarizeLayer,
                             BlurImageLayer, InvertImageLayer)

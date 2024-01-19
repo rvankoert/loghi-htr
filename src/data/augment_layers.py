@@ -4,15 +4,12 @@
 import random
 import logging
 
-# > Local dependencies
-from setup.arg_parser import get_args
-
 # > Third party libraries
-import tensorflow as tf
 import elasticdeform.tf as etf
-import tensorflow_models as tfm
-from skimage.filters import threshold_otsu, threshold_sauvola
 import numpy as np
+from skimage.filters import threshold_otsu, threshold_sauvola
+import tensorflow as tf
+import tensorflow_models as tfm
 
 
 class ShearXLayer(tf.keras.layers.Layer):
@@ -25,14 +22,15 @@ class ShearXLayer(tf.keras.layers.Layer):
 
         Parameters
         ----------
-        inputs
-        - inputs (tf.Tensor): Input image tensor. Can be either a 3-channel
-        (RGB) or 4-channel (RGBA) image in tensor format.
+        inputs : tf.Tensor
+            Input image tensor. Can be either a 3-channel (RGB) or 4-channel
+            (RGBA) image in tensor format.
 
         Returns
         -------
-        - tf.Tensor: The image tensor after applying shear transformation along
-        the x-axis.
+        tf.Tensor
+            The image tensor after applying shear transformation along the
+            x-axis.
 
         Example
         -------
@@ -79,37 +77,40 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
 
         Parameters
         ----------
-        - inputs (tf.Tensor): The original image tensor to be transformed.
-        Can handle tensors of various shapes and channel numbers (e.g.,
-        grayscale, RGB, RGBA).
+        inputs : tf.Tensor
+            The original image tensor to be transformed. Can handle tensors of
+            various shapes and channel numbers (e.g., grayscale, RGB, RGBA).
 
         Returns
         -------
-        - tf.Tensor: The image tensor after applying elastic transformation.
+        tf.Tensor
+            The image tensor after applying elastic transformation.
 
-        Notes ----- - The `etf.deform_grid` function is used to apply the
-        deformation. It allows control over the axis of deformation and the
-        interpolation order. - The deformation values are clipped to ensure
-        they stay within the [0, 1] range, which is important for subsequent
-        image processing layers.
+        Notes
+        -----
+        - The `etf.deform_grid` function is used to apply the deformation. It
+        allows control over the axis of deformation and the interpolation
+        order.
+        - The deformation values are clipped to ensure they stay within the
+        [0, 1] range, which is important for subsequent image processing
+        layers.
 
         Example
         -------
-        ```python
-        elastic_layer = ElasticTransformLayer()
-        original_image_tensor = tf.random.uniform(shape=[1, 256, 256, 3])
-        transformed_image_tensor = elastic_layer(original_image_tensor)
-        ```
+        >>> elastic_layer = ElasticTransformLayer()
+        >>> original_image_tensor = tf.random.uniform(shape=[1, 256, 256, 3])
+        >>> transformed_image_tensor = elastic_layer(original_image_tensor)
         """
+
         # Hard set dtype to float32 because of compatibility
         inputs = tf.cast(inputs, tf.float32)
 
         # Random grid for elastic operation
         displacement_val = tf.random.normal([2, 3, 3]) * 5
 
-        # Interpolation-order heavily influences result, operate on axis 1 and 2
-        # cval is set to 1 to fill in with white so subsequent binarization is
-        # still possible
+        # Interpolation-order heavily influences result, operate on axis 1 and
+        # 2. cval is set to 1 to fill in with white so subsequent binarization
+        # is still possible
         x_deformed = etf.deform_grid(
             inputs, displacement_val, axis=(1, 2), order=1,
             cval=1
@@ -133,14 +134,19 @@ class DistortImageLayer(tf.keras.layers.Layer):
         This layer applies random JPEG quality changes to each image in the
         batch. It supports different processing for RGB and RGBA images.
 
-        Parameters:
-        - inputs (tf.Tensor): Batch of input images as a TensorFlow tensor.
-        The images should be in the format of either RGB or RGBA.
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Batch of input images as a TensorFlow tensor. The images should be
+            in the format of either RGB or RGBA.
 
-        Returns:
-        - tf.Tensor: Batch of distorted images as a TensorFlow tensor, with
-        the same shape and type as the input.
+        Returns
+        -------
+        tf.Tensor
+            Batch of distorted images as a TensorFlow tensor, with the same
+            shape and type as the input.
         """
+
         # Set data type to float32 for compatibility other layers
         inputs = tf.cast(inputs, tf.float32)
 
@@ -180,12 +186,17 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         """
         Applies random crop to each image in the input batch.
 
-        Parameters:
-        - inputs (tf.Tensor): Input batch of images as a TensorFlow tensor.
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Input batch of images as a TensorFlow tensor.
 
-        Returns:
-        - tf.Tensor: Batch of images after applying random crop.
+        Returns
+        -------
+        tf.Tensor
+            Batch of images after applying random crop.
         """
+
         # Get the dtype of the input tensor
         input_dtype = inputs.dtype
 
@@ -225,12 +236,17 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         """
         Resize and pad the input images.
 
-        Parameters:
-        - inputs (tf.Tensor): Input image tensor.
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Input image tensor.
 
-        Returns:
-        - tf.Tensor: Resized and padded image tensor.
+        Returns
+        -------
+        tf.Tensor
+            Resized and padded image tensor.
         """
+
         # Calculate the padding sizes
         padding_width = self.additional_width
         pad_left = padding_width // 2
@@ -249,21 +265,33 @@ class BinarizeLayer(tf.keras.layers.Layer):
     def __init__(self, method='otsu', window_size=51, channels=None, **kwargs):
         super(BinarizeLayer, self).__init__(**kwargs)
         self.method = method
+
+        if method == 'sauvola':
+            logging.warning("Sauvola is extremely inefficient, select "
+                            "Otsu for faster processing")
+        elif method != 'otsu':
+            raise ValueError(
+                "Invalid method. Supported methods are 'otsu' and 'sauvola'")
+
         self.window_size = window_size
         self.channels = channels
 
     def call(self, inputs):
         """
-        Binarize the input tensor using either Otsu's or Sauvola's thresholding.
+        Binarize the input tensor using either Otsu's or Sauvola's
+        thresholding.
 
-        Parameters:
-        - inputs (tf.Tensor): Input image tensor.
-        - method (str): Thresholding method ('otsu' or 'sauvola').
-        - window_size (int): window size used only for sauvola thresholding
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Input image tensor.
 
-        Returns:
-        - tf.Tensor: Binarized image tensor.
+        Returns
+        -------
+        tf.Tensor
+            Binarized image tensor.
         """
+
         # Check input shape
         input_shape = tf.shape(inputs)
 
@@ -291,14 +319,8 @@ class BinarizeLayer(tf.keras.layers.Layer):
                 thresh = threshold_sauvola(image, window_size=self.window_size)
                 return ((image > thresh) * 1).astype(np.float32)
 
-            logging.info("WARNING: sauvola is extremely inefficient, select "
-                         "Otsu for faster processing")
             binarized = tf.numpy_function(sauvola_thresh, [processed_input],
                                           tf.float32)
-
-        else:
-            raise ValueError(
-                "Invalid method. Supported methods are 'otsu' and 'sauvola'.")
 
         # Ensure output shape is set correctly after numpy_function
         binarized.set_shape(processed_input.shape)
@@ -322,12 +344,17 @@ class InvertImageLayer(tf.keras.layers.Layer):
         """
         Inverts the pixel values of the input tensor.
 
-        Parameters:
-        - inputs (tf.Tensor): Input image tensor.
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Input image tensor.
 
-        Returns:
-        - tf.Tensor: Inverted image tensor.
+        Returns
+        -------
+        tf.Tensor
+            Inverted image tensor.
         """
+
         # Determine max value based on the data type of the input tensor
         if inputs.dtype.is_integer:
             max_value = tf.convert_to_tensor(255, dtype=inputs.dtype)
@@ -346,7 +373,6 @@ class InvertImageLayer(tf.keras.layers.Layer):
 
 
 class BlurImageLayer(tf.keras.layers.Layer):
-
     def __init__(self, mild_blur=False, **kwargs):
         super(BlurImageLayer, self).__init__(**kwargs)
         self.mild_blur = mild_blur
@@ -355,16 +381,17 @@ class BlurImageLayer(tf.keras.layers.Layer):
         """
         Apply random Gaussian blur to the input tensor
 
-        Parameters:
-        - inputs (tf.Tensor): Input image tensor.
-
-        Returns:
-        - tf.Tensor: Blurred image tensor.
-
         Parameters
         ----------
-        inputs : object
+        inputs : tf.Tensor
+            Input image tensor.
+
+        Returns
+        -------
+        tf.Tensor
+            Blurred image tensor.
         """
+
         if self.mild_blur:
             blur_factor = 1
         else:
@@ -377,22 +404,28 @@ class BlurImageLayer(tf.keras.layers.Layer):
 class RandomWidthLayer(tf.keras.layers.Layer):
     def call(self, inputs):
         """
-        Adjusts image width randomly and maintains original dimensions by either
-        compressing or padding the image.
+        Adjusts image width randomly and maintains original dimensions by
+        either compressing or padding the image.
 
-        Parameters:
-        - inputs (tf.Tensor): A 3D or 4D tensor representing a single image or a
-          batch of images.
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            A 3D or 4D tensor representing a single image or a batch of images.
 
-        Returns:
-        - tf.Tensor: Processed image tensor with original height and width. The
-          output might be altered due to resizing and padding.
+        Returns
+        -------
+        tf.Tensor
+            Processed image tensor with original height and width. The output
+            might be altered due to resizing and padding.
 
-        Note:
+        Notes
+        -----
         - This method randomly scales the image's width between 75% and 125% of
           the original, then compresses or pads it to the original width.
-        - Padding uses a constant value of 1 for compatibility with binarization
+        - Padding uses a constant value of 1 for compatibility with
+          binarization
         """
+
         # Get the width and height of the input image
         if len(tf.shape(inputs)) < 4:
             # When input does have a batch size dim
@@ -404,7 +437,8 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             original_height = tf.shape(inputs)[1]
 
         # Generate a random width scaling factor between 0.75 and 1.25
-        random_width = tf.random.uniform(shape=[1], minval=0.75, maxval=1.25)[0]
+        random_width = tf.random.uniform(
+            shape=[1], minval=0.75, maxval=1.25)[0]
 
         # Scale the width of the image by the random factor
         random_width *= float(original_width)
@@ -440,95 +474,74 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             return padded_image
 
 
-def get_augment_classes():
-    """
-    Generates a list of possible augment options based on the custom Keras
-    layers in this file.
-
-    Returns:
-    list
-        Possible custom keras layer Objects to be used for augmentation
-    """
-    # Retrieve a list of possible augmentations
-    g = globals().copy()
-    augment_options = []
-    for name, obj in g.items():
-        logging.debug((name, obj))
-        # exclude invert for random augment selection
-        if name.startswith("Invert"):
-            continue
-        # exclude padding layer for random augment selection
-        if name.startswith("ResizeWithPadLayer"):
-            continue
-        elif isinstance(obj, type):
-            layer_instance = obj()
-            augment_options.append(layer_instance)
-    return augment_options
-
-
-def get_augment_model():
+def get_augment_model(args):
     """
     Construct a list of data augmentation layers based on the specified
     command-line arguments. Certain data augmentations like random_shear
     require some additional processing layers to ensure that information is
     not lost from the origian image.
 
-    Returns:
+    Parameters
+    ----------
+    args : object
+        Command-line arguments.
+
+    Returns
+    -------
     list
         A list of custom data augment layers that inherit from
         tf.keras.layers.Layer
     """
-    logger = logging.getLogger(__name__)
-    args = get_args()
+
     augment_selection = []
 
-    if args.aug_distort_jpeg:
-        logger.info("Data augment: distort_jpeg")
+    if args.distort_jpeg:
+        logging.info("Data augment: distort_jpeg")
         augment_selection.append(DistortImageLayer(channels=args.channels))
 
-    if args.aug_elastic_transform:
-        logger.info("Data augment: elastic_transform")
+    if args.elastic_transform:
+        logging.info("Data augment: elastic_transform")
         augment_selection.append(ElasticTransformLayer())
 
-    if args.aug_random_crop:
-        logger.info("Data augment: random_crop")
+    if args.random_crop:
+        logging.info("Data augment: random_crop")
         augment_selection.append(RandomVerticalCropLayer())
 
-    if args.aug_random_width:
-        logger.info("Data augment: random_width")
+    if args.random_width:
+        logging.info("Data augment: random_width")
         augment_selection.append(RandomWidthLayer())
 
-    if args.aug_binarize_sauvola:
-        logger.info("Data augment: binarize_sauvola")
+    if args.do_binarize_sauvola:
+        logging.info("Data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
                                                channels=args.channels,
                                                window_size=51))
-    if args.aug_binarize_otsu:
-        logger.info("Data augment: binarize_otsu")
+    if args.do_binarize_otsu:
+        logging.info("Data augment: binarize_otsu")
         augment_selection.append(BinarizeLayer(method="otsu",
                                                channels=args.channels))
 
-    if args.aug_random_shear:
+    if args.do_random_shear:
         # Apply padding to make sure that shear does not cut off img
         augment_selection.append(ResizeWithPadLayer())
 
-        logger.info("Data augment: shear_x")
+        logging.info("Data augment: shear_x")
         augment_selection.append(ShearXLayer())
         # Remove earlier padding to ensure correct output shapes
         augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 25)))
 
-    if args.aug_blur:
-        logger.info("Data augment: blur_image")
+    if args.do_blur:
+        logging.info("Data augment: blur_image")
         augment_selection.append(BlurImageLayer())
 
-    if args.aug_invert:
-        logger.info("Data augment: aug_invert")
+    if args.do_invert:
+        logging.info("Data augment: aug_invert")
         augment_selection.append(InvertImageLayer(channels=args.channels))
 
     return augment_selection
 
 
-def make_augment_model(augment_options, augment_selection=None):
+def make_augment_model(augment_selection=None):
     """
     Constructs an image augmentation model from a list of augmentation options,
     with specific handling for certain layer combinations. If no
@@ -537,8 +550,6 @@ def make_augment_model(augment_options, augment_selection=None):
 
     Parameters
     ----------
-    augment_options : list
-        List of possible augmentation layer instances.
     augment_selection : list, optional
         Preselected list of augmentation layers. If empty or None, a random
         selection is made.
@@ -551,18 +562,20 @@ def make_augment_model(augment_options, augment_selection=None):
 
     """
 
-    # Check if both types of binarization are present, remove Sauvola if true
-    otsu_present = any(isinstance(obj, BinarizeLayer)
-                       and obj.method == 'otsu' for obj in augment_selection)
-    sauvola_present = any(isinstance(obj, BinarizeLayer)
-                          and obj.method == 'sauvola' for obj in
-                          augment_selection)
+    otsu_present = False
+    new_augment_selection = []
 
-    if otsu_present and sauvola_present:
-        # Remove the object of type BinarizeLayer with Sauvola method
-        augment_selection = [obj for obj in augment_selection
-                             if not (isinstance(obj, BinarizeLayer)
-                                     and obj.method == 'sauvola')]
+    for aug_layer in augment_selection:
+        if isinstance(aug_layer, BinarizeLayer):
+            if aug_layer.method == 'otsu':
+                otsu_present = True
+            elif aug_layer.method == 'sauvola' and otsu_present:
+                # Skip the 'sauvola' method if 'otsu' is present
+                continue
+
+        new_augment_selection.append(aug_layer)
+
+    augment_selection = new_augment_selection
 
     # Init blur params
     mild_blur = False
@@ -579,7 +592,7 @@ def make_augment_model(augment_options, augment_selection=None):
     # Check if blur/distort occurs after binarization, if so move it in front
     binarize = False
     binarize_index = -1
-    for i, augment in enumerate(augment_selection):
+    for i, augment in enumerate(augment_selection[:]):
         if isinstance(augment, BinarizeLayer):
             binarize = True
             binarize_index = i
