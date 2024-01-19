@@ -125,7 +125,7 @@ def create_tokenizer(model_path: str) -> Tokenizer:
     charlist_path = f"{model_path}/charlist.txt"
     try:
         with open(charlist_path) as file:
-            charlist = [char for char in file.read()]
+            charlist = [char for char in file.read() if char != '']
         tokenizer = Tokenizer(charlist, use_mask=True)
         logging.debug("Utilities initialized")
     except FileNotFoundError:

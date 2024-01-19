@@ -46,9 +46,8 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
 
     Parameters
     ----------
-    args : argparse.Namespace
-        The namespace containing runtime arguments related to environment
-        setup, like GPU selection and precision settings.
+    config : Config
+        The configuration object containing the parsed arguments.
 
     Returns
     -------
@@ -62,27 +61,26 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     the GPU devices being used and the precision policy (float32 or
     mixed_float16) based on the 'use_float32' and 'gpu' arguments.
     """
-    args = config.args
 
     # Initial setup
     logging.info(f"Running with config:\n{config}")
 
     # Set the random seed
-    if args.deterministic:
-        set_deterministic(args.seed)
+    if config["deterministic"]:
+        set_deterministic(config["seed"])
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
+    logging.info(f"Selected GPU indices from config: {config['gpu']}")
     logging.info(f"Available GPU(s): {gpu_devices}")
-    logging.info(f"Selected GPU(s): {args.gpu}")
 
     # Set the active GPUs depending on the 'gpu' argument
-    if args.gpu == "-1":
+    if config["gpu"] == "-1":
         active_gpus = []
-    elif args.gpu.lower() == "all":
+    elif config["gpu"].lower() == "all":
         active_gpus = gpu_devices
     else:
-        gpus = args.gpu.split(',')
+        gpus = config["gpu"].split(',')
         active_gpus = []
         for i, gpu in enumerate(gpu_devices):
             if str(i) in gpus:
@@ -97,7 +95,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     tf.config.set_visible_devices(active_gpus, 'GPU')
 
     # Initialize the strategy
-    strategy = initialize_strategy(args.use_float32, args.gpu)
+    strategy = initialize_strategy(config["use_float32"], config["gpu"])
 
     return strategy
 

@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 from typing import List
 
@@ -10,14 +9,15 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from utils.decoding import decode_batch_predictions
 from model.management import get_prediction_model
+from setup.config import Config
 from utils.text import Tokenizer
 
 # > Third-party dependencies
 import tensorflow as tf
 
 
-def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
-                      inference_dataset: DataGenerator, char_list: List[str],
+def perform_inference(config: Config, model: tf.keras.Model,
+                      inference_dataset: DataGenerator, charlist: List[str],
                       loader: DataLoader) -> None:
     """
     Performs inference on a given dataset using a specified model and writes
@@ -25,15 +25,15 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing arguments for the inference process. This
+    config : Config
+        A Config object containing arguments for the inference process. This
         includes settings like the path for the results file, whether to use
         masking, the batch size, and parameters for decoding predictions.
     model : tf.keras.Model
         The Keras model to be used for inference.
     inference_dataset : DataGenerator
         The dataset on which inference is to be performed.
-    char_list : List[str]
+    charlist : List[str]
         A list of characters used in the model, for decoding predictions.
     loader : DataLoader
         A data loader object used for retrieving additional information needed
@@ -48,15 +48,17 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
     results.
     """
 
-    tokenizer = Tokenizer(char_list, args.use_mask)
+    tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
 
-    with open(args.results_file, "w") as results_file:
+    with open(config["results_file"], "w") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
-            predictions = prediction_model.predict(batch[0], verbose=0)
-            y_pred = decode_batch_predictions(
-                predictions, tokenizer, args.greedy, args.beam_width)
+            predictions = prediction_model.predict_on_batch(batch[0])
+            y_pred = decode_batch_predictions(predictions,
+                                              tokenizer,
+                                              config["greedy"],
+                                              config["beam_width"])
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):
@@ -64,8 +66,9 @@ def perform_inference(args: argparse.Namespace, model: tf.keras.Model,
                 prediction = prediction.strip().replace('', '')
 
                 # Format the filename
-                filename = loader.get_item(
-                    'inference', (batch_no * args.batch_size) + index)
+                filename = loader.get_item('inference',
+                                           (batch_no * config["batch_size"])
+                                           + index)
 
                 # Write the results to the results file
                 result_str = f"{filename}\t{confidence}\t{prediction}"

@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
 from typing import Any, List, Dict, Optional
@@ -12,6 +11,7 @@ import tensorflow as tf
 # > Local dependencies
 from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
+from setup.config import Config
 
 
 def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
@@ -55,7 +55,8 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     return model
 
 
-def customize_model(model: tf.keras.Model, args: argparse.Namespace,
+def customize_model(model: tf.keras.Model,
+                    config: Config,
                     charlist: List[str]) -> tf.keras.Model:
     """
     Customizes a Keras model based on various arguments including layer
@@ -65,7 +66,7 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
     ----------
     model : tf.keras.Model
         The model to be customized.
-    args : argparse.Namespace
+    config : Config
         A set of arguments controlling how the model should be customized.
     charlist : List[str]
         A list of characters used for model customization.
@@ -77,44 +78,45 @@ def customize_model(model: tf.keras.Model, args: argparse.Namespace,
     """
 
     # Replace certain layers if specified
-    if args.replace_recurrent_layer:
+    if config["replace_recurrent_layer"]:
         logging.info("Replacing recurrent layer with "
-                     f"{args.replace_recurrent_layer}")
+                     f"{config['replace_recurrent_layer']}")
         model = replace_recurrent_layer(model,
                                         len(charlist),
-                                        args.replace_recurrent_layer,
-                                        use_mask=args.use_mask)
+                                        config["replace_recurrent_layer"],
+                                        use_mask=config["use_mask"])
 
     # Replace the final layer if specified
-    if args.replace_final_layer or not args.existing_model:
-        new_classes = len(charlist) + 2 if args.use_mask else len(charlist) + 1
+    if config["replace_final_layer"] or not config["existing_model"]:
+        new_classes = len(charlist) + \
+            2 if config["use_mask"] else len(charlist) + 1
         logging.info(f"Replacing final layer with {new_classes} classes")
-        model = replace_final_layer(model, len(
-            charlist), model.name, use_mask=args.use_mask)
+        model = replace_final_layer(model, len(charlist), model.name,
+                                    use_mask=config["use_mask"])
 
     # Freeze or thaw layers if specified
-    if any([args.thaw, args.freeze_conv_layers,
-            args.freeze_recurrent_layers, args.freeze_dense_layers]):
+    if any([config["thaw"], config["freeze_conv_layers"],
+            config["freeze_recurrent_layers"], config["freeze_dense_layers"]]):
         for layer in model.layers:
-            if args.thaw:
+            if config["thaw"]:
                 layer.trainable = True
                 logging.info(f"Thawing layer: {layer.name}")
-            elif args.freeze_conv_layers and \
+            elif config["freeze_conv_layers"] and \
                 (layer.name.lower().startswith("conv") or
                  layer.name.lower().startswith("residual")):
                 logging.info(f"Freezing layer: {layer.name}")
                 layer.trainable = False
-            elif args.freeze_recurrent_layers and \
+            elif config["freeze_recurrent_layers"] and \
                     layer.name.lower().startswith("bidirectional"):
                 logging.info(f"Freezing layer: {layer.name}")
                 layer.trainable = False
-            elif args.freeze_dense_layers and \
+            elif config["freeze_dense_layers"] and \
                     layer.name.lower().startswith("dense"):
                 logging.info(f"Freezing layer: {layer.name}")
                 layer.trainable = False
 
     # Further configuration based on use_float32 and gpu
-    if args.use_float32 or args.gpu == "-1":
+    if config["use_float32"] or config["gpu"] == "-1":
         # Adjust the model for float32
         logging.info("Adjusting model for float32")
         model = adjust_model_for_float32(model)
@@ -171,7 +173,7 @@ def load_model_from_directory(directory: str,
     raise FileNotFoundError("No suitable model file found in the directory.")
 
 
-def load_or_create_model(args: argparse.Namespace,
+def load_or_create_model(config: Config,
                          custom_objects: Dict[str, Any]) -> tf.keras.Model:
     """
     Loads an existing Keras model or creates a new one based on provided
@@ -179,8 +181,8 @@ def load_or_create_model(args: argparse.Namespace,
 
     Parameters
     ----------
-    args : argparse.Namespace
-        Arguments to determine whether to load or create a model.
+    config : Config
+        The configuration object containing the arguments.
     custom_objects : Dict[str, Any]
         Custom objects required for model loading.
 
@@ -190,24 +192,26 @@ def load_or_create_model(args: argparse.Namespace,
         The loaded or newly created Keras model.
     """
 
-    if args.existing_model:
+    if config["existing_model"]:
         model = load_model_from_directory(
-            args.existing_model, custom_objects=custom_objects)
-        if args.model_name:
-            model._name = args.model_name
+            config["existing_model"], custom_objects=custom_objects)
+        if config["model_name"]:
+            model._name = config["model_name"]
     else:
         model_generator = VGSLModelGenerator(
-            model=args.model,
-            name=args.model_name,
-            channels=args.channels
+            model=config["model"],
+            name=config["model_name"],
+            channels=config["channels"]
         )
         model = model_generator.build()
 
     return model
 
 
-def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
-                           use_mask: bool) -> None:
+def verify_charlist_length(charlist: List[str],
+                           model: tf.keras.Model,
+                           use_mask: bool,
+                           removed_padding: bool) -> None:
     """
     Verifies if the length of the character list matches the expected output
     length of the model.
@@ -220,6 +224,8 @@ def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
         The model whose output length is to be checked.
     use_mask : bool
         Indicates whether a mask is being used or not.
+    removed_padding : bool
+        Indicates whether padding was removed from the character list.
 
     Raises
     ------
@@ -230,9 +236,11 @@ def verify_charlist_length(charlist: List[str], model: tf.keras.Model,
 
     # Verify that the length of the charlist is correct
     if use_mask:
-        expected_length = model.layers[-1].output_shape[2] - 2
+        expected_length = model.layers[-1].output_shape[2] - 2 - \
+            int(removed_padding)
     else:
-        expected_length = model.layers[-1].output_shape[2] - 1
+        expected_length = model.layers[-1].output_shape[2] - 1 - \
+            int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "

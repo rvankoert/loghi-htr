@@ -149,9 +149,9 @@ class LoghiLearningRateSchedule(tf.keras.optimizers.
 
 
 def get_optimizer(optimizer_name: str,
-                  learning_rate_schedule: Union[float,
-                                                tf.keras.optimizers.schedules
-                                                .LearningRateSchedule]) \
+                  lr_schedule: Union[float,
+                                     tf.keras.optimizers.schedules
+                                     .LearningRateSchedule]) \
         -> tf.keras.optimizers.Optimizer:
     """
     Selects and creates an optimizer based on the provided optimizer name and
@@ -161,8 +161,8 @@ def get_optimizer(optimizer_name: str,
     ----------
     optimizer_name : str
         The name of the optimizer to be created.
-    learning_rate_schedule : Union[float,
-                                   tf.keras.optimizers.schedules.LearningRateSchedule]
+    lr_schedule : Union[float,
+                        tf.keras.optimizers.schedules.LearningRateSchedule]
         The learning rate or learning rate schedule to be used with the
         optimizer.
 
@@ -190,7 +190,7 @@ def get_optimizer(optimizer_name: str,
     }
 
     if optimizer_name in optimizers:
-        return optimizers[optimizer_name](learning_rate=learning_rate_schedule)
+        return optimizers[optimizer_name](learning_rate=lr_schedule)
     else:
         raise ValueError(f"Invalid optimizer name: {optimizer_name}")
 
@@ -218,9 +218,8 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
         The total number of training batches.
     do_train : bool
         Indicates whether training is being performed.
-    warmup_ratio : float, optional
-        The ratio of the warmup period to the total training batches (default
-        is 0.1).
+    warmup_ratio : float
+        The ratio of the warmup period to the total training batches.
     epochs : int
         The total number of epochs.
     decay_per_epoch : bool, optional

@@ -83,6 +83,26 @@ class Config:
 
         return json.dumps(self.config, indent=4, sort_keys=True)
 
+    def __getitem__(self, key: str) -> any:
+        """
+        Get a value from the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to retrieve.
+
+        Returns
+        -------
+        any
+            The value corresponding to the key.
+        """
+
+        try:
+            return self.config[key]
+        except KeyError:
+            return getattr(self.args, key, None)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.
@@ -210,6 +230,11 @@ class Config:
         ----------
         config_file : str
             Path to the configuration file to load arguments from.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the configuration file does not exist.
         """
 
         with open(config_file) as file:
@@ -219,6 +244,7 @@ class Config:
             if not config_args:
                 logging.warning("No arguments found in config file.")
                 return
+
             # For backwards compatibility, we check if the config file has
             # a "general" key. If not, we assume that all arguments are
             # general arguments.
@@ -231,7 +257,7 @@ class Config:
                 for subkey, subvalue in value.items():
                     try:
                         # If the argument was explicitly provided by the user,
-                        # we do not override it.
+                        # we do not override it. Otherwise, we update it.
                         if not getattr(self.explicit_args, subkey):
                             setattr(self.args, subkey, subvalue)
                         else:

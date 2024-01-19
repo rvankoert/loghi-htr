@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
 from typing import List
@@ -12,10 +11,11 @@ from word_beam_search import WordBeamSearch
 
 # > Local imports
 from data.loader import DataLoader
+from setup.config import Config
 from utils.text import preprocess_text
 
 
-def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
+def setup_word_beam_search(config: Config, charlist: List[str],
                            loader: DataLoader) -> WordBeamSearch:
     """
     Sets up the Word Beam Search (WBS) algorithm for use in character
@@ -23,9 +23,9 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing arguments related to the WBS setup, such as the
-        path to the corpus file, beam width, and smoothing parameters.
+    config : Config
+        A Config object containing arguments related to the WBS setup, such as
+        the path to the corpus file, beam width, and smoothing parameters.
     charlist : List[str]
         A list of characters used in the model.
     loader : DataLoader
@@ -53,26 +53,27 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
     logging.info("Setting up WordBeamSearch...")
 
     # Check if the corpus file exists
-    if not os.path.exists(args.corpus_file):
-        raise FileNotFoundError(f'Corpus file not found: {args.corpus_file}')
+    if not os.path.exists(config["corpus_file"]):
+        raise FileNotFoundError('Corpus file not found: '
+                                f'{config["corpus_file"]}')
 
     # Load the corpus
-    with open(args.corpus_file) as f:
+    with open(config["corpus_file"]) as f:
         # Create the corpus
         corpus = ''
         for line in f:
-            if args.normalization_file:
-                line = loader.normalize(line, args.normalization_file)
+            if config["normalization_file"]:
+                line = loader.normalize(line, config["normalization_file"])
             corpus += line
-    logging.info(f'Using corpus file: {args.corpus_file}')
+    logging.info(f'Using corpus file: {config["corpus_file"]}')
 
     # Create the WordBeamSearch object
     word_chars = \
         '-ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzßàáâçèéëïñôöûüň'
     chars = '' + ''.join(sorted(charlist))
-    wbs = WordBeamSearch(args.beam_width, 'NGrams', args.wbs_smoothing,
-                         corpus.encode('utf8'), chars.encode('utf8'),
-                         word_chars.encode('utf8'))
+    wbs = WordBeamSearch(config["beam_width"], 'NGrams',
+                         config["wbs_smoothing"], corpus.encode('utf8'),
+                         chars.encode('utf8'), word_chars.encode('utf8'))
 
     logging.info('Created WordBeamSearch')
 
@@ -80,8 +81,7 @@ def setup_word_beam_search(args: argparse.Namespace, charlist: List[str],
 
 
 def handle_wbs_results(predsbeam: tf.Tensor, wbs: WordBeamSearch,
-                       args: argparse.Namespace, chars: List[str]) \
-        -> List[str]:
+                       chars: List[str]) -> List[str]:
     """
     Decodes batch predictions using Word Beam Search (WBS).
 
@@ -92,9 +92,6 @@ def handle_wbs_results(predsbeam: tf.Tensor, wbs: WordBeamSearch,
         processing.
     wbs : WordBeamSearch
         The WordBeamSearch object used for decoding.
-    args : argparse.Namespace
-        A namespace containing relevant arguments, potentially used in the
-        decoding process.
     chars : List[str]
         A list of characters corresponding to the indices in the model's
         predictions.
