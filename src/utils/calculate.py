@@ -138,8 +138,8 @@ def calculate_cers(info: Dict[str, int], prefix: str = "") \
 
 # Prediction processing functions
 
-def process_cer_type(batch_info: Dict[str, int],
-                     total_counter: Dict[str, int]) \
+def update_statistics(batch_info: Dict[str, int],
+                      total_counter: Dict[str, int]) \
         -> Tuple[List[str], List[Union[int, float]], List[Union[int, float]]]:
     """
     Processes and updates CER statistics for a batch and the overall totals.
@@ -191,12 +191,10 @@ def process_cer_type(batch_info: Dict[str, int],
     return metrics, batch_stats, total_stats
 
 
-def process_prediction_type(prediction: str,
-                            original: str,
-                            batch_info: Dict[str, int],
-                            do_print: bool,
-                            prefix: str = "",
-                            distances: Tuple[int, int, int] = None) \
+def increment_counters(distances: Dict[str, Tuple[int, int, int]],
+                       originals: Dict[str, str],
+                       batch_counter: Dict[str, int],
+                       do_print: bool) \
         -> Dict[str, int]:
     """
     Processes a single prediction by calculating edit distances and updating
@@ -204,21 +202,17 @@ def process_prediction_type(prediction: str,
 
     Parameters
     ----------
-    prediction : str
-        The predicted text.
-    original : str
-        The original text.
-    batch_info : Dict[str, int]
+    distances : Dict[str, Tuple[int, int, int]]
+        A dictionary containing the edit distances for standard, lower-cased,
+        and simplified texts.
+    originals : Dict[str, str]
+        A dictionary containing the original texts for standard, lower-cased,
+        and simplified texts.
+    batch_counter : Dict[str, int]
         The dictionary to update with the new edit distances and lengths.
     do_print : bool
         A flag indicating whether to print the CER statistics for this
         prediction.
-    prefix : str, optional
-        A prefix for the keys in the batch information dictionary (e.g.,
-        'Normalized').
-    distances : Tuple[int, int, int], optional
-        A tuple containing the edit distances for standard, lower-cased, and
-        simplified texts, if they are already calculated.
 
     Returns
     -------
@@ -231,28 +225,36 @@ def process_prediction_type(prediction: str,
     statistics if requested, and updates the batch information.
     """
 
-    # Preprocess the text for CER calculation
-    _, simple_original = simplify_text(original)
+    for prefix in ["", "Normalized ", "WBS "]:
+        # Get the distances and original text
+        distance = distances[prefix + 'distances']
+        original = originals[prefix + 'original']
 
-    if distances is None:
-        # Calculate edit distances
-        distances = calculate_edit_distances(prediction, original)
+        # Update the batch counter
+        if distance is not None:
+            # Preprocess the text for CER calculation
+            _, simple_original = simplify_text(original)
 
-    # Determine the lengths
-    lengths = [len(original), len(simple_original)]
+            # Determine the lengths
+            lengths = [len(original), len(simple_original)]
 
-    # Unpack the distances
-    edit_distance, lower_edit_distance, simple_edit_distance = distances
+            # Unpack the distances
+            edit_distance, lower_edit_distance, simple_edit_distance = distance
 
-    # Print the predictions if there are any errors
-    if do_print:
-        print_cer_stats(distances, lengths, prefix=prefix)
+            # Print the predictions if there are any errors
+            if do_print:
+                print_cer_stats(distance, lengths, prefix=prefix)
 
-    # Update the counters
-    batch_info[prefix + 'edit_distance'] += edit_distance
-    batch_info[prefix + 'length'] += lengths[0]
-    batch_info[prefix + 'lower_edit_distance'] += lower_edit_distance
-    batch_info[prefix + 'length_simple'] += lengths[1]
-    batch_info[prefix + 'simple_edit_distance'] += simple_edit_distance
+            # Update the counters
+            batch_counter[prefix + 'edit_distance'] \
+                += edit_distance
+            batch_counter[prefix + 'length'] \
+                += lengths[0]
+            batch_counter[prefix + 'lower_edit_distance'] \
+                += lower_edit_distance
+            batch_counter[prefix + 'length_simple'] \
+                += lengths[1]
+            batch_counter[prefix + 'simple_edit_distance'] \
+                += simple_edit_distance
 
-    return batch_info
+    return batch_counter

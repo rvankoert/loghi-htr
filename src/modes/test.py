@@ -13,7 +13,7 @@ from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, calculate_cers, \
-    process_prediction_type
+    increment_counters, calculate_edit_distances
 from utils.decoding import decode_batch_predictions
 from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
@@ -80,40 +80,38 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     orig_texts = tokenizer.decode(y_true)
 
     # Initialize the batch info
-    batch_info = defaultdict(int)
+    batch_counter = defaultdict(int)
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
+        normalized_original = None if not config["normalization_file"] else \
+            loader.normalize(original_text, config["normalization_file"])
 
-        batch_info = process_prediction_type(prediction,
-                                             original_text,
-                                             batch_info,
-                                             do_print=False)
+        # Calculate edit distances
+        distances = calculate_edit_distances(prediction, original_text)
+        normalized_distances = None if not config["normalization_file"] else \
+            calculate_edit_distances(prediction, normalized_original)
+        wbs_distances = None if not wbs else \
+            calculate_edit_distances(prediction, char_str[index])
 
-        if config["normalization_file"]:
-            normalized_original = loader.normalize(original_text,
-                                                   config["normalization_file"]
-                                                   )
+        # Wrap the distances and originals in dictionaries
+        distances_dict = {"distances": distances,
+                          "Normalized distances": normalized_distances,
+                          "WBS distances": wbs_distances}
+        original_dict = {"original": original_text,
+                         "Normalized original": normalized_original,
+                         "WBS original": original_text}
 
-            # Process the normalized CER
-            batch_info = process_prediction_type(prediction,
-                                                 normalized_original,
-                                                 batch_info,
-                                                 do_print=False,
-                                                 prefix="Normalized")
+        # Update the batch counter
+        batch_counter = increment_counters(distances_dict,
+                                           original_dict,
+                                           batch_counter,
+                                           do_print=False)
 
-        if wbs:
-            # Process the WBS CER
-            batch_info = process_prediction_type(char_str[index],
-                                                 original_text,
-                                                 batch_info,
-                                                 do_print=False,
-                                                 prefix="WBS")
-
-    return batch_info
+    return batch_counter
 
 
 def perform_test(config: Config,
@@ -164,11 +162,12 @@ def perform_test(config: Config,
     for batch_no, batch in enumerate(test_dataset):
         logging.info(f"Batch {batch_no + 1}/{len(test_dataset)}")
 
-        batch_info = process_batch(batch, prediction_model, tokenizer,
-                                   config, wbs, dataloader, batch_no, charlist)
+        batch_counter = process_batch(batch, prediction_model, tokenizer,
+                                      config, wbs, dataloader, batch_no,
+                                      charlist)
 
         # Update the total counter
-        for key, value in batch_info.items():
+        for key, value in batch_counter.items():
             total_counter[key] += value
 
         n_items += len(batch[0])
@@ -186,7 +185,7 @@ def perform_test(config: Config,
     # Take every third metric (i.e., regular, normalizing, WBS)
     total_stats = []
     for i in range(0, len(metrics), 3):
-        prefix = metrics[i].split(" ")[0] if i > 0 else ""
+        prefix = metrics[i].split(" ")[0] + " " if i > 0 else ""
         total_stats += [*calculate_cers(total_counter, prefix)]
 
     # Print the final test statistics

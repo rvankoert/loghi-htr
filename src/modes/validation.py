@@ -15,7 +15,7 @@ from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
-    calculate_edit_distances, process_cer_type, process_prediction_type
+    calculate_edit_distances, update_statistics, increment_counters
 from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
 from utils.text import preprocess_text, Tokenizer
@@ -91,6 +91,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         # Calculate edit distances here so we can use them for printing the
         # predictions
         distances = calculate_edit_distances(prediction, original_text)
+        normalized_distances = None if not config["normalization_file"] else \
+            calculate_edit_distances(prediction, normalized_original)
+        wbs_distances = None if not wbs else \
+            calculate_edit_distances(prediction, char_str[index])
 
         # Print the predictions if there are any errors
         if do_print := distances[0] > 0:
@@ -104,27 +108,19 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
             logging.info(f"Confidence = {confidence:.4f}")
             logging.info("")
 
-        batch_counter = process_prediction_type(prediction,
-                                                original_text,
-                                                batch_counter,
-                                                do_print,
-                                                distances=distances)
+        # Wrap the distances and originals in dictionaries
+        distances_dict = {"distances": distances,
+                          "Normalized distances": normalized_distances,
+                          "WBS distances": wbs_distances}
+        original_dict = {"original": original_text,
+                         "Normalized original": normalized_original,
+                         "WBS original": original_text}
 
-        if config["normalization_file"]:
-            # Process the normalized CER
-            batch_counter = process_prediction_type(prediction,
-                                                    normalized_original,
-                                                    batch_counter,
-                                                    do_print,
-                                                    prefix="Normalized ")
-
-        if wbs:
-            # Process the WBS CER
-            batch_counter = process_prediction_type(char_str[index],
-                                                    original_text,
-                                                    batch_counter,
-                                                    do_print,
-                                                    prefix="WBS ")
+        # Update the batch counter
+        batch_counter = increment_counters(distances_dict,
+                                           original_dict,
+                                           batch_counter,
+                                           do_print)
 
     return batch_counter
 
@@ -193,8 +189,8 @@ def perform_validation(config: Config,
             total_counter[key] += value
 
         # Calculate the CER
-        metrics, batch_stats, total_stats = process_cer_type(batch_counter,
-                                                             total_counter)
+        metrics, batch_stats, total_stats = update_statistics(batch_counter,
+                                                              total_counter)
 
         # Add the number of items to the total tally
         n_items += len(batch[1])
