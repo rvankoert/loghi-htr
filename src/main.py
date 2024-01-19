@@ -116,7 +116,7 @@ def main():
     timestamps = {'start_time': time.time()}
 
     # Train the model
-    if config["training_list"]:
+    if config["train_list"]:
         tick = time.time()
 
         history = train_model(model, config, training_dataset,
