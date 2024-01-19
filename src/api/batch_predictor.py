@@ -213,7 +213,7 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
 
     try:
         with open(f"{model_path}/charlist.txt") as file:
-            charlist = list(char for char in file.read())
+            charlist = [char for char in file.read() if char != '']
     except FileNotFoundError:
         logger.error(f"charlist.txt not found at {model_path}. Exiting...")
         sys.exit(1)
