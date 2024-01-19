@@ -95,7 +95,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         normalized_distances = None if not config["normalization_file"] else \
             calculate_edit_distances(prediction, normalized_original)
         wbs_distances = None if not wbs else \
-            calculate_edit_distances(prediction, char_str[index])
+            calculate_edit_distances(char_str[index], original_text)
 
         # Wrap the distances and originals in dictionaries
         distances_dict = {"distances": distances,

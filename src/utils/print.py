@@ -73,8 +73,6 @@ def print_cer_stats(distances: Tuple[int, int, int],
     and then logs the results using the specified prefix, if any.
     """
 
-    prefix = f"{prefix} " if prefix else prefix
-
     edit_distance, lower_edit_distance, simple_edit_distance = distances
     length, length_simple = lengths
 
