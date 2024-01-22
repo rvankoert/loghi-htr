@@ -105,7 +105,18 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
 
 
 def visualize_augments(aug_model: tf.keras.Sequential,
-                       config):
+                       config: Config):
+    """
+    Visualize the effects of each augmentation step on a sample image.
+
+    Parameters
+    ----------
+    aug_model : tf.keras.Sequential
+        The augmentation model containing various layers.
+    config : Config
+        The Config object containing augmentation parameters.
+    """
+
     root_dir = Path(__file__).resolve().parents[2]
     os.makedirs(config["output"] + "/augmentation-visualizations",
                 exist_ok=True)
@@ -133,7 +144,7 @@ def visualize_augments(aug_model: tf.keras.Sequential,
                  "folder")
 
 
-def get_augment_selection(config: Config):
+def get_augment_selection(config: Config) -> list:
     """
     Construct a list of data augmentation layers based on the specified
     command-line arguments. Certain data augmentations like random_shear
@@ -201,12 +212,17 @@ def get_augment_selection(config: Config):
     return augment_selection
 
 
-def make_augment_model(config):
+def make_augment_model(config: Config) -> tf.keras.Sequential:
     """
     Constructs an image augmentation model from a list of augmentation options,
     with specific handling for certain layer combinations. If no
     augment_selection is specified then a list of random augmentations are
     generated.
+
+    Parameters
+    ----------
+    config: Config
+        The Config object containing augmentation parameters.
 
     Returns
     -------

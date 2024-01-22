@@ -56,10 +56,10 @@ class DataGenerator(tf.keras.utils.Sequence):
           label encoding.
 
         Example:
-        ```python
-        loader = ImageLoader()
-        image_info_tuple = ("/path/to/image.png", "label")
-        preprocessed_image, encoded_label = loader.load_images(image_info_tuple)
+        >>> loader = ImageLoader()
+        >>> image_info_tuple = ("/path/to/image.png", "label")
+        >>> preprocessed_image, encoded_label =
+        ...     loader.load_images(image_info_tuple)
         ```
         """
 
