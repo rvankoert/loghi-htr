@@ -183,7 +183,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
         # Apply the processing function to each image in the batch
         distorted_images = tf.map_fn(single_image_distort,
                                      inputs,
-                                     dtype=inputs.dtype)
+                                     fn_output_signature=inputs.dtype)
         return distorted_images
 
 
@@ -234,7 +234,8 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
             return tf.cast(cropped, input_dtype)
 
         # Ensure the output dtype matches the input
-        cropped_images = tf.map_fn(crop_image, inputs, dtype=input_dtype)
+        cropped_images = tf.map_fn(crop_image, inputs,
+                                   fn_output_signature=input_dtype)
 
         return cropped_images
 
