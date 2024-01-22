@@ -164,6 +164,8 @@ def get_augment_selection(config: Config) -> list:
     """
 
     augment_selection = []
+    binarize_present = True if config["do_binarize_sauvola"] or \
+        config["do_binarize_otsu"] else False
 
     if config["distort_jpeg"]:
         logging.info("Selected data augment: distort_jpeg")
@@ -180,13 +182,14 @@ def get_augment_selection(config: Config) -> list:
 
     if config["random_width"]:
         logging.info("Selected data augment: random_width")
-        augment_selection.append(RandomWidthLayer())
+        augment_selection.append(RandomWidthLayer(binary=binarize_present))
 
     if config["do_binarize_sauvola"]:
         logging.info("Selected data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
                                                channels=config["channels"],
                                                window_size=51))
+
     if config["do_binarize_otsu"]:
         logging.info("Selected data augment: binarize_otsu")
         augment_selection.append(BinarizeLayer(method="otsu",
@@ -194,10 +197,10 @@ def get_augment_selection(config: Config) -> list:
 
     if config["do_random_shear"]:
         # Apply padding to make sure that shear does not cut off img
-        augment_selection.append(ResizeWithPadLayer())
+        augment_selection.append(ResizeWithPadLayer(binary=binarize_present))
 
         logging.info("Selected data augment: shear_x")
-        augment_selection.append(ShearXLayer())
+        augment_selection.append(ShearXLayer(binary=binarize_present))
         # Remove earlier padding to ensure correct output shapes
         augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 25)))
 

@@ -13,6 +13,10 @@ import tensorflow_models as tfm
 
 
 class ShearXLayer(tf.keras.layers.Layer):
+    def __init__(self, binary=False, **kwargs):
+        super(ShearXLayer, self).__init__(**kwargs)
+        self.fill_value = 1 if binary else 0
+
     def call(self, inputs, training=None):
         """
         Apply shear transformation along the x-axis to the input image.
@@ -66,7 +70,7 @@ class ShearXLayer(tf.keras.layers.Layer):
             images=inputs,
             transforms=shear_matrix_tf,
             output_shape=output_shape,
-            fill_value=1,
+            fill_value=self.fill_value,
             fill_mode="CONSTANT",
             interpolation="NEAREST")
 
@@ -241,9 +245,10 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
 
 
 class ResizeWithPadLayer(tf.keras.layers.Layer):
-    def __init__(self, additional_width=50, **kwargs):
+    def __init__(self, additional_width=50, binary=False, **kwargs):
         super(ResizeWithPadLayer, self).__init__(**kwargs)
         self.additional_width = additional_width
+        self.fill_value = 1 if binary else 0
 
     def call(self, inputs, training=None):
         """
@@ -272,7 +277,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         padded_img = tf.pad(inputs,
                             [[0, 0], [0, 0], [pad_left, pad_right], [0, 0]],
                             mode='CONSTANT',
-                            constant_values=1)
+                            constant_values=self.fill_value)
 
         return padded_img
 
@@ -430,6 +435,10 @@ class BlurImageLayer(tf.keras.layers.Layer):
 
 
 class RandomWidthLayer(tf.keras.layers.Layer):
+    def __init__(self, binary=False, **kwargs):
+        super(RandomWidthLayer, self).__init__(**kwargs)
+        self.fill_value = 1 if binary else 0
+
     def call(self, inputs, training=None):
         """
         Adjusts image width randomly and maintains original dimensions by
@@ -501,5 +510,5 @@ class RandomWidthLayer(tf.keras.layers.Layer):
                                             [left_pad, right_pad],
                                             [0, 0]],
                                   mode="CONSTANT",
-                                  constant_values=1)
+                                  constant_values=self.fill_value)
             return padded_image
