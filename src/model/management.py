@@ -3,15 +3,12 @@
 # > Standard library
 import logging
 import os
-from pathlib import Path
 from typing import Any, List, Dict, Optional
 
 # > Third-party dependencies
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
 # > Local dependencies
-from data.augment_layers import get_augment_model, make_augment_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
@@ -123,138 +120,7 @@ def customize_model(model: tf.keras.Model,
         logging.info("Adjusting model for float32")
         model = adjust_model_for_float32(model)
 
-    # TODO: Move this somewhere else... Maybe in new DataLoader
-    # Include data augments as separate Sequential object
-    if any([config["elastic_transform"], config["random_crop"],
-            config["random_width"], config["distort_jpeg"],
-            config["do_random_shear"], config["do_binarize_otsu"],
-            config["do_binarize_sauvola"], config["do_blur"], config["do_invert"]]):
-
-        # Set input params from trainings model input spec
-        batch_size, width, height, channels = (model.layers[0]
-                                               .get_input_at(0)
-                                               .get_shape().as_list())
-
-        augment_selection = get_augment_model(config)
-        aug_model = make_augment_model(augment_selection)
-
-        if config["visualize_augments"]:
-            root_dir = Path(__file__).resolve().parents[2]
-            os.makedirs(config["output"] + "/augmentation-visualizations",
-                        exist_ok=True)
-
-            # Plot augments on three different test images:
-            for img_num in range(1, 4):
-                # Save example plot locally with the pre and post from
-                # aug_model
-                save_augment_steps_plot(
-                    aug_model,
-                    sample_image_path=os.path.join(
-                        root_dir,
-                        "tests/data/test-image"
-                        + str(img_num)
-                        + ".png"),
-                    save_path=config["output"]
-                    + "/augmentation-visualizations/test-img"
-                    + str(img_num)
-                    + ".png",
-                    channels=config["channels"])
-            logging.info("Augment visualizations are stored in the "
-                         f"{config['output']}/augmentation-visualizations/ "
-                         "folder")
-
-        model = tf.keras.Sequential(aug_model.layers + model.layers)
-        model.build(input_shape=[batch_size, height, width, channels])
-
     return model
-
-
-def blend_with_background(image, background_color=None):
-    """
-    Blend the image with a background color. Assumes the image is in the
-    format RGBA. This function is needed to correctly plot 4-channel images
-    after binarization
-    """
-    if background_color is None:
-        background_color = [1, 1, 1]
-    rgb = image[..., :3]
-    alpha = tf.expand_dims(image[..., 3], axis=-1)
-    return rgb * alpha + background_color * (alpha - 1)
-
-
-def save_augment_steps_plot(aug_model: tf.keras.Sequential,
-                            sample_image_path: str,
-                            save_path: str,
-                            channels: int = 3) -> None:
-    """
-    Applies each layer of an augmentation model to a sample image,
-    plotting and saving the transformations sequentially.
-
-    Parameters
-    ----------
-    aug_model : tf.keras.Sequential
-        The augmentation model containing various layers.
-    sample_image_path : str
-        File path to the sample image.
-    save_path : str
-        Path where the plot of transformation steps is saved.
-    channels : int
-        Number of channels in the sample image.
-
-    Notes
-    -----
-    This function loads the sample image, applies each augmentation layer in
-    the model sequentially, and plots the results, showing the effects of each
-    step. The final plot is saved to the specified path.
-    """
-
-    # Load the sample image
-    sample_image = tf.io.read_file(sample_image_path)
-    sample_image = tf.image.decode_png(sample_image, channels=channels)
-    sample_image = tf.image.convert_image_dtype(sample_image, dtype=tf.float32)
-    sample_image = tf.expand_dims(sample_image, 0)  # Add batch dimension
-
-    # Container for each step's image
-    augment_images = [sample_image[0]]
-
-    # Apply each augmentation layer to the image
-    for layer in aug_model.layers:
-        sample_image = layer(sample_image)
-        augment_images.append(sample_image[0])
-
-    # Plot the original and each augmentation step
-    num_of_images = len(augment_images)
-    plt.figure(figsize=(8, 1 * num_of_images))
-    plt.suptitle("Data Augment steps:", fontsize=16)
-    plt.axis('off')
-
-    for idx, image in enumerate(augment_images):
-        layer_name = aug_model.layers[idx - 1].name if idx > 0 else 'Original'
-        image_shape = image.shape
-        logging.debug("plotting layer_name: ", layer_name)
-        logging.debug("plot image shape: ", image.shape)
-        logging.debug("plot image dtype: ", image.dtype)
-
-        # Adjust the image based on the number of channels
-        if image.shape[-1] == 4:  # RGBA
-            image = blend_with_background(image)
-            cmap = None
-        elif image.shape[-1] == 1:  # Grayscale
-            image = tf.squeeze(image)
-            cmap = 'gray'
-        else:
-            cmap = None
-
-        # Ensure the image is of type float32 for plotting
-        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-
-        plt.subplot(num_of_images, 1, idx + 1)
-        plt.title(f'Step {idx}: {layer_name} {image_shape}')
-        plt.tight_layout()
-        plt.imshow(image, vmin=0, vmax=1, cmap=cmap)
-        plt.axis('off')
-
-    plt.savefig(save_path)
 
 
 def load_model_from_directory(directory: str,

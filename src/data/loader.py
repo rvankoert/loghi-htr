@@ -55,12 +55,14 @@ class DataLoader:
         return input.strip()
 
     def init_data_generator(self, files, params, is_training=False, deterministic=False):
-        data_generator = DataGenerator(**params)
+        data_generator = DataGenerator(is_training=is_training, **params)
+
         num_batches = np.ceil(len(files) / self.batch_size)
         generator = tf.data.Dataset.from_tensor_slices(files)
         if is_training:
             # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
+
         generator = (generator
                      .map(data_generator.load_images,
                           num_parallel_calls=AUTOTUNE,
@@ -73,6 +75,7 @@ class DataLoader:
                                        tf.constant(0, dtype=tf.int64)))
                      .prefetch(AUTOTUNE)
                      ).apply(tf.data.experimental.assert_cardinality(num_batches))
+
         return generator
 
     def generators(self):
@@ -113,14 +116,17 @@ class DataLoader:
 
         self.tokenizer = Tokenizer(self.charList, self.use_mask)
 
+        # TODO: These are the same, so we can remove one of them
         train_params = {'tokenizer': self.tokenizer,
                         'height': self.height,
                         'batch_size': self.batch_size,
-                        'channels': self.channels}
+                        'channels': self.channels,
+                        'augment_model': self.augment_model}
         non_train_params = {'tokenizer': self.tokenizer,
                             'batch_size': self.batch_size,
                             'height': self.height,
-                            'channels': self.channels}
+                            'channels': self.channels,
+                            'augment_model': self.augment_model}
 
         training_generator = None
         evaluation_generator = None
@@ -136,7 +142,8 @@ class DataLoader:
         if self.validation_list:
             if self.train_list:
                 evaluation_generator = self.init_data_generator(
-                    evaluation_files, non_train_params, deterministic=True)
+                    evaluation_files, non_train_params, deterministic=True,
+                    is_training=True)
             validation_generator = self.init_data_generator(
                 validation_files, non_train_params, deterministic=True)
         if self.test_list:
@@ -165,6 +172,7 @@ class DataLoader:
                  check_missing_files=True,
                  replace_final_layer=False,
                  use_mask=False,
+                 augment_model=None
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
         self.currIdx = 0
@@ -185,6 +193,7 @@ class DataLoader:
         self.check_missing_files = check_missing_files
         self.replace_final_layer = replace_final_layer
         self.use_mask = use_mask
+        self.augment_model = augment_model
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
                     include_missing_files=False, is_inference=False, use_multiply=False):

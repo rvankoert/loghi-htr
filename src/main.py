@@ -11,6 +11,7 @@ from data.data_handling import load_initial_charlist, initialize_data_loader, \
     save_charlist
 
 # Model-specific
+from data.augmentation import make_augment_model, visualize_augments
 from model.custom_layers import ResidualBlock
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
@@ -63,9 +64,14 @@ def main():
     # Create the model
     with strategy.scope():
         model = load_or_create_model(config, custom_objects)
+        augmentation_model = make_augment_model(config)
+
+        if config["visualize_augments"]:
+            visualize_augments(augmentation_model, config)
 
         # Initialize the Dataloader
-        loader = initialize_data_loader(config, charlist, model)
+        loader = initialize_data_loader(config, charlist, model,
+                                        augmentation_model)
         training_dataset, evaluation_dataset, validation_dataset, \
             test_dataset, inference_dataset, tokenizer, train_batches, \
             validation_labels = loader.generators()

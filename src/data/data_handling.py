@@ -15,7 +15,8 @@ from setup.config import Config
 
 def initialize_data_loader(config: Config,
                            charlist: List[str],
-                           model: tf.keras.Model) -> DataLoader:
+                           model: tf.keras.Model,
+                           augment_model) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
     shape of a given model.
@@ -60,6 +61,7 @@ def initialize_data_loader(config: Config,
         replace_final_layer=config["replace_final_layer"],
         normalization_file=config["normalization_file"],
         use_mask=config["use_mask"],
+        augment_model=augment_model,
     )
 
 
