@@ -1,0 +1,84 @@
+{
+    "args": {
+        "augmentation": {
+            "distort_jpeg": false,
+            "do_binarize_otsu": false,
+            "do_binarize_sauvola": false,
+            "do_blur": false,
+            "do_invert": false,
+            "do_random_shear": false,
+            "elastic_transform": false,
+            "multiply": 1,
+            "random_crop": false,
+            "random_width": false
+        },
+        "decoding": {
+            "beam_width": 10,
+            "corpus_file": null,
+            "greedy": false,
+            "wbs_smoothing": 0.1
+        },
+        "depr": {
+            "channels": 3,
+            "config_file_output": null,
+            "do_inference": false,
+            "do_train": true,
+            "height": 64,
+            "no_auto": false,
+            "output_charlist": null,
+            "use_mask": true
+        },
+        "general": {
+            "batch_size": 4,
+            "charlist": null,
+            "config_file": null,
+            "gpu": "0",
+            "output": "output",
+            "seed": 42
+        },
+        "inference": {
+            "inference_list": null,
+            "results_file": "output/results.txt"
+        },
+        "learning_rate": {
+            "decay_per_epoch": false,
+            "decay_rate": 0.99,
+            "decay_steps": -1,
+            "learning_rate": 0.0003,
+            "linear_decay": false,
+            "optimizer": "adamw",
+            "warmup_ratio": 0.0
+        },
+        "misc": {
+            "check_missing_files": false,
+            "deterministic": false,
+            "ignore_lines_unknown_character": false,
+            "normalization_file": null
+        },
+        "model": {
+            "existing_model": null,
+            "freeze_conv_layers": false,
+            "freeze_dense_layers": false,
+            "freeze_recurrent_layers": false,
+            "model": null,
+            "model_name": null,
+            "replace_final_layer": false,
+            "replace_recurrent_layer": null,
+            "thaw": false,
+            "use_float32": false
+        },
+        "training": {
+            "do_validate": false,
+            "early_stopping_patience": 20,
+            "epochs": 40,
+            "max_queue_size": 256,
+            "output_checkpoints": false,
+            "steps_per_epoch": null,
+            "test_list": null,
+            "train_list": null,
+            "training_verbosity_mode": "auto",
+            "validation_list": null,
+            "width": 65536
+        }
+    }
+}

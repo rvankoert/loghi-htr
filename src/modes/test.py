@@ -1,10 +1,8 @@
-# Imports
-
 # > Standard library
 from collections import defaultdict
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -14,10 +12,9 @@ from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
-from utils.calculate import calc_95_confidence_interval, \
-    calculate_edit_distances, update_statistics, increment_counters
+from utils.calculate import calc_95_confidence_interval, calculate_cers, \
+    increment_counters, calculate_edit_distances
 from utils.decoding import decode_batch_predictions
-from utils.print import print_predictions, display_statistics
 from utils.text import preprocess_text, Tokenizer
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
@@ -44,8 +41,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     tokenizer : Tokenizer
         A tokenizer object for converting between characters and integers.
     config : Config
-        A Config object containing the configuration for processing the batch,
-        like batch size and settings for WBS.
+        A Config object containing arguments for processing the batch, like
+        batch size and settings for WBS.
     wbs : Optional[Any]
         An optional Word Beam Search object for advanced decoding, if
         applicable.
@@ -65,8 +62,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
     X, y_true = batch
 
-    # Get the predictions
+    # Predict the batch
     predictions = prediction_model.predict_on_batch(X)
+
+    # Get the predictions
     y_pred = decode_batch_predictions(predictions, tokenizer, config["greedy"],
                                       config["beam_width"])
 
@@ -77,36 +76,26 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     else:
         char_str = None
 
-    # Initialize the batch counter
+    # Get the original texts
+    orig_texts = tokenizer.decode(y_true)
+
+    # Initialize the batch info
     batch_counter = defaultdict(int)
 
     # Print the predictions and process the CER
     for index, (confidence, prediction) in enumerate(y_pred):
-        # Preprocess the text for CER calculation
         prediction = preprocess_text(prediction)
-        original_text = preprocess_text(y_true[index])
+        original_text = preprocess_text(orig_texts[index])\
+            .replace("[UNK]", "�")
         normalized_original = None if not config["normalization_file"] else \
             loader.normalize(original_text, config["normalization_file"])
 
-        # Calculate edit distances here so we can use them for printing the
-        # predictions
+        # Calculate edit distances
         distances = calculate_edit_distances(prediction, original_text)
         normalized_distances = None if not config["normalization_file"] else \
             calculate_edit_distances(prediction, normalized_original)
         wbs_distances = None if not wbs else \
             calculate_edit_distances(char_str[index], original_text)
-
-        # Print the predictions if there are any errors
-        if do_print := distances[0] > 0:
-            filename = loader.get_item('validation',
-                                       (batch_no * config["batch_size"])
-                                       + index)
-            wbs_str = char_str[index] if wbs else None
-
-            print_predictions(filename, original_text, prediction,
-                              normalized_original, wbs_str)
-            logging.info(f"Confidence = {confidence:.4f}")
-            logging.info("")
 
         # Wrap the distances and originals in dictionaries
         distances_dict = {"distances": distances,
@@ -120,32 +109,29 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         batch_counter = increment_counters(distances_dict,
                                            original_dict,
                                            batch_counter,
-                                           do_print)
+                                           do_print=False)
 
     return batch_counter
 
 
-def perform_validation(config: Config,
-                       model: tf.keras.Model,
-                       validation_dataset: DataGenerator,
-                       validation_labels: List[str],
-                       charlist: List[str],
-                       dataloader: DataLoader) -> None:
+def perform_test(config: Config,
+                 model: tf.keras.Model,
+                 test_dataset: DataGenerator,
+                 charlist: List[str],
+                 dataloader: DataLoader) -> None:
     """
-    Performs validation on a dataset using a given model and calculates various
+    Performs test run on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).
 
     Parameters
     ----------
     config : Config
-        A Config object containing the configuration for the validation
-        process such as mask usage and file paths.
+        A Config object containing arguments for the validation process such as
+        mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    validation_dataset : DataGenerator
-        The dataset to be used for validation.
-    validation_labels : List[str]
-        A list of labels for the validation dataset.
+    test_dataset : DataGenerator
+        The dataset to be used for testing.
     charlist : List[str]
         A list of characters used in the model.
     dataloader : DataLoader
@@ -160,7 +146,7 @@ def perform_validation(config: Config,
     throughout the validation process.
     """
 
-    logging.info("Performing validation...")
+    logging.info("Performing test...")
 
     tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
@@ -169,59 +155,59 @@ def perform_validation(config: Config,
     wbs = setup_word_beam_search(config, charlist, dataloader) \
         if config["corpus_file"] else None
 
-    # Initialize variables for CER calculation
-    n_items = 0
+    # Initialize the counters
     total_counter = defaultdict(int)
+    n_items = 0
 
-    # Process each batch in the validation dataset
-    for batch_no, batch in enumerate(validation_dataset):
-        X = batch[0]
-        y = validation_labels[batch_no * config["batch_size"]:
-                              batch_no * config["batch_size"] + len(X)]
+    for batch_no, batch in enumerate(test_dataset):
+        logging.info(f"Batch {batch_no + 1}/{len(test_dataset)}")
 
-        # Logic for processing each batch, calculating CER, etc.
-        batch_counter = process_batch((X, y), prediction_model, tokenizer,
+        batch_counter = process_batch(batch, prediction_model, tokenizer,
                                       config, wbs, dataloader, batch_no,
                                       charlist)
 
-        # Update totals with batch information
+        # Update the total counter
         for key, value in batch_counter.items():
             total_counter[key] += value
 
-        # Calculate the CER
-        metrics, batch_stats, total_stats = update_statistics(batch_counter,
-                                                              total_counter)
+        n_items += len(batch[0])
 
-        # Add the number of items to the total tally
-        n_items += len(batch[1])
-        metrics.append('Items')
-        batch_stats.append(len(batch[1]))
-        total_stats.append(n_items)
+    # Define the initial metrics
+    metrics = ["CER", "Lower CER", "Simple CER"]
 
-        # Print batch info
-        display_statistics(batch_stats, total_stats, metrics)
-        logging.info("")
+    # Append additional metrics based on conditions
+    if config["normalization_file"]:
+        metrics += ["Normalized " + m for m in metrics[:3]]
+    if wbs:
+        metrics += ["WBS " + m for m in metrics[:3]]
 
-    # Print the final validation statistics
+    # Calculate CERs
+    # Take every third metric (i.e., regular, normalizing, WBS)
+    total_stats = []
+    for i in range(0, len(metrics), 3):
+        prefix = metrics[i].split(" ")[0] + " " if i > 0 else ""
+        total_stats += [*calculate_cers(total_counter, prefix)]
+
+    # Print the final test statistics
+    logging.info("")
     logging.info("--------------------------------------------------------")
     logging.info("")
-    logging.info("Final validation statistics")
+    logging.info("Final test statistics")
     logging.info("---------------------------")
 
-    # Calculate the CER confidence intervals on all metrics except Items
+    # Calculate the CER confidence intervals on all metrics
     intervals = [calc_95_confidence_interval(cer_metric, n_items)
-                 for cer_metric in total_stats[:-1]]
+                 for cer_metric in total_stats]
 
     # Print the final statistics
-    for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],
-                                             intervals):
+    for metric, total_value, interval in zip(metrics, total_stats, intervals):
         logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
 
-    logging.info(f"Items = {total_stats[-1]}")
+    logging.info(f"Items = {n_items}")
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(config["output"], 'validation.csv'), 'w') as f:
+    with open(os.path.join(config["output"], 'test.csv'), 'w') as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower," \
@@ -231,5 +217,5 @@ def perform_validation(config: Config,
 
         f.write(header + "\n")
         results = ",".join([str(total_stats[i])
-                           for i in range(len(metrics)-1)])
+                           for i in range(len(metrics))])
         f.write(results + "\n")

@@ -1,12 +1,11 @@
 # Imports
 
 # > Standard library
-from __future__ import division
-from __future__ import print_function
+import logging
 
 # > Local dependencies
 from data.generator import DataGenerator
-from utils.utils import Utils
+from utils.text import Tokenizer
 
 # > Third party dependencies
 import tensorflow as tf
@@ -59,13 +58,13 @@ class DataLoader:
         data_generator = DataGenerator(**params)
         num_batches = np.ceil(len(files) / self.batch_size)
         generator = tf.data.Dataset.from_tensor_slices(files)
-
         if is_training:
             # Add additional repeat and shuffle for training
             generator = generator.repeat().shuffle(len(files))
-        generator = (generator.map(data_generator.load_images,
-                                   num_parallel_calls=AUTOTUNE,
-                                   deterministic=deterministic)
+        generator = (generator
+                     .map(data_generator.load_images,
+                          num_parallel_calls=AUTOTUNE,
+                          deterministic=deterministic)
                      .padded_batch(self.batch_size,
                                    padded_shapes=(
                                        [None, None, self.channels], [None]),
@@ -78,17 +77,24 @@ class DataLoader:
 
     def generators(self):
         chars = set()
-        partition = {'train': [], 'validation': [],
+        partition = {'train': [], 'evaluation': [], 'validation': [],
                      'test': [], 'inference': []}
-        labels = {'train': [], 'validation': [], 'test': [], 'inference': []}
+        labels = {'train': [], 'evaluation': [], 'validation': [],
+                  'test': [], 'inference': []}
 
         if self.train_list:
             chars, train_files = self.create_data(
                 chars, labels, partition, 'train', self.train_list, use_multiply=True)
 
         if self.validation_list:
+            if self.train_list:
+                chars, evaluation_files = self.create_data(
+                    chars, labels, partition, 'evaluation',
+                    self.validation_list)
+
             chars, validation_files = self.create_data(
-                chars, labels, partition, 'validation', self.validation_list)
+                chars, labels, partition, 'validation', self.validation_list,
+                include_unsupported_chars=True)
 
         if self.test_list:
             chars, test_files = self.create_data(chars, labels, partition, 'test', self.test_list,
@@ -100,34 +106,24 @@ class DataLoader:
 
         # list of all chars in dataset
         if self.injected_charlist and not self.replace_final_layer:
-            print('using injected charlist')
+            logging.info('Using injected charlist')
             self.charList = self.injected_charlist
         else:
             self.charList = sorted(list(chars))
 
-        self.utils = Utils(self.charList, self.use_mask)
+        self.tokenizer = Tokenizer(self.charList, self.use_mask)
 
-        train_params = {'utils': self.utils,
+        train_params = {'tokenizer': self.tokenizer,
                         'height': self.height,
                         'batch_size': self.batch_size,
-                        'channels': self.channels,
-                        'aug_binarize_sauvola': self.aug_binarize_sauvola,
-                        'aug_binarize_otsu': self.aug_binarize_otsu,
-                        'aug_elastic_transform': self.aug_elastic_transform,
-                        'aug_random_crop': self.aug_random_crop,
-                        'aug_random_width': self.aug_random_width,
-                        'aug_distort_jpeg': self.aug_distort_jpeg,
-                        'aug_random_shear': self.aug_random_shear
-                        }
-        non_train_params = {'utils': self.utils,
+                        'channels': self.channels}
+        non_train_params = {'tokenizer': self.tokenizer,
                             'batch_size': self.batch_size,
                             'height': self.height,
-                            'channels': self.channels,
-                            'aug_binarize_sauvola': self.aug_binarize_sauvola,
-                            'aug_binarize_otsu': self.aug_binarize_otsu
-                            }
+                            'channels': self.channels}
 
         training_generator = None
+        evaluation_generator = None
         validation_generator = None
         test_generator = None
         inference_generator = None
@@ -138,6 +134,9 @@ class DataLoader:
             # Explicitly set train batches otherwise training is not initialised
             train_batches = np.ceil(len(train_files) / self.batch_size)
         if self.validation_list:
+            if self.train_list:
+                evaluation_generator = self.init_data_generator(
+                    evaluation_files, non_train_params, deterministic=True)
             validation_generator = self.init_data_generator(
                 validation_files, non_train_params, deterministic=True)
         if self.test_list:
@@ -149,30 +148,23 @@ class DataLoader:
 
         self.partition = partition
 
-        return training_generator, validation_generator, test_generator, inference_generator, self.utils, train_batches
+        return training_generator, evaluation_generator, \
+            validation_generator, test_generator, inference_generator, \
+            self.tokenizer, int(train_batches), labels['validation']
 
     def __init__(self,
                  batch_size,
                  img_size,
-                 char_list=None,
+                 char_list=[],
                  train_list='',
                  validation_list='',
                  test_list='',
                  inference_list='',
-                 aug_binarize_sauvola=False,
-                 aug_binarize_otsu=False,
                  normalization_file=None,
                  multiply=1,
-                 augment=True,
-                 aug_elastic_transform=False,
-                 num_oov_indices=0,
-                 aug_random_crop=False,
-                 aug_random_width=False,
                  check_missing_files=True,
-                 aug_distort_jpeg=False,
                  replace_final_layer=False,
                  use_mask=False,
-                 aug_random_shear=False
                  ):
         """loader for dataset at given location, preprocess images and text according to parameters"""
         self.currIdx = 0
@@ -188,28 +180,18 @@ class DataLoader:
         self.validation_list = validation_list
         self.test_list = test_list
         self.inference_list = inference_list
-        self.aug_binarize_sauvola = aug_binarize_sauvola
-        self.aug_binarize_otsu = aug_binarize_otsu
         self.normalization_file = normalization_file
         self.multiply = multiply
-        self.dataAugmentation = augment
-        self.aug_elastic_transform = aug_elastic_transform
-        self.num_oov_indices = num_oov_indices
-        self.aug_random_crop = aug_random_crop
-        self.aug_random_width = aug_random_width
         self.check_missing_files = check_missing_files
-        self.aug_distort_jpeg = aug_distort_jpeg
         self.replace_final_layer = replace_final_layer
         self.use_mask = use_mask
-        self.aug_random_shear = aug_random_shear
 
     def create_data(self, chars, labels, partition, partition_name, data_file_list, include_unsupported_chars=False,
                     include_missing_files=False, is_inference=False, use_multiply=False):
         files = []
         for sublist in data_file_list.split():
             if not os.path.exists(sublist):
-                print(sublist + "does not exist, enter a valid filename. exiting...")
-                exit(1)
+                raise FileNotFoundError(f"{sublist} does not exist")
             with open(sublist) as f:
                 counter = 0
                 for line in f:
@@ -217,29 +199,49 @@ class DataLoader:
                         continue
                     lineSplit = line.strip().split('\t')
                     if not is_inference and len(lineSplit) == 1:
+                        logging.warning(f"Empty ground truth on {line}. "
+                                        f"Skipping for {partition_name}...")
                         continue
 
                     # filename
                     fileName = lineSplit[0]
-                    if not include_missing_files and self.check_missing_files and not os.path.exists(fileName):
-                        print("missing: " + fileName)
+                    if not include_missing_files and self.check_missing_files \
+                            and not os.path.exists(fileName):
+                        logging.warning(f"Missing: {fileName} in {sublist}. "
+                                        f"Skipping for {partition_name}...")
                         continue
                     if is_inference:
                         gtText = 'to be determined'
-                    elif self.normalization_file:
+
+                    # Normalize text if normalization file is provided and
+                    # we're training or evaluating
+                    elif self.normalization_file and \
+                            (partition_name == 'train'
+                             or partition_name == 'evaluation'):
                         gtText = self.normalize(
                             lineSplit[1], self.normalization_file)
                     else:
                         gtText = lineSplit[1]
                     ignoreLine = False
-                    if not include_unsupported_chars and self.injected_charlist and not self.replace_final_layer:
+
+                    # We want to skip lines with unsupported characters, except
+                    # for the training set, since we make our charlist from
+                    # that
+                    # If we're using an injected charlist, we want to skip
+                    # unsupported characters in the training set as well
+                    if not include_unsupported_chars \
+                            and (partition_name != 'train'
+                                 or self.injected_charlist):
                         for char in gtText:
-                            if char not in self.injected_charlist:
-                                print('a ignoring line: ' + gtText)
+                            if char not in self.injected_charlist and \
+                                    char not in chars:
+                                logging.warning("Unsupported character: "
+                                                f"{char} in {gtText}. "
+                                                "Skipping for "
+                                                f"{partition_name}...")
                                 ignoreLine = True
                                 break
                     if ignoreLine or len(gtText) == 0:
-                        print(line)
                         continue
                     counter = counter + 1
                     if use_multiply:
@@ -251,27 +253,15 @@ class DataLoader:
                         partition[partition_name].append(fileName)
                         labels[partition_name].append(gtText)
                         files.append([fileName, gtText])
-                    if not self.injected_charlist or self.replace_final_layer:
+                    if (not self.injected_charlist or
+                            self.replace_final_layer) \
+                            and partition_name == 'train':
                         chars = chars.union(
                             set(char for label in gtText for char in label))
-                print('found ' + str(counter) +
-                      ' lines suitable for ' + partition_name)
-        return chars, files
 
-    @staticmethod
-    def truncate_label(text, max_text_len):
-        # ctc_loss can't compute loss if it cannot find a mapping between text label and input
-        # labels. Repeat letters cost double because of the blank symbol needing to be inserted.
-        # If a too-long label is provided, ctc_loss returns an infinite gradient
-        cost = 0
-        for i in range(len(text)):
-            if i != 0 and text[i] == text[i - 1]:
-                cost += 2
-            else:
-                cost += 1
-            if cost > max_text_len:
-                return text[:i]
-        return text
+                logging.info(f"Found {counter} lines suitable for "
+                             f"{partition_name}")
+        return chars, files
 
     def get_item(self, partition, item_id):
         return self.partition[partition][item_id]

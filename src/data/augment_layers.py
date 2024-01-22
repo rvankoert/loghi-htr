@@ -4,6 +4,9 @@
 import random
 import logging
 
+# Local dependencies
+from setup.config import Config
+
 # > Third party libraries
 import elasticdeform.tf as etf
 import numpy as np
@@ -474,7 +477,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             return padded_image
 
 
-def get_augment_model(args):
+def get_augment_model(config: Config):
     """
     Construct a list of data augmentation layers based on the specified
     command-line arguments. Certain data augmentations like random_shear
@@ -483,8 +486,8 @@ def get_augment_model(args):
 
     Parameters
     ----------
-    args : object
-        Command-line arguments.
+    config : Config
+        The Config object containing augmentation parameters
 
     Returns
     -------
@@ -495,33 +498,33 @@ def get_augment_model(args):
 
     augment_selection = []
 
-    if args.distort_jpeg:
+    if config["distort_jpegi"]:
         logging.info("Data augment: distort_jpeg")
-        augment_selection.append(DistortImageLayer(channels=args.channels))
+        augment_selection.append(DistortImageLayer(channels=config["channels"]))
 
-    if args.elastic_transform:
+    if config["elastic_transform"]:
         logging.info("Data augment: elastic_transform")
         augment_selection.append(ElasticTransformLayer())
 
-    if args.random_crop:
+    if config["random_crop"]:
         logging.info("Data augment: random_crop")
         augment_selection.append(RandomVerticalCropLayer())
 
-    if args.random_width:
+    if config["random_width"]:
         logging.info("Data augment: random_width")
         augment_selection.append(RandomWidthLayer())
 
-    if args.do_binarize_sauvola:
+    if config["do_binarize_sauvola"]:
         logging.info("Data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
-                                               channels=args.channels,
+                                               channels=config["channels"],
                                                window_size=51))
-    if args.do_binarize_otsu:
+    if config["do_binarize_otsu"]:
         logging.info("Data augment: binarize_otsu")
         augment_selection.append(BinarizeLayer(method="otsu",
-                                               channels=args.channels))
+                                               channels=config["channels"]))
 
-    if args.do_random_shear:
+    if config["do_random_shear"]:
         # Apply padding to make sure that shear does not cut off img
         augment_selection.append(ResizeWithPadLayer())
 
@@ -530,13 +533,13 @@ def get_augment_model(args):
         # Remove earlier padding to ensure correct output shapes
         augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 25)))
 
-    if args.do_blur:
+    if config["do_blur"]:
         logging.info("Data augment: blur_image")
         augment_selection.append(BlurImageLayer())
 
-    if args.do_invert:
+    if config["do_invert"]:
         logging.info("Data augment: aug_invert")
-        augment_selection.append(InvertImageLayer(channels=args.channels))
+        augment_selection.append(InvertImageLayer(channels=config["channels"]))
 
     return augment_selection
 

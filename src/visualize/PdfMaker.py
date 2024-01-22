@@ -13,7 +13,8 @@ from fpdf import FPDF
 
 class PdfMaker(FPDF):
     """
-    Custom PDF generator class based on FPDF for creating visualization reports.
+    Custom PDF generator class based on FPDF for creating visualization
+    reports.
 
     Attributes:
         dpi (int): Dots per inch for the PDF document.
@@ -22,7 +23,8 @@ class PdfMaker(FPDF):
         a4_width (int): Width of an A4 sheet in millimeters.
         max_width (int): Maximum width for images in the document.
         max_height (int): Maximum height for images in the document.
-        args (Namespace): Command-line arguments obtained using the get_args function.
+        args (Namespace): Command-line arguments obtained using the get_args
+            function.
         model_name (str): Extracted model name from the existing model path.
 
     Methods:
@@ -69,7 +71,8 @@ class PdfMaker(FPDF):
         """
         return val * self.mm_in_inch / self.dpi
 
-    def resize_to_fit(self, img_filename: str, scale_factor: float = 1.0) -> tuple:
+    def resize_to_fit(self, img_filename: str, scale_factor: float = 1.0) \
+            -> tuple:
         """
         Resize the image to fit within the specified maximum dimensions.
 
@@ -84,7 +87,8 @@ class PdfMaker(FPDF):
         width_scale = self.max_width / width
         height_scale = self.max_height / height
         scale = min(width_scale, height_scale) * scale_factor
-        return round(self.pixels_to_mm(scale * width)), round(self.pixels_to_mm(scale * height))
+        return round(self.pixels_to_mm(scale * width)), \
+            round(self.pixels_to_mm(scale * height))
 
     def centre_image(self, img: str, title: str, scale_factor: float = 1.0):
         """
@@ -113,7 +117,8 @@ class PdfMaker(FPDF):
         self.set_draw_color(0, 0, 0)  # Black border
         self.set_x(x_title_cell)  # Set X-coordinate for centering
         self.set_text_color(61, 72, 73)
-        self.cell(title_cell_width, 10, title, 1, 0, 'C', 1)  # Title cell with border
+        self.cell(title_cell_width, 10, title, 1, 0,
+                  'C', 1)  # Title cell with border
 
         # Add some space at the bottom of the text cell
         y = self.get_y() + 10
@@ -182,7 +187,8 @@ class PdfMaker(FPDF):
         self.set_font("Arial", "B", 12)
         self.set_text_color(font_r, font_g, font_b)
         self.set_draw_color(font_r, font_g, font_b)
-        self.cell(0, 10, (replace_header if replace_header else self.model_name + " Visualization Report"),
+        self.cell(0, 10, (replace_header if replace_header
+                          else self.model_name + " Visualization Report"),
                   align="C",
                   ln=1,
                   border=1)

@@ -79,8 +79,8 @@ class DataLoaderTest(unittest.TestCase):
         from data.loader import DataLoader
         cls.DataLoader = DataLoader
 
-        from utils.utils import Utils
-        cls.Utils = Utils
+        from utils.text import Tokenizer
+        cls.Tokenizer = Tokenizer
 
     def _create_temp_file(self, additional_lines=None):
         temp_sample_list_file = tempfile.NamedTemporaryFile(
@@ -120,10 +120,10 @@ class DataLoaderTest(unittest.TestCase):
     def test_create_data_simple(self):
         # Sample data
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
+        labels = {"train": []}
+        partition = {"train": []}
         data_file_list = self.sample_list_file
-        partition_name = "test_partition"
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -153,9 +153,9 @@ class DataLoaderTest(unittest.TestCase):
 
         # Sample data
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -187,9 +187,9 @@ class DataLoaderTest(unittest.TestCase):
             additional_lines)
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader with injected_charlist set to a list without
         # "X" and 'Y'
@@ -221,9 +221,9 @@ class DataLoaderTest(unittest.TestCase):
         temp_sample_list_file = self._create_temp_file()
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
 
@@ -244,14 +244,14 @@ class DataLoaderTest(unittest.TestCase):
             additional_lines)
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
                                       normalization_file=os.path.join(
-                                          self.data_dir, "norm_chars.json"))
+            self.data_dir, "norm_chars.json"))
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -266,10 +266,10 @@ class DataLoaderTest(unittest.TestCase):
 
     def test_multiplication(self):
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
+        labels = {"train": []}
+        partition = {"train": []}
         data_file_list = self.sample_list_file
-        partition_name = "test_partition"
+        partition_name = "train"
 
         # Initialize DataLoader with multiply set to 2
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -297,13 +297,15 @@ class DataLoaderTest(unittest.TestCase):
         data_loader.test_list = self._create_temp_file()
         data_loader.inference_list = self._create_temp_file()
 
-        training_generator, validation_generator, test_generator, \
-            inference_generator, utils, train_batches\
-            = data_loader.generators()
+        training_generator, evaluation_generator, validation_generator, \
+            test_generator, inference_generator, utils, train_batches, \
+            val_text = data_loader.generators()
 
         # Basic tests
         self.assertIsNotNone(training_generator,
                              "Training generator is None")
+        self.assertIsNotNone(evaluation_generator,
+                             "Evaluation generator is None")
         self.assertIsNotNone(validation_generator,
                              "Validation generator is None")
         self.assertIsNotNone(test_generator,
@@ -335,14 +337,6 @@ class DataLoaderTest(unittest.TestCase):
             # Check the number of labels
             # ??? Very unclear how the labels work
             # self.assertEqual(len(labels), 3)  # 3 labels
-
-        # Edge Cases
-        # No train list
-        self._remove_temp_file(data_loader.train_list)
-        data_loader.train_list = None
-
-        training_generator, _, _, _, _, _ = data_loader.generators()
-        self.assertIsNone(training_generator, "Training generator not None")
 
         # Cleanup: Remove temporary files
         self._remove_temp_file(data_loader.validation_list)

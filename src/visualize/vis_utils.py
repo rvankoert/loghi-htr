@@ -11,8 +11,9 @@ from typing import Tuple
 from vis_arg_parser import get_args
 
 # Add the above directory to the path
-sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
-from model.model import CERMetric, WERMetric, CTCLoss
+sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))  # noqa: E402
+from model.losses import CTCLoss
+from model.metrics import CERMetric, WERMetric
 from model.custom_layers import ResidualBlock
 
 # > Third party libraries
@@ -20,7 +21,8 @@ import tensorflow as tf
 import numpy as np
 
 
-def prep_image_for_model(img_path: str, model_channels: int) -> Tuple[np.ndarray, tf.Tensor, tf.Tensor]:
+def prep_image_for_model(img_path: str, model_channels: int) \
+        -> Tuple[np.ndarray, tf.Tensor, tf.Tensor]:
     """
     Prepare an image for input to a model.
 
@@ -44,8 +46,8 @@ def prep_image_for_model(img_path: str, model_channels: int) -> Tuple[np.ndarray
 
     Notes
     -----
-    This function reads an image from the specified path, resizes and normalizes it,
-    pads the image, and prepares it for input to a model.
+    This function reads an image from the specified path, resizes and
+    normalizes it, pads the image, and prepares it for input to a model.
 
     Examples
     --------
@@ -57,10 +59,14 @@ def prep_image_for_model(img_path: str, model_channels: int) -> Tuple[np.ndarray
     # Remake data_generator parts
     target_height = 64
     original_image = tf.io.read_file(img_path)
-    original_image = tf.image.decode_image(original_image, channels=model_channels)
+    original_image = tf.image.decode_image(
+        original_image, channels=model_channels)
     original_image = tf.image.resize(original_image,
-                                     [target_height, tf.cast(target_height * tf.shape(original_image)[1]
-                                                             / tf.shape(original_image)[0], tf.int32)],
+                                     [target_height,
+                                      tf.cast(target_height *
+                                              tf.shape(original_image)[1]
+                                              / tf.shape(original_image)[0],
+                                              tf.int32)],
                                      preserve_aspect_ratio=True)
 
     image_width = tf.shape(original_image)[1]
@@ -92,20 +98,23 @@ def init_pre_trained_model():
 
     Notes
     -----
-    This function initializes a pre-trained model, loading it from the specified path.
-    It also sets seeds for reproducibility and provides model-related information.
+    This function initializes a pre-trained model, loading it from the
+    specified path. It also sets seeds for reproducibility and provides
+    model-related information.
 
     Examples
     --------
     >>> loaded_model, channels, path = init_pre_trained_model()
-    # Returns a tuple with the loaded model, number of channels, and the model path.
+    # Returns a tuple with the loaded model, number of channels, and the model
+    path.
     """
     # Retrieve args and load model
     args = get_args()
 
     if args.existing_model:
         if not os.path.exists(args.existing_model):
-            raise FileNotFoundError("Please provide a valid path to an existing model, you provided: "
+            raise FileNotFoundError("Please provide a valid path to an "
+                                    "existing model, you provided: "
                                     + str(args.existing_model))
         MODEL_PATH = args.existing_model
     else:
@@ -115,10 +124,12 @@ def init_pre_trained_model():
     # Set seed for plots to check changes in preprocessing
     np.random.seed(seed)
     tf.random.set_seed(seed)
-    model = tf.keras.models.load_model(MODEL_PATH, custom_objects={"CERMetric": CERMetric,
-                                                                   "WERMetric": WERMetric,
-                                                                   "CTCLoss": CTCLoss,
-                                                                   "ResidualBlock": ResidualBlock})
+    model = tf.keras.models.load_model(MODEL_PATH,
+                                       custom_objects={
+                                           "CERMetric": CERMetric,
+                                           "WERMetric": WERMetric,
+                                           "CTCLoss": CTCLoss,
+                                           "ResidualBlock": ResidualBlock})
     model_channels = model.input_shape[3]
     model.summary()
 

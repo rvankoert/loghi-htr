@@ -1,19 +1,20 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
-from typing import List, Optional
+from typing import List, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
 
 # > Local dependencies
 from data.loader import DataLoader
+from setup.config import Config
 
 
-def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
+def initialize_data_loader(config: Config,
+                           charlist: List[str],
                            model: tf.keras.Model) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
@@ -21,10 +22,10 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
 
     Parameters
     ----------
-    args : argparse.Namespace
-        A namespace containing various arguments to configure the data loader
+    config : Config
+        A Config containing various arguments to configure the data loader
         (e.g., batch size, image size, lists for training, validation, etc.).
-    char_list : List[str]
+    charlist : List[str]
         A list of characters to be used by the data loader.
     model : tf.keras.Model
         The Keras model, used to derive input dimensions for the data loader.
@@ -44,35 +45,27 @@ def initialize_data_loader(args: argparse.Namespace, char_list: List[str],
 
     model_height = model.layers[0].input_shape[0][2]
     model_channels = model.layers[0].input_shape[0][3]
-    img_size = (model_height, args.width, model_channels)
+    img_size = (model_height, config["width"], model_channels)
 
     return DataLoader(
-        batch_size=args.batch_size,
+        batch_size=config["batch_size"],
         img_size=img_size,
-        train_list=args.train_list,
-        validation_list=args.validation_list,
-        test_list=args.test_list,
-        inference_list=args.inference_list,
-        char_list=char_list,
-        aug_binarize_sauvola=args.do_binarize_sauvola,
-        aug_binarize_otsu=args.do_binarize_otsu,
-        multiply=args.multiply,
-        augment=args.augment,
-        aug_elastic_transform=args.elastic_transform,
-        aug_random_crop=args.random_crop,
-        aug_random_width=args.random_width,
-        check_missing_files=args.check_missing_files,
-        aug_distort_jpeg=args.distort_jpeg,
-        replace_final_layer=args.replace_final_layer,
-        normalization_file=args.normalization_file,
-        use_mask=args.use_mask,
-        aug_random_shear=args.do_random_shear
+        train_list=config["train_list"],
+        test_list=config["test_list"],
+        validation_list=config["validation_list"],
+        inference_list=config["inference_list"],
+        char_list=charlist,
+        multiply=config["multiply"],
+        check_missing_files=config["check_missing_files"],
+        replace_final_layer=config["replace_final_layer"],
+        normalization_file=config["normalization_file"],
+        use_mask=config["use_mask"],
     )
 
 
 def load_initial_charlist(charlist_location: str, existing_model: str,
                           output_directory: str, replace_final_layer: bool) \
-        -> List[str]:
+        -> Tuple[List[str], bool]:
     """
     Loads the initial character list from the specified location or model
     directory.
@@ -92,8 +85,9 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
 
     Returns
     -------
-    List[str]
-        A list of characters loaded from the character list file.
+    Tuple[List[str], bool]
+        A tuple containing the character list and a flag indicating whether
+        padding was removed from the character list.
 
     Raises
     ------
@@ -115,27 +109,34 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
         charlist_location = output_directory + '/charlist.txt'
 
     # Load the character list
-    char_list = []
+    charlist = []
+    removed_padding = False
 
     # We don't need to load the charlist if we are replacing the final layer
     if not replace_final_layer:
         if os.path.exists(charlist_location):
             with open(charlist_location) as file:
-                char_list = [char for char in file.read()]
+                for char in file.read():
+                    if char == '':
+                        logging.warning("Found padding character in the "
+                                        "charlist. Removing it.")
+                        removed_padding = True
+                    else:
+                        charlist.append(char)
             logging.info(f"Using charlist from: {charlist_location}")
         else:
             raise FileNotFoundError(
                 f"Charlist not found at: {charlist_location} and "
-                "replace_final_layer is False. Exiting...")
+                "replace_final_layer is False.")
 
-        logging.info(f"Using charlist: {char_list}")
-        logging.info(f"Charlist length: {len(char_list)}")
+        logging.info(f"Using charlist: {charlist}")
+        logging.info(f"Charlist length: {len(charlist)}")
 
-    return char_list
+    return charlist, removed_padding
 
 
-def save_charlist(charlist: List[str], output: str,
-                  output_charlist_location: Optional[str] = None) -> None:
+def save_charlist(charlist: List[str],
+                  output: str) -> None:
     """
     Saves the given character list to a specified location.
 
@@ -145,9 +146,6 @@ def save_charlist(charlist: List[str], output: str,
         The character list to be saved.
     output : str
         The base output directory where the character list file is to be saved.
-    output_charlist_location : Optional[str]
-        The specific location where the character list file is to be saved. If
-        not provided, it defaults to a location within the output directory.
 
     Notes
     -----
@@ -157,7 +155,5 @@ def save_charlist(charlist: List[str], output: str,
     """
 
     # Save the new charlist
-    if not output_charlist_location:
-        output_charlist_location = output + '/charlist.txt'
-    with open(output_charlist_location, 'w') as chars_file:
+    with open(f"{output}/charlist.txt", 'w') as chars_file:
         chars_file.write(str().join(charlist))

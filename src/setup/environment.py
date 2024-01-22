@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard library
-import argparse
 import logging
 import os
 import random
@@ -9,6 +8,9 @@ import random
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
+
+# > Local dependencies
+from setup.config import Config
 
 
 def set_deterministic(seed: int) -> None:
@@ -37,16 +39,15 @@ def set_deterministic(seed: int) -> None:
     tf.random.set_seed(seed)
 
 
-def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
+def setup_environment(config: Config) -> tf.distribute.Strategy:
     """
     Sets up the environment for running the TensorFlow model, including GPU
     configuration and distribution strategy.
 
     Parameters
     ----------
-    args : argparse.Namespace
-        The namespace containing runtime arguments related to environment
-        setup, like GPU selection and precision settings.
+    config : Config
+        The configuration object containing the parsed arguments.
 
     Returns
     -------
@@ -62,26 +63,28 @@ def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
     """
 
     # Initial setup
-    logging.info(f"Running with args: {vars(args)}")
+    logging.info(f"Running with config:\n{config}")
 
     # Set the random seed
-    if args.deterministic:
-        set_deterministic(args.seed)
+    if config["deterministic"]:
+        set_deterministic(config["seed"])
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
-    logging.info(f"Available GPUs: {gpu_devices}")
+    logging.info(f"Selected GPU indices from config: {config['gpu']}")
+    logging.info(f"Available GPU(s): {gpu_devices}")
 
     # Set the active GPUs depending on the 'gpu' argument
-    if args.gpu == "-1":
+    if config["gpu"] == "-1":
         active_gpus = []
-    elif args.gpu.lower() == "all":
+    elif config["gpu"].lower() == "all":
         active_gpus = gpu_devices
     else:
-        gpus = args.gpu.split(',')
+        gpus = config["gpu"].split(',')
         active_gpus = []
         for i, gpu in enumerate(gpu_devices):
             if str(i) in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
                 active_gpus.append(gpu)
 
     if active_gpus:
@@ -92,7 +95,7 @@ def setup_environment(args: argparse.Namespace) -> tf.distribute.Strategy:
     tf.config.set_visible_devices(active_gpus, 'GPU')
 
     # Initialize the strategy
-    strategy = initialize_strategy(args.use_float32, args.gpu)
+    strategy = initialize_strategy(config["use_float32"], config["gpu"])
 
     return strategy
 
@@ -120,8 +123,6 @@ def setup_logging() -> None:
     tf_logger = tf.get_logger()
     while tf_logger.handlers:
         tf_logger.handlers.pop()
-    tf_logger.propagate = True
-    tf_logger.setLevel("ERROR")
 
 
 def initialize_strategy(use_float32: bool,
