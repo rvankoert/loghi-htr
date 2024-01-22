@@ -67,7 +67,8 @@ def main():
         augmentation_model = make_augment_model(config, model.input_shape[-1])
 
         if config["visualize_augments"]:
-            visualize_augments(augmentation_model, config)
+            visualize_augments(augmentation_model, config["output"],
+                               model.input_shape[-1])
 
         # Initialize the Dataloader
         loader = initialize_data_loader(config, charlist, model,

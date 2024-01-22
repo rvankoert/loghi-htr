@@ -105,7 +105,8 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
 
 
 def visualize_augments(aug_model: tf.keras.Sequential,
-                       config: Config):
+                       output: str = "output",
+                       channels: int = 3):
     """
     Visualize the effects of each augmentation step on a sample image.
 
@@ -113,12 +114,14 @@ def visualize_augments(aug_model: tf.keras.Sequential,
     ----------
     aug_model : tf.keras.Sequential
         The augmentation model containing various layers.
-    config : Config
-        The Config object containing augmentation parameters.
+    output : str
+        Path to the output directory.
+    channels : int
+        Number of channels in the sample image.
     """
 
     root_dir = Path(__file__).resolve().parents[2]
-    os.makedirs(config["output"] + "/augmentation-visualizations",
+    os.makedirs(output + "/augmentation-visualizations",
                 exist_ok=True)
 
     logging.info("Visualizing augmentation steps...")
@@ -134,13 +137,13 @@ def visualize_augments(aug_model: tf.keras.Sequential,
                 "tests/data/test-image"
                 + str(img_num)
                 + ".png"),
-            save_path=config["output"]
+            save_path=output
             + "/augmentation-visualizations/test-img"
             + str(img_num)
             + ".png",
-            channels=config["channels"])
+            channels=channels)
     logging.info("Augment visualizations are stored in the "
-                 f"{config['output']}/augmentation-visualizations/ "
+                 f"{output}/augmentation-visualizations/ "
                  "folder")
 
 
