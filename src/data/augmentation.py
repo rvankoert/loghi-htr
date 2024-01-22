@@ -144,7 +144,7 @@ def visualize_augments(aug_model: tf.keras.Sequential,
                  "folder")
 
 
-def get_augment_selection(config: Config) -> list:
+def get_augment_selection(config: Config, channels: int) -> list:
     """
     Construct a list of data augmentation layers based on the specified
     command-line arguments. Certain data augmentations like random_shear
@@ -155,6 +155,8 @@ def get_augment_selection(config: Config) -> list:
     ----------
     config: Config
         The Config object containing augmentation parameters
+    channels: int
+        Number of channels in the sample image
 
     Returns
     -------
@@ -170,7 +172,7 @@ def get_augment_selection(config: Config) -> list:
     if config["distort_jpeg"]:
         logging.info("Selected data augment: distort_jpeg")
         augment_selection.append(
-            DistortImageLayer(channels=config["channels"]))
+            DistortImageLayer(channels=channels))
 
     if config["elastic_transform"]:
         logging.info("Selected data augment: elastic_transform")
@@ -187,13 +189,13 @@ def get_augment_selection(config: Config) -> list:
     if config["do_binarize_sauvola"]:
         logging.info("Selected data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
-                                               channels=config["channels"],
+                                               channels=channels,
                                                window_size=51))
 
     if config["do_binarize_otsu"]:
         logging.info("Selected data augment: binarize_otsu")
         augment_selection.append(BinarizeLayer(method="otsu",
-                                               channels=config["channels"]))
+                                               channels=channels))
 
     if config["do_random_shear"]:
         # Apply padding to make sure that shear does not cut off img
@@ -210,12 +212,12 @@ def get_augment_selection(config: Config) -> list:
 
     if config["do_invert"]:
         logging.info("Selected data augment: aug_invert")
-        augment_selection.append(InvertImageLayer(channels=config["channels"]))
+        augment_selection.append(InvertImageLayer(channels=channels))
 
     return augment_selection
 
 
-def make_augment_model(config: Config) -> tf.keras.Sequential:
+def make_augment_model(config: Config, channels: int) -> tf.keras.Sequential:
     """
     Constructs an image augmentation model from a list of augmentation options,
     with specific handling for certain layer combinations. If no
@@ -226,6 +228,8 @@ def make_augment_model(config: Config) -> tf.keras.Sequential:
     ----------
     config: Config
         The Config object containing augmentation parameters.
+    channels: int
+        Number of channels in the sample image.
 
     Returns
     -------
@@ -235,7 +239,7 @@ def make_augment_model(config: Config) -> tf.keras.Sequential:
 
     """
 
-    selected_augmentations = get_augment_selection(config)
+    selected_augmentations = get_augment_selection(config, channels)
 
     otsu_present = False
     new_augment_selection = []

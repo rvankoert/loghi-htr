@@ -64,7 +64,7 @@ def main():
     # Create the model
     with strategy.scope():
         model = load_or_create_model(config, custom_objects)
-        augmentation_model = make_augment_model(config)
+        augmentation_model = make_augment_model(config, model.input_shape[-1])
 
         if config["visualize_augments"]:
             visualize_augments(augmentation_model, config)
