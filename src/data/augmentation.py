@@ -174,12 +174,12 @@ def get_augment_selection(config: Config, channels: int) -> list:
 
     if config["distort_jpeg"]:
         logging.info("Selected data augment: distort_jpeg")
-        augment_selection.append(
-            DistortImageLayer(channels=channels))
+        augment_selection.append(DistortImageLayer())
 
     if config["elastic_transform"]:
         logging.info("Selected data augment: elastic_transform")
-        augment_selection.append(ElasticTransformLayer())
+        augment_selection.append(
+            ElasticTransformLayer(binary=binarize_present))
 
     if config["random_crop"]:
         logging.info("Selected data augment: random_crop")
@@ -188,6 +188,8 @@ def get_augment_selection(config: Config, channels: int) -> list:
     if config["random_width"]:
         logging.info("Selected data augment: random_width")
         augment_selection.append(RandomWidthLayer(binary=binarize_present))
+
+    augment_selection.append(ResizeWithPadLayer(binary=binarize_present))
 
     if config["do_binarize_sauvola"]:
         logging.info("Selected data augment: binarize_sauvola")

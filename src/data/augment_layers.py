@@ -78,6 +78,10 @@ class ShearXLayer(tf.keras.layers.Layer):
 
 
 class ElasticTransformLayer(tf.keras.layers.Layer):
+    def __init__(self, binary, **kwargs):
+        super(ElasticTransformLayer, self).__init__(**kwargs)
+        self.fill_value = 1 if binary else 0
+
     def call(self, inputs, training=None):
         """
         Apply elastic transformation to an image tensor.
@@ -119,11 +123,10 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
         displacement_val = tf.random.normal([2, 3, 3]) * 5
 
         # Interpolation-order heavily influences result, operate on axis 1 and
-        # 2. cval is set to 1 to fill in with white so subsequent binarization
-        # is still possible
+        # 2, since 0 is batch and 3 is channel
         x_deformed = etf.deform_grid(
-            inputs, displacement_val, axis=(1, 2), order=1,
-            cval=1
+            inputs, displacement_val, axis=(1, 2), order=3,
+            cval=self.fill_value
         )
 
         # Ensure output normalization for further augments
@@ -135,9 +138,8 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
 
 
 class DistortImageLayer(tf.keras.layers.Layer):
-    def __init__(self, channels=None, **kwargs):
+    def __init__(self, **kwargs):
         super(DistortImageLayer, self).__init__(**kwargs)
-        self.channels = channels
 
     def call(self, inputs, training=None):
         """
@@ -166,7 +168,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
         def single_image_distort(img):
             logging.debug("IMG SHAPE: ", img.shape)
             # Process RGBA images
-            if self.channels == 4 or inputs.shape[-1] == 4:
+            if inputs.shape[-1] == 4:
                 # Split RGB and Alpha channels
                 rgb, alpha = img[..., :3], img[..., 3:]
                 logging.debug("RGB SHAPE: ", rgb.shape)
@@ -223,9 +225,12 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         channels = input_shape[3]
 
         # Generate a random crop factor for each image in the batch
-        min_crop_factor = tf.constant(0.6, dtype=tf.float32)
-        crop_height = tf.cast(min_crop_factor * tf.cast(height,
-                                                        tf.float32), tf.int32)
+        random_crop = tf.random.uniform(shape=[1],
+                                        minval=0.6,
+                                        maxval=1.0)[0]
+
+        crop_height = tf.cast(random_crop * tf.cast(height,
+                                                    tf.float32), tf.int32)
 
         # Define the crop size
         crop_size = (crop_height, width, channels)
@@ -245,9 +250,11 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
 
 
 class ResizeWithPadLayer(tf.keras.layers.Layer):
-    def __init__(self, additional_width=50, binary=False, **kwargs):
+    def __init__(self, additional_width=50, max_height=64,
+                 binary=False, **kwargs):
         super(ResizeWithPadLayer, self).__init__(**kwargs)
         self.additional_width = additional_width
+        self.max_height = max_height
         self.fill_value = 1 if binary else 0
 
     def call(self, inputs, training=None):
@@ -430,7 +437,7 @@ class BlurImageLayer(tf.keras.layers.Layer):
         else:
             blur_factor = round(random.uniform(0.1, 2), 1)
         return tfm.vision.augment.gaussian_filter2d(inputs,
-                                                    filter_shape=(10, 10),
+                                                    filter_shape=(11, 11),
                                                     sigma=blur_factor)
 
 
