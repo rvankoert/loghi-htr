@@ -216,7 +216,7 @@ def get_augment_selection(config: Config, channels: int) -> list:
         logging.info("Selected data augment: shear_x")
         augment_selection.append(ShearXLayer(binary=binarize_present))
         # Remove earlier padding to ensure correct output shapes
-        augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 32)))
+        # augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 32)))
 
     if config["do_blur"]:
         logging.info("Selected data augment: blur_image")
