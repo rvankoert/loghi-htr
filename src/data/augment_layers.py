@@ -237,8 +237,8 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
 
         # Crop each image in the batch
         def crop_image(image):
-            cropped = tf.image.random_stateless_crop(
-                image, size=crop_size, seed=(1, 2))
+            cropped = tf.image.stateless_random_crop(
+                image, size=crop_size, seed=(42, 42))
 
             # Cast back to the original dtype
             return tf.cast(cropped, input_dtype)
