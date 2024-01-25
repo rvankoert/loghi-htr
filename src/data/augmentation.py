@@ -58,7 +58,8 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
     # Load the sample image
     sample_image = tf.io.read_file(sample_image_path)
     sample_image = tf.image.decode_png(sample_image, channels=channels)
-    sample_image = tf.image.convert_image_dtype(sample_image, dtype=tf.float32)
+    sample_image = tf.image.resize(sample_image, (64, 99999),
+                                   preserve_aspect_ratio=True) / 255.0
     sample_image = tf.expand_dims(sample_image, 0)  # Add batch dimension
 
     # Container for each step's image
@@ -189,8 +190,6 @@ def get_augment_selection(config: Config, channels: int) -> list:
         logging.info("Selected data augment: random_width")
         augment_selection.append(RandomWidthLayer(binary=binarize_present))
 
-    augment_selection.append(ResizeWithPadLayer(binary=binarize_present))
-
     if config["do_binarize_sauvola"]:
         logging.info("Selected data augment: binarize_sauvola")
         augment_selection.append(BinarizeLayer(method='sauvola',
@@ -202,14 +201,22 @@ def get_augment_selection(config: Config, channels: int) -> list:
         augment_selection.append(BinarizeLayer(method="otsu",
                                                channels=channels))
 
+    # For some reason, the original adds a 50px pad to the width here
+    augment_selection.append(ResizeWithPadLayer(target_height=64,
+                                                additional_width=50,
+                                                binary=binarize_present,
+                                                name="extra_resize_with_pad"))
+
     if config["do_random_shear"]:
         # Apply padding to make sure that shear does not cut off img
-        augment_selection.append(ResizeWithPadLayer(binary=binarize_present))
+        augment_selection.append(ResizeWithPadLayer(target_height=64,
+                                                    additional_width=64,
+                                                    binary=binarize_present))
 
         logging.info("Selected data augment: shear_x")
         augment_selection.append(ShearXLayer(binary=binarize_present))
         # Remove earlier padding to ensure correct output shapes
-        augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 25)))
+        augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 32)))
 
     if config["do_blur"]:
         logging.info("Selected data augment: blur_image")

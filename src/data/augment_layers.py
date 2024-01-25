@@ -78,7 +78,7 @@ class ShearXLayer(tf.keras.layers.Layer):
 
 
 class ElasticTransformLayer(tf.keras.layers.Layer):
-    def __init__(self, binary, **kwargs):
+    def __init__(self, binary=False, **kwargs):
         super(ElasticTransformLayer, self).__init__(**kwargs)
         self.fill_value = 1 if binary else 0
 
@@ -250,11 +250,17 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
 
 
 class ResizeWithPadLayer(tf.keras.layers.Layer):
-    def __init__(self, additional_width=50, max_height=64,
-                 binary=False, **kwargs):
+    def __init__(self, target_height, target_width=None,
+                 additional_width=None, binary=False, **kwargs):
         super(ResizeWithPadLayer, self).__init__(**kwargs)
+        self.target_height = target_height
+
+        self.target_width = target_width
         self.additional_width = additional_width
-        self.max_height = max_height
+        if self.target_width is None and self.additional_width is None:
+            raise ValueError("Either target_width or additional_width must be "
+                             "specified")
+
         self.fill_value = 1 if binary else 0
 
     def call(self, inputs, training=None):
@@ -275,15 +281,30 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         if not training:
             return inputs
 
-        # Calculate the padding sizes
-        padding_width = self.additional_width
-        pad_left = padding_width // 2
-        pad_right = padding_width - pad_left
+        # Get the target width
+        if self.target_width is None:
+            width = tf.shape(inputs)[2]
+            target_width = width + self.additional_width
+        else:
+            target_width = self.target_width
 
-        # Apply "white" padding
-        padded_img = tf.pad(inputs,
-                            [[0, 0], [0, 0], [pad_left, pad_right], [0, 0]],
-                            mode='CONSTANT',
+        # First resize the image to the target height while maintaining aspect
+        # ratio
+        resized_img = tf.image.resize(inputs, [self.target_height,
+                                               target_width],
+                                      preserve_aspect_ratio=True)
+
+        # Pad the width of the image to the target width
+        # Calculate the amount of padding required
+        pad = target_width - tf.shape(resized_img)[2]
+
+        left_pad = tf.cast(pad / 2, tf.int32)
+        right_pad = pad - left_pad
+
+        # Pad the width of the image
+        padded_img = tf.pad(resized_img,
+                            paddings=[[0, 0], [0, 0],
+                                      [left_pad, right_pad], [0, 0]],
                             constant_values=self.fill_value)
 
         return padded_img
@@ -498,24 +519,4 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         resized_image = tf.image.resize(image,
                                         size=[original_height, new_width])
 
-        # Handling if new width is greater than original
-        if new_width > original_width:
-            # Resize back to the old width which causes minor compression
-            compressed_image = tf.image.resize(resized_image,
-                                               size=[original_height,
-                                                     original_width])
-            return compressed_image
-        else:
-            # Calculate padding size needed to match original width
-            padding_width = original_width - new_width
-            left_pad = padding_width // 2
-            right_pad = padding_width - left_pad
-
-            # Pad the new image to retain overall width for compatibility
-            padded_image = tf.pad(resized_image,
-                                  paddings=[[0, 0], [0, 0],
-                                            [left_pad, right_pad],
-                                            [0, 0]],
-                                  mode="CONSTANT",
-                                  constant_values=self.fill_value)
-            return padded_image
+        return resized_image

@@ -78,8 +78,15 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Apply augmentations
         if self.augment_model is not None:
             for layer in self.augment_model.layers:
+                # The cropping layer is the only TF layer
+                # Since it does not have a training parameter, we have to
+                # manually check if the model is training
                 if not self.is_training and \
                         isinstance(layer, tf.keras.layers.Cropping2D):
+                    continue
+                # Mandatory resize_with_pad layer
+                if layer.name == "extra_resize_with_pad":
+                    image = layer(image, training=True)
                     continue
                 image = layer(image, training=self.is_training)
 
