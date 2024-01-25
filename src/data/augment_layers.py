@@ -296,15 +296,22 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
         # Pad the width of the image to the target width
         # Calculate the amount of padding required
-        pad = target_width - tf.shape(resized_img)[2]
+        pad_width = target_width - tf.shape(resized_img)[2]
+        left_pad = tf.cast(pad_width / 2, tf.int32)
+        right_pad = pad_width - left_pad
 
-        left_pad = tf.cast(pad / 2, tf.int32)
-        right_pad = pad - left_pad
+        # Pad the height of the image to the target height
+        pad_height = self.target_height - tf.shape(resized_img)[1]
+        top_pad = tf.cast(pad_height / 2, tf.int32)
+        bottom_pad = pad_height - top_pad
+
+        padding = [[0, 0], [top_pad, bottom_pad],
+                   [left_pad, right_pad], [0, 0]]
+        print(padding)
 
         # Pad the width of the image
         padded_img = tf.pad(resized_img,
-                            paddings=[[0, 0], [0, 0],
-                                      [left_pad, right_pad], [0, 0]],
+                            paddings=padding,
                             constant_values=self.fill_value)
 
         return padded_img

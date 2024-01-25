@@ -94,7 +94,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         image = image[0]
 
         image_width = tf.shape(image)[1]
-        image = tf.image.resize_with_pad(image, self.height, image_width+50)
 
         label = image_info_tuple[1]
         encoded_label = self.tokenizer(label)
