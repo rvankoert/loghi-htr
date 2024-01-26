@@ -105,7 +105,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 image = tf.concat([channel1, channel2, channel3, alpha], axis=2)
                 del channel1, channel2, channel3, alpha
             else:
-                image = tf.image.random_jpeg_quality(image, 20, 100)
+                image = tf.image.random_jpeg_quality(image, 50, 100)
 
         image_width = tf.shape(image)[1]
         image_height = tf.shape(image)[0]
