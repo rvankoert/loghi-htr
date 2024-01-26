@@ -212,7 +212,7 @@ class DataLoader:
             with open(sublist) as f:
                 counter = 0
                 for line in f:
-                    if not line or line[0] == '#':
+                    if not line.strip() or line[0] == '#':
                         continue
                     lineSplit = line.strip().split('\t')
                     if not is_inference and len(lineSplit) == 1:
