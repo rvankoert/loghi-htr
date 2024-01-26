@@ -150,9 +150,6 @@ def get_arg_parser():
     wbs_args.add_argument('--beam_width', metavar='beam_width ', type=int, default=10,
                           help='beam_width when validating/inferencing, higher beam_width gets better results, but run '
                           'slower. Default 10')
-    wbs_args.add_argument('--num_oov_indices', metavar='num_oov_indices ', type=int, default=0,
-                          help='num_oov_indices, default 0, set to 1 if unknown characters are in dataset, but not in '
-                          'charlist. Use when you get the error "consider setting `num_oov_indices=1`"')
     wbs_args.add_argument('--corpus_file', metavar='corpus_file ', type=str, default=None,
                           help='beta: corpus_file to use, enables WordBeamSearch')
     wbs_args.add_argument('--wbs_smoothing', metavar='corpus_file ', type=float, default=0.1,
@@ -177,7 +174,8 @@ def get_arg_parser():
                            help='beta: deterministic mode (reproducible results')
     misc_args.add_argument('--no_auto', action='store_true',
                            help='No Auto disabled automatic "fixing" of certain parameters')
-    misc_args.add_argument('--do_blur', action='store_true', help='blur the images for training purposes')
+    misc_args.add_argument('--do_blur', action='store_true',
+                           help='blur the images for training purposes')
     misc_args.add_argument('--do_invert', action='store_true',
                            help='use with images that have light ink and dark background')
 
