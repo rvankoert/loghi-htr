@@ -190,17 +190,6 @@ def get_augment_selection(config: Config, channels: int) -> list:
         logging.info("Selected data augment: random_width")
         augment_selection.append(RandomWidthLayer(binary=binarize_present))
 
-    if config["do_binarize_sauvola"]:
-        logging.info("Selected data augment: binarize_sauvola")
-        augment_selection.append(BinarizeLayer(method='sauvola',
-                                               channels=channels,
-                                               window_size=51))
-
-    if config["do_binarize_otsu"]:
-        logging.info("Selected data augment: binarize_otsu")
-        augment_selection.append(BinarizeLayer(method="otsu",
-                                               channels=channels))
-
     # For some reason, the original adds a 50px pad to the width here
     augment_selection.append(ResizeWithPadLayer(target_height=64,
                                                 additional_width=50,
@@ -215,8 +204,17 @@ def get_augment_selection(config: Config, channels: int) -> list:
 
         logging.info("Selected data augment: shear_x")
         augment_selection.append(ShearXLayer(binary=binarize_present))
-        # Remove earlier padding to ensure correct output shapes
-        # augment_selection.append(tf.keras.layers.Cropping2D(cropping=(0, 32)))
+
+    if config["do_binarize_sauvola"]:
+        logging.info("Selected data augment: binarize_sauvola")
+        augment_selection.append(BinarizeLayer(method='sauvola',
+                                               channels=channels,
+                                               window_size=51))
+
+    if config["do_binarize_otsu"]:
+        logging.info("Selected data augment: binarize_otsu")
+        augment_selection.append(BinarizeLayer(method="otsu",
+                                               channels=channels))
 
     if config["do_blur"]:
         logging.info("Selected data augment: blur_image")
@@ -266,39 +264,5 @@ def make_augment_model(config: Config, channels: int) -> tf.keras.Sequential:
 
         new_augment_selection.append(aug_layer)
 
-    selected_augmentations = new_augment_selection
-
-    # Init blur params
-    mild_blur = False
-    blur_index = -1
-
-    # Check if a blur occurs before binarization, if so replace with mild blur
-    for i, augment in enumerate(selected_augmentations):
-        if isinstance(augment, BlurImageLayer):
-            mild_blur = True
-            blur_index = i
-        elif mild_blur and isinstance(augment, BinarizeLayer):
-            selected_augmentations[blur_index] = BlurImageLayer(mild_blur=True)
-
-    # Check if blur/distort occurs after binarization, if so move it in front
-    binarize = False
-    binarize_index = -1
-    for i, augment in enumerate(selected_augmentations[:]):
-        if isinstance(augment, BinarizeLayer):
-            binarize = True
-            binarize_index = i
-        elif binarize and (isinstance(augment, BlurImageLayer)):
-            # Remove BlurImageLayer that occurs after binarization
-            selected_augmentations.remove(augment)
-            # Insert a mild blur object right before binarize
-            selected_augmentations.insert(binarize_index,
-                                          BlurImageLayer(mild_blur=True))
-        elif binarize and (isinstance(augment, DistortImageLayer)):
-            # Remove DistortImageLayer that occurs after binarization
-            selected_augmentations.remove(augment)
-            # Insert the Distort layer before the binarization
-            selected_augmentations.insert(binarize_index, augment)
-
-    adjusted_aug_model = tf.keras.Sequential(selected_augmentations,
-                                             name="data_augment_model")
-    return adjusted_aug_model
+    return tf.keras.Sequential(new_augment_selection,
+                               name="data_augment_model")

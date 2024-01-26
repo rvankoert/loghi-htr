@@ -89,12 +89,13 @@ class DataLoader:
             chars, train_files = self.create_data(
                 chars, labels, partition, 'train', self.train_list, use_multiply=True)
 
-        if self.validation_list:
-            if self.train_list:
+            if self.validation_list:
                 chars, evaluation_files = self.create_data(
                     chars, labels, partition, 'evaluation',
                     self.validation_list)
 
+        # TODO: Replace this by a do_validate flag
+        if self.validation_list:
             chars, validation_files = self.create_data(
                 chars, labels, partition, 'validation', self.validation_list,
                 include_unsupported_chars=True)

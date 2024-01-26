@@ -237,6 +237,8 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
 
         # Crop each image in the batch
         def crop_image(image):
+            # TODO: set the seed to be random? But the crop size is random,
+            # so the crop will be different for each image anyway?
             cropped = tf.image.stateless_random_crop(
                 image, size=crop_size, seed=(42, 42))
 
@@ -262,7 +264,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
             raise ValueError("Either target_width or additional_width must be "
                              "specified")
 
-        self.fill_value = 1 if binary else 0
+        self.fill_value = 1.0 if binary else 0
 
     def call(self, inputs, training=None):
         """
@@ -313,6 +315,8 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         padded_img = tf.pad(resized_img,
                             paddings=padding,
                             constant_values=self.fill_value)
+
+        padded_img = tf.cast(padded_img, tf.float16)
 
         return padded_img
 
