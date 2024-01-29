@@ -277,6 +277,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                                         batch_groups,
                                         batch_identifiers,
                                         batch_metadata,
+                                        num_channels,
                                         new_model,
                                         current_model)
 
