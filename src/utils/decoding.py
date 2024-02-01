@@ -107,8 +107,7 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
 
         # Normalize the confidence score based on the number of timesteps
         text = tokenizer.decode(decoded_array).strip().replace("", "")
-        confidence = np.exp(-log_probs[i][0] / time_steps
-                            if greedy else log_probs[i][0] / time_steps)
+        confidence = np.exp(log_probs[i][0] / time_steps)
 
         output_texts.append((confidence, text))
 
