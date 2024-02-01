@@ -288,31 +288,31 @@ def fix_args(args):
 def arg_future_warning(args):
     logger = logging.getLogger(__name__)
 
-    # March 2024
+    # May 2024
     if args.do_train:
-        logger.warning("Argument will lose support in March 2024: --do_train. "
+        logger.warning("Argument will lose support in May 2024: --do_train. "
                        "Training will be enabled by providing a train_list. ")
     if args.do_inference:
-        logger.warning("Argument will lose support in March 2024: "
+        logger.warning("Argument will lose support in May 2024: "
                        "--do_inference. Inference will be enabled by "
                        "providing an inference_list. ")
     if args.use_mask:
-        logger.warning("Argument will lose support in March 2024: --use_mask. "
+        logger.warning("Argument will lose support in May 2024: --use_mask. "
                        "Masking will be enabled by default.")
     if args.no_auto:
-        logger.warning("Argument will lose support in March 2024: --no_auto.")
+        logger.warning("Argument will lose support in May 2024: --no_auto.")
     if args.height:
-        logger.warning("Argument will lose support in March 2024: --height. "
+        logger.warning("Argument will lose support in May 2024: --height. "
                        "Height will be inferred from the VGSL spec.")
     if args.channels:
-        logger.warning("Argument will lose support in March 2024: --channels. "
+        logger.warning("Argument will lose support in May 2024: --channels. "
                        "Channels will be inferred from the VGSL spec.")
     if args.output_charlist:
-        logger.warning("Argument will lose support in March 2024: "
+        logger.warning("Argument will lose support in May 2024: "
                        "--output_charlist. The charlist will be saved to "
                        "output/charlist.txt by default.")
     if args.config_file_output:
-        logger.warning("Argument will lose support in March 2024: "
+        logger.warning("Argument will lose support in May 2024: "
                        "--config_file_output. The configuration will be saved "
                        "to output/config.json by default.")
 

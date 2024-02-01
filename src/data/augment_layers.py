@@ -182,7 +182,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
                 img = tf.concat([rgb, alpha], axis=-1)
             else:
                 img = tf.image.random_jpeg_quality(img,
-                                                   min_jpeg_quality=20,
+                                                   min_jpeg_quality=50,
                                                    max_jpeg_quality=100)
             return img
 
@@ -529,5 +529,4 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         # Resize image to the new width while maintaining the original height
         resized_image = tf.image.resize(image,
                                         size=[original_height, new_width])
-
         return resized_image
