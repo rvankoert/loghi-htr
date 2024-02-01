@@ -152,8 +152,7 @@ def main():
                 for layer in model.layers:
                     assert layer.dtype_policy.name == 'float32'
 
-            if not args.replace_final_layer:
-                model_channels = model.layers[0].input_shape[0][3]
+            model_channels = model.layers[0].input_shape[0][3]
 
             model_height = model.layers[0].input_shape[0][2]
             if args.height != model_height:
