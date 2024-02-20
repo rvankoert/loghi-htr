@@ -75,7 +75,7 @@ def main():
                                         augmentation_model)
         training_dataset, evaluation_dataset, validation_dataset, \
             test_dataset, inference_dataset, tokenizer, train_batches, \
-            validation_labels = loader.generators()
+            validation_labels = loader.get_generators()
 
         # Replace the charlist with the one from the data loader
         charlist = loader.charList

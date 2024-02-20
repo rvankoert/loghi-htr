@@ -169,40 +169,55 @@ def get_arg_parser():
 
     # Data augmentation configuration
     augmentation_args = parser.add_argument_group('Augmentation arguments')
-    augmentation_args.add_argument('--multiply', metavar='multiply', type=int,
+    augmentation_args.add_argument('--aug_multiply', '--multiply',
+                                   metavar='multiply', type=int,
+                                   dest='multiply',
                                    default=1, help="Factor to increase the "
-                                   "size of the training dataset by "
-                                   "duplicating images. Default: 1 (no "
-                                   "duplication).")
-    augmentation_args.add_argument('--elastic_transform', action='store_true',
+                                                   "size of the training dataset by "
+                                                   "duplicating images. Default: 1 (no "
+                                                   "duplication).")
+    augmentation_args.add_argument('--aug_elastic_transform',
+                                   '--elastic_transform', action='store_true',
+                                   dest='elastic_transform',
                                    help="Apply elastic transformations to "
-                                   "images.")
-    augmentation_args.add_argument('--random_crop', action='store_true',
+                                        "images.")
+    augmentation_args.add_argument('--aug_random_crop', '--random_crop',
+                                   action='store_true', dest='random_crop',
                                    help="Enable random cropping of images.")
-    augmentation_args.add_argument('--random_width', action='store_true',
+    augmentation_args.add_argument('--aug_random_width', '--random_width',
+                                   action='store_true', dest='random_width',
                                    help="Randomly stretch images horizontally "
-                                   "during augmentation.")
-    augmentation_args.add_argument('--distort_jpeg', action='store_true',
+                                        "during augmentation.")
+    augmentation_args.add_argument('--aug_distort_jpeg', '--distort_jpeg',
+                                   action='store_true', dest='distort_jpeg',
                                    help="Apply JPEG distortion to images for "
-                                   "augmentation.")
-    augmentation_args.add_argument('--do_random_shear', action='store_true',
+                                        "augmentation.")
+    augmentation_args.add_argument('--aug_random_shear', '--do_random_shear',
+                                   action='store_true', dest='do_random_shear',
                                    help="Apply random shearing "
-                                   "transformations to images.")
-    augmentation_args.add_argument('--do_blur', action='store_true',
+                                        "transformations to images.")
+    augmentation_args.add_argument('--aug_blur', '--do_blur',
+                                   action='store_true', dest='do_blur',
                                    help="Apply blurring to images during "
-                                   "training for augmentation.")
-    augmentation_args.add_argument('--do_invert', action='store_true',
+                                        "training for augmentation.")
+    augmentation_args.add_argument('--aug_invert', '--do_invert',
+                                   action='store_true', dest='do_invert',
                                    help="Invert images with light ink on dark "
-                                   "backgrounds for augmentation.")
-    augmentation_args.add_argument('--do_binarize_otsu', action='store_true',
+                                        "backgrounds for augmentation.")
+    augmentation_args.add_argument('--aug_binarize_otsu',
+                                   '--do_binarize_otsu', action='store_true',
+                                   dest='do_binarize_otsu',
                                    help="Apply Otsu's binarization method to "
-                                   "images for augmentation.")
-    augmentation_args.add_argument('--do_binarize_sauvola',
-                                   action='store_true', help="Use Sauvola's "
-                                   "method for image binarization during "
-                                   "augmentation.")
-    augmentation_args.add_argument('--visualize_augments', action='store_true',
-                                   help='prompt to create visualization of '
+                                        "images for augmentation.")
+    augmentation_args.add_argument('--aug_binarize_sauvola',
+                                   '--do_binarize_sauvola', action='store_true',
+                                   dest='do_binarize_sauvola',
+                                   help="Use Sauvola's method for image binarization during "
+                                        "augmentation.")
+    augmentation_args.add_argument('--visualize_augments',
+                                   '--visualize_augments', action='store_true',
+                                   dest='visualize_augments',
+                                   help='Prompt to create visualization of '
                                         'selected augments')
 
     # WBS and decoding configuration
@@ -315,6 +330,18 @@ def arg_future_warning(args):
         logger.warning("Argument will lose support in May 2024: "
                        "--config_file_output. The configuration will be saved "
                        "to output/config.json by default.")
+
+    # old data aug arguments
+    # Check for old argument names and issue warnings
+    old_arg_names = [
+        'multiply', 'elastic_transform', 'random_crop', 'random_width',
+        'distort_jpeg', 'do_random_shear', 'do_blur', 'do_invert',
+        'do_binarize_otsu', 'do_binarize_sauvola']
+    for old_arg in old_arg_names:
+        if getattr(args, old_arg, None) is not None:
+            new_arg_name = old_arg.replace("do_","")
+            logger.warning(f"Argument will lose support in May 2024: "
+                           f"--{old_arg}. Use --aug_{new_arg_name} instead.")
 
 
 def get_args():
