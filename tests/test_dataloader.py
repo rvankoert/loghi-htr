@@ -299,7 +299,7 @@ class DataLoaderTest(unittest.TestCase):
 
         training_generator, evaluation_generator, validation_generator, \
             test_generator, inference_generator, utils, train_batches, \
-            val_text = data_loader.generators()
+            val_text = data_loader.get_generators()
 
         # Basic tests
         self.assertIsNotNone(training_generator,
