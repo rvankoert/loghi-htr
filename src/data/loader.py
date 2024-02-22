@@ -2,20 +2,20 @@
 
 # > Standard library
 import logging
+import os
+import re
+import json
 
-# > Local dependencies
-from data.generator import DataGenerator
-from utils.text import Tokenizer
 
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow.data import AUTOTUNE
 import numpy as np
 
-# > Environment
-import json
-import re
-import os
+
+# > Local dependencies
+from data.generator import DataGenerator
+from utils.text import Tokenizer
 
 
 class DataLoader:

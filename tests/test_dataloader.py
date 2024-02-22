@@ -284,7 +284,7 @@ class DataLoaderTest(unittest.TestCase):
         # should be 6 now, as each line is duplicated due to multiplication
         self.assertEqual(len(files), 6, "Multiplication not working")
 
-    def test_generators(self):
+    def test_get_generators(self):
         batch_size = 2
         img_size = (256, 256, 3)
 

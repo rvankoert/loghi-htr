@@ -29,6 +29,8 @@ class ShearXLayer(tf.keras.layers.Layer):
         inputs : tf.Tensor
             Input image tensor. Can be either a 3-channel (RGB) or 4-channel
             (RGBA) image in tensor format.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -91,6 +93,8 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
         inputs : tf.Tensor
             The original image tensor to be transformed. Can handle tensors of
             various shapes and channel numbers (e.g., grayscale, RGB, RGBA).
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -151,6 +155,8 @@ class DistortImageLayer(tf.keras.layers.Layer):
         inputs : tf.Tensor
             Batch of input images as a TensorFlow tensor. The images should be
             in the format of either RGB or RGBA.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -166,12 +172,10 @@ class DistortImageLayer(tf.keras.layers.Layer):
         inputs = tf.cast(inputs, tf.float32)
 
         def single_image_distort(img):
-            logging.debug("IMG SHAPE: ", img.shape)
             # Process RGBA images
             if inputs.shape[-1] == 4:
                 # Split RGB and Alpha channels
                 rgb, alpha = img[..., :3], img[..., 3:]
-                logging.debug("RGB SHAPE: ", rgb.shape)
 
                 # Apply random JPEG quality to the RGB part
                 rgb = tf.image.random_jpeg_quality(rgb,
@@ -196,6 +200,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
 class RandomVerticalCropLayer(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super(RandomVerticalCropLayer, self).__init__(**kwargs)
+        self.crop_factor = 0.75
 
     def call(self, inputs, training=None):
         """
@@ -205,6 +210,8 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         ----------
         inputs : tf.Tensor
             Input batch of images as a TensorFlow tensor.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -224,29 +231,36 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         width = input_shape[2]
         channels = input_shape[3]
 
-        # Generate a random crop factor for each image in the batch
-        random_crop = tf.random.uniform(shape=[1],
-                                        minval=0.6,
-                                        maxval=1.0)[0]
-
-        crop_height = tf.cast(random_crop * tf.cast(height,
-                                                    tf.float32), tf.int32)
-
-        # Define the crop size
-        crop_size = (crop_height, width, channels)
+        # Generate a batch of random seeds, one per image in the batch
+        seeds = tf.random.uniform(shape=[tf.shape(inputs)[0], 2], minval=0,
+                                  maxval=2 ** 31 - 1, dtype=tf.int32)
 
         # Crop each image in the batch
-        def crop_image(image):
-            # TODO: set the seed to be random? But the crop size is random,
-            # so the crop will be different for each image anyway?
+        def crop_image(args):
+            # Generate a random crop factor per image
+            random_crop = tf.random.uniform(shape=[1],
+                                            minval=0.6,
+                                            maxval=1.0)[0]
+            # Set crop attribute for reproducibility
+            self.crop_factor = random_crop
+
+            crop_height = tf.cast(random_crop * tf.cast(height,
+                                                        tf.float32), tf.int32)
+
+            # Define the crop size
+            crop_size = (crop_height, width, channels)
+
+            image, seed = args
+            # Crop size is applied to all images in batch, seed is different
+            # for each image in batch
             cropped = tf.image.stateless_random_crop(
-                image, size=crop_size, seed=(42, 42))
+                image, size=crop_size, seed=seed)
 
             # Cast back to the original dtype
             return tf.cast(cropped, input_dtype)
 
         # Ensure the output dtype matches the input
-        cropped_images = tf.map_fn(crop_image, inputs,
+        cropped_images = tf.map_fn(crop_image, (inputs, seeds),
                                    fn_output_signature=input_dtype)
 
         return cropped_images
@@ -274,6 +288,8 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         ----------
         inputs : tf.Tensor
             Input image tensor.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -410,6 +426,8 @@ class InvertImageLayer(tf.keras.layers.Layer):
         ----------
         inputs : tf.Tensor
             Input image tensor.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -454,6 +472,8 @@ class BlurImageLayer(tf.keras.layers.Layer):
         ----------
         inputs : tf.Tensor
             Input image tensor.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -477,6 +497,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
     def __init__(self, binary=False, **kwargs):
         super(RandomWidthLayer, self).__init__(**kwargs)
         self.fill_value = 1 if binary else 0
+        self.random_width_factor = 1.2
 
     def call(self, inputs, training=None):
         """
@@ -518,6 +539,9 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         # Generate a random width scaling factor between 0.75 and 1.25
         random_width = tf.random.uniform(
             shape=[1], minval=0.75, maxval=1.25)[0]
+
+        # Set random_width factor
+        self.random_width_factor = random_width
 
         # Scale the width of the image by the random factor
         random_width *= float(original_width)
