@@ -508,6 +508,8 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         ----------
         inputs : tf.Tensor
             A 3D or 4D tensor representing a single image or a batch of images.
+        training : bool
+            Whether layer will be used for training
 
         Returns
         -------
@@ -536,21 +538,27 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             original_width = tf.shape(inputs)[2]
             original_height = tf.shape(inputs)[1]
 
-        # Generate a random width scaling factor between 0.75 and 1.25
-        random_width = tf.random.uniform(
-            shape=[1], minval=0.75, maxval=1.25)[0]
+        def augment_image_width(input_img):
+            # Generate a random width scaling factor between 0.75 and 1.25
+            random_width = tf.random.uniform(
+                shape=[1], minval=0.75, maxval=1.25)[0]
 
-        # Set random_width factor
-        self.random_width_factor = random_width
+            # Set random_width factor
+            self.random_width_factor = random_width
 
-        # Scale the width of the image by the random factor
-        random_width *= float(original_width)
-        new_width = int(random_width)
+            # Scale the width of the image by the random factor
+            random_width *= float(original_width)
+            new_width = int(random_width)
 
-        # Convert the image to float32 dtype
-        image = tf.image.convert_image_dtype(inputs, dtype=tf.float32)
+            # Convert the image to float32 dtype
+            image = tf.image.convert_image_dtype(input_img, dtype=tf.float32)
 
-        # Resize image to the new width while maintaining the original height
-        resized_image = tf.image.resize(image,
-                                        size=[original_height, new_width])
-        return resized_image
+            # Resize image to new width while maintaining the original height
+            resized_image = tf.image.resize(image,
+                                            size=[original_height, new_width])
+            return resized_image
+
+        resized_images = tf.map_fn(augment_image_width, inputs,
+                                   fn_output_signature=tf.float32)
+
+        return resized_images
