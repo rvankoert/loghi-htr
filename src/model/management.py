@@ -50,7 +50,7 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     # Verify float32
     for layer in model.layers:
         if layer.dtype != 'float32':
-            logging.error(f"Layer {layer.name} is not float32")
+            logging.error("Layer %s is not float32", layer.name)
 
     return model
 
@@ -79,8 +79,8 @@ def customize_model(model: tf.keras.Model,
 
     # Replace certain layers if specified
     if config["replace_recurrent_layer"]:
-        logging.info("Replacing recurrent layer with "
-                     f"{config['replace_recurrent_layer']}")
+        logging.info("Replacing recurrent layer with %s",
+                     config["replace_recurrent_layer"])
         model = replace_recurrent_layer(model,
                                         len(charlist),
                                         config["replace_recurrent_layer"],
@@ -90,7 +90,7 @@ def customize_model(model: tf.keras.Model,
     if config["replace_final_layer"] or not config["existing_model"]:
         new_classes = len(charlist) + \
             2 if config["use_mask"] else len(charlist) + 1
-        logging.info(f"Replacing final layer with {new_classes} classes")
+        logging.info("Replacing final layer with %s classes", new_classes)
         model = replace_final_layer(model, len(charlist), model.name,
                                     use_mask=config["use_mask"])
 
@@ -104,15 +104,15 @@ def customize_model(model: tf.keras.Model,
             elif config["freeze_conv_layers"] and \
                 (layer.name.lower().startswith("conv") or
                  layer.name.lower().startswith("residual")):
-                logging.info(f"Freezing layer: {layer.name}")
+                logging.info("Freezing layer: %s", layer.name)
                 layer.trainable = False
             elif config["freeze_recurrent_layers"] and \
                     layer.name.lower().startswith("bidirectional"):
-                logging.info(f"Freezing layer: {layer.name}")
+                logging.info("Freezing layer: %s", layer.name)
                 layer.trainable = False
             elif config["freeze_dense_layers"] and \
                     layer.name.lower().startswith("dense"):
-                logging.info(f"Freezing layer: {layer.name}")
+                logging.info("Freezing layer: %s", layer.name)
                 layer.trainable = False
 
     # Further configuration based on use_float32 and gpu
