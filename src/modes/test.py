@@ -203,8 +203,8 @@ def perform_test(config: Config,
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(config["output"], 'test.csv',
-                           encoding="utf-8"), 'w') as f:
+    with open(os.path.join(config["output"], 'test.csv'), 'w',
+              encoding="utf-8") as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower," \

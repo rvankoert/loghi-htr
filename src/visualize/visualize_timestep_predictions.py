@@ -372,13 +372,11 @@ def create_timestep_plots(bordered_img: np.ndarray, index_correction: int,
 
 def main(args=None):
     # Load args
-    if args:
-        args = args
-    else:
+    if args is None:
         args = get_args()
 
     # Load in pre-trained model and get model channels
-    model, model_channels, MODEL_PATH = init_pre_trained_model()
+    model, model_channels, model_path = init_pre_trained_model()
 
     # Make sure image is provided with call
     if args.sample_image_path:
@@ -397,7 +395,7 @@ def main(args=None):
 
     # Read char_list and calculate character indices for sample image preds
     (char_list, timestep_char_list_indices, timestep_char_list_indices_top_3,
-     step_width, pad_steps_skip) = get_timestep_indices(MODEL_PATH, preds,
+     step_width, pad_steps_skip) = get_timestep_indices(model_path, preds,
                                                         image_width)
 
     # Take the "raw" sample image and plot the pred results on top
