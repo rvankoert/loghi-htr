@@ -4,16 +4,16 @@
 import logging
 from typing import List
 
+# > Third-party dependencies
+import tensorflow as tf
+
 # > Local dependencies
 from data.generator import DataGenerator
 from data.loader import DataLoader
-from utils.decoding import decode_batch_predictions
 from model.management import get_prediction_model
 from setup.config import Config
+from utils.decoding import decode_batch_predictions
 from utils.text import Tokenizer
-
-# > Third-party dependencies
-import tensorflow as tf
 
 
 def perform_inference(config: Config, model: tf.keras.Model,
@@ -51,7 +51,7 @@ def perform_inference(config: Config, model: tf.keras.Model,
     tokenizer = Tokenizer(charlist, config["use_mask"])
     prediction_model = get_prediction_model(model)
 
-    with open(config["results_file"], "w") as results_file:
+    with open(config["results_file"], "w", encoding="utf-8") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
             predictions = prediction_model.predict_on_batch(batch[0])

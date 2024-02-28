@@ -64,7 +64,7 @@ def image_preparation_worker(batch_size: int,
                                          model, metadata, whitelist)
 
     except Exception as e:
-        logging.error(f"Exception in image preparation worker: {e}")
+        logging.error("Exception in image preparation worker: %s", e)
         raise
 
 
@@ -81,10 +81,10 @@ def update_channels(model_path: str) -> int:
 
     try:
         num_channels = get_model_channels(model_path)
-        logging.debug(f"New number of channels: {num_channels}")
+        logging.debug("New number of channels: %s", num_channels)
         return num_channels
     except Exception as e:
-        logging.error(f"Error retrieving number of channels: {e}")
+        logging.error("Error retrieving number of channels: %s", e)
         raise e
 
 
@@ -185,8 +185,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
     # the model
     if batch_images:
         logging.info(
-            f"Processing the current batch of {len(batch_images)} images "
-            "before model change.")
+            "Processing the current batch of %s images before model change.",
+            len(batch_images))
         pad_and_queue_batch(old_model, batch_images, batch_groups,
                             batch_identifiers, batch_metadata, old_channels,
                             prepared_queue, request_queue)
@@ -252,7 +252,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
         try:
             image, group, identifier, new_model, whitelist = \
                 request_queue.get(timeout=0.1)
-            logging.debug(f"Retrieved {identifier} from request_queue")
+            logging.debug("Retrieved %s from request_queue", identifier)
 
             # Metadata change detection
             # If the metadata is None or the model has changed or the
@@ -264,7 +264,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                 logging.info("Detected metadata change. Updating metadata.")
                 metadata = fetch_metadata(whitelist, model_path)
                 old_whitelist = whitelist
-                logging.debug(f"Metadata updated: {metadata}")
+                logging.debug("Metadata updated: %s", metadata)
 
             # Model change detection
             # If the model has changed, process the current batch before
@@ -299,7 +299,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             # If there are no images in the queue, log the time
             if last_image_time is not None:
                 logging.debug("Time without new images: "
-                              f"{time.time() - last_image_time}s")
+                              "%s s", time.time() - last_image_time)
 
             # Check if there's at least one image and max wait time is exceeded
             if last_image_time is not None and \
@@ -382,7 +382,7 @@ def fetch_metadata(whitelist: list, model_path: str):
     config_path = os.path.join(model_path, "config.json")
 
     # Load the configuration file
-    with open(config_path, 'r') as file:
+    with open(config_path, 'r', encoding="utf-8") as file:
         config = json.load(file)
 
     # Initialize a dictionary to store the found values
@@ -392,7 +392,7 @@ def fetch_metadata(whitelist: list, model_path: str):
     def search_key(data, key):
         if key in data:
             return data[key]
-        for sub_key, sub_value in data.items():
+        for sub_value in data.values():
             if isinstance(sub_value, dict):
                 result = search_key(sub_value, key)
                 if result is not None:
@@ -411,8 +411,8 @@ def fetch_metadata(whitelist: list, model_path: str):
 
             if value is None:
                 # If the key is not found, record 'NOT_FOUND'
-                logging.warning(f"Key {key} not found in config file. "
-                                "Recording 'NOT_FOUND'")
+                logging.warning("Key %s not found in config file. "
+                                "Recording 'NOT_FOUND'", key)
                 values[key] = "NOT_FOUND"
             else:
                 # Otherwise, record the found value
@@ -475,6 +475,6 @@ def pad_and_queue_batch(model_path: str,
     # Push the prepared batch to the prepared_queue
     prepared_queue.put((padded_batch, batch_groups, batch_identifiers,
                         batch_metadata, model_path, batch_id))
-    logging.info(f"Prepared batch {batch_id} ({len(batch_images)} items) for "
-                 "prediction")
-    logging.info(f"{request_queue.qsize()} items waiting to be processed")
+    logging.info("Prepared batch %s (%s items) for "
+                 "prediction", batch_id, len(batch_images))
+    logging.info("%s items waiting to be processed", request_queue.qsize())

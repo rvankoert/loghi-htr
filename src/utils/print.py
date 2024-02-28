@@ -1,11 +1,11 @@
 # Imports
 
-# > Third-party dependencies
-import tensorflow as tf
-
 # > Standard library
 import logging
 from typing import List, Optional, Tuple, Union
+
+# > Third-party dependencies
+import tensorflow as tf
 
 
 def print_predictions(filename: str,
@@ -38,14 +38,14 @@ def print_predictions(filename: str,
 
     logging.info("--------------------------------------------------------")
     logging.info("")
-    logging.info(f"File: {filename}")
+    logging.info("File: %s", filename)
     logging.info("")
-    logging.info(f"Original text  - {original_text}")
+    logging.info("Original text  - %s", original_text)
     if normalized_text:
-        logging.info(f"Normalized text - {normalized_text}")
-    logging.info(f"Predicted text - {predicted_text}")
+        logging.info("Normalized text - %s", normalized_text)
+    logging.info("Predicted text - %s", predicted_text)
     if char_str:
-        logging.info(f"WordBeamSearch - {char_str}")
+        logging.info("WordBeamSearch - %s", char_str)
     logging.info("")
 
 
@@ -82,11 +82,12 @@ def print_cer_stats(distances: Tuple[int, int, int],
     simple_cer = edit_distance_to_cer(simple_edit_distance, length_simple)
 
     # Print CER stats
-    logging.info(f"{prefix}CER        = {cer:.4f} ({edit_distance}/{length})")
-    logging.info(f"{prefix}Lower CER  = {lower_cer:.4f} ({lower_edit_distance}"
-                 f"/{length})")
-    logging.info(f"{prefix}Simple CER = {simple_cer:.4f} "
-                 f"({simple_edit_distance}/{length_simple})")
+    logging.info("%sCER        = %.4f (%s/%s)",
+                 prefix, cer, edit_distance, length)
+    logging.info("%sLower CER  = %.4f (%s/%s)", prefix, lower_cer,
+                 lower_edit_distance, length)
+    logging.info("%sSimple CER = %.4f (%s/%s)", prefix, simple_cer,
+                 simple_edit_distance, length_simple)
     logging.info("")
 
 
@@ -164,7 +165,7 @@ def summarize_model(model: tf.keras.Model) -> List[str]:
     """
 
     model_layers = []
-    model.summary(print_fn=lambda x: model_layers.append(x))
+    model.summary(print_fn=model_layers.append)
     return model_layers
 
 

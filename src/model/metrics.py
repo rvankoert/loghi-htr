@@ -11,7 +11,7 @@ class CERMetric(tf.keras.metrics.Metric):
     """
 
     def __init__(self, name='CER_metric', greedy=True, beam_width=1, **kwargs):
-        super(CERMetric, self).__init__(name=name, **kwargs)
+        super().__init__(name=name, **kwargs)
         self.cer_accumulator = self.add_weight(
             name="total_cer", initializer="zeros")
         self.counter = self.add_weight(name="cer_count", initializer="zeros")
@@ -19,13 +19,13 @@ class CERMetric(tf.keras.metrics.Metric):
         self.beam_width = beam_width
 
     @tf.function
-    def update_state(self, y_true, y_pred, sample_weight=None):
+    def update_state(self, y_true, y_pred):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(
             shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
-        decode, log = K.ctc_decode(y_pred,
-                                   input_length,
-                                   greedy=True)
+        decode, _ = K.ctc_decode(y_pred,
+                                 input_length,
+                                 greedy=True)
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))
@@ -60,20 +60,20 @@ class WERMetric(tf.keras.metrics.Metric):
     """
 
     def __init__(self, name='WER_metric', **kwargs):
-        super(WERMetric, self).__init__(name=name, **kwargs)
+        super().__init__(name=name, **kwargs)
         self.wer_accumulator = self.add_weight(
             name="total_wer", initializer="zeros")
         self.counter = self.add_weight(name="wer_count", initializer="zeros")
 
     @tf.function
-    def update_state(self, y_true, y_pred, sample_weight=None):
+    def update_state(self, y_true, y_pred):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(
             shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
 
-        decode, log = K.ctc_decode(y_pred,
-                                   input_length,
-                                   greedy=True)
+        decode, _ = K.ctc_decode(y_pred,
+                                 input_length,
+                                 greedy=True)
 
         decode = K.ctc_label_dense_to_sparse(
             decode[0], K.cast(input_length, 'int32'))

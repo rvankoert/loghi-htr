@@ -122,7 +122,7 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
     # We don't need to load the charlist if we are replacing the final layer
     if not replace_final_layer:
         if os.path.exists(charlist_location):
-            with open(charlist_location) as file:
+            with open(charlist_location, encoding="utf-8") as file:
                 for char in file.read():
                     if char == '':
                         logging.warning("Found padding character in the "
@@ -130,14 +130,14 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
                         removed_padding = True
                     else:
                         charlist.append(char)
-            logging.info(f"Using charlist from: {charlist_location}")
+            logging.info("Using charlist from: %s", charlist_location)
         else:
-            raise FileNotFoundError(
-                f"Charlist not found at: {charlist_location} and "
-                "replace_final_layer is False.")
+            raise FileNotFoundError("Charlist not found at: "
+                                    f"{charlist_location} and "
+                                    "replace_final_layer is False.")
 
-        logging.info(f"Using charlist: {charlist}")
-        logging.info(f"Charlist length: {len(charlist)}")
+        logging.info("Using charlist: %s", charlist)
+        logging.info("Charlist length: %s", len(charlist))
 
     return charlist, removed_padding
 
@@ -162,5 +162,5 @@ def save_charlist(charlist: List[str],
     """
 
     # Save the new charlist
-    with open(f"{output}/charlist.txt", 'w') as chars_file:
+    with open(f"{output}/charlist.txt", 'w', encoding="utf-8") as chars_file:
         chars_file.write(str().join(charlist))

@@ -4,8 +4,11 @@
 import os
 from pathlib import Path
 import sys
-
 from typing import Tuple
+
+# > Third party libraries
+import tensorflow as tf
+import numpy as np
 
 # > Local dependencies
 from vis_arg_parser import get_args
@@ -15,10 +18,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))  # noqa: E4
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
 from model.custom_layers import ResidualBlock
-
-# > Third party libraries
-import tensorflow as tf
-import numpy as np
 
 
 def prep_image_for_model(img_path: str, model_channels: int) \
@@ -116,7 +115,7 @@ def init_pre_trained_model():
             raise FileNotFoundError("Please provide a valid path to an "
                                     "existing model, you provided: "
                                     + str(args.existing_model))
-        MODEL_PATH = args.existing_model
+        model_path = args.existing_model
     else:
         raise ValueError("Please provide a path to an existing model")
 
@@ -124,7 +123,7 @@ def init_pre_trained_model():
     # Set seed for plots to check changes in preprocessing
     np.random.seed(seed)
     tf.random.set_seed(seed)
-    model = tf.keras.models.load_model(MODEL_PATH,
+    model = tf.keras.models.load_model(model_path,
                                        custom_objects={
                                            "CERMetric": CERMetric,
                                            "WERMetric": WERMetric,
@@ -133,4 +132,4 @@ def init_pre_trained_model():
     model_channels = model.input_shape[3]
     model.summary()
 
-    return model, model_channels, MODEL_PATH
+    return model, model_channels, model_path

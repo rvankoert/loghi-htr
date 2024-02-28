@@ -6,11 +6,11 @@ import logging
 import os
 import threading
 
-# > Local dependencies
-from setup.config import Config
-
 # > Third party libraries
 import tensorflow as tf
+
+# > Local dependencies
+from setup.config import Config
 
 
 class LoghiCustomCallback(tf.keras.callbacks.Callback):
@@ -52,7 +52,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         Initialize the callback with provided configuration.
         """
 
-        super(LoghiCustomCallback, self).__init__()
+        super().__init__()
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output
@@ -109,21 +109,23 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
             # Save additional files
             if self.charlist:
-                with open(os.path.join(outputdir, "charlist.txt"), "w") \
+                with open(os.path.join(outputdir, "charlist.txt",
+                                       encoding="utf-8"), "w") \
                         as chars_file:
                     chars_file.write("".join(self.charlist))
             if self.config:
                 self.config.save(os.path.join(outputdir, "config.json"))
             if self.normalization_file:
-                with open(self.normalization_file, "r") as norm_file:
+                with open(self.normalization_file, "r", encoding="utf-8") \
+                        as norm_file:
                     normalization = json.load(norm_file)
                 with open(os.path.join(outputdir, "normalization.json"),
-                          "w") as norm_file:
+                          "w", encoding="utf-8") as norm_file:
                     json.dump(normalization, norm_file, indent=4,
                               ensure_ascii=False)
 
         except Exception as e:
-            self.logger.error(f"Error saving model: {e}")
+            self.logger.error("Error saving model: %s", e)
 
     def on_epoch_end(self, epoch: int, logs: dict = None):
         """
@@ -151,18 +153,16 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         # Save model if necessary
         if self.save_best and current_val_metric is not None:
             if current_val_metric < self.best_val_metric:
-                self.logger.info("Validation CER improved from "
-                                 f"{self.best_val_metric:.4f} to "
-                                 f"{current_val_metric:.4f}")
+                self.logger.info("Validation CER improved from %.4f to %.4f",
+                                 self.best_val_metric, current_val_metric)
                 self.best_val_metric = current_val_metric
                 self._async_save_model("best_val")
 
         # Save checkpoint
         if self.save_checkpoint:
-            checkpoint_name = "epoch_{}_CER_{:.4f}".format(
-                epoch, logs.get("CER_metric", 0))
+            ckpt_name = f"epoch_{epoch}_CER_{logs.get('CER_metric', 0):.4f}"
             if current_val_metric is not None:
-                checkpoint_name += f"_val_{current_val_metric:.4f}"
+                ckpt_name += f"_val_{current_val_metric:.4f}"
             self.logger.info("Saving checkpoint...")
-            self._async_save_model(checkpoint_name)
+            self._async_save_model(ckpt_name)
             self.logger.info("Checkpoint saved.")

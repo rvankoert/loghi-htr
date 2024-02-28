@@ -166,9 +166,8 @@ class PdfMaker(FPDF):
 
         if match:
             return match.group(1)
-        else:
-            # If no match found, return the entire cleaned string
-            return cleaned_string
+        # If no match found, return the entire cleaned string
+        return cleaned_string
 
     def set_header(self, replace_header, font_r, font_g, font_b):
         """

@@ -53,10 +53,10 @@ def predict() -> flask.Response:
     # Here, we're just queuing the raw data.
     image_file, group_id, identifier, model, whitelist = extract_request_data()
 
-    logger.debug(f"Data received: {group_id}, {identifier}")
-    logger.debug(f"Adding {identifier} to queue")
-    logger.debug(f"Using model {model}")
-    logger.debug(f"Using whitelist {whitelist}")
+    logger.debug("Data received: %s, %s", group_id, identifier)
+    logger.debug("Adding %s to queue", identifier)
+    logger.debug("Using model %s", model)
+    logger.debug("Using whitelist %s", whitelist)
 
     try:
         app.request_queue.put((image_file, group_id, identifier,
@@ -111,7 +111,7 @@ def health() -> flask.Response:
 
     for name, worker in app.workers.items():
         if not worker.is_alive():
-            logger.error(f"{name} worker is not alive")
+            logger.error("%s worker is not alive", name)
             response = jsonify({
                 "status": "unhealthy",
                 "code": 500,
