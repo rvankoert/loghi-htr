@@ -157,19 +157,16 @@ def select_number_of_row_plots(model, do_detailed=False):
                 sub_list_indices.append(i)
                 layer_selection.append(layer_info[i])
         return layer_selection, sub_list_indices, conv_layers
-    else:
-        return layer_info, [], conv_layers
+    return layer_info, [], conv_layers
 
 
 def main(args=None):
     # Load args
-    if args:
-        args = args
-    else:
+    if args is None:
         args = get_args()
 
     # Load in pre-trained model and get model channels
-    model, model_channels, MODEL_PATH = init_pre_trained_model()
+    model, model_channels, _ = init_pre_trained_model()
 
     # Prep plots
     num_filters_per_row = args.num_filters_per_row  # Number of filters per row
@@ -230,7 +227,7 @@ def main(args=None):
                     img_path = args.sample_image_path
 
                     # Prepare image based on model channels
-                    img, image_width, image_height = prep_image_for_model(
+                    img, image_width, _ = prep_image_for_model(
                         img_path, model_channels)
                     maps = feature_extractor.predict(img)
 
@@ -272,10 +269,10 @@ def main(args=None):
                         filter_images[filter_index], cmap=filter_cmap)
                     filter_plot[filter_index].set_title(
                         "Conv Filter: " + str(filter_index))
-            except IndexError:
+            except IndexError as e:
                 raise IndexError("filter_index has surpassed the filters in "
                                  "the layer, select a lower number of filters "
-                                 "to plot")
+                                 "to plot") from e
 
         # Fix layout parameters and keep some extra space at the top for
         # suptitle
