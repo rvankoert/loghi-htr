@@ -129,10 +129,9 @@ class Tokenizer:
                                          axis=-1).numpy()
         if isinstance(decoded, bytes):
             return decoded.decode("utf-8")
-        elif isinstance(decoded, np.ndarray):
+        if isinstance(decoded, np.ndarray):
             return np.array([d.decode("utf-8") for d in decoded])
-        else:
-            return decoded
+        return decoded
 
 
 def remove_tags(text: str) -> str:

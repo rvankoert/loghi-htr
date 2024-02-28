@@ -205,7 +205,7 @@ class VGSLModelGenerator:
                 self.history.append(f"avgpool_{index}")
             elif layer.startswith('RB'):
                 setattr(self, f"ResidualBlock_{index}",
-                        self.residual_block_generator(layer, index))
+                        self.residual_block_generator(layer))
                 self.history.append(f"ResidualBlock_{index}")
             elif layer.startswith('D'):
                 setattr(self, f"dropout_{index}",
@@ -623,7 +623,7 @@ class VGSLModelGenerator:
             raise ValueError(f"Conv layer {layer} has too few parameters. "
                              "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>"
                              ",<s_y>,<d>")
-        elif len(conv_filter_params) > 5:
+        if len(conv_filter_params) > 5:
             raise ValueError(f"Conv layer {layer} has too many parameters. "
                              "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>,"
                              "<s_y>,<d>")
@@ -631,9 +631,9 @@ class VGSLModelGenerator:
         # Get activation function
         try:
             activation = self.get_activation_function(layer[1])
-        except ValueError:
+        except ValueError as e:
             raise ValueError(
-                f"Invalid activation function specified in {layer}")
+                f"Invalid activation function specified in {layer}") from e
 
         # Check parameter length and generate corresponding Conv2D layer
         if len(conv_filter_params) == 3:
@@ -647,7 +647,7 @@ class VGSLModelGenerator:
                                  activation=activation,
                                  kernel_initializer=self._initializer,
                                  name=name)
-        elif len(conv_filter_params) == 5:
+        if len(conv_filter_params) == 5:
             x, y, s_x, s_y, d = conv_filter_params
             return layers.Conv2D(d,
                                  kernel_size=(y, x),
@@ -1290,7 +1290,7 @@ class VGSLModelGenerator:
             return layers.Dense(classes,
                                 activation='softmax',
                                 kernel_initializer=self._initializer)
-        elif linearity == "l":
+        if linearity == "l":
             return layers.Dense(classes,
                                 activation='linear',
                                 kernel_initializer=self._initializer)

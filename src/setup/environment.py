@@ -63,7 +63,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     """
 
     # Initial setup
-    logging.info(f"Running with config:\n{config}")
+    logging.info("Running with config:\n%s", config)
 
     # Set the random seed
     if config["deterministic"]:
@@ -71,8 +71,8 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
 
     # Set the GPU
     gpu_devices = tf.config.list_physical_devices('GPU')
-    logging.info(f"Selected GPU indices from config: {config['gpu']}")
-    logging.info(f"Available GPU(s): {gpu_devices}")
+    logging.info("Selected GPU indices from config: %s", config["gpu"])
+    logging.info("Available GPU(s): %s", gpu_devices)
 
     # Set the active GPUs depending on the 'gpu' argument
     if config["gpu"] == "-1":
@@ -88,7 +88,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
                 active_gpus.append(gpu)
 
     if active_gpus:
-        logging.info(f"Using GPU(s): {active_gpus}")
+        logging.info("Using GPU(s): %s", active_gpus)
     else:
         logging.info("Using CPU")
 

@@ -58,14 +58,14 @@ def setup_word_beam_search(config: Config, charlist: List[str],
                                 f'{config["corpus_file"]}')
 
     # Load the corpus
-    with open(config["corpus_file"]) as f:
+    with open(config["corpus_file"], encoding="utf-8") as f:
         # Create the corpus
         corpus = ''
         for line in f:
             if config["normalization_file"]:
                 line = loader.normalize(line, config["normalization_file"])
             corpus += line
-    logging.info(f'Using corpus file: {config["corpus_file"]}')
+    logging.info('Using corpus file: %s', config["corpus_file"])
 
     # Create the WordBeamSearch object
     word_chars = \

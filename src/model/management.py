@@ -100,7 +100,7 @@ def customize_model(model: tf.keras.Model,
         for layer in model.layers:
             if config["thaw"]:
                 layer.trainable = True
-                logging.info(f"Thawing layer: {layer.name}")
+                logging.info("Thawing layer: %s", layer.name)
             elif config["freeze_conv_layers"] and \
                 (layer.name.lower().startswith("conv") or
                  layer.name.lower().startswith("residual")):
@@ -199,7 +199,7 @@ def load_or_create_model(config: Config,
             model._name = config["model_name"]
     else:
         model_generator = VGSLModelGenerator(
-            model=config["model"],
+            model_spec=config["model"],
             name=config["model_name"],
             channels=config["channels"]
         )

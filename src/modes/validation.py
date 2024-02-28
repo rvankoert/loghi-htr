@@ -105,7 +105,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
             print_predictions(filename, original_text, prediction,
                               normalized_original, wbs_str)
-            logging.info(f"Confidence = {confidence:.4f}")
+            logging.info("Confidence = %.4f", confidence)
             logging.info("")
 
         # Wrap the distances and originals in dictionaries
@@ -215,13 +215,14 @@ def perform_validation(config: Config,
     # Print the final statistics
     for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],
                                              intervals):
-        logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
+        logging.info("%s = %.4f  +/- %.4f", metric, total_value, interval)
 
-    logging.info(f"Items = {total_stats[-1]}")
+    logging.info("Items = %s", total_stats[-1])
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(config["output"], 'validation.csv'), 'w') as f:
+    with open(os.path.join(config["output"], 'validation.csv'),
+              'w', encoding="utf-8") as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower," \

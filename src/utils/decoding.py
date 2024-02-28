@@ -32,9 +32,6 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
         Log probabilities of the decoded sequences.
     """
 
-    # Get the number of samples and timesteps
-    num_samples, num_steps = y_pred.shape[:2]
-
     # Transpose the predictions
     y_pred = tf.math.log(tf.transpose(y_pred, perm=[1, 0, 2])
                          + tf.keras.backend.epsilon())
