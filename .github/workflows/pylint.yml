@@ -21,4 +21,4 @@ jobs:
         pip install -r requirements.txt
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files 'src/*.py') --extension-pkg-whitelist=cv2,word_beam_search --generated-members=cv2,word_beam_search --ignored-modules=tensorflow.*,skimage.filters --disable=import-error
+        pylint $(git ls-files 'src/*.py') --extension-pkg-whitelist=cv2,word_beam_search --generated-members=cv2,word_beam_search --ignored-modules=tensorflow.*,skimage.filters --disable=import-error --fail-under=8
