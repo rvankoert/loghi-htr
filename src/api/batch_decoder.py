@@ -3,12 +3,12 @@
 # > Standard library
 import logging
 import multiprocessing
-import numpy as np
 import os
 import sys
 from typing import List, Tuple
 
 # > Third-party dependencies
+import numpy as np
 import tensorflow as tf
 
 # > Local imports
@@ -55,7 +55,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             # Re-initialize utilities if model has changed
             if model != model_path:
                 tokenizer = create_tokenizer(model)
-                logging.info(f"Utilities re-initialized for {model}")
+                logging.info("Utilities re-initialized for %s", model)
                 model_path = model
 
             decoded_predictions = batch_decode(encoded_predictions, tokenizer)
@@ -69,14 +69,14 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             total_outputs += len(outputted_predictions)
 
             for output in outputted_predictions:
-                logging.debug(f"Outputted prediction: {output}")
+                logging.debug("Outputted prediction: %s", output)
 
-            logging.info(f"Decoded and outputted batch {batch_id} "
-                         f"({len(decoded_predictions)} items)")
-            logging.info(f"Total predictions complete: {total_outputs}")
+            logging.info("Decoded and outputted batch %s (%s items)",
+                         batch_id, len(decoded_predictions))
+            logging.info("Total predictions complete: %s", total_outputs)
 
     except Exception as e:
-        logging.error(f"Error in batch decoding process: {e}")
+        logging.error("Error in batch decoding process: %s", e)
         raise e
 
 
@@ -99,8 +99,8 @@ def batch_decode(encoded_predictions: np.ndarray,
     """
 
     logging.debug("Decoding predictions...")
-    decoded_predictions = decode_batch_predictions(
-        encoded_predictions, tokenizer)
+    decoded_predictions = decode_batch_predictions(encoded_predictions,
+                                                   tokenizer)
     logging.debug("Predictions decoded")
 
     return decoded_predictions
@@ -124,15 +124,15 @@ def create_tokenizer(model_path: str) -> Tokenizer:
     # Load the character list
     charlist_path = f"{model_path}/charlist.txt"
     try:
-        with open(charlist_path) as file:
+        with open(charlist_path, encoding="utf-8") as file:
             charlist = [char for char in file.read() if char != '']
         tokenizer = Tokenizer(charlist, use_mask=True)
         logging.debug("Utilities initialized")
-    except FileNotFoundError:
-        logging.error(f"charlist.txt not found at {model_path}. Exiting...")
-        raise FileNotFoundError
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"charlist.txt not found at {model_path}") \
+            from e
     except Exception as e:
-        logging.error(f"Error loading utilities: {e}")
+        logging.error("Error loading utilities: %s", e)
         raise e
 
     return tokenizer
@@ -182,8 +182,9 @@ def output_predictions(predictions: List[Tuple[float, str]],
         output_dir = os.path.join(output_path, group_id)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-            logging.debug(f"Created output directory: {output_dir}")
-        with open(os.path.join(output_dir, identifier + ".txt"), "w") as f:
+            logging.debug("Created output directory: %s", output_dir)
+        with open(os.path.join(output_dir, identifier + ".txt"), "w",
+                  encoding="utf-8") as f:
             f.write(text + "\n")
 
     return outputs

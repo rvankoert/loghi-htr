@@ -106,8 +106,8 @@ class SimpleSecurity:
         try:
             return json.loads(key_user_json)
         except json.JSONDecodeError as e:
-            logging.error(f"Invalid JSON: {e}")
-            raise ValueError("Invalid key_user_json format")
+            logging.error("Invalid JSON: %s", e)
+            raise ValueError("Invalid JSON in key_user_json") from e
 
     def is_known_session_key(self, session_key: str) -> bool:
         """
@@ -178,6 +178,7 @@ class SimpleSecurity:
             session_key = str(uuid.uuid4())
             self.session_key_user[session_key] = self.api_key_user[api_key]
             return session_key
+        return ""
 
 
 def session_key_required(func):
