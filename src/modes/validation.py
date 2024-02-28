@@ -215,7 +215,7 @@ def perform_validation(config: Config,
     # Print the final statistics
     for metric, total_value, interval in zip(metrics[:-1], total_stats[:-1],
                                              intervals):
-        logging.info("%s = %.4f  +/- %.4f", metric, total_value, interval)
+        logging.info("%s = %.4f +/- %.4f", metric, total_value, interval)
 
     logging.info("Items = %s", total_stats[-1])
     logging.info("")

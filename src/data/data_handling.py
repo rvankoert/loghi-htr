@@ -132,9 +132,9 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
                         charlist.append(char)
             logging.info("Using charlist from: %s", charlist_location)
         else:
-            raise FileNotFoundError(
-                "Charlist not found at: %s and replace_final_layer is False.",
-                charlist_location)
+            raise FileNotFoundError("Charlist not found at: "
+                                    f"{charlist_location} and "
+                                    "replace_final_layer is False.")
 
         logging.info("Using charlist: %s", charlist)
         logging.info("Charlist length: %s", len(charlist))
