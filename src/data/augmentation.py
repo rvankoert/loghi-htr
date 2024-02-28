@@ -35,7 +35,8 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
                             channels: int = 3) -> None:
     """
     Applies each layer of an augmentation model to a sample image,
-    plotting and saving the transformations sequentially.
+    plotting and saving the transformations sequentially along with a pixel
+    value histogram for debugging purposes.
 
     Parameters
     ----------
@@ -65,23 +66,32 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
     # Container for each step's image
     augment_images = [sample_image[0]]
 
+    # Calculate histogram for the original image
+    histograms = []
+    original_hist = tf.histogram_fixed_width(sample_image[0], [0.0, 1.0], nbins=256)
+    histograms.append(original_hist)
+
     # Apply each augmentation layer to the image
     for layer in aug_model.layers:
         sample_image = layer(sample_image, training=True)
         augment_images.append(sample_image[0])
 
+        # Ensure the tensor is converted to float32 for histogram calculation
+        sample_image_float32 = tf.image.convert_image_dtype(sample_image[0],
+                                                            dtype=tf.float32)
+
+        # Calculate histogram for the augmented image
+        hist = tf.histogram_fixed_width(sample_image_float32, [0.0, 1.0], nbins=256)
+        histograms.append(hist)
+
     # Plot the original and each augmentation step
     num_of_images = len(augment_images)
-    plt.figure(figsize=(8, 1 * num_of_images))
-    plt.suptitle("Data Augment steps:", fontsize=16)
+    plt.figure(figsize=(20, 2 * num_of_images))
+    plt.suptitle("Data Augment steps and histograms:", fontsize=16)
     plt.axis('off')
 
-    for idx, image in enumerate(augment_images):
+    for idx, (image, histogram) in enumerate(zip(augment_images, histograms)):
         layer_name = aug_model.layers[idx - 1].name if idx > 0 else 'Original'
-        image_shape = image.shape
-        logging.debug("plotting layer_name: ", layer_name)
-        logging.debug("plot image shape: ", image.shape)
-        logging.debug("plot image dtype: ", image.dtype)
 
         # Adjust the image based on the number of channels
         if image.shape[-1] == 4:  # RGBA
@@ -96,11 +106,17 @@ def save_augment_steps_plot(aug_model: tf.keras.Sequential,
         # Ensure the image is of type float32 for plotting
         image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
-        plt.subplot(num_of_images, 1, idx + 1)
-        plt.title(f'Step {idx}: {layer_name} {image_shape}')
-        plt.tight_layout()
+        # Plotting the image
+        ax = plt.subplot(num_of_images, 2, idx * 2 + 1)
+        plt.title(f'Step {idx}: {layer_name}')
         plt.imshow(image, vmin=0, vmax=1, cmap=cmap)
         plt.axis('off')
+
+        # Plotting the histogram
+        ax = plt.subplot(num_of_images, 2, idx * 2 + 2)
+        plt.title(f'Histogram {idx}: {layer_name}')
+        plt.plot(histogram)
+        plt.tight_layout()
 
     plt.savefig(save_path)
 

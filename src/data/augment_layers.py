@@ -130,14 +130,13 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
         # 2, since 0 is batch and 3 is channel
         x_deformed = etf.deform_grid(
             inputs, displacement_val, axis=(1, 2), order=3,
-            cval=self.fill_value
+            mode='nearest'
         )
 
         # Ensure output normalization for further augments
         x_deformed = tf.clip_by_value(x_deformed,
                                       clip_value_min=0.0,
                                       clip_value_max=1.0)
-
         return x_deformed
 
 
@@ -278,7 +277,54 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
             raise ValueError("Either target_width or additional_width must be "
                              "specified")
 
-        self.fill_value = 1.0 if binary else 0
+        self.fill_value = 1.0 if binary else 0.0
+
+    def estimate_background_color(self, image):
+        """
+        Estimate the background color of an image by analyzing the mean color
+        of its edges and additional middle sections. This approach aims to
+        provide a more accurate background color estimation by considering
+        various segments of the image.
+
+        Parameters
+        ----------
+        image : tf.Tensor
+            Input image tensor in the format [batch_size, height, width, channels].
+
+        Returns
+        -------
+        tf.Tensor
+            The estimated background color as a tensor.
+        """
+        # Define slices for the edges
+        top_edge = image[:, 0:1, :, :]
+        bottom_edge = image[:, -1:, :, :]
+        left_edge = image[:, :, 0:1, :]
+        right_edge = image[:, :, -1:, :]
+
+        # Calculate indices for the middle sections
+        height, width = tf.shape(image)[1], tf.shape(image)[2]
+        mid_height_start, mid_height_end = height // 4, 3 * height // 4
+        mid_width_start, mid_width_end = width // 4, 3 * width // 4
+
+        # Sample from middle sections of the edges
+        left_mid_sample = image[:, mid_height_start:mid_height_end, 0:1, :]
+        right_mid_sample = image[:, mid_height_start:mid_height_end, -1:, :]
+        top_mid_sample = image[:, 0:1, mid_width_start:mid_width_end, :]
+        bottom_mid_sample = image[:, -1:, mid_width_start:mid_width_end, :]
+
+        # Calculate mean colors of the samples
+        samples_mean = tf.concat([
+            tf.reduce_mean(sample, axis=[1, 2, 3], keepdims=True)
+            for sample in [top_edge, bottom_edge, left_edge, right_edge,
+                           left_mid_sample, right_mid_sample,
+                           top_mid_sample, bottom_mid_sample]
+        ], axis=0)
+
+        # Estimate background color by averaging all mean colors
+        background_color = tf.reduce_mean(samples_mean, axis=0, keepdims=False)
+
+        return background_color
 
     def call(self, inputs, training=None):
         """
@@ -307,8 +353,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         else:
             target_width = self.target_width
 
-        # First resize the image to the target height while maintaining aspect
-        # ratio
+        # Resize image to the target height while maintaining aspect ratio
         resized_img = tf.image.resize(inputs, [self.target_height,
                                                target_width],
                                       preserve_aspect_ratio=True)
@@ -327,11 +372,19 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         padding = [[0, 0], [top_pad, bottom_pad],
                    [left_pad, right_pad], [0, 0]]
 
-        # Pad the width of the image
-        padded_img = tf.pad(resized_img,
-                            paddings=padding,
-                            constant_values=self.fill_value)
+        # Estimate background color
+        background_color = self.estimate_background_color(inputs)
 
+        # Reduce it to a scalar of the same dtype
+        background_color_scalar = tf.reduce_mean(background_color)
+
+        # Ensure the scalar is the correct type, matching resized_img
+        background_color_scalar = tf.cast(background_color_scalar,
+                                          dtype=tf.float32)
+
+        # Pad the image
+        padded_img = tf.pad(resized_img, paddings=padding, mode="CONSTANT",
+                            constant_values=background_color_scalar)
         padded_img = tf.cast(padded_img, tf.float16)
 
         return padded_img
