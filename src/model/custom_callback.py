@@ -109,8 +109,8 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
             # Save additional files
             if self.charlist:
-                with open(os.path.join(outputdir, "charlist.txt",
-                                       encoding="utf-8"), "w") \
+                with open(os.path.join(outputdir, "charlist.txt"),
+                          "w", encoding="utf-8") \
                         as chars_file:
                     chars_file.write("".join(self.charlist))
             if self.config:

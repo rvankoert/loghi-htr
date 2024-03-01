@@ -19,7 +19,7 @@ class CERMetric(tf.keras.metrics.Metric):
         self.beam_width = beam_width
 
     @tf.function
-    def update_state(self, y_true, y_pred):
+    def update_state(self, y_true, y_pred, sample_weight=None):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(
             shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
@@ -66,7 +66,7 @@ class WERMetric(tf.keras.metrics.Metric):
         self.counter = self.add_weight(name="wer_count", initializer="zeros")
 
     @tf.function
-    def update_state(self, y_true, y_pred):
+    def update_state(self, y_true, y_pred, sample_weight=None):
         input_shape = K.shape(y_pred)
         input_length = tf.ones(
             shape=input_shape[0]) * K.cast(input_shape[1], 'float32')
