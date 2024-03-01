@@ -214,7 +214,7 @@ def handle_batch_prediction(model: tf.keras.Model,
 
     # Unpack the batch data
     batch_images, batch_groups, batch_identifiers, batch_metadata, \
-        _, batch_id = batch_data
+        model_path, batch_id = batch_data
     batch_info = list(zip(batch_groups, batch_identifiers))
 
     try:
@@ -224,7 +224,8 @@ def handle_batch_prediction(model: tf.keras.Model,
 
         # Decode the predictions
         predicted_queue.put((encoded_predictions, batch_groups,
-                             batch_identifiers, batch_id, batch_metadata))
+                             batch_identifiers, model_path,
+                             batch_id, batch_metadata))
 
         return len(encoded_predictions)
 
