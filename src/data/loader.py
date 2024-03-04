@@ -140,7 +140,7 @@ class DataLoader:
                                        tf.constant(0, dtype=tf.int64)))
                      .prefetch(AUTOTUNE)
                      ).apply(
-                        tf.data.experimental.assert_cardinality(num_batches))
+            tf.data.experimental.assert_cardinality(num_batches))
 
         return generator
 
@@ -240,20 +240,23 @@ class DataLoader:
             if self.train_list:
                 evaluation_generator = self.init_data_generator(
                     eval_files, train_params, deterministic=True,
-                    is_training=True
+                    is_training=False
                 )
             validation_generator = self.init_data_generator(
-                val_files, train_params, deterministic=True
+                val_files, train_params, deterministic=True,
+                is_training=False
             )
 
         if self.test_list:
             test_generator = self.init_data_generator(
-                test_files, train_params, deterministic=True
+                test_files, train_params, deterministic=True,
+                is_training=False
             )
 
         if self.inference_list:
             inference_generator = self.init_data_generator(
-                inf_files, train_params, deterministic=True
+                inf_files, train_params, deterministic=True,
+                is_training=False
             )
 
         # Update the partition information.
