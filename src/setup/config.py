@@ -195,7 +195,8 @@ class Config:
                 "do_blur": args.do_blur,
                 "do_invert": args.do_invert,
                 "do_binarize_otsu": args.do_binarize_otsu,
-                "do_binarize_sauvola": args.do_binarize_sauvola
+                "do_binarize_sauvola": args.do_binarize_sauvola,
+                "visualize_augments": args.visualize_augments
             },
             "decoding": {
                 "greedy": args.greedy,

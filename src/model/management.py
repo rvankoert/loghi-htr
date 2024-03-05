@@ -44,7 +44,6 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     # Create a new model from the modified configuration
     model_new = tf.keras.Model.from_config(config)
     model_new.set_weights(model.get_weights())
-
     model = model_new
 
     # Verify float32
@@ -236,11 +235,11 @@ def verify_charlist_length(charlist: List[str],
 
     # Verify that the length of the charlist is correct
     if use_mask:
-        expected_length = model.layers[-1].output_shape[2] - 2 - \
-            int(removed_padding)
+        expected_length = model.get_layer(index=-1) \
+            .get_output_at(0).shape[2] - 2 - int(removed_padding)
     else:
-        expected_length = model.layers[-1].output_shape[2] - 1 - \
-            int(removed_padding)
+        expected_length = model.get_layer(index=-1) \
+            .get_output_at(0).shape[2] - 1 - int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "

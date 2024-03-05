@@ -15,7 +15,8 @@ from setup.config import Config
 
 def initialize_data_loader(config: Config,
                            charlist: List[str],
-                           model: tf.keras.Model) -> DataLoader:
+                           model: tf.keras.Model,
+                           augment_model) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
     shape of a given model.
@@ -55,18 +56,12 @@ def initialize_data_loader(config: Config,
         validation_list=config["validation_list"],
         inference_list=config["inference_list"],
         char_list=charlist,
-        do_binarize_sauvola=config["do_binarize_sauvola"],
-        do_binarize_otsu=config["do_binarize_otsu"],
         multiply=config["multiply"],
-        elastic_transform=config["elastic_transform"],
-        random_crop=config["random_crop"],
-        random_width=config["random_width"],
         check_missing_files=config["check_missing_files"],
-        distort_jpeg=config["distort_jpeg"],
         replace_final_layer=config["replace_final_layer"],
         normalization_file=config["normalization_file"],
         use_mask=config["use_mask"],
-        do_random_shear=config["do_random_shear"],
+        augment_model=augment_model,
     )
 
 

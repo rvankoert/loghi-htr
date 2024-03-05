@@ -120,10 +120,10 @@ class DataLoaderTest(unittest.TestCase):
     def test_create_data_simple(self):
         # Sample data
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
+        labels = {"train": []}
+        partition = {"train": []}
         data_file_list = self.sample_list_file
-        partition_name = "test_partition"
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -153,9 +153,9 @@ class DataLoaderTest(unittest.TestCase):
 
         # Sample data
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -187,9 +187,9 @@ class DataLoaderTest(unittest.TestCase):
             additional_lines)
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         # Initialize DataLoader with injected_charlist set to a list without
         # "X" and 'Y'
@@ -221,9 +221,9 @@ class DataLoaderTest(unittest.TestCase):
         temp_sample_list_file = self._create_temp_file()
 
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
-        partition_name = "test_partition"
+        labels = {"train": []}
+        partition = {"train": []}
+        partition_name = "train"
 
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
 
@@ -251,7 +251,7 @@ class DataLoaderTest(unittest.TestCase):
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
                                       normalization_file=os.path.join(
-                                          self.data_dir, "norm_chars.json"))
+            self.data_dir, "norm_chars.json"))
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -266,10 +266,10 @@ class DataLoaderTest(unittest.TestCase):
 
     def test_multiplication(self):
         chars = set()
-        labels = {"test_partition": []}
-        partition = {"test_partition": []}
+        labels = {"train": []}
+        partition = {"train": []}
         data_file_list = self.sample_list_file
-        partition_name = "test_partition"
+        partition_name = "train"
 
         # Initialize DataLoader with multiply set to 2
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
@@ -284,7 +284,7 @@ class DataLoaderTest(unittest.TestCase):
         # should be 6 now, as each line is duplicated due to multiplication
         self.assertEqual(len(files), 6, "Multiplication not working")
 
-    def test_generators(self):
+    def test_get_generators(self):
         batch_size = 2
         img_size = (256, 256, 3)
 
@@ -299,7 +299,7 @@ class DataLoaderTest(unittest.TestCase):
 
         training_generator, evaluation_generator, validation_generator, \
             test_generator, inference_generator, utils, train_batches, \
-            val_text = data_loader.generators()
+            val_text = data_loader.get_generators()
 
         # Basic tests
         self.assertIsNotNone(training_generator,
