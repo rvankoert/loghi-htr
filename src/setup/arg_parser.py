@@ -172,10 +172,11 @@ def get_arg_parser():
     augmentation_args.add_argument('--aug_multiply', '--multiply',
                                    metavar='multiply', type=int,
                                    dest='multiply',
-                                   default=1, help="Factor to increase the "
-                                                   "size of the training dataset by "
-                                                   "duplicating images. Default: 1 (no "
-                                                   "duplication).")
+                                   default=1,
+                                   help="Factor to increase the "
+                                   "size of the training dataset by "
+                                   "duplicating images. Default: 1 (no "
+                                   "duplication).")
     augmentation_args.add_argument('--aug_elastic_transform',
                                    '--elastic_transform', action='store_true',
                                    dest='elastic_transform',
@@ -210,12 +211,14 @@ def get_arg_parser():
                                    help="Apply Otsu's binarization method to "
                                         "images for augmentation.")
     augmentation_args.add_argument('--aug_binarize_sauvola',
-                                   '--do_binarize_sauvola', action='store_true',
+                                   '--do_binarize_sauvola',
+                                   action='store_true',
                                    dest='do_binarize_sauvola',
-                                   help="Use Sauvola's method for image binarization during "
-                                        "augmentation.")
+                                   help="Use Sauvola's method for image "
+                                   "binarization during augmentation.")
     augmentation_args.add_argument('--visualize_augments',
-                                   '--visualize_augments', action='store_true',
+                                   '--visualize_augments',
+                                   action='store_true',
                                    dest='visualize_augments',
                                    help='Prompt to create visualization of '
                                         'selected augments')
@@ -339,7 +342,7 @@ def arg_future_warning(args):
         'do_binarize_otsu', 'do_binarize_sauvola']
     for old_arg in old_arg_names:
         if getattr(args, old_arg, None) is not None:
-            new_arg_name = old_arg.replace("do_","")
+            new_arg_name = old_arg.replace("do_", "")
             logger.warning(f"Argument will lose support in May 2024: "
                            f"--{old_arg}. Use --aug_{new_arg_name} instead.")
 

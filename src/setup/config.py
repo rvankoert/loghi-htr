@@ -186,16 +186,16 @@ class Config:
                 "freeze_dense_layers": args.freeze_dense_layers
             },
             "augmentation": {
-                "multiply": args.multiply,
-                "elastic_transform": args.elastic_transform,
-                "random_crop": args.random_crop,
-                "random_width": args.random_width,
-                "distort_jpeg": args.distort_jpeg,
-                "do_random_shear": args.do_random_shear,
-                "do_blur": args.do_blur,
-                "do_invert": args.do_invert,
-                "do_binarize_otsu": args.do_binarize_otsu,
-                "do_binarize_sauvola": args.do_binarize_sauvola,
+                "aug_multiply": args.aug_multiply,
+                "aug_elastic_transform": args.aug_elastic_transform,
+                "aug_random_crop": args.aug_random_crop,
+                "aug_random_width": args.aug_random_width,
+                "aug_distort_jpeg": args.aug_distort_jpeg,
+                "aug_random_shear": args.aug_random_shear,
+                "aug_blur": args.aug_blur,
+                "aug_invert": args.aug_invert,
+                "aug_binarize_otsu": args.aug_binarize_otsu,
+                "aug_binarize_sauvola": args.aug_binarize_sauvola,
                 "visualize_augments": args.visualize_augments
             },
             "decoding": {
