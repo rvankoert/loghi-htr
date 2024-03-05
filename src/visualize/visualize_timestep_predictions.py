@@ -12,18 +12,18 @@ from typing import Tuple, List
 import numpy as np
 import cv2
 
-# > Local dependencies
-# Add the above directory to the path
-sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
-from vis_arg_parser import get_args  # noqa: E402
-from vis_utils import prep_image_for_model, init_pre_trained_model  # noqa: E402
-
 # Prep GPU support and set seeds/objects
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
 
 # Import tensorflow after setting the environment variables
 import tensorflow as tf  # noqa: E402
+
+# > Local dependencies
+# Add the above directory to the path
+sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
+from vis_arg_parser import get_args  # noqa: E402
+from vis_utils import prep_image_for_model, init_pre_trained_model  # noqa: E402
 
 
 def remove_tags(text: str) -> str:
@@ -124,7 +124,7 @@ def get_timestep_indices(model_path: str, preds: np.ndarray,
     4.0
     """
     char_list = model_path + "charlist.txt"
-    with open(char_list, 'r') as f:
+    with open(char_list, 'r', encoding="utf-8") as f:
         char_list = f.read()
 
     timestep_char_list_indices = []
@@ -192,7 +192,7 @@ def write_ctc_table_to_csv(preds: np.ndarray,
     # Create columns
     columns = ["ts_" + str(i) for i in range(preds.shape[1])]
     additional_chars = ['MASK', 'BLANK'] if '' in char_list else ["BLANK"]
-    characters = [char for char in char_list] + additional_chars
+    characters = list(char_list) + additional_chars
     transposed_data = np.transpose(tensor_data)
 
     if not os.path.isdir(Path(__file__).with_name("visualize_plots")):
@@ -295,7 +295,7 @@ def create_timestep_plots(bordered_img: np.ndarray, index_correction: int,
                 continue
                 # Do not draw predictions that are spaces or
                 # "invisible characters" for better readability
-            if re.sub('\W+', ' ', remove_tags(char_list[char_index])).strip() \
+            if re.sub(r'\W+', ' ', remove_tags(char_list[char_index])).strip()\
                     in [" ", ""]:
                 # Do not increment the line_start again
                 continue
@@ -372,13 +372,11 @@ def create_timestep_plots(bordered_img: np.ndarray, index_correction: int,
 
 def main(args=None):
     # Load args
-    if args:
-        args = args
-    else:
+    if args is None:
         args = get_args()
 
     # Load in pre-trained model and get model channels
-    model, model_channels, MODEL_PATH = init_pre_trained_model()
+    model, model_channels, model_path = init_pre_trained_model()
 
     # Make sure image is provided with call
     if args.sample_image_path:
@@ -397,7 +395,7 @@ def main(args=None):
 
     # Read char_list and calculate character indices for sample image preds
     (char_list, timestep_char_list_indices, timestep_char_list_indices_top_3,
-     step_width, pad_steps_skip) = get_timestep_indices(MODEL_PATH, preds,
+     step_width, pad_steps_skip) = get_timestep_indices(model_path, preds,
                                                         image_width)
 
     # Take the "raw" sample image and plot the pred results on top

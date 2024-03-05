@@ -191,8 +191,7 @@ def get_optimizer(optimizer_name: str,
 
     if optimizer_name in optimizers:
         return optimizers[optimizer_name](learning_rate=lr_schedule)
-    else:
-        raise ValueError(f"Invalid optimizer name: {optimizer_name}")
+    raise ValueError(f"Invalid optimizer name: {optimizer_name}")
 
 
 def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
@@ -250,6 +249,5 @@ def create_learning_rate_schedule(learning_rate: float, decay_rate: float,
             decay_per_epoch=decay_per_epoch,
             linear_decay=linear_decay
         )
-    else:
-        # If not training, return the initial learning rate
-        return learning_rate
+    # If not training, return the initial learning rate
+    return learning_rate

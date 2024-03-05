@@ -5,12 +5,12 @@ import argparse
 import re
 import logging
 
-# > Local dependencies
-from model.custom_layers import ResidualBlock
-
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow.keras import layers, models, initializers, Input
+
+# > Local dependencies
+from model.custom_layers import ResidualBlock
 
 
 class VGSLModelGenerator:
@@ -70,7 +70,7 @@ class VGSLModelGenerator:
     """
 
     def __init__(self,
-                 model: str,
+                 model_spec: str,
                  name: str = None,
                  channels: int = None,
                  output_classes: int = None):
@@ -104,33 +104,33 @@ class VGSLModelGenerator:
         self._channel_axis = -1
         self.model_library = VGSLModelGenerator.get_model_libary()
 
-        if model is None:
+        if model_spec is None:
             raise ValueError("No model provided. Please provide a model name "
                              "from the model library or a VGSL-spec string.")
 
-        if model.startswith("model"):
+        if model_spec.startswith("model"):
             try:
                 logging.info("Pulling model from model library")
-                model_string = self.model_library[model]
+                model_string = self.model_library[model_spec]
                 self.init_model_from_string(model_string,
                                             channels,
                                             output_classes)
-                self.model_name = name if name else model
+                self.model_name = name if name else model_spec
 
-            except KeyError:
-                raise KeyError("Model not found in model library")
+            except KeyError as e:
+                raise KeyError("Model not found in model library") from e
         else:
             try:
                 logging.info("Found VGSL-Spec String, testing validity...")
-                self.init_model_from_string(model,
+                self.init_model_from_string(model_spec,
                                             channels,
                                             output_classes)
                 self.model_name = name if name else "custom_model"
 
             except (TypeError, AttributeError) as e:
-                raise ("Something is wrong with the input string, "
-                       "please check the VGSL-spec formatting "
-                       "with the documentation.") from e
+                raise Exception("Something is wrong with the input string, "
+                                "please check the VGSL-spec formatting "
+                                "with the documentation.") from e
 
     def init_model_from_string(self,
                                vgsl_spec_string: str,
@@ -205,7 +205,7 @@ class VGSLModelGenerator:
                 self.history.append(f"avgpool_{index}")
             elif layer.startswith('RB'):
                 setattr(self, f"ResidualBlock_{index}",
-                        self.residual_block_generator(layer, index))
+                        self.residual_block_generator(layer))
                 self.history.append(f"ResidualBlock_{index}")
             elif layer.startswith('D'):
                 setattr(self, f"dropout_{index}",
@@ -238,7 +238,7 @@ class VGSLModelGenerator:
                              "VGSL-spec string.")
 
         x = self.inputs
-        for index, layer in enumerate(self.history):
+        for layer in self.history:
             if layer.startswith("reshape"):
                 x = self.reshape_generator(layer.split("_")[2], x)(x)
             else:
@@ -555,10 +555,10 @@ class VGSLModelGenerator:
         try:
             batch, height, width, depth = map(
                 lambda x: None if x == "None" else int(x), inputs.split(","))
-        except ValueError:
+        except ValueError as e:
             raise ValueError(
                 f"Invalid input string format {inputs}. Expected format: "
-                "batch,height,width,depth.")
+                "batch,height,width,depth.") from e
 
         if channels and depth != channels:
             logging.warning("Overwriting channels from input string. "
@@ -623,7 +623,7 @@ class VGSLModelGenerator:
             raise ValueError(f"Conv layer {layer} has too few parameters. "
                              "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>"
                              ",<s_y>,<d>")
-        elif len(conv_filter_params) > 5:
+        if len(conv_filter_params) > 5:
             raise ValueError(f"Conv layer {layer} has too many parameters. "
                              "Expected format: C<x>,<y>,<d> or C<x>,<y>,<s_x>,"
                              "<s_y>,<d>")
@@ -631,9 +631,9 @@ class VGSLModelGenerator:
         # Get activation function
         try:
             activation = self.get_activation_function(layer[1])
-        except ValueError:
+        except ValueError as e:
             raise ValueError(
-                f"Invalid activation function specified in {layer}")
+                f"Invalid activation function specified in {layer}") from e
 
         # Check parameter length and generate corresponding Conv2D layer
         if len(conv_filter_params) == 3:
@@ -647,7 +647,7 @@ class VGSLModelGenerator:
                                  activation=activation,
                                  kernel_initializer=self._initializer,
                                  name=name)
-        elif len(conv_filter_params) == 5:
+        if len(conv_filter_params) == 5:
             x, y, s_x, s_y, d = conv_filter_params
             return layers.Conv2D(d,
                                  kernel_size=(y, x),
@@ -656,8 +656,7 @@ class VGSLModelGenerator:
                                  activation=activation,
                                  kernel_initializer=self._initializer,
                                  name=name)
-        else:
-            raise ValueError(f"Invalid number of parameters in {layer}")
+        raise ValueError(f"Invalid number of parameters in {layer}")
 
     def maxpool_generator(self,
                           layer: str) -> tf.keras.layers.MaxPooling2D:
@@ -815,8 +814,7 @@ class VGSLModelGenerator:
         if layer[1] == 'c':
             prev_layer_y, prev_layer_x = prev_layer.shape[-2:]
             return layers.Reshape((-1, prev_layer_y * prev_layer_x))
-        else:
-            raise ValueError(f"Reshape operation {layer} is not supported.")
+        raise ValueError(f"Reshape operation {layer} is not supported.")
 
     def fc_generator(self,
                      layer: str) -> tf.keras.layers.Dense:
@@ -873,10 +871,10 @@ class VGSLModelGenerator:
         # or any other supported activations
         try:
             activation = self.get_activation_function(layer[1])
-        except ValueError:
+        except ValueError as e:
             raise ValueError(
                 f"Invalid activation '{layer[1]}' for Dense layer "
-                f"{layer}.")
+                f"{layer}.") from e
 
         # Extract the number of neurons
         n = int(layer[2:])
@@ -955,7 +953,7 @@ class VGSLModelGenerator:
 
         lstm_params = {
             "units": n,
-            "return_sequences": 's' in layer,
+            "return_sequences": summarize == 's',
             "go_backwards": direction == 'r',
             "kernel_initializer": self._initializer,
             "dropout": dropout/100 if dropout > 0 else 0,
@@ -1134,7 +1132,7 @@ class VGSLModelGenerator:
                                     merge_mode='concat')
 
     def residual_block_generator(self,
-                                 layer: str, index) -> ResidualBlock:
+                                 layer: str) -> ResidualBlock:
         """
         Generate a Residual Block based on a VGSL specification string.
 
@@ -1292,13 +1290,12 @@ class VGSLModelGenerator:
             return layers.Dense(classes,
                                 activation='softmax',
                                 kernel_initializer=self._initializer)
-        elif linearity == "l":
+        if linearity == "l":
             return layers.Dense(classes,
                                 activation='linear',
                                 kernel_initializer=self._initializer)
-        else:
-            raise ValueError(
-                f"Output layer linearity {linearity} is not supported.")
+        raise ValueError(
+            f"Output layer linearity {linearity} is not supported.")
 
 
 if __name__ == '__main__':
@@ -1322,6 +1319,6 @@ if __name__ == '__main__':
                                            "CTCLoss": CTCLoss})
 
     # Get the VGSL spec
-    vgsl_spec = VGSLModelGenerator.model_to_vgsl(model)
+    VGSL_SPEC = VGSLModelGenerator.model_to_vgsl(model)
 
-    print(f"VGSL Spec: {vgsl_spec}")
+    print(f"VGSL Spec: {VGSL_SPEC}")

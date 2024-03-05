@@ -117,10 +117,10 @@ class Config:
             output_file = self.args.config_file_output or \
                 f"{self.args.output}/config.json"
         try:
-            with open(output_file, "w") as file:
+            with open(output_file, "w", encoding="utf-8") as file:
                 json.dump(self.config, file, indent=4, sort_keys=True)
         except IOError:
-            logging.error(f"Could not write to {output_file}.")
+            logging.error("Could not write to %s.", output_file)
 
     def organize_args(self, args: argparse.Namespace) -> dict:
         """
@@ -238,7 +238,7 @@ class Config:
             If the configuration file does not exist.
         """
 
-        with open(config_file) as file:
+        with open(config_file, encoding="utf-8") as file:
             config = json.load(file)
             config_args = config.get("args", {})
 
@@ -254,7 +254,7 @@ class Config:
                                 "Assuming v1 config file.")
                 config_args = {"general": config_args}
 
-            for key, value in config_args.items():
+            for value in config_args.values():
                 for subkey, subvalue in value.items():
                     try:
                         # If the argument was explicitly provided by the user,
@@ -267,12 +267,12 @@ class Config:
                             if getattr(self.args, subkey) == subvalue:
                                 continue
                             logging.info("Overriding config file argument "
-                                         f"'{subkey}' with command line "
-                                         "argument.")
+                                         "'%s' with command line "
+                                         "argument.", subkey)
 
                     except AttributeError:
-                        logging.warning(f"Invalid argument: {subkey}. "
-                                        f"Skipping...")
+                        logging.warning("Invalid argument: %s. Skipping...",
+                                        subkey)
                         continue
 
     def change_arg(self, key: str, value: any) -> None:
@@ -322,7 +322,7 @@ def get_git_hash() -> str:
     """
 
     if os.path.exists("version_info"):
-        with open("version_info") as file:
+        with open("version_info", encoding="utf-8") as file:
             return file.read().strip()
     else:
         try:
@@ -331,7 +331,7 @@ def get_git_hash() -> str:
                                     check=True)
             return result.stdout.decode('utf-8').strip().replace('"', '')
         except subprocess.CalledProcessError as e:
-            logging.error(f"Subprocess failed: {e}")
+            logging.error("Subprocess failed: %s", e)
         except OSError as e:
-            logging.error(f"OS error occurred: {e}")
+            logging.error("OS error occurred: %s", e)
         return "Unavailable"

@@ -17,7 +17,8 @@ from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
 from model.management import load_or_create_model, customize_model, \
     verify_charlist_length
-from model.optimization import create_learning_rate_schedule, get_optimizer
+from model.optimization import create_learning_rate_schedule, get_optimizer, \
+    LoghiLearningRateSchedule
 from modes.training import train_model, plot_training_history
 from modes.validation import perform_validation
 from modes.test import perform_test
@@ -33,6 +34,7 @@ from utils.print import summarize_model
 
 
 def main():
+    """ Main function for the program """
     setup_logging()
 
     # Get the arguments
@@ -56,7 +58,6 @@ def main():
         removed_padding = False
 
     # Set the custom objects
-    from model.optimization import LoghiLearningRateSchedule
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
                       'CTCLoss': CTCLoss, 'ResidualBlock': ResidualBlock,
                       'LoghiLearningRateSchedule': LoghiLearningRateSchedule}
@@ -74,8 +75,8 @@ def main():
         loader = initialize_data_loader(config, charlist, model,
                                         augmentation_model)
         training_dataset, evaluation_dataset, validation_dataset, \
-            test_dataset, inference_dataset, tokenizer, train_batches, \
-            validation_labels = loader.get_generators()
+            test_dataset, inference_dataset, _, train_batches, \
+            validation_labels = loader.generators()
 
         # Replace the charlist with the one from the data loader
         charlist = loader.charList
@@ -113,6 +114,8 @@ def main():
     # Print the model summary
     model.summary()
 
+    # model.save("model.keras")
+
     # Store the model info (i.e., git hash, args, model summary, etc.)
     config.update_config_key("model", summarize_model(model))
     config.update_config_key("model_name", model.name)
@@ -131,7 +134,7 @@ def main():
 
         # Plot the training history
         plot_training_history(history, config["output"],
-                              True if config["validation_list"] else False)
+                              bool(config["validation_list"]))
 
         timestamps['Training'] = time.time() - tick
 
@@ -161,9 +164,9 @@ def main():
     # Log the timestamps
     logging.info("--------------------------------------------------------")
     for key, value in list(timestamps.items())[1:]:
-        logging.info(f"{key} completed in {value:.2f} seconds")
-    logging.info(f"Total time: {time.time() - timestamps['start_time']:.2f} "
-                 "seconds")
+        logging.info("%s completed in %.2f seconds", key, value)
+    logging.info("Total time: %.2f seconds",
+                 time.time() - timestamps['start_time'])
 
 
 if __name__ == "__main__":

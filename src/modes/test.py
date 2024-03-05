@@ -25,7 +25,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   config: Config,
                   wbs: Optional[Any],
                   loader: DataLoader,
-                  batch_no: int,
                   chars: List[str]) -> Dict[str, int]:
     """
     Processes a batch of data by predicting, calculating Character Error Rate
@@ -48,8 +47,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         applicable.
     loader : DataLoader
         A data loader object for additional operations like normalization.
-    batch_no : int
-        The number of the current batch being processed.
     chars : List[str]
         A list of characters used in the model.
 
@@ -83,7 +80,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     batch_counter = defaultdict(int)
 
     # Print the predictions and process the CER
-    for index, (confidence, prediction) in enumerate(y_pred):
+    for index, (_, prediction) in enumerate(y_pred):
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
@@ -160,11 +157,10 @@ def perform_test(config: Config,
     n_items = 0
 
     for batch_no, batch in enumerate(test_dataset):
-        logging.info(f"Batch {batch_no + 1}/{len(test_dataset)}")
+        logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
 
         batch_counter = process_batch(batch, prediction_model, tokenizer,
-                                      config, wbs, dataloader, batch_no,
-                                      charlist)
+                                      config, wbs, dataloader, charlist)
 
         # Update the total counter
         for key, value in batch_counter.items():
@@ -201,13 +197,14 @@ def perform_test(config: Config,
 
     # Print the final statistics
     for metric, total_value, interval in zip(metrics, total_stats, intervals):
-        logging.info(f"{metric} = {total_value:.4f} +/- {interval:.4f}")
+        logging.info("%s = %.4f +/- %.4f", metric, total_value, interval)
 
-    logging.info(f"Items = {n_items}")
+    logging.info("Items = %s", n_items)
     logging.info("")
 
     # Output the validation statistics to a csv file
-    with open(os.path.join(config["output"], 'test.csv'), 'w') as f:
+    with open(os.path.join(config["output"], 'test.csv'), 'w',
+              encoding="utf-8") as f:
         header = "cer,cer_lower,cer_simple"
         if config["normalization_file"]:
             header += ",normalized_cer,normalized_cer_lower," \

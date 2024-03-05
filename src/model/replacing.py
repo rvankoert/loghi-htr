@@ -3,13 +3,13 @@
 # > Standard library
 import logging
 
-# > Local dependencies
-from model.vgsl_model_generator import VGSLModelGenerator
-
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+
+# > Local dependencies
+from model.vgsl_model_generator import VGSLModelGenerator
 
 
 def replace_recurrent_layer(model: tf.keras.Model,
@@ -68,7 +68,7 @@ def replace_recurrent_layer(model: tf.keras.Model,
     logging.info("Generating new layers using VGSLModelGenerator.")
     vgsl_gen = VGSLModelGenerator(vgsl_string)
 
-    logging.debug(f"VGSLModelGenerator history: {vgsl_gen.history}")
+    logging.debug("VGSLModelGenerator history: %s", vgsl_gen.history)
 
     # Add the new layers to the model
     x = last_layer.output
@@ -94,8 +94,8 @@ def replace_recurrent_layer(model: tf.keras.Model,
         inputs=model.input, outputs=output, name=old_model_name
     )
 
-    logging.info(
-        f"Recurrent layers replaced successfully in model: {old_model_name}.")
+    logging.info("Recurrent layers replaced successfully in model: %s.",
+                 old_model_name)
 
     return model
 

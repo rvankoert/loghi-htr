@@ -17,6 +17,13 @@ from prometheus_client import Gauge
 
 
 class TensorFlowLogFilter(logging.Filter):
+    """Filter to exclude specific TensorFlow logging messages.
+
+    This filter checks each log record for specific phrases that are to be
+    excluded from the logs. If any of the specified phrases are found in a log
+    message, the message is excluded from the logs.
+    """
+
     def filter(self, record):
         # Exclude logs containing the specific message
         exclude_phrases = [
@@ -155,29 +162,64 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
                 f"Environment variable {var_name} not set and no default "
                 "value provided.")
         logger.warning(
-            f"Environment variable {var_name} not set. Using default value: "
-            f"{default_value}")
+            "Environment variable %s not set. Using default value: "
+            "%s", var_name, default_value)
         return default_value
 
-    logger.debug(f"Environment variable {var_name} set to {value}")
+    logger.debug("Environment variable %s set to %s", var_name, value)
     return value
 
 
 def start_workers(batch_size: int, max_queue_size: int,
                   output_path: str, gpus: str, model_path: str,
                   patience: int):
+    """
+    Initializes and starts multiple multiprocessing workers for image
+    processing and prediction.
+
+    This function sets up three main processes: image preparation,
+    batch prediction, and batch decoding, each running in its own process. It
+    also initializes thread-safe queues for communication between these
+    processes and configures Prometheus gauges to monitor queue sizes.
+
+    Parameters
+    ----------
+    batch_size : int
+        The size of the batch for processing images.
+    max_queue_size : int
+        The maximum size of the request queue.
+    output_path : str
+        The path where the output results will be stored.
+    gpus : str
+        The GPU devices to use for computation.
+    model_path : str
+        The path to the machine learning model for predictions.
+    patience : int
+        The number of seconds to wait for an image to be ready before timing
+        out.
+
+    Returns
+    -------
+    dict
+        A dictionary containing references to the worker processes under the
+        keys "Preparation", "Prediction", and "Decoding".
+    dict
+        A dictionary containing references to the communication queues under
+        the keys "Request", "Prepared", and "Predicted".
+    """
+
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
     request_queue = mp.Queue(maxsize=max_queue_size//2)
-    logger.info(f"Request queue size: {max_queue_size//2}")
+    logger.info("Request queue size: %s", max_queue_size // 2)
 
     # Max size of prepared queue is half of the max size of request queue
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
     prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
-    logger.info(f"Prediction queue size: {max_prepared_queue_size}")
+    logger.info("Prediction queue size: %s", max_prepared_queue_size)
 
     # Create a thread-safe Queue for predictions
     predicted_queue = mp.Queue()
@@ -185,10 +227,13 @@ def start_workers(batch_size: int, max_queue_size: int,
     # Add request queue size to prometheus statistics
     request_queue_size_gauge = Gauge("request_queue_size",
                                      "Request queue size")
-    request_queue_size_gauge.set_function(lambda: request_queue.qsize())
+    request_queue_size_gauge.set_function(request_queue.qsize)
     prepared_queue_size_gauge = Gauge("prepared_queue_size",
                                       "Prepared queue size")
-    prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
+    prepared_queue_size_gauge.set_function(prepared_queue.qsize)
+    predicted_queue_size_gauge = Gauge("predicted_queue_size",
+                                       "Predicted queue size")
+    predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
     # Start the image preparation process
     logger.info("Starting image preparation process")

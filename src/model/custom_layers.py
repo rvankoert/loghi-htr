@@ -78,6 +78,13 @@ class ResidualBlock(tf.keras.layers.Layer):
         self.regularizer = regularizer
         self.strides = 2 if downsample else 1
 
+        self.conv1 = None
+        self.conv2 = None
+        self.bn1 = None
+        self.bn2 = None
+        self.downsample_conv = None
+        self.activation_layer = None
+
     def build(self, input_shape):
         """
         Create the layer based on input shape. This method creates the

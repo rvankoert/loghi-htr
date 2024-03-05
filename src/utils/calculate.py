@@ -3,12 +3,12 @@
 # > Standard library
 from typing import Dict, List, Tuple, Union
 
+# > Third-party dependencies
+import editdistance
+
 # > Local imports
 from utils.text import simplify_text
 from utils.print import print_cer_stats
-
-# > Third-party dependencies
-import editdistance
 
 
 def edit_distance_to_cer(edit_distance: int, length: int) -> float:
