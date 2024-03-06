@@ -82,7 +82,6 @@ class ShearXLayer(tf.keras.layers.Layer):
 class ElasticTransformLayer(tf.keras.layers.Layer):
     def __init__(self, binary=False, **kwargs):
         super(ElasticTransformLayer, self).__init__(**kwargs)
-        self.fill_value = 1 if binary else 0
 
     def call(self, inputs, training=None):
         """
@@ -277,7 +276,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
             raise ValueError("Either target_width or additional_width must be "
                              "specified")
 
-        self.fill_value = 1.0 if binary else 0.0
+        self.binary = binary
 
     def estimate_background_color(self, image):
         """
@@ -289,7 +288,8 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         Parameters
         ----------
         image : tf.Tensor
-            Input image tensor in the format [batch_size, height, width, channels].
+            Input image tensor in the format [batch_size, height, width,
+            channels].
 
         Returns
         -------
@@ -372,15 +372,18 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         padding = [[0, 0], [top_pad, bottom_pad],
                    [left_pad, right_pad], [0, 0]]
 
-        # Estimate background color
-        background_color = self.estimate_background_color(inputs)
+        if self.binary:
+            # Estimate background color
+            background_color = self.estimate_background_color(inputs)
 
-        # Reduce it to a scalar of the same dtype
-        background_color_scalar = tf.reduce_mean(background_color)
+            # Reduce it to a scalar of the same dtype
+            background_color_scalar = tf.reduce_mean(background_color)
 
-        # Ensure the scalar is the correct type, matching resized_img
-        background_color_scalar = tf.cast(background_color_scalar,
-                                          dtype=tf.float32)
+            # Ensure the scalar is the correct type, matching resized_img
+            background_color_scalar = tf.cast(background_color_scalar,
+                                              dtype=tf.float32)
+        else:
+            background_color_scalar = 0.0
 
         # Pad the image
         padded_img = tf.pad(resized_img, paddings=padding, mode="CONSTANT",
