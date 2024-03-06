@@ -170,56 +170,49 @@ def get_arg_parser():
     # Data augmentation configuration
     augmentation_args = parser.add_argument_group('Augmentation arguments')
     augmentation_args.add_argument('--aug_multiply', '--multiply',
-                                   metavar='multiply', type=int,
-                                   dest='multiply',
-                                   default=1,
+                                   type=int, default=1,
                                    help="Factor to increase the "
                                    "size of the training dataset by "
                                    "duplicating images. Default: 1 (no "
                                    "duplication).")
     augmentation_args.add_argument('--aug_elastic_transform',
                                    '--elastic_transform', action='store_true',
-                                   dest='elastic_transform',
                                    help="Apply elastic transformations to "
                                         "images.")
     augmentation_args.add_argument('--aug_random_crop', '--random_crop',
-                                   action='store_true', dest='random_crop',
+                                   action='store_true',
                                    help="Enable random cropping of images.")
     augmentation_args.add_argument('--aug_random_width', '--random_width',
-                                   action='store_true', dest='random_width',
+                                   action='store_true',
                                    help="Randomly stretch images horizontally "
                                         "during augmentation.")
     augmentation_args.add_argument('--aug_distort_jpeg', '--distort_jpeg',
-                                   action='store_true', dest='distort_jpeg',
+                                   action='store_true',
                                    help="Apply JPEG distortion to images for "
                                         "augmentation.")
     augmentation_args.add_argument('--aug_random_shear', '--do_random_shear',
-                                   action='store_true', dest='do_random_shear',
+                                   action='store_true',
                                    help="Apply random shearing "
                                         "transformations to images.")
     augmentation_args.add_argument('--aug_blur', '--do_blur',
-                                   action='store_true', dest='do_blur',
+                                   action='store_true',
                                    help="Apply blurring to images during "
                                         "training for augmentation.")
     augmentation_args.add_argument('--aug_invert', '--do_invert',
-                                   action='store_true', dest='do_invert',
+                                   action='store_true',
                                    help="Invert images with light ink on dark "
                                         "backgrounds for augmentation.")
     augmentation_args.add_argument('--aug_binarize_otsu',
                                    '--do_binarize_otsu', action='store_true',
-                                   dest='do_binarize_otsu',
                                    help="Apply Otsu's binarization method to "
                                         "images for augmentation.")
     augmentation_args.add_argument('--aug_binarize_sauvola',
                                    '--do_binarize_sauvola',
                                    action='store_true',
-                                   dest='do_binarize_sauvola',
                                    help="Use Sauvola's method for image "
                                    "binarization during augmentation.")
     augmentation_args.add_argument('--visualize_augments',
-                                   '--visualize_augments',
                                    action='store_true',
-                                   dest='visualize_augments',
                                    help='Prompt to create visualization of '
                                         'selected augments')
 

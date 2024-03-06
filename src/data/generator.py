@@ -11,99 +11,115 @@ import tensorflow as tf
 import numpy as np
 
 
-class DataGenerator(tf.keras.utils.Sequence):
-
+class DataGenerator:
     def __init__(self,
                  tokenizer,
-                 batch_size,
+                 augment_model,
                  height=64,
                  channels=1,
-                 augment_model=None,
-                 is_training=True,
+                 is_training=False,
                  ):
-        self.batch_size = batch_size
         self.tokenizer = tokenizer
+        self.augment_model = augment_model
         self.height = height
         self.channels = channels
-        self.augment_model = augment_model
         self.is_training = is_training
 
     def load_images(self, image_info_tuple: Tuple[str, str]) -> (
             Tuple)[np.ndarray, np.ndarray]:
         """
-        Load and preprocess images.
+        Loads, preprocesses a single image, and encodes its label.
+
+        Unpacks the tuple for readability.
+        """
+
+        # Load and preprocess the image
+        image = self._load_and_preprocess_image(image_info_tuple[0])
+
+        # Encode the label
+        encoded_label = self.tokenizer(image_info_tuple[1])
+
+        # Ensure the image width is sufficient for CTC decoding
+        image = self._ensure_width_for_ctc(image, encoded_label)
+
+        # Center the image values around 0.5
+        image = 0.5 - image
+
+        # Transpose the image
+        image = tf.transpose(image, perm=[1, 0, 2])
+
+        return image, encoded_label
+
+    def _load_and_preprocess_image(self, image_path: str) -> tf.Tensor:
+        """
+        Loads and preprocesses a single image.
 
         Parameters
         ----------
-        - image_info_tuple (tuple): Tuple containing the file path (string)
-        and label(string) of the image.
+        image_path: str
+            The path to the image file.
 
         Returns
         -------
-        - Tuple: A tuple containing the preprocessed image (numpy.ndarray) and
-          encoded label (numpy.ndarray).
-
-        Raises
-        ------
-        - ValueError: If the number of channels is not 1, 3, or 4.
-
-        Notes
-        -----
-        - This function uses TensorFlow operations to read, decode, and
-          preprocess images.
-        - Preprocessing steps include resizing, channel manipulation,
-          distortion (if specified), elastic transform, cropping, shearing, and
-          label encoding.
-
-        Example:
-        >>> loader = ImageLoader()
-        >>> image_info_tuple = ("/path/to/image.png", "label")
-        >>> preprocessed_image, encoded_label =
-        ...     loader.load_images(image_info_tuple)
+        tf.Tensor
+            A preprocessed image tensor ready for training.
         """
 
-        image = tf.io.read_file(image_info_tuple[0])
+        # 1. Load the Image
+        image = tf.io.read_file(image_path)
+
         try:
-            image = tf.image.decode_png(image, channels=self.channels)
+            image = tf.image.decode_image(image, channels=self.channels,
+                                          expand_animations=False)
         except ValueError:
             logging.error("Invalid number of channels. "
                           "Supported values are 1, 3, or 4.")
+
+        # 2. Resize the Image and Normalize Pixel Values to [0, 1]
         image = tf.image.resize(image, (self.height, 99999),
                                 preserve_aspect_ratio=True) / 255.0
 
-        # Add batch dimension
+        # 3. Apply Data Augmentations
+        # Add batch dimension (required for augmentation model)
         image = tf.expand_dims(image, 0)
 
-        # Apply augmentations
-        if self.augment_model is not None:
-            for layer in self.augment_model.layers:
-                # Mandatory resize_with_pad layer
-                if layer.name == "extra_resize_with_pad":
-                    image = layer(image, training=True)
-                    continue
+        for layer in self.augment_model.layers:
+            # Custom layer handling (assuming 'extra_resize_with_pad'
+            # remains)
+            if layer.name == "extra_resize_with_pad":
+                image = layer(image, training=True)
+            else:
                 image = layer(image, training=self.is_training)
 
-        # Remove batch dimension
-        image = image[0]
-        image = tf.cast(image, dtype=tf.float32)
+        return tf.cast(image[0], tf.float32)
 
-        image_width = tf.shape(image)[1]
+    def _ensure_width_for_ctc(self, image, encoded_label):
+        """Resizes the image if necessary to accommodate the encoded label
+        during CTC decoding.
+        """
 
-        label = image_info_tuple[1]
-        encoded_label = self.tokenizer(label)
+        # Calculate the required width for the image
+        required_width = len(encoded_label)
 
-        label_counter = 0
+        num_repetitions = 0
         last_char = None
-
         for char in encoded_label:
-            label_counter += 1
             if char == last_char:
-                label_counter += 1
+                num_repetitions += 1
             last_char = char
-        label_width = label_counter
-        if image_width < label_width*16:
-            image_width = label_width * 16
-            image = tf.image.resize_with_pad(image, self.height, image_width)
-        image = 0.5 - image
-        image = tf.transpose(image, perm=[1, 0, 2])
-        return image, encoded_label
+
+        # Add repetitions
+        required_width += num_repetitions
+
+        # Convert to pixels
+        pixels_per_column = 16
+        required_width *= pixels_per_column
+
+        # Mandatory cast to float32
+        image = tf.cast(image, tf.float32)
+
+        if tf.shape(image)[1] < required_width:
+            image = tf.image.resize_with_pad(
+                image, self.height, required_width)
+
+        return image

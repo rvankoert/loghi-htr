@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard library
+import json
 import re
 from typing import Tuple, Union
 
@@ -210,3 +211,32 @@ def simplify_text(text: str) -> Tuple[str, str]:
     lower_text = text.lower()
     simple_text = re.sub(r'[^a-zA-Z0-9]', '', lower_text)
     return lower_text, simple_text
+
+
+def normalize_text(input: str, replacements: str) -> str:
+    """
+    Normalize text using a json file with replacements
+
+    Parameters
+    ----------
+    input : str
+        Input string to normalize
+    replacements : str
+        Path to json file with replacements, where key is the string to
+        replace and value is the replacement. Example: {"a": "b"} will
+        replace all "a" with "b" in the input string.
+
+    Returns
+    -------
+    str
+        Normalized string
+    """
+
+    with open(replacements, 'r') as f:
+        replacements = json.load(f)
+        for key, value in replacements.items():
+            input = input.replace(key, value)
+
+    input = re.sub(r"\s+", " ", input)
+
+    return input.strip()

@@ -15,7 +15,7 @@ from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, calculate_cers, \
     increment_counters, calculate_edit_distances
 from utils.decoding import decode_batch_predictions
-from utils.text import preprocess_text, Tokenizer
+from utils.text import preprocess_text, Tokenizer, normalize_text
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
@@ -85,7 +85,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
         normalized_original = None if not config["normalization_file"] else \
-            loader.normalize(original_text, config["normalization_file"])
+            normalize_text(original_text, config["normalization_file"])
 
         # Calculate edit distances
         distances = calculate_edit_distances(prediction, original_text)
@@ -149,7 +149,7 @@ def perform_test(config: Config,
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(config, charlist, dataloader) \
+    wbs = setup_word_beam_search(config, charlist) \
         if config["corpus_file"] else None
 
     # Initialize the counters

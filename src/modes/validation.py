@@ -18,7 +18,7 @@ from utils.calculate import calc_95_confidence_interval, \
     calculate_edit_distances, update_statistics, increment_counters
 from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
-from utils.text import preprocess_text, Tokenizer
+from utils.text import preprocess_text, Tokenizer, normalize_text
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
@@ -86,7 +86,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(y_true[index])
         normalized_original = None if not config["normalization_file"] else \
-            loader.normalize(original_text, config["normalization_file"])
+            normalize_text(original_text, config["normalization_file"])
 
         # Calculate edit distances here so we can use them for printing the
         # predictions
@@ -166,7 +166,7 @@ def perform_validation(config: Config,
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(config, charlist, dataloader) \
+    wbs = setup_word_beam_search(config, charlist) \
         if config["corpus_file"] else None
 
     # Initialize variables for CER calculation

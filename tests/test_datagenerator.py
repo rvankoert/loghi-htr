@@ -10,7 +10,6 @@ import unittest
 
 # > Third party dependencies
 import tensorflow as tf
-import numpy as np
 
 
 class TestDataGenerator(unittest.TestCase):
@@ -43,10 +42,9 @@ class TestDataGenerator(unittest.TestCase):
 
     def test_initialization(self):
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
-        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=32, height=128)
+        dg = self.DataGenerator(tokenizer=tokenizer, height=128)
 
         # Verify that the instance variables are initialized correctly.
-        self.assertEqual(dg.batch_size, 32)
         self.assertEqual(dg.height, 128)
         self.assertEqual(dg.channels, 1)
 
@@ -57,12 +55,16 @@ class TestDataGenerator(unittest.TestCase):
         image_info_tuple = (image_path, label)
 
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
-        dg = self.DataGenerator(tokenizer=tokenizer, batch_size=1, height=64, channels=3)
+        dg = self.DataGenerator(tokenizer=tokenizer, height=64, channels=3)
 
         # Mock TensorFlow's file reading and decoding operations
-        with unittest.mock.patch.object(tf.io, 'read_file', return_value=tf.constant("mock_data")):
-            with unittest.mock.patch.object(tf.image, 'decode_png', return_value=tf.ones([100, 100, 3])):
-                preprocessed_image, encoded_label = dg.load_images(image_info_tuple)
+        with unittest.mock.patch.object(tf.io, 'read_file',
+                                        return_value=tf.constant("mock_data")):
+            with unittest.mock.patch.object(tf.image, 'decode_png',
+                                            return_value=tf.ones([100, 100, 3])
+                                            ):
+                preprocessed_image, encoded_label = dg.load_images(
+                    image_info_tuple)
 
                 # Assert the shape of the preprocessed image
                 self.assertEqual(preprocessed_image.shape, (304, 64, 3))

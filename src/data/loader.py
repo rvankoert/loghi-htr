@@ -3,33 +3,25 @@
 # > Standard library
 import logging
 import os
-import re
-import json
-
 
 # > Third party dependencies
 import tensorflow as tf
 from tensorflow.data import AUTOTUNE
 import numpy as np
 
-
 # > Local dependencies
 from data.generator import DataGenerator
-from utils.text import Tokenizer
+from utils.text import Tokenizer, normalize_text
 
 
 class DataLoader:
     """loader for dataset at given location, preprocess images and text
     according to parameters"""
-    DTYPE = 'float32'
-    currIdx = 0
-    charList = []
-    samples = []
-    validation_dataset = []
 
     def __init__(self,
                  batch_size,
                  img_size,
+                 augment_model,
                  char_list=[],
                  train_list='',
                  validation_list='',
@@ -39,15 +31,11 @@ class DataLoader:
                  multiply=1,
                  check_missing_files=True,
                  replace_final_layer=False,
-                 use_mask=False,
-                 augment_model=None
+                 use_mask=False
                  ):
-        self.currIdx = 0
         self.batch_size = batch_size
-        self.imgSize = img_size
-        self.samples = []
         self.height = img_size[0]
-        self.width = img_size[1]
+        self.augment_model = augment_model
         self.channels = img_size[2]
         self.partition = []
         self.injected_charlist = char_list
@@ -60,36 +48,7 @@ class DataLoader:
         self.check_missing_files = check_missing_files
         self.replace_final_layer = replace_final_layer
         self.use_mask = use_mask
-        self.augment_model = augment_model
-
-    @staticmethod
-    def normalize(input: str, replacements: str) -> str:
-        """
-        Normalize text using a json file with replacements
-
-        Parameters
-        ----------
-        input : str
-            Input string to normalize
-        replacements : str
-            Path to json file with replacements, where key is the string to
-            replace and value is the replacement. Example: {"a": "b"} will
-            replace all "a" with "b" in the input string.
-
-        Returns
-        -------
-        str
-            Normalized string
-        """
-
-        with open(replacements, 'r') as f:
-            replacements = json.load(f)
-            for key, value in replacements.items():
-                input = input.replace(key, value)
-
-        input = re.sub(r"\s+", " ", input)
-
-        return input.strip()
+        self.charList = char_list
 
     def init_data_generator(self,
                             files,
@@ -220,7 +179,6 @@ class DataLoader:
         train_params = {
             'tokenizer': self.tokenizer,
             'height': self.height,
-            'batch_size': self.batch_size,
             'channels': self.channels,
             'augment_model': self.augment_model
         }
@@ -331,7 +289,7 @@ class DataLoader:
                     elif self.normalization_file and \
                             (partition_name == 'train'
                              or partition_name == 'evaluation'):
-                        ground_truth = self.normalize(line_parts[1],
+                        ground_truth = normalize_text(line_parts[1],
                                                       self.normalization_file)
                     else:
                         ground_truth = line_parts[1]
