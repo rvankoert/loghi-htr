@@ -62,7 +62,7 @@ def train_model(model: tf.keras.Model,
         LoghiCustomCallback(save_best=True,
                             save_checkpoint=config["output_checkpoints"],
                             output=config["output"],
-                            charlist=loader.charList,
+                            charlist=loader.charlist,
                             config=config,
                             normalization_file=config["normalization_file"])
 

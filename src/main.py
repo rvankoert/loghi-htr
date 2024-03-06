@@ -74,12 +74,9 @@ def main():
         # Initialize the Dataloader
         loader = initialize_data_loader(config, charlist, model,
                                         augmentation_model)
-        training_dataset, evaluation_dataset, validation_dataset, \
-            test_dataset, inference_dataset, _, train_batches, \
-            validation_labels = loader.get_generators()
 
         # Replace the charlist with the one from the data loader
-        charlist = loader.charList
+        charlist = loader.charlist
 
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
@@ -95,7 +92,7 @@ def main():
             learning_rate=config["learning_rate"],
             decay_rate=config["decay_rate"],
             decay_steps=config["decay_steps"],
-            train_batches=train_batches,
+            train_batches=loader.get_train_batches(),
             do_train=config["do_train"],
             warmup_ratio=config["warmup_ratio"],
             epochs=config["epochs"],
@@ -114,8 +111,6 @@ def main():
     # Print the model summary
     model.summary()
 
-    # model.save("model.keras")
-
     # Store the model info (i.e., git hash, args, model summary, etc.)
     config.update_config_key("model", summarize_model(model))
     config.update_config_key("model_name", model.name)
@@ -129,8 +124,8 @@ def main():
     if config["train_list"]:
         tick = time.time()
 
-        history = train_model(model, config, training_dataset,
-                              evaluation_dataset, loader)
+        history = train_model(model, config, loader.datasets["train"],
+                              loader.datasets["evaluation"], loader)
 
         # Plot the training history
         plot_training_history(history, config["output"],
@@ -143,8 +138,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(config, model, validation_dataset,
-                           validation_labels, charlist, loader)
+        perform_validation(config, model, charlist, loader)
         timestamps['Validation'] = time.time() - tick
 
     # Test the model
@@ -152,13 +146,15 @@ def main():
         logging.warning("Test results are without special markdown tags")
 
         tick = time.time()
-        perform_test(config, model, test_dataset, charlist, loader)
+        perform_test(config, model, loader.datasets["test"],
+                     charlist, loader)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
-        perform_inference(config, model, inference_dataset, charlist, loader)
+        perform_inference(config, model, loader.datasets["inference"],
+                          charlist, loader)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps

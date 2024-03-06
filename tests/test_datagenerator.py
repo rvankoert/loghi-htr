@@ -54,15 +54,16 @@ class TestDataGenerator(unittest.TestCase):
         image_path = "path/to/mock_image.png"
         label = "mock_label"
         image_info_tuple = (image_path, label)
+        dummy_augment_model = tf.keras.Sequential([])
 
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
         dg = self.DataGenerator(tokenizer=tokenizer, height=64, channels=3,
-                                augment_model=None)
+                                augment_model=dummy_augment_model)
 
         # Mock TensorFlow's file reading and decoding operations
         with unittest.mock.patch.object(tf.io, 'read_file',
                                         return_value=tf.constant("mock_data")):
-            with unittest.mock.patch.object(tf.image, 'decode_png',
+            with unittest.mock.patch.object(tf.image, 'decode_image',
                                             return_value=tf.ones([100, 100, 3])
                                             ):
                 preprocessed_image, encoded_label = dg.load_images(

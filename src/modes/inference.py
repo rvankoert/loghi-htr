@@ -66,9 +66,10 @@ def perform_inference(config: Config, model: tf.keras.Model,
                 prediction = prediction.strip().replace('', '')
 
                 # Format the filename
-                filename = loader.get_item('inference',
-                                           (batch_no * config["batch_size"])
-                                           + index)
+                filename = loader.get_filename('inference',
+                                               (batch_no *
+                                                config["batch_size"])
+                                               + index)
 
                 # Write the results to the results file
                 result_str = f"{filename}\t{confidence}\t{prediction}"

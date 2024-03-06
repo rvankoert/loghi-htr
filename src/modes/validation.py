@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
 from data.loader import DataLoader
 from model.management import get_prediction_model
 from setup.config import Config
@@ -98,9 +97,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Print the predictions if there are any errors
         if do_print := distances[0] > 0:
-            filename = loader.get_item('validation',
-                                       (batch_no * config["batch_size"])
-                                       + index)
+            filename = loader.get_filename('validation',
+                                           (batch_no * config["batch_size"])
+                                           + index)
             wbs_str = char_str[index] if wbs else None
 
             print_predictions(filename, original_text, prediction,
@@ -127,8 +126,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
 def perform_validation(config: Config,
                        model: tf.keras.Model,
-                       validation_dataset: DataGenerator,
-                       validation_labels: List[str],
                        charlist: List[str],
                        dataloader: DataLoader) -> None:
     """
@@ -142,10 +139,6 @@ def perform_validation(config: Config,
         process such as mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    validation_dataset : DataGenerator
-        The dataset to be used for validation.
-    validation_labels : List[str]
-        A list of labels for the validation dataset.
     charlist : List[str]
         A list of characters used in the model.
     dataloader : DataLoader
@@ -162,7 +155,9 @@ def perform_validation(config: Config,
 
     logging.info("Performing validation...")
 
-    tokenizer = Tokenizer(charlist, config["use_mask"])
+    tokenizer = dataloader.tokenizer
+    validation_dataset = dataloader.datasets['validation']
+
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
@@ -176,8 +171,10 @@ def perform_validation(config: Config,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         X = batch[0]
-        y = validation_labels[batch_no * config["batch_size"]:
-                              batch_no * config["batch_size"] + len(X)]
+        y = []
+        for i in range(batch_no * config["batch_size"],
+                       batch_no * config["batch_size"] + len(X)):
+            y.append(dataloader.get_ground_truth('validation', i))
 
         # Logic for processing each batch, calculating CER, etc.
         batch_counter = process_batch((X, y), prediction_model, tokenizer,
