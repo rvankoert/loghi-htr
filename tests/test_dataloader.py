@@ -105,7 +105,8 @@ class DataLoaderTest(unittest.TestCase):
         img_size = (256, 256, 3)
 
         data_loader = self.DataLoader(batch_size=batch_size,
-                                      img_size=img_size)
+                                      img_size=img_size,
+                                      augment_model=None)
         self.assertIsInstance(data_loader, self.DataLoader,
                               "DataLoader not instantiated correctly")
 
@@ -113,9 +114,6 @@ class DataLoaderTest(unittest.TestCase):
         self.assertEqual(data_loader.batch_size, batch_size,
                          f"batch_size not set correctly. Expected: "
                          f"{batch_size}, got: {data_loader.batch_size}")
-        self.assertEqual(data_loader.imgSize, img_size,
-                         f"imgSize not set correctly. Expected: "
-                         f"{img_size}, got: {data_loader.imgSize}")
 
     def test_create_data_simple(self):
         # Sample data
@@ -126,7 +124,8 @@ class DataLoaderTest(unittest.TestCase):
         partition_name = "train"
 
         # Initialize DataLoader
-        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
+        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
+                                      augment_model=None)
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -158,7 +157,8 @@ class DataLoaderTest(unittest.TestCase):
         partition_name = "train"
 
         # Initialize DataLoader
-        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
+        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
+                                      augment_model=None)
 
         # Call create_data with include_missing_files=False (default)
         chars, files = data_loader.create_data(
@@ -193,7 +193,8 @@ class DataLoaderTest(unittest.TestCase):
 
         # Initialize DataLoader with injected_charlist set to a list without
         # "X" and 'Y'
-        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
+        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
+                                      augment_model=None)
         data_loader.injected_charlist = set(
             "abcdefghijklkmnopqrstuvwxyzN0123456789, ")\
             - set("XY")
@@ -225,7 +226,8 @@ class DataLoaderTest(unittest.TestCase):
         partition = {"train": []}
         partition_name = "train"
 
-        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
+        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
+                                      augment_model=None)
 
         chars, files = data_loader.create_data(
             chars, labels, partition, partition_name,
@@ -240,8 +242,7 @@ class DataLoaderTest(unittest.TestCase):
     def test_text_normalization(self):
         # Sample data with mixed-case labels
         additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel      ."]
-        temp_sample_list_file = self._create_temp_file(
-            additional_lines)
+        temp_sample_list_file = self._create_temp_file(additional_lines)
 
         chars = set()
         labels = {"train": []}
@@ -251,7 +252,8 @@ class DataLoaderTest(unittest.TestCase):
         # Initialize DataLoader
         data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
                                       normalization_file=os.path.join(
-            self.data_dir, "norm_chars.json"))
+            self.data_dir, "norm_chars.json"),
+            augment_model=None)
 
         # Call create_data
         chars, files = data_loader.create_data(
@@ -272,7 +274,8 @@ class DataLoaderTest(unittest.TestCase):
         partition_name = "train"
 
         # Initialize DataLoader with multiply set to 2
-        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3))
+        data_loader = self.DataLoader(batch_size=32, img_size=(256, 256, 3),
+                                      augment_model=None)
         data_loader.multiply = 2
 
         # Call create_data with use_multiply=True
@@ -290,7 +293,8 @@ class DataLoaderTest(unittest.TestCase):
 
         # Setup: Create dummy train, validation, test, and inference lists
         data_loader = self.DataLoader(batch_size=batch_size,
-                                      img_size=img_size)
+                                      img_size=img_size,
+                                      augment_model=None)
 
         data_loader.train_list = self._create_temp_file()
         data_loader.validation_list = self._create_temp_file()

@@ -42,7 +42,8 @@ class TestDataGenerator(unittest.TestCase):
 
     def test_initialization(self):
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
-        dg = self.DataGenerator(tokenizer=tokenizer, height=128)
+        dg = self.DataGenerator(tokenizer=tokenizer, height=128,
+                                augment_model=None)
 
         # Verify that the instance variables are initialized correctly.
         self.assertEqual(dg.height, 128)
@@ -55,7 +56,8 @@ class TestDataGenerator(unittest.TestCase):
         image_info_tuple = (image_path, label)
 
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
-        dg = self.DataGenerator(tokenizer=tokenizer, height=64, channels=3)
+        dg = self.DataGenerator(tokenizer=tokenizer, height=64, channels=3,
+                                augment_model=None)
 
         # Mock TensorFlow's file reading and decoding operations
         with unittest.mock.patch.object(tf.io, 'read_file',
