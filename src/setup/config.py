@@ -103,6 +103,21 @@ class Config:
         except KeyError:
             return getattr(self.args, key, None)
 
+    def __setitem__(self, key: str, value: any) -> None:
+        """
+        Set a value in the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to set.
+        value : any
+            The value to assign to the key.
+        """
+
+        setattr(self.args, key, value)
+        self.config["args"] = self.organize_args(self.args)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.
@@ -207,7 +222,6 @@ class Config:
             "misc": {
                 "ignore_lines_unknown_character":
                     args.ignore_lines_unknown_character,
-                "check_missing_files": args.check_missing_files,
                 "normalization_file": args.normalization_file,
                 "deterministic": args.deterministic
             },
@@ -274,21 +288,6 @@ class Config:
                         logging.warning("Invalid argument: %s. Skipping...",
                                         subkey)
                         continue
-
-    def change_arg(self, key: str, value: any) -> None:
-        """
-        Change a specific argument's value.
-
-        Parameters
-        ----------
-        key : str
-            The key of the argument to change.
-        value : any
-            The new value to assign to the argument.
-        """
-
-        setattr(self.args, key, value)
-        self.config["args"] = self.organize_args(self.args)
 
     def update_config_key(self, key: str, value: any) -> None:
         """

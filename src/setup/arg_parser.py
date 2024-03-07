@@ -238,9 +238,6 @@ def get_arg_parser():
                            action='store_true', help="Ignore lines during "
                            "training/validation that contain characters not "
                            "in the charlist.")
-    misc_args.add_argument('--check_missing_files', action='store_true',
-                           help="Check for missing files in the dataset "
-                           "before starting training or inference.")
     misc_args.add_argument('--normalization_file', default=None, type=str,
                            help="Path to a JSON file specifying character "
                            "normalizations. Format: {'original': "

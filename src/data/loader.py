@@ -31,26 +31,33 @@ class DataLoader:
         self.channels = img_size[2]
         self.config = config
 
-        # TODO: Make this more clear
-        self.charlist = charlist
+        # Determine the character list
+        if charlist and not config['replace_final_layer']:
+            logging.info('Using injected charlist')
+            self.charlist = sorted(list(charlist))
+        else:
+            self.charlist = None
 
         self.evaluation_list = None
-        if self.config['do_validate']:
+        if self.config['train_list'] and self.config['validation_list']:
             self.evaluation_list = self.config['validation_list']
 
-        partitions, labels, self.tokenizer = self._process_raw_data()
-        self.raw_data = {split: (partitions[split], labels[split])
+        if not self.config['do_validate']:
+            self.config['validation_list'] = ""
+
+        file_names, labels, _, self.tokenizer = self._process_raw_data()
+        self.raw_data = {split: (file_names[split], labels[split])
                          for split in ['train', 'evaluation', 'validation',
                                        'test', 'inference']}
 
-        self.datasets = self._fill_datasets_dict(partitions, labels)
+        self.datasets = self._fill_datasets_dict(file_names, labels)
 
     def _process_raw_data(self):
         # Initialize character set and data partitions with corresponding
         # labels
-        characters = set()
-        partitions = defaultdict(list)
-        labels = defaultdict(list)
+        file_names_dict = defaultdict(list)
+        labels_dict = defaultdict(list)
+        sample_weights_dict = defaultdict(list)
 
         for partition in ['train', 'evaluation', 'validation',
                           'test', 'inference']:
@@ -59,28 +66,22 @@ class DataLoader:
             else:
                 partition_list = self.config[f"{partition}_list"]
             if partition_list:
-                include_unsupported_chars = partition in ['validation', 'test']
-                use_multiply = partition == 'train'
-                characters, _ = self.create_data(
-                    characters=characters,
-                    labels=labels,
-                    partitions=partitions,
+                # include_unsupported_chars = partition in ['evaluation', 'test']
+                # use_multiply = partition == 'train'
+                _ = self.create_data(
+                    labels=labels_dict,
+                    partitions=file_names_dict,
+                    sample_weights=sample_weights_dict,
                     partition_name=partition,
                     data_files=partition_list,
-                    use_multiply=use_multiply,
-                    include_unsupported_chars=include_unsupported_chars
+                    # use_multiply=use_multiply,
+                    # include_unsupported_chars=include_unsupported_chars
                 )
-
-        # Determine the character list for the tokenizer
-        if self.charlist and not self.config['replace_final_layer']:
-            logging.info('Using injected charlist')
-        else:
-            self.charlist = sorted(list(characters))
 
         # Initialize the tokenizer
         tokenizer = Tokenizer(self.charlist, self.config['use_mask'])
 
-        return partitions, labels, tokenizer
+        return file_names_dict, labels_dict, sample_weights_dict, tokenizer
 
     def _fill_datasets_dict(self, partitions, labels):
         """
@@ -99,7 +100,8 @@ class DataLoader:
                 partition_list = self.config[f"{partition}_list"]
             if partition_list:
                 # Create dataset for the current partition
-                files = list(zip(partitions[partition], labels[partition]))
+                files = [(partition, label) for partition, label in
+                         zip(partitions[partition], labels[partition])]
                 datasets[partition] = create_dataset(
                     files=files,
                     tokenizer=self.tokenizer,
@@ -117,114 +119,99 @@ class DataLoader:
         return int(np.ceil(len(self.raw_data['train'])
                            / self.config['batch_size']))
 
-    def create_data(self, characters, labels, partitions, partition_name,
-                    data_files,
-                    include_unsupported_chars=False,
-                    include_missing_files=False,
-                    is_inference=False,
-                    use_multiply=False):
-        """
-        Processes data files to create a dataset partition, updating characters,
-        labels, and partition lists accordingly.
+    def create_data(self,
+                    labels,
+                    partitions,
+                    sample_weights,
+                    partition_name,
+                    data_files):
 
-        Parameters:
-        - characters: Set of characters found in the dataset.
-        - labels: Dictionary mapping partition names to lists of labels.
-        - partitions: Dictionary mapping partition names to lists of file paths.
-        - partition_name: Name of the current partition being processed.
-        - data_files: List of paths to data files.
-        - include_unsupported_chars: Flag to include lines with unsupported characters.
-        - include_missing_files: Flag to include missing files in the dataset.
-        - is_inference: Flag to indicate processing for inference, where ground truth might be unknown.
-        - use_multiply: Flag to duplicate entries based on the 'multiply' attribute for data augmentation.
+        # Define the character set
+        characters = set() if not self.charlist else set(self.charlist)
 
-        Returns:
-        - Updated set of characters and list of processed files.
-        """
-        processed_files = []
-
-        # Process each file in the data files list.
+        # Process each file in the data files list
         for file_path in data_files.split():
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"{file_path} does not exist")
 
-            with open(file_path) as file:
-                valid_lines = 0  # Counter for valid lines.
+            with open(file_path, encoding="utf-8") as file:
+                # Iterate over the lines in the file
                 for line in file:
-                    if not line or line[0] == '#':
-                        continue  # Skip empty lines and comments.
+                    # Strip the line of leading and trailing whitespace
+                    line = line.strip()
 
-                    line_parts = line.strip().split('\t')
-                    if not is_inference and len(line_parts) == 1:
+                    # Skip empty and commented lines
+                    if not line or line.startswith('#'):
+                        logging.debug("Skipping comment or empty line: %s",
+                                      line)
+                        continue
+
+                    # Split the line into tab-separated fields:
+                    # filename sample_weight ground_truth
+                    fields = line.split('\t')
+
+                    # Extract the filename and ground truth from the fields
+                    file_name = fields[0]
+
+                    # Skip missing files unless explicitly included
+                    if not os.path.exists(file_name):
+                        logging.warning(f"Missing: {file_name} in {file_path}."
+                                        f" Skipping for {partition_name}...")
+                        continue
+
+                    # Collect the ground truth and skip lines with empty
+                    # ground truth unless it's an inference partition
+                    ground_truth = fields[-1] if len(fields) > 1 else ""
+
+                    if partition_name != "inference" and not ground_truth:
                         logging.warning(f"Empty ground truth in {line}. "
                                         f"Skipping for {partition_name}...")
                         continue
 
-                    # filename
-                    file_name = line_parts[0]
-                    # Skip missing files unless explicitly included.
-                    if not include_missing_files and \
-                            self.config['check_missing_files'] and \
-                            not os.path.exists(file_name):
-                        logging.warning(f"Missing: {file_name} in {file_path}. "
-                                        f"Skipping for {partition_name}...")
-                        continue
-
-                    # Determine the ground truth text.
-                    if is_inference:
-                        ground_truth = 'to be determined'
-                    elif self.config['normalization_file'] and \
+                    # Normalize the ground truth if a normalization file is
+                    # provided and the partition is either 'train' or
+                    # 'evaluation'
+                    if self.config['normalization_file'] and \
                             (partition_name == 'train'
                              or partition_name == 'evaluation'):
                         ground_truth = normalize_text(
-                            line_parts[1],
+                            ground_truth,
                             self.config['normalization_file'])
-                    else:
-                        ground_truth = line_parts[1]
 
-                    ignore_line = False
+                    # Check for unsupported characters in the ground truth
+                    # Evaluation partition is allowed to have unsupported
+                    # characters for a more realistic evaluation
+                    if any(char not in characters for char in ground_truth) \
+                            and partition_name != "validation":
+                        if partition_name == 'train' and not self.charlist:
+                            characters.update(set(ground_truth))
+                        else:
+                            logging.warning("Unsupported character in %s. "
+                                            "Skipping for %s...", ground_truth,
+                                            partition_name)
+                            continue
 
-                    # We want to skip lines with unsupported characters, except
-                    # for the training set, since we make our charlist from
-                    # that
-                    # If we're using an injected charlist, we want to skip
-                    # unsupported characters in the training set as well
-                    if not include_unsupported_chars \
-                            and (partition_name != 'train'
-                                 or self.charlist):
-                        for char in ground_truth:
-                            if char not in self.charlist and \
-                                    char not in characters:
-                                logging.warning("Unsupported character: "
-                                                f"{char} in {ground_truth}. "
-                                                "Skipping for "
-                                                f"{partition_name}...")
-                                ignore_line = True
-                                break
-                    if ignore_line or len(ground_truth) == 0:
-                        continue
-                    valid_lines += 1
-                    if use_multiply:
-                        # Multiply the data if requested
-                        for _ in range(self.config['aug_multiply']):
-                            partitions[partition_name].append(file_name)
-                            labels[partition_name].append(ground_truth)
-                            processed_files.append([file_name, ground_truth])
-                    else:
-                        # Or just combine file names and labels
-                        partitions[partition_name].append(file_name)
-                        labels[partition_name].append(ground_truth)
-                        processed_files.append([file_name, ground_truth])
-                    if (not self.charlist or
-                        self.config['replace_final_layer']) \
-                            and partition_name == 'train':
-                        characters = characters.union(
-                            set(char for label in ground_truth for char in label))
+                    # Extract the sample weight from the fields
+                    try:
+                        sample_weight = float(fields[1])
+                    except (IndexError, ValueError):
+                        sample_weight = 1.0
 
-                logging.info(f"Found {valid_lines} lines suitable for "
-                             f"{partition_name}")
+                    # Add the data to the corresponding partition, label and
+                    # sample weight
+                    partitions[partition_name].append(file_name)
+                    labels[partition_name].append(ground_truth)
+                    sample_weights[partition_name].append(sample_weight)
 
-        return characters, processed_files
+        # Update the charlist if it has changed
+        if not self.charlist:
+            self.charlist = sorted(list(characters))
+            logging.info("Created charlist: %s", self.charlist)
+
+            logging.info("Created data for %s with %s samples",
+                         partition_name, len(partitions[partition_name]))
+
+        return partitions, labels, sample_weights
 
     def get_filename(self, partition, item_id):
         return self.raw_data[partition][0][item_id]
@@ -273,6 +260,7 @@ def create_dataset(files,
     generator = tf.data.Dataset.from_tensor_slices(files)
     if is_training:
         # Add additional repeat and shuffle for training
+        # TODO: Use config["aug_multiply"] to multiply the data
         generator = generator.repeat().shuffle(len(files))
 
     generator = (generator
