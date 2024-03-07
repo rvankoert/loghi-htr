@@ -171,10 +171,9 @@ def perform_validation(config: Config,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         X = batch[0]
-        y = []
-        for i in range(batch_no * config["batch_size"],
-                       batch_no * config["batch_size"] + len(X)):
-            y.append(dataloader.get_ground_truth('validation', i))
+        y = [dataloader.get_ground_truth('validation', i)
+             for i in range(batch_no * config["batch_size"],
+                            batch_no * config["batch_size"] + len(X))]
 
         # Logic for processing each batch, calculating CER, etc.
         batch_counter = process_batch((X, y), prediction_model, tokenizer,

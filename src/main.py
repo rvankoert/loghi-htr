@@ -106,7 +106,8 @@ def main():
         model.compile(optimizer=optimizer, loss=CTCLoss,
                       metrics=[CERMetric(greedy=config["greedy"],
                                          beam_width=config["beam_width"]),
-                               WERMetric()])
+                               WERMetric()],
+                      weighted_metrics=[])
 
     # Print the model summary
     model.summary()
