@@ -36,7 +36,7 @@ class DataLoader:
             logging.info('Using injected charlist')
             self.charlist = sorted(list(charlist))
         else:
-            self.charlist = None
+            self.charlist = []
 
         self.evaluation_list = None
         if self.config['train_list'] and self.config['validation_list']:
@@ -118,15 +118,12 @@ class DataLoader:
 
         return datasets
 
-    def _create_data(self,
-                     partition_name,
-                     text_file):
-
+    def _create_data(self, partition_name, text_file):
         # Define the lists for the current partition
         labels, partitions, sample_weights = [], [], []
 
         # Define the character set
-        characters = set() if not self.charlist else set(self.charlist)
+        characters = set(self.charlist)
 
         # Process each file in the data files list
         for file_path in text_file.split():
@@ -136,82 +133,12 @@ class DataLoader:
             with open(file_path, encoding="utf-8") as file:
                 # Iterate over the lines in the file
                 for line in file:
-                    # Strip the line of leading and trailing whitespace
-                    line = line.strip()
-
-                    # Skip empty and commented lines
-                    if not line or line.startswith('#'):
-                        logging.debug("Skipping comment or empty line: %s",
-                                      line)
-                        continue
-
-                    # Split the line into tab-separated fields:
-                    # filename sample_weight ground_truth
-                    fields = line.split('\t')
-
-                    # Extract the filename and ground truth from the fields
-                    file_name = fields[0]
-
-                    # Skip missing files
-                    if not os.path.exists(file_name):
-                        logging.warning(f"Missing: {file_name} in {file_path}."
-                                        f" Skipping for {partition_name}...")
-                        continue
-
-                    # Collect the ground truth and skip lines with empty
-                    # ground truth unless it's an inference partition
-                    ground_truth = fields[-1] if len(fields) > 1 else ""
-
-                    if not ground_truth:
-                        if partition_name == "inference":
-                            ground_truth = "INFERENCE"
-                        else:
-                            logging.warning(f"Empty ground truth in {line}. "
-                                            f"Skipping for {partition_name}..."
-                                            )
-                            continue
-
-                    # Normalize the ground truth if a normalization file is
-                    # provided and the partition is either 'train' or
-                    # 'evaluation'
-                    if self.config['normalization_file'] and \
-                            (partition_name == 'train'
-                             or partition_name == 'evaluation'):
-                        ground_truth = normalize_text(
-                            ground_truth,
-                            self.config['normalization_file'])
-
-                    # Check for unsupported characters in the ground truth
-                    # Evaluation partition is allowed to have unsupported
-                    # characters for a more realistic evaluation
-                    if any(char not in characters for char in ground_truth):
-                        if partition_name in ['evaluation', 'inference']:
-                            pass
-                        elif partition_name == 'train' and not self.charlist:
-                            characters.update(set(ground_truth))
-                        else:
-                            logging.warning("Unsupported character in %s. "
-                                            "Skipping for %s...", ground_truth,
-                                            partition_name)
-                            continue
-
-                    # Extract the sample weight from the fields
-                    sample_weight = 1.0
-                    if len(fields) > 2:
-                        try:
-                            sample_weight = float(fields[1])
-                        except ValueError:
-                            pass
-
-                    # Add the data to the corresponding partition, label and
-                    # sample weight
-                    partitions.append(file_name)
-                    labels.append(ground_truth)
-
-                    # Sample weight needs to be a string since tensorflow's
-                    # from_tensor_slices requires all elements to have the same
-                    # dtype
-                    sample_weights.append(str(sample_weight))
+                    data = self._process_line(line, partition_name, characters)
+                    if data is not None:
+                        file_name, ground_truth, sample_weight = data
+                        partitions.append(file_name)
+                        labels.append(ground_truth)
+                        sample_weights.append(str(sample_weight))
 
         # Update the charlist if it has changed
         if not self.charlist:
@@ -222,6 +149,92 @@ class DataLoader:
                      partition_name, len(partitions))
 
         return partitions, labels, sample_weights
+
+    def _process_line(self, line, partition_name, characters):
+        # Strip the line of leading and trailing whitespace
+        line = line.strip()
+
+        # Skip empty and commented lines
+        if not line or line.startswith('#'):
+            logging.debug("Skipping comment or empty line: %s", line)
+            return None
+
+        # Split the line into tab-separated fields:
+        # filename sample_weight ground_truth
+        fields = line.split('\t')
+
+        # Extract the filename and ground truth from the fields
+        file_name = fields[0]
+
+        # Skip missing files
+        if not os.path.exists(file_name):
+            logging.warning("Missing: %s in %s. Skipping...",
+                            file_name, partition_name)
+            return None
+
+        ground_truth = self._get_ground_truth(fields, partition_name)
+        if ground_truth is None:
+            return None
+
+        # Normalize the ground truth if a normalization file is provided and
+        # the partition is either 'train' or 'evaluation'
+        if self.config['normalization_file'] and \
+                (partition_name == 'train' or partition_name == 'evaluation'):
+            ground_truth = normalize_text(ground_truth,
+                                          self.config['normalization_file'])
+
+        # Check for unsupported characters in the ground truth
+        if not self._is_valid_ground_truth(ground_truth, partition_name,
+                                           characters):
+            return None
+
+        sample_weight = self._get_sample_weight(fields)
+
+        return file_name, ground_truth, sample_weight
+
+    def _get_ground_truth(self, fields, partition_name):
+        # Collect the ground truth and skip lines with empty ground truth
+        # unless it's an inference partition
+        ground_truth = fields[-1] if len(fields) > 1 else ""
+
+        if not ground_truth:
+            if partition_name == "inference":
+                ground_truth = "INFERENCE"
+            else:
+                logging.warning(
+                    "Empty ground truth in %s. Skipping for %s...",
+                    fields, partition_name)
+                return None
+
+        return ground_truth
+
+    def _is_valid_ground_truth(self, ground_truth, partition_name, characters):
+        # Check for unsupported characters in the ground truth
+        # Evaluation partition is allowed to have unsupported characters for a
+        # more realistic evaluation
+        unsupported_characters = set(ground_truth) - characters
+        if unsupported_characters:
+            if partition_name in ['validation', 'inference', 'test']:
+                return True
+            elif partition_name == 'train' and not self.charlist:
+                characters.update(unsupported_characters)
+                return True
+            else:
+                logging.warning(
+                    "Unsupported character in %s. Skipping for %s...",
+                    ground_truth, partition_name)
+                return False
+        return True
+
+    def _get_sample_weight(self, fields):
+        # Extract the sample weight from the fields
+        sample_weight = 1.0
+        if len(fields) > 2:
+            try:
+                sample_weight = float(fields[1])
+            except ValueError:
+                pass
+        return sample_weight
 
     def get_filename(self, partition, item_id):
         return self.raw_data[partition][0][item_id]
