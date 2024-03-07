@@ -122,6 +122,10 @@ class DataLoader:
         # Define the lists for the current partition
         labels, partitions, sample_weights = [], [], []
 
+        # Define the faulty lines and flaws
+        faulty_lines = {}
+        flaw_counts = {}
+
         # Define the character set
         characters = set(self.charlist)
 
@@ -133,12 +137,26 @@ class DataLoader:
             with open(file_path, encoding="utf-8") as file:
                 # Iterate over the lines in the file
                 for line in file:
-                    data = self._process_line(line, partition_name, characters)
+                    data, flaw = self._process_line(line,
+                                                    partition_name,
+                                                    characters)
                     if data is not None:
                         file_name, ground_truth, sample_weight = data
                         partitions.append(file_name)
                         labels.append(ground_truth)
                         sample_weights.append(str(sample_weight))
+                    else:
+                        faulty_lines[line] = flaw
+                        flaw_counts[flaw] = flaw_counts.get(flaw, 0) + 1
+
+        # Log the faulty lines and flaw counts
+        if faulty_lines:
+            logging.warning("Faulty lines for %s:", partition_name)
+            for line, flaw in faulty_lines.items():
+                logging.warning("%s: %s", line.strip(), flaw)
+            logging.warning("Flaw counts for %s:", partition_name)
+            for flaw, count in flaw_counts.items():
+                logging.warning("%s: %d", flaw, count)
 
         # Update the charlist if it has changed
         if not self.charlist:
@@ -156,8 +174,7 @@ class DataLoader:
 
         # Skip empty and commented lines
         if not line or line.startswith('#'):
-            logging.debug("Skipping comment or empty line: %s", line)
-            return None
+            return None, "Empty or commented line"
 
         # Split the line into tab-separated fields:
         # filename sample_weight ground_truth
@@ -170,11 +187,12 @@ class DataLoader:
         if not os.path.exists(file_name):
             logging.warning("Missing: %s in %s. Skipping...",
                             file_name, partition_name)
-            return None
+            return None, "Missing file"
 
-        ground_truth = self._get_ground_truth(fields, partition_name)
+        # Extract the ground truth from the fields
+        ground_truth, flaw = self._get_ground_truth(fields, partition_name)
         if ground_truth is None:
-            return None
+            return None, flaw
 
         # Normalize the ground truth if a normalization file is provided and
         # the partition is either 'train' or 'evaluation'
@@ -186,11 +204,11 @@ class DataLoader:
         # Check for unsupported characters in the ground truth
         if not self._is_valid_ground_truth(ground_truth, partition_name,
                                            characters):
-            return None
+            return None, "Unsupported characters"
 
         sample_weight = self._get_sample_weight(fields)
 
-        return file_name, ground_truth, sample_weight
+        return (file_name, ground_truth, sample_weight), None
 
     def _get_ground_truth(self, fields, partition_name):
         # Collect the ground truth and skip lines with empty ground truth
@@ -201,12 +219,9 @@ class DataLoader:
             if partition_name == "inference":
                 ground_truth = "INFERENCE"
             else:
-                logging.warning(
-                    "Empty ground truth in %s. Skipping for %s...",
-                    fields, partition_name)
-                return None
+                return None, "Empty ground truth"
 
-        return ground_truth
+        return ground_truth, None
 
     def _is_valid_ground_truth(self, ground_truth, partition_name, characters):
         # Check for unsupported characters in the ground truth
@@ -220,9 +235,6 @@ class DataLoader:
                 characters.update(unsupported_characters)
                 return True
             else:
-                logging.warning(
-                    "Unsupported character in %s. Skipping for %s...",
-                    ground_truth, partition_name)
                 return False
         return True
 
