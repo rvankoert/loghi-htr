@@ -45,12 +45,15 @@ class DataLoader:
         if not self.config['do_validate']:
             self.config['validation_list'] = ""
 
-        file_names, labels, _, self.tokenizer = self._process_raw_data()
-        self.raw_data = {split: (file_names[split], labels[split])
+        file_names, labels, sample_weights, self.tokenizer \
+            = self._process_raw_data()
+        self.raw_data = {split: (file_names[split], labels[split],
+                                 sample_weights[split])
                          for split in ['train', 'evaluation', 'validation',
                                        'test', 'inference']}
 
-        self.datasets = self._fill_datasets_dict(file_names, labels)
+        self.datasets = self._fill_datasets_dict(
+            file_names, labels, sample_weights)
 
     def _process_raw_data(self):
         # Initialize character set and data partitions with corresponding
@@ -61,29 +64,27 @@ class DataLoader:
 
         for partition in ['train', 'evaluation', 'validation',
                           'test', 'inference']:
-            if partition == "evaluation":
-                partition_list = self.evaluation_list
-            else:
-                partition_list = self.config[f"{partition}_list"]
-            if partition_list:
-                # include_unsupported_chars = partition in ['evaluation', 'test']
-                # use_multiply = partition == 'train'
-                _ = self.create_data(
-                    labels=labels_dict,
-                    partitions=file_names_dict,
-                    sample_weights=sample_weights_dict,
+            partition_text_file = self.config[f"{partition}_list"] \
+                if partition != "evaluation" else self.evaluation_list
+
+            if partition_text_file:
+                # Create data for the current partition
+                file_names, labels, sample_weights = self._create_data(
                     partition_name=partition,
-                    data_files=partition_list,
-                    # use_multiply=use_multiply,
-                    # include_unsupported_chars=include_unsupported_chars
+                    text_file=partition_text_file,
                 )
+
+                # Fill the dictionary with the data
+                file_names_dict[partition] = file_names
+                labels_dict[partition] = labels
+                sample_weights_dict[partition] = sample_weights
 
         # Initialize the tokenizer
         tokenizer = Tokenizer(self.charlist, self.config['use_mask'])
 
         return file_names_dict, labels_dict, sample_weights_dict, tokenizer
 
-    def _fill_datasets_dict(self, partitions, labels):
+    def _fill_datasets_dict(self, partitions, labels, sample_weights):
         """
         Initializes data generators for different dataset partitions and
         updates character set and tokenizer based on the dataset.
@@ -100,8 +101,10 @@ class DataLoader:
                 partition_list = self.config[f"{partition}_list"]
             if partition_list:
                 # Create dataset for the current partition
-                files = [(partition, label) for partition, label in
-                         zip(partitions[partition], labels[partition])]
+                files = [(partition, label, sample_weight)
+                         for partition, label, sample_weight in
+                         zip(partitions[partition], labels[partition],
+                             sample_weights[partition])]
                 datasets[partition] = create_dataset(
                     files=files,
                     tokenizer=self.tokenizer,
@@ -115,22 +118,18 @@ class DataLoader:
 
         return datasets
 
-    def get_train_batches(self):
-        return int(np.ceil(len(self.raw_data['train'])
-                           / self.config['batch_size']))
+    def _create_data(self,
+                     partition_name,
+                     text_file):
 
-    def create_data(self,
-                    labels,
-                    partitions,
-                    sample_weights,
-                    partition_name,
-                    data_files):
+        # Define the lists for the current partition
+        labels, partitions, sample_weights = [], [], []
 
         # Define the character set
         characters = set() if not self.charlist else set(self.charlist)
 
         # Process each file in the data files list
-        for file_path in data_files.split():
+        for file_path in text_file.split():
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"{file_path} does not exist")
 
@@ -192,24 +191,30 @@ class DataLoader:
                             continue
 
                     # Extract the sample weight from the fields
-                    try:
-                        sample_weight = float(fields[1])
-                    except (IndexError, ValueError):
-                        sample_weight = 1.0
+                    sample_weight = 1.0
+                    if len(fields) > 2:
+                        try:
+                            sample_weight = float(fields[1])
+                        except ValueError:
+                            pass
 
                     # Add the data to the corresponding partition, label and
                     # sample weight
-                    partitions[partition_name].append(file_name)
-                    labels[partition_name].append(ground_truth)
-                    sample_weights[partition_name].append(sample_weight)
+                    partitions.append(file_name)
+                    labels.append(ground_truth)
+
+                    # Sample weight needs to be a string since tensorflow's
+                    # from_tensor_slices requires all elements to have the same
+                    # dtype
+                    sample_weights.append(str(sample_weight))
 
         # Update the charlist if it has changed
         if not self.charlist:
             self.charlist = sorted(list(characters))
             logging.info("Created charlist: %s", self.charlist)
 
-            logging.info("Created data for %s with %s samples",
-                         partition_name, len(partitions[partition_name]))
+        logging.info("Created data for %s with %s samples",
+                     partition_name, len(partitions))
 
         return partitions, labels, sample_weights
 
@@ -218,6 +223,10 @@ class DataLoader:
 
     def get_ground_truth(self, partition, item_id):
         return self.raw_data[partition][1][item_id]
+
+    def get_train_batches(self):
+        return int(np.ceil(len(self.raw_data['train'])
+                           / self.config['batch_size']))
 
 
 def create_dataset(files,
@@ -268,10 +277,12 @@ def create_dataset(files,
                       num_parallel_calls=AUTOTUNE,
                       deterministic=deterministic)
                  .padded_batch(batch_size,
-                               padded_shapes=([None, None, channels], [None]),
+                               padded_shapes=(
+                                   [None, None, channels], [None], []),
                                padding_values=(
                                    tf.constant(-10, dtype=tf.float32),
-                                   tf.constant(0, dtype=tf.int64)))
+                                   tf.constant(0, dtype=tf.int64),
+                                   tf.constant(1.0, dtype=tf.float32)))
                  .prefetch(AUTOTUNE)
                  ).apply(
         tf.data.experimental.assert_cardinality(num_batches))

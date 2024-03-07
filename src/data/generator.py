@@ -25,7 +25,7 @@ class DataGenerator:
         self.channels = channels
         self.is_training = is_training
 
-    def load_images(self, image_info_tuple: Tuple[str, str]) -> (
+    def load_images(self, image_info_tuple: Tuple[str, str, float]) -> (
             Tuple)[np.ndarray, np.ndarray]:
         """
         Loads, preprocesses a single image, and encodes its label.
@@ -48,7 +48,10 @@ class DataGenerator:
         # Transpose the image
         image = tf.transpose(image, perm=[1, 0, 2])
 
-        return image, encoded_label
+        # Get the sample weight
+        sample_weight = tf.strings.to_number(image_info_tuple[2])
+
+        return image, encoded_label, sample_weight
 
     def _load_and_preprocess_image(self, image_path: str) -> tf.Tensor:
         """
