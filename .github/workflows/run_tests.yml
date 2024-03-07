@@ -43,10 +43,10 @@ jobs:
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
-    - name: Test DataCreator
+    - name: Test DataManager
       if: always()
       run: |
-        python -m unittest tests/test_datacreator.py
+        python -m unittest tests/test_datamanager.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 

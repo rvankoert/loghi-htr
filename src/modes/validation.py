@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.creator import DataCreator
+from data.manager import DataManager
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
@@ -26,7 +26,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
-                  loader: DataCreator,
+                  data_manager: DataManager,
                   batch_no: int,
                   chars: List[str]) -> Dict[str, int]:
     """
@@ -48,8 +48,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     wbs : Optional[Any]
         An optional Word Beam Search object for advanced decoding, if
         applicable.
-    loader : DataLoader
-        A data loader object for additional operations like normalization.
+    data_manager : DataManager
+        A DataManager object containing the datasets and tokenizers for
+        validation.
     batch_no : int
         The number of the current batch being processed.
     chars : List[str]
@@ -97,9 +98,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Print the predictions if there are any errors
         if do_print := distances[0] > 0:
-            filename = loader.get_filename('validation',
-                                           (batch_no * config["batch_size"])
-                                           + index)
+            filename = data_manager.get_filename('validation',
+                                                 (batch_no *
+                                                  config["batch_size"])
+                                                 + index)
             wbs_str = char_str[index] if wbs else None
 
             print_predictions(filename, original_text, prediction,
@@ -127,7 +129,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 def perform_validation(config: Config,
                        model: tf.keras.Model,
                        charlist: List[str],
-                       dataloader: DataCreator) -> None:
+                       data_manager: DataManager) -> None:
     """
     Performs validation on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).
@@ -141,9 +143,9 @@ def perform_validation(config: Config,
         The Keras model to be validated.
     charlist : List[str]
         A list of characters used in the model.
-    dataloader : DataLoader
-        A data loader object for additional operations like normalization and
-        Word Beam Search setup.
+    data_manager : DataManager
+        A DataManager object containing the datasets and tokenizers for
+        validation.
 
     Notes
     -----
@@ -155,8 +157,8 @@ def perform_validation(config: Config,
 
     logging.info("Performing validation...")
 
-    tokenizer = dataloader.tokenizer
-    validation_dataset = dataloader.datasets['validation']
+    tokenizer = data_manager.tokenizer
+    validation_dataset = data_manager.datasets['validation']
 
     prediction_model = get_prediction_model(model)
 
@@ -171,13 +173,13 @@ def perform_validation(config: Config,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         X = batch[0]
-        y = [dataloader.get_ground_truth('validation', i)
+        y = [data_manager.get_ground_truth('validation', i)
              for i in range(batch_no * config["batch_size"],
                             batch_no * config["batch_size"] + len(X))]
 
         # Logic for processing each batch, calculating CER, etc.
         batch_counter = process_batch((X, y), prediction_model, tokenizer,
-                                      config, wbs, dataloader, batch_no,
+                                      config, wbs, data_manager, batch_no,
                                       charlist)
 
         # Update totals with batch information

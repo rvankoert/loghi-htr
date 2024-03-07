@@ -17,7 +17,7 @@ from setup.config import Config
 from utils.text import Tokenizer, normalize_text
 
 
-class DataCreator:
+class DataManager:
     """
     Class for creating and managing datasets for training, validating, etc.
 

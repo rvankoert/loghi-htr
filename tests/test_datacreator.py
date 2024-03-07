@@ -9,24 +9,22 @@ import tempfile
 import unittest
 
 # > Third party dependencies
-import numpy as np
-import tensorflow as tf
 
 
-class DataCreatorTest(unittest.TestCase):
+class DataManagerTest(unittest.TestCase):
     """
-    Tests for the DataLoader class.
+    Tests for the DataManager class.
 
     Test Coverage:
         1. `test_initialization`: Checks the correct instantiation of the
-        DataLoader class and its default values.
+        DataManager class and its default values.
         2. `test_create_data_simple`: Checks if the create_data function
         works as expected.
         3. `test_missing_files`: Tests the behavior when data lists contain
         references to non-existent files.
         4. `test_unsupported_chars`: Validates the handling of labels with
         unsupported characters.
-        5. `test_inference_mode`: Checks the DataLoader"s behavior in
+        5. `test_inference_mode`: Checks the DataManager"s behavior in
         inference mode.
         6. `test_text_normalization`: Verifies the correct normalization of
         text labels.
@@ -87,8 +85,8 @@ class DataCreatorTest(unittest.TestCase):
                                        cls.sample_labels):
                 f.write(f"{img_path}.png\t{label}\n")
 
-        from data.creator import DataCreator
-        cls.DataCreator = DataCreator
+        from data.manager import DataManager
+        cls.DataManager = DataManager
 
         from utils.text import Tokenizer
         cls.Tokenizer = Tokenizer
@@ -118,251 +116,12 @@ class DataCreatorTest(unittest.TestCase):
             "img_size": (256, 256, 3),
         })
 
-        data_loader = self.DataCreator(img_size=test_config["img_size"],
-                                       config=test_config,
-                                       augment_model=None,
-                                       charlist=["a", "b", "c"])
-        self.assertIsInstance(data_loader, self.DataCreator,
-                              "DataLoader not instantiated correctly")
-
-    # def test_create_data_simple(self):
-        # # Sample data
-        # chars = set()
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # data_file_list = self.sample_list_file
-        # partition_name = "train"
-
-        # # Initialize DataLoader
-        # data_loader = self.DataLoader(batch_size=32,
-        # img_size=(256, 256, 3),
-        # augment_model=None,
-        # charlist=["a", "b", "c"])
-
-        # # Call create_data
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name, data_file_list)
-
-        # # Asserts
-        # self.assertEqual(len(files), 3)
-        # for i, (fileName, gtText) in enumerate(files):
-        # self.assertEqual(fileName, self.sample_image_paths[i] + ".png",
-        # f"Image path not set correctly. Expected: "
-        # f"{self.sample_image_paths[i] + '.png'}, got: "
-        # f"{fileName}")
-        # self.assertEqual(gtText, self.sample_labels[i],
-        # f"Label not set correctly. Expected: "
-        # f"{self.sample_labels[i]}, got: {gtText}")
-
-    # def test_missing_files(self):
-        # # Manipulate sample file to have a missing image path
-        # additional_lines = [
-        # f"{os.path.join(self.data_dir, 'missing-image.png')}"
-        # "\tmissing_label"]
-        # temp_sample_list_file = self._create_temp_file(
-        # additional_lines)
-
-        # # Sample data
-        # chars = set("abcdefghijklkmnopqrstuvwxyzN0123456789, _")
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # partition_name = "train"
-
-        # # Initialize DataLoader
-        # data_loader = self.DataLoader(batch_size=32,
-        # img_size=(256, 256, 3),
-        # augment_model=None,
-        # charlist=list(chars))
-
-        # # Call create_data with include_missing_files=False (default)
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name, temp_sample_list_file)
-
-        # # Asserts
-        # # should still be 3, not 4, because we skip the missing file
-        # self.assertEqual(len(files), 3, "Missing file not skipped")
-
-        # # Call create_data with include_missing_files=True
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition,
-        # partition_name, temp_sample_list_file, include_missing_files=True)
-
-        # # Asserts
-        # # should be 4 now, including the missing file
-        # self.assertEqual(len(files), 4, "Missing file not included")
-
-    # def test_unsupported_chars(self):
-        # # Sample data with unsupported characters
-        # additional_lines = [
-        # f"{self.sample_image_paths[0]}.png\tlabelX",
-        # f"{self.sample_image_paths[1]}.png\tlabelY"
-        # ]
-        # temp_sample_list_file = self._create_temp_file(
-        # additional_lines)
-
-        # chars = set()
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # partition_name = "train"
-
-        # # Initialize DataLoader with injected_charlist set to a list without
-        # # "X" and 'Y'
-        # data_loader = self.DataLoader(batch_size=32,
-        # img_size=(256, 256, 3),
-        # augment_model=None,
-        # charlist=["a", "b", "c"])
-        # data_loader.injected_charlist = set(
-        # "abcdefghijklkmnopqrstuvwxyzN0123456789, ")\
-        # - set("XY")
-
-        # # Call create_data with include_unsupported_chars=False (default)
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name, temp_sample_list_file)
-
-        # # Asserts
-        # # should still be 3, not 5, because we skip lines with "X" and 'Y'
-        # self.assertEqual(len(files), 3, "Unsupported chars not skipped")
-
-        # # Call create_data with include_unsupported_chars=True
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name,
-        # temp_sample_list_file, include_unsupported_chars=True)
-
-        # # Asserts
-        # # should be 5 now, including the lines with "X" and 'Y'
-        # self.assertEqual(len(files), 5, "Unsupported chars not included")
-
-        # self._remove_temp_file(temp_sample_list_file)
-
-    # def _test_inference_mode(self):
-        # temp_sample_list_file = self._create_temp_file()
-
-        # chars = set()
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # partition_name = "train"
-
-        # data_loader = self.DataLoader(batch_size=32,
-        # img_size=(256, 256, 3),
-        # augment_model=None,
-        # charlist=["a", "b", "c"])
-
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name,
-        # temp_sample_list_file, is_inference=True)
-        # self.assertEqual(len(files), 3, "Inference mode not working")
-        # for _, gtText in files:
-        # self.assertEqual(gtText, "to be determined",
-        # "Inference mode not working")
-
-        # self._remove_temp_file(temp_sample_list_file)
-
-    # def test_text_normalization(self):
-        # # Sample data with mixed-case labels
-        # additional_lines = [f"{self.sample_image_paths[0]}.png\tLabel      ."]
-        # temp_sample_list_file = self._create_temp_file(additional_lines)
-
-        # chars = set()
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # partition_name = "train"
-
-        # # Initialize DataLoader
-        # data_loader = self.DataLoader(
-        # batch_size=32,
-        # img_size=(256, 256, 3),
-        # normalization_file=os.path.join(self.data_dir, "norm_chars.json"),
-        # augment_model=None,
-        # charlist=list("I4831 #"))
-
-        # # Call create_data
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name, temp_sample_list_file)
-
-        # # Asserts
-        # # last file"s label should be normalized to "Label.'
-        # self.assertEqual(files[-1][1], "I4831 #",
-        # "Text not normalized correctly")
-
-        # self._remove_temp_file(temp_sample_list_file)
-
-    # def test_multiplication(self):
-        # chars = set()
-        # labels = {"train": []}
-        # partition = {"train": []}
-        # data_file_list = self.sample_list_file
-        # partition_name = "train"
-
-        # # Initialize DataLoader with multiply set to 2
-        # data_loader = self.DataLoader(
-        # batch_size=32,
-        # img_size=(256, 256, 3),
-        # augment_model=None,
-        # charlist=list("abcdefghijklkmnopqrstuvwxyzN0123456789, _"),
-        # multiply=2)
-
-        # # Call create_data with use_multiply=True
-        # chars, files = data_loader.create_data(
-        # chars, labels, partition, partition_name,
-        # data_file_list, use_multiply=True)
-
-        # # Asserts
-        # # should be 6 now, as each line is duplicated due to multiplication
-        # self.assertEqual(len(files), 6, "Multiplication not working")
-
-    # def test_get_generators(self):
-        # batch_size = 2
-        # img_size = (256, 256, 3)
-
-        # dummy_augment_model = tf.keras.Sequential([])
-
-        # # Setup: Create dummy train, validation, test, and inference lists
-        # data_loader = self.DataLoader(train_list=self._create_temp_file(),
-        # validation_list=self._create_temp_file(),
-        # test_list=self._create_temp_file(),
-        # inference_list=self._create_temp_file(),
-        # batch_size=batch_size,
-        # img_size=img_size,
-        # augment_model=dummy_augment_model,
-        # charlist=["a", "b", "c"])
-
-        # # Basic tests
-        # self.assertIsNotNone(data_loader.datasets["train"],
-        # "Training dataset is None")
-        # self.assertIsNotNone(data_loader.datasets["evaluation"],
-        # "Evaluation dataset is None")
-        # self.assertIsNotNone(data_loader.datasets["validation"],
-        # "Validation dataset is None")
-        # self.assertIsNotNone(data_loader.datasets["test"],
-        # "Test dataset is None")
-        # self.assertIsNotNone(data_loader.datasets["inference"],
-        # "Inference dataset is None")
-
-        # # CharList
-        # self.assertIsNotNone(data_loader.charlist, "charlist is None")
-
-        # # Deep Checks
-        # # Ensure train_batches is correct
-        # # Assuming 3 sample images
-        # self.assertEqual(data_loader.get_train_batches(),
-        # np.ceil(3 / batch_size), "Train batches incorrect")
-
-        # # Let"s check the first batch.
-        # for images, labels in data_loader.datasets["train"].take(1):
-        # # First dim should be batch_size
-        # self.assertEqual(images.shape[0], batch_size,
-        # f"Batch size incorrect. Expected {batch_size}, "
-        # f"got {images.shape[0]}")
-
-        # # Fourth dim should be channels
-        # self.assertEqual(images.shape[3], img_size[2],
-        # f"Channels incorrect. Expected {img_size[2]}, "
-        # f"got {images.shape[3]}")
-
-        # # Cleanup: Remove temporary files
-        # self._remove_temp_file(data_loader.validation_list)
-        # self._remove_temp_file(data_loader.test_list)
-        # self._remove_temp_file(data_loader.inference_list)
+        data_manager = self.DataManager(img_size=test_config["img_size"],
+                                        config=test_config,
+                                        augment_model=None,
+                                        charlist=["a", "b", "c"])
+        self.assertIsInstance(data_manager, self.DataManager,
+                              "DataManager not instantiated correctly")
 
 
 if __name__ == "__main__":

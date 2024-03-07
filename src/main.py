@@ -7,8 +7,8 @@ import logging
 
 # > Local dependencies
 # Data handling
-from data.data_handling import load_initial_charlist, initialize_data_loader, \
-    save_charlist
+from data.data_handling import save_charlist, load_initial_charlist, \
+    initialize_data_manager
 
 # Model-specific
 from data.augmentation import make_augment_model, visualize_augments
@@ -71,12 +71,12 @@ def main():
             visualize_augments(augmentation_model, config["output"],
                                model.input_shape[-1])
 
-        # Initialize the Dataloader
-        loader = initialize_data_loader(config, charlist, model,
-                                        augmentation_model)
+        # Initialize the DataManager
+        data_manager = initialize_data_manager(config, charlist, model,
+                                               augmentation_model)
 
-        # Replace the charlist with the one from the data loader
-        charlist = loader.charlist
+        # Replace the charlist with the one from the data manager
+        charlist = data_manager.charlist
 
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
@@ -92,7 +92,7 @@ def main():
             learning_rate=config["learning_rate"],
             decay_rate=config["decay_rate"],
             decay_steps=config["decay_steps"],
-            train_batches=loader.get_train_batches(),
+            train_batches=data_manager.get_train_batches(),
             do_train=config["do_train"],
             warmup_ratio=config["warmup_ratio"],
             epochs=config["epochs"],
@@ -125,8 +125,11 @@ def main():
     if config["train_list"]:
         tick = time.time()
 
-        history = train_model(model, config, loader.datasets["train"],
-                              loader.datasets["evaluation"], loader)
+        history = train_model(model,
+                              config,
+                              data_manager.datasets["train"],
+                              data_manager.datasets["evaluation"],
+                              data_manager)
 
         # Plot the training history
         plot_training_history(history, config["output"],
@@ -139,7 +142,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(config, model, charlist, loader)
+        perform_validation(config, model, charlist, data_manager)
         timestamps['Validation'] = time.time() - tick
 
     # Test the model
@@ -147,15 +150,15 @@ def main():
         logging.warning("Test results are without special markdown tags")
 
         tick = time.time()
-        perform_test(config, model, loader.datasets["test"],
-                     charlist, loader)
+        perform_test(config, model, data_manager.datasets["test"],
+                     charlist, data_manager)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
-        perform_inference(config, model, loader.datasets["inference"],
-                          charlist, loader)
+        perform_inference(config, model, data_manager.datasets["inference"],
+                          charlist, data_manager)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps

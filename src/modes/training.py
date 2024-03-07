@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 # > Local dependencies
-from data.creator import DataCreator
+from data.manager import DataManager
 from setup.config import Config
 from model.custom_callback import LoghiCustomCallback
 
@@ -18,7 +18,7 @@ def train_model(model: tf.keras.Model,
                 config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                loader: DataCreator,
+                data_manager: DataManager,
                 num_workers: int = 20) -> Any:
     """
     Trains a Keras model using the provided training and validation datasets,
@@ -34,8 +34,8 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for training.
     validation_dataset : tf.data.Dataset
         The dataset to be used for validation.
-    loader : DataLoader
-        A DataLoader containing additional information like character list.
+    data_manager : DataManager
+        A DataManager containing additional information like character list.
     num_workers : int, default 20
         Number of workers for data loading.
 
@@ -62,7 +62,7 @@ def train_model(model: tf.keras.Model,
         LoghiCustomCallback(save_best=True,
                             save_checkpoint=config["output_checkpoints"],
                             output=config["output"],
-                            charlist=loader.charlist,
+                            charlist=data_manager.charlist,
                             config=config,
                             normalization_file=config["normalization_file"])
 
