@@ -32,7 +32,6 @@ class DataLoader:
         self.config = config
 
         # TODO: Make this more clear
-        self.injected_charlist = charlist
         self.charlist = charlist
 
         self.evaluation_list = None
@@ -73,9 +72,8 @@ class DataLoader:
                 )
 
         # Determine the character list for the tokenizer
-        if self.injected_charlist and not self.config['replace_final_layer']:
+        if self.charlist and not self.config['replace_final_layer']:
             logging.info('Using injected charlist')
-            self.charlist = self.injected_charlist
         else:
             self.charlist = sorted(list(characters))
 
@@ -193,9 +191,9 @@ class DataLoader:
                     # unsupported characters in the training set as well
                     if not include_unsupported_chars \
                             and (partition_name != 'train'
-                                 or self.injected_charlist):
+                                 or self.charlist):
                         for char in ground_truth:
-                            if char not in self.injected_charlist and \
+                            if char not in self.charlist and \
                                     char not in characters:
                                 logging.warning("Unsupported character: "
                                                 f"{char} in {ground_truth}. "
@@ -217,7 +215,7 @@ class DataLoader:
                         partitions[partition_name].append(file_name)
                         labels[partition_name].append(ground_truth)
                         processed_files.append([file_name, ground_truth])
-                    if (not self.injected_charlist or
+                    if (not self.charlist or
                         self.config['replace_final_layer']) \
                             and partition_name == 'train':
                         characters = characters.union(
