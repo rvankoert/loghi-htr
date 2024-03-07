@@ -53,7 +53,8 @@ class TestDataGenerator(unittest.TestCase):
         # Set up a mock image file and label
         image_path = "path/to/mock_image.png"
         label = "mock_label"
-        image_info_tuple = (image_path, label)
+        sample_weight = "1.0"
+        image_info_tuple = (image_path, label, sample_weight)
         dummy_augment_model = tf.keras.Sequential([])
 
         tokenizer = self.Tokenizer(chars=["ABC"], use_mask=False)
@@ -66,13 +67,14 @@ class TestDataGenerator(unittest.TestCase):
             with unittest.mock.patch.object(tf.image, 'decode_image',
                                             return_value=tf.ones([100, 100, 3])
                                             ):
-                preprocessed_image, encoded_label = dg.load_images(
-                    image_info_tuple)
+                preprocessed_image, encoded_label, sample_weights \
+                    = dg.load_images(image_info_tuple)
 
                 # Assert the shape of the preprocessed image
                 self.assertEqual(preprocessed_image.shape, (304, 64, 3))
                 self.assertIsInstance(preprocessed_image, tf.Tensor)
                 self.assertIsInstance(encoded_label, tf.Tensor)
+                self.assertIsInstance(sample_weights, tf.Tensor)
 
 
 if __name__ == '__main__':

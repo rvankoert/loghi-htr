@@ -25,7 +25,7 @@ class DataGenerator:
         self.channels = channels
         self.is_training = is_training
 
-    def load_images(self, image_info_tuple: Tuple[str, str, float]) -> (
+    def load_images(self, image_info_tuple: Tuple[str, str, str]) -> (
             Tuple)[np.ndarray, np.ndarray]:
         """
         Loads, preprocesses a single image, and encodes its label.
