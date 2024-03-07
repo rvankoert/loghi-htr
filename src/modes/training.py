@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 # > Local dependencies
-from data.loader import DataLoader
+from data.creator import DataCreator
 from setup.config import Config
 from model.custom_callback import LoghiCustomCallback
 
@@ -18,7 +18,7 @@ def train_model(model: tf.keras.Model,
                 config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                loader: DataLoader,
+                loader: DataCreator,
                 num_workers: int = 20) -> Any:
     """
     Trains a Keras model using the provided training and validation datasets,

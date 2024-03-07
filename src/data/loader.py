@@ -1,476 +1,128 @@
 # Imports
 
-# > Standard library
-from collections import defaultdict
+# > Standard Library
 import logging
-import os
-from typing import Dict, Tuple, Optional, List, Set
-
-# > Third party dependencies
-import tensorflow as tf
-from tensorflow.data import AUTOTUNE
-import numpy as np
+from typing import Tuple
 
 # > Local dependencies
-from data.generator import DataGenerator
-from setup.config import Config
-from utils.text import Tokenizer, normalize_text
+
+# > Third party libraries
+import tensorflow as tf
+import numpy as np
 
 
 class DataLoader:
-    """
-    Loader for dataset at given location, preprocess images and text
-    according to parameters
-
-
-    Parameters
-    ----------
-    img_size : Tuple[int, int, int]
-        The size of the input images (height, width, channels).
-    augment_model : tf.keras.Sequential
-        The model used for data augmentation.
-    config : Config
-        The configuration dictionary containing various settings.
-    charlist : Optional[List[str]], optional
-        The list of characters to use for tokenization, by default None.
-    """
-
     def __init__(self,
-                 img_size: Tuple[int, int, int],
-                 augment_model: tf.keras.Sequential,
-                 config: Config,
-                 charlist: Optional[List[str]] = None,
+                 tokenizer,
+                 augment_model,
+                 height=64,
+                 channels=1,
+                 is_training=False,
                  ):
-
+        self.tokenizer = tokenizer
         self.augment_model = augment_model
-        self.height = img_size[0]
-        self.channels = img_size[2]
-        self.config = config
+        self.height = height
+        self.channels = channels
+        self.is_training = is_training
 
-        # Determine the character list
-        if charlist and not config['replace_final_layer']:
-            logging.info('Using injected charlist')
-            self.charlist = sorted(list(charlist))
-        else:
-            self.charlist = []
-
-        self.evaluation_list = None
-        if self.config['train_list'] and self.config['validation_list']:
-            self.evaluation_list = self.config['validation_list']
-
-        if not self.config['do_validate']:
-            self.config['validation_list'] = ""
-
-        file_names, labels, sample_weights, self.tokenizer \
-            = self._process_raw_data()
-        self.raw_data = {split: (file_names[split], labels[split],
-                                 sample_weights[split])
-                         for split in ['train', 'evaluation', 'validation',
-                                       'test', 'inference']}
-
-        self.datasets = self._fill_datasets_dict(
-            file_names, labels, sample_weights)
-
-    def _process_raw_data(self) -> Tuple[Dict[str, List[str]],
-                                         Dict[str, List[str]],
-                                         Dict[str, List[str]],
-                                         Tokenizer]:
+    def load_images(self, image_info_tuple: Tuple[str, str, str]) -> (
+            Tuple)[np.ndarray, np.ndarray]:
         """
-        Process the raw data and create file names, labels, sample weights,
-        and tokenizer.
+        Loads, preprocesses a single image, and encodes its label.
 
-        Returns
-        -------
-        Tuple[Dict[str, List[str]],
-              Dict[str, List[str]],
-              Dict[str, List[str]],
-              Tokenizer]
-            A tuple containing dictionaries of file names, labels, sample
-            weights, and the tokenizer.
+        Unpacks the tuple for readability.
         """
 
-        # Initialize character set and data partitions with corresponding
-        # labels
-        file_names_dict = defaultdict(list)
-        labels_dict = defaultdict(list)
-        sample_weights_dict = defaultdict(list)
+        # Load and preprocess the image
+        image = self._load_and_preprocess_image(image_info_tuple[0])
 
-        for partition in ['train', 'evaluation', 'validation',
-                          'test', 'inference']:
-            partition_text_file = self.config[f"{partition}_list"] \
-                if partition != "evaluation" else self.evaluation_list
+        # Encode the label
+        encoded_label = self.tokenizer(image_info_tuple[1])
 
-            if partition_text_file:
-                # Create data for the current partition
-                file_names, labels, sample_weights = self._create_data(
-                    partition_name=partition,
-                    text_file=partition_text_file,
-                )
+        # Ensure the image width is sufficient for CTC decoding
+        image = self._ensure_width_for_ctc(image, encoded_label)
 
-                # Fill the dictionary with the data
-                file_names_dict[partition] = file_names
-                labels_dict[partition] = labels
-                sample_weights_dict[partition] = sample_weights
+        # Center the image values around 0.5
+        image = 0.5 - image
 
-        # Initialize the tokenizer
-        tokenizer = Tokenizer(self.charlist, self.config['use_mask'])
+        # Transpose the image
+        image = tf.transpose(image, perm=[1, 0, 2])
 
-        return file_names_dict, labels_dict, sample_weights_dict, tokenizer
+        # Get the sample weight
+        sample_weight = tf.strings.to_number(image_info_tuple[2])
 
-    def _fill_datasets_dict(self,
-                            partitions: Dict[str, List[str]],
-                            labels: Dict[str, List[str]],
-                            sample_weights: Dict[str, List[str]]) \
-            -> Dict[str, tf.data.Dataset]:
+        return image, encoded_label, sample_weight
+
+    def _load_and_preprocess_image(self, image_path: str) -> tf.Tensor:
         """
-        Initialize data generators for different dataset partitions and
-        update character set and tokenizer based on the dataset.
+        Loads and preprocesses a single image.
 
         Parameters
         ----------
-        partitions : Dict[str, List[str]]
-            A dictionary containing lists of file names for each partition.
-        labels : Dict[str, List[str]]
-            A dictionary containing lists of labels for each partition.
-        sample_weights : Dict[str, List[str]]
-            A dictionary containing lists of sample weights for each partition.
+        image_path: str
+            The path to the image file.
 
         Returns
         -------
-        Dict[str, tf.data.Dataset]
-            A dictionary containing datasets for each partition.
+        tf.Tensor
+            A preprocessed image tensor ready for training.
         """
 
-        # Create datasets for different partitions
-        datasets = defaultdict(lambda: None)
+        # 1. Load the Image
+        image = tf.io.read_file(image_path)
 
-        for partition in ['train', 'evaluation', 'validation',
-                          'test', 'inference']:
-            # Special case for evaluation partition, since there is no
-            # evaluation_list in the config, but the evaluation_list is
-            # inferred from the validation_list and train_list in the init
-            if partition == "evaluation":
-                partition_list = self.evaluation_list
+        try:
+            image = tf.image.decode_image(image, channels=self.channels,
+                                          expand_animations=False)
+        except ValueError:
+            logging.error("Invalid number of channels. "
+                          "Supported values are 1, 3, or 4.")
+
+        # 2. Resize the Image and Normalize Pixel Values to [0, 1]
+        image = tf.image.resize(image, (self.height, 99999),
+                                preserve_aspect_ratio=True) / 255.0
+
+        # 3. Apply Data Augmentations
+        # Add batch dimension (required for augmentation model)
+        image = tf.expand_dims(image, 0)
+
+        for layer in self.augment_model.layers:
+            # Custom layer handling (assuming 'extra_resize_with_pad'
+            # remains)
+            if layer.name == "extra_resize_with_pad":
+                image = layer(image, training=True)
             else:
-                partition_list = self.config[f"{partition}_list"]
-            if partition_list:
-                # Create dataset for the current partition
-                files = [(partition, label, sample_weight)
-                         for partition, label, sample_weight in
-                         zip(partitions[partition], labels[partition],
-                             sample_weights[partition])]
-                datasets[partition] = create_dataset(
-                    files=files,
-                    tokenizer=self.tokenizer,
-                    augment_model=self.augment_model,
-                    height=self.height,
-                    channels=self.channels,
-                    batch_size=self.config['batch_size'],
-                    is_training=partition == 'train',
-                    deterministic=partition != 'train'
-                )
+                image = layer(image, training=self.is_training)
 
-        return datasets
+        return tf.cast(image[0], tf.float32)
 
-    def _create_data(self,
-                     partition_name: str,
-                     text_file: str) -> Tuple[List[str], List[str], List[str]]:
-        """
-        Create data for a specific partition from a text file.
-
-        Parameters
-        ----------
-        partition_name : str
-            The name of the partition.
-        text_file : str
-            The path to the text file containing the data.
-
-        Returns
-        -------
-        Tuple[List[str], List[str], List[str]]
-            A tuple containing lists of file names, labels, and sample weights.
+    def _ensure_width_for_ctc(self, image, encoded_label):
+        """Resizes the image if necessary to accommodate the encoded label
+        during CTC decoding.
         """
 
-        # Define the lists for the current partition
-        labels, partitions, sample_weights = [], [], []
+        # Calculate the required width for the image
+        required_width = len(encoded_label)
 
-        # Define the faulty lines and flaws
-        faulty_lines = {}
-        flaw_counts = {}
+        num_repetitions = 0
+        last_char = None
+        for char in encoded_label:
+            if char == last_char:
+                num_repetitions += 1
+            last_char = char
 
-        # Define the character set
-        characters = set(self.charlist)
+        # Add repetitions
+        required_width += num_repetitions
 
-        # Process each file in the data files list
-        for file_path in text_file.split():
-            if not os.path.exists(file_path):
-                raise FileNotFoundError(f"{file_path} does not exist")
+        # Convert to pixels
+        pixels_per_column = 16
+        required_width *= pixels_per_column
 
-            with open(file_path, encoding="utf-8") as file:
-                # Iterate over the lines in the file
-                for line in file:
-                    data, flaw = self._process_line(line,
-                                                    partition_name,
-                                                    characters)
-                    if data is not None:
-                        file_name, ground_truth, sample_weight = data
-                        partitions.append(file_name)
-                        labels.append(ground_truth)
-                        sample_weights.append(str(sample_weight))
-                    else:
-                        faulty_lines[line] = flaw
-                        flaw_counts[flaw] = flaw_counts.get(flaw, 0) + 1
+        # Mandatory cast to float32
+        image = tf.cast(image, tf.float32)
 
-        # Log the faulty lines and flaw counts
-        if faulty_lines:
-            logging.warning("Faulty lines for %s:", partition_name)
-            for line, flaw in faulty_lines.items():
-                logging.warning("%s: %s", line.strip(), flaw)
-            logging.warning("Flaw counts for %s:", partition_name)
-            for flaw, count in flaw_counts.items():
-                logging.warning("%s: %d", flaw, count)
+        if tf.shape(image)[1] < required_width:
+            image = tf.image.resize_with_pad(
+                image, self.height, required_width)
 
-        # Update the charlist if it has changed
-        if not self.charlist:
-            self.charlist = sorted(list(characters))
-            logging.info("Created charlist: %s", self.charlist)
-
-        logging.info("Created data for %s with %s samples",
-                     partition_name, len(partitions))
-
-        return partitions, labels, sample_weights
-
-    def _process_line(self,
-                      line: str,
-                      partition_name: str,
-                      characters: Set[str]) \
-        -> Tuple[Optional[Tuple[str, str, float]],
-                 Optional[str]]:
-        """
-        Process a single line from the data file.
-
-        Parameters
-        ----------
-        line : str
-            The line to process.
-        partition_name : str
-            The name of the partition.
-        characters : Set[str]
-            The set of characters to use for validation.
-
-        Returns
-        -------
-        Tuple[Optional[Tuple[str, str, float]], Optional[str]]
-            A tuple containing the processed data (file name, ground truth,
-            sample weight) and the flaw (if any).
-        """
-
-        # Strip the line of leading and trailing whitespace
-        line = line.strip()
-
-        # Skip empty and commented lines
-        if not line or line.startswith('#'):
-            return None, "Empty or commented line"
-
-        # Split the line into tab-separated fields:
-        # filename sample_weight ground_truth
-        fields = line.split('\t')
-
-        # Extract the filename and ground truth from the fields
-        file_name = fields[0]
-
-        # Skip missing files
-        if not os.path.exists(file_name):
-            logging.warning("Missing: %s in %s. Skipping...",
-                            file_name, partition_name)
-            return None, "Missing file"
-
-        # Extract the ground truth from the fields
-        ground_truth, flaw = self._get_ground_truth(fields, partition_name)
-        if ground_truth is None:
-            return None, flaw
-
-        # Normalize the ground truth if a normalization file is provided and
-        # the partition is either 'train' or 'evaluation'
-        if self.config['normalization_file'] and \
-                (partition_name == 'train' or partition_name == 'evaluation'):
-            ground_truth = normalize_text(ground_truth,
-                                          self.config['normalization_file'])
-
-        # Check for unsupported characters in the ground truth
-        if not self._is_valid_ground_truth(ground_truth, partition_name,
-                                           characters):
-            return None, "Unsupported characters"
-
-        sample_weight = self._get_sample_weight(fields)
-
-        return (file_name, ground_truth, sample_weight), None
-
-    def _get_ground_truth(self,
-                          fields: List[str],
-                          partition_name: str) \
-            -> Tuple[Optional[str], Optional[str]]:
-        """
-        Extract the ground truth from the fields.
-
-        Parameters
-        ----------
-        fields : List[str]
-            The fields from the line.
-        partition_name : str
-            The name of the partition.
-
-        Returns
-        -------
-        Tuple[Optional[str], Optional[str]]
-            A tuple containing the ground truth and the flaw (if any).
-        """
-
-        # Collect the ground truth and skip lines with empty ground truth
-        # unless it's an inference partition
-        ground_truth = fields[-1] if len(fields) > 1 else ""
-
-        if not ground_truth:
-            if partition_name == "inference":
-                ground_truth = "INFERENCE"
-            else:
-                return None, "Empty ground truth"
-
-        return ground_truth, None
-
-    def _is_valid_ground_truth(self,
-                               ground_truth: str,
-                               partition_name: str,
-                               characters: Set[str]) -> bool:
-        """
-        Check if the ground truth is valid.
-
-        Parameters
-        ----------
-        ground_truth : str
-            The ground truth to check.
-        partition_name : str
-            The name of the partition.
-        characters : Set[str]
-            The set of characters.
-
-        Returns
-        -------
-        bool
-            True if the ground truth is valid, False otherwise.
-        """
-
-        # Check for unsupported characters in the ground truth
-        # and update the character set if the partition is 'train'
-        unsupported_characters = set(ground_truth) - characters
-        if unsupported_characters:
-
-            # Unsupported characters are allowed in the validation, inference,
-            # and test partitions, but not in the evaluation partition
-            if partition_name in ['validation', 'inference', 'test']:
-                return True
-            elif partition_name == 'train' and not self.charlist:
-                characters.update(unsupported_characters)
-                return True
-            else:
-                return False
-        return True
-
-    def _get_sample_weight(self,
-                           fields: List[str]) -> float:
-        """
-        Extract the sample weight from the fields.
-
-        Parameters
-        ----------
-        fields : List[str]
-            The fields from the line.
-
-        Returns
-        -------
-        float
-            The sample weight.
-        """
-
-        # Extract the sample weight from the fields
-        sample_weight = 1.0
-        if len(fields) > 2:
-            try:
-                sample_weight = float(fields[1])
-            except ValueError:
-                pass
-        return sample_weight
-
-    def get_filename(self, partition: str, item_id: int):
-        """ Get the filename for the given partition and item id """
-        return self.raw_data[partition][0][item_id]
-
-    def get_ground_truth(self, partition: str, item_id: int):
-        """ Get the ground truth for the given partition and item id """
-        return self.raw_data[partition][1][item_id]
-
-    def get_train_batches(self):
-        """ Get the number of batches for training """
-        return int(np.ceil(len(self.raw_data['train'])
-                           / self.config['batch_size']))
-
-
-def create_dataset(files,
-                   tokenizer,
-                   augment_model,
-                   height,
-                   channels,
-                   batch_size,
-                   is_training=False,
-                   deterministic=False):
-    """
-    Create DataGenerator object which is used to load and preprocess
-    batches of data (tuples) consisting of a file path and a label.
-    AUTOTUNE is applied to optimize parallel calls to the laod_images
-    function.
-
-    Parameters
-    ----------
-    files:
-        Input files for data generator
-    params: dict
-        Dict of training parameters used to pre-process the data
-    is_training: bool
-        Indicate whether generator is used for training process or not
-    deterministic: bool
-        Control the order in which the transformation produces elements,
-        If set to False, the transformation is allowed to yield elements
-        out of order to trade determinism for performance.
-
-    Returns
-    ----------
-    DataGenerator
-        Generator object with loaded images and params
-    """
-
-    data_generator = DataGenerator(tokenizer, augment_model, height,
-                                   channels, is_training)
-
-    num_batches = np.ceil(len(files) / batch_size)
-    generator = tf.data.Dataset.from_tensor_slices(files)
-    if is_training:
-        # Add additional repeat and shuffle for training
-        # TODO: Use config["aug_multiply"] to multiply the data
-        generator = generator.repeat().shuffle(len(files))
-
-    generator = (generator
-                 .map(data_generator.load_images,
-                      num_parallel_calls=AUTOTUNE,
-                      deterministic=deterministic)
-                 .padded_batch(batch_size,
-                               padded_shapes=(
-                                   [None, None, channels], [None], []),
-                               padding_values=(
-                                   tf.constant(-10, dtype=tf.float32),
-                                   tf.constant(0, dtype=tf.int64),
-                                   tf.constant(1.0, dtype=tf.float32)))
-                 .prefetch(AUTOTUNE)
-                 ).apply(
-        tf.data.experimental.assert_cardinality(num_batches))
-
-    return generator
+        return image

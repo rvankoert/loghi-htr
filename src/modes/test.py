@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Tuple, Optional
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
 from data.loader import DataLoader
+from data.creator import DataCreator
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, calculate_cers, \
@@ -24,7 +24,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
-                  loader: DataLoader,
+                  loader: DataCreator,
                   chars: List[str]) -> Dict[str, int]:
     """
     Processes a batch of data by predicting, calculating Character Error Rate
@@ -113,9 +113,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
 def perform_test(config: Config,
                  model: tf.keras.Model,
-                 test_dataset: DataGenerator,
+                 test_dataset: DataLoader,
                  charlist: List[str],
-                 dataloader: DataLoader) -> None:
+                 dataloader: DataCreator) -> None:
     """
     Performs test run on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).

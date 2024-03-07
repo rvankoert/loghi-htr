@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.loader import DataLoader
+from data.creator import DataCreator
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
@@ -26,7 +26,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
-                  loader: DataLoader,
+                  loader: DataCreator,
                   batch_no: int,
                   chars: List[str]) -> Dict[str, int]:
     """
@@ -127,7 +127,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 def perform_validation(config: Config,
                        model: tf.keras.Model,
                        charlist: List[str],
-                       dataloader: DataLoader) -> None:
+                       dataloader: DataCreator) -> None:
     """
     Performs validation on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).

@@ -9,14 +9,14 @@ from typing import List, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.loader import DataLoader
+from data.creator import DataCreator
 from setup.config import Config
 
 
 def initialize_data_loader(config: Config,
                            charlist: List[str],
                            model: tf.keras.Model,
-                           augment_model: tf.keras.Sequential) -> DataLoader:
+                           augment_model: tf.keras.Sequential) -> DataCreator:
     """
     Initializes a data loader with specified parameters and based on the input
     shape of a given model.
@@ -50,7 +50,7 @@ def initialize_data_loader(config: Config,
     model_channels = model.layers[0].input_shape[0][3]
     img_size = (model_height, config["width"], model_channels)
 
-    return DataLoader(
+    return DataCreator(
         img_size=img_size,
         charlist=charlist,
         augment_model=augment_model,

@@ -8,8 +8,8 @@ from typing import List
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
 from data.loader import DataLoader
+from data.creator import DataCreator
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.decoding import decode_batch_predictions
@@ -17,8 +17,8 @@ from utils.text import Tokenizer
 
 
 def perform_inference(config: Config, model: tf.keras.Model,
-                      inference_dataset: DataGenerator, charlist: List[str],
-                      loader: DataLoader) -> None:
+                      inference_dataset: DataLoader, charlist: List[str],
+                      loader: DataCreator) -> None:
     """
     Performs inference on a given dataset using a specified model and writes
     the results to a file.
