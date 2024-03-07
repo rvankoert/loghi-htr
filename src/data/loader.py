@@ -20,41 +20,24 @@ class DataLoader:
     according to parameters"""
 
     def __init__(self,
-                 batch_size,
                  img_size,
                  augment_model,
+                 config,
                  charlist=None,
-                 train_list='',
-                 validation_list='',
-                 test_list='',
-                 inference_list='',
-                 normalization_file=None,
-                 multiply=1,
-                 check_missing_files=True,
-                 replace_final_layer=False,
-                 use_mask=False
                  ):
 
-        # TODO: Change most of these to use config
-        self.batch_size = batch_size
-        self.height = img_size[0]
         self.augment_model = augment_model
+        self.height = img_size[0]
         self.channels = img_size[2]
+        self.config = config
+
+        # TODO: Make this more clear
         self.injected_charlist = charlist
-        self.train_list = train_list
-        self.validation_list = validation_list
-        self.test_list = test_list
-        self.inference_list = inference_list
-        self.normalization_file = normalization_file
-        self.multiply = multiply
-        self.check_missing_files = check_missing_files
-        self.replace_final_layer = replace_final_layer
-        self.use_mask = use_mask
         self.charlist = charlist
 
         self.evaluation_list = None
-        if train_list and validation_list:
-            self.evaluation_list = validation_list
+        if self.config['do_validate']:
+            self.evaluation_list = self.config['validation_list']
 
         partitions, labels, self.tokenizer = self._process_raw_data()
         self.raw_data = {split: (partitions[split], labels[split])
@@ -72,7 +55,10 @@ class DataLoader:
 
         for partition in ['train', 'evaluation', 'validation',
                           'test', 'inference']:
-            partition_list = getattr(self, f"{partition}_list", None)
+            if partition == "evaluation":
+                partition_list = self.evaluation_list
+            else:
+                partition_list = self.config[f"{partition}_list"]
             if partition_list:
                 include_unsupported_chars = partition in ['validation', 'test']
                 use_multiply = partition == 'train'
@@ -87,14 +73,14 @@ class DataLoader:
                 )
 
         # Determine the character list for the tokenizer
-        if self.injected_charlist and not self.replace_final_layer:
+        if self.injected_charlist and not self.config['replace_final_layer']:
             logging.info('Using injected charlist')
             self.charlist = self.injected_charlist
         else:
             self.charlist = sorted(list(characters))
 
         # Initialize the tokenizer
-        tokenizer = Tokenizer(self.charlist, self.use_mask)
+        tokenizer = Tokenizer(self.charlist, self.config['use_mask'])
 
         return partitions, labels, tokenizer
 
@@ -109,7 +95,10 @@ class DataLoader:
 
         for partition in ['train', 'evaluation', 'validation',
                           'test', 'inference']:
-            partition_list = getattr(self, f"{partition}_list", None)
+            if partition == "evaluation":
+                partition_list = self.evaluation_list
+            else:
+                partition_list = self.config[f"{partition}_list"]
             if partition_list:
                 # Create dataset for the current partition
                 files = list(zip(partitions[partition], labels[partition]))
@@ -119,7 +108,7 @@ class DataLoader:
                     augment_model=self.augment_model,
                     height=self.height,
                     channels=self.channels,
-                    batch_size=self.batch_size,
+                    batch_size=self.config['batch_size'],
                     is_training=partition == 'train',
                     deterministic=partition != 'train'
                 )
@@ -127,7 +116,8 @@ class DataLoader:
         return datasets
 
     def get_train_batches(self):
-        return int(np.ceil(len(self.datasets['train']) / self.batch_size))
+        return int(np.ceil(len(self.raw_data['train'])
+                           / self.config['batch_size']))
 
     def create_data(self, characters, labels, partitions, partition_name,
                     data_files,
@@ -175,8 +165,9 @@ class DataLoader:
                     # filename
                     file_name = line_parts[0]
                     # Skip missing files unless explicitly included.
-                    if not include_missing_files and self.check_missing_files \
-                            and not os.path.exists(file_name):
+                    if not include_missing_files and \
+                            self.config['check_missing_files'] and \
+                            not os.path.exists(file_name):
                         logging.warning(f"Missing: {file_name} in {file_path}. "
                                         f"Skipping for {partition_name}...")
                         continue
@@ -184,11 +175,12 @@ class DataLoader:
                     # Determine the ground truth text.
                     if is_inference:
                         ground_truth = 'to be determined'
-                    elif self.normalization_file and \
+                    elif self.config['normalization_file'] and \
                             (partition_name == 'train'
                              or partition_name == 'evaluation'):
-                        ground_truth = normalize_text(line_parts[1],
-                                                      self.normalization_file)
+                        ground_truth = normalize_text(
+                            line_parts[1],
+                            self.config['normalization_file'])
                     else:
                         ground_truth = line_parts[1]
 
@@ -216,7 +208,7 @@ class DataLoader:
                     valid_lines += 1
                     if use_multiply:
                         # Multiply the data if requested
-                        for _ in range(self.multiply):
+                        for _ in range(self.config['aug_multiply']):
                             partitions[partition_name].append(file_name)
                             labels[partition_name].append(ground_truth)
                             processed_files.append([file_name, ground_truth])
@@ -226,7 +218,7 @@ class DataLoader:
                         labels[partition_name].append(ground_truth)
                         processed_files.append([file_name, ground_truth])
                     if (not self.injected_charlist or
-                        self.replace_final_layer) \
+                        self.config['replace_final_layer']) \
                             and partition_name == 'train':
                         characters = characters.union(
                             set(char for label in ground_truth for char in label))

@@ -45,6 +45,16 @@ class DataLoaderTest(unittest.TestCase):
             level=logging.ERROR,
         )
 
+        cls.dummy_config = {
+            "do_validate": False,
+            "train_list": "",
+            "validation_list": "",
+            "test_list": "",
+            "inference_list": "",
+            "replace_final_layer": False,
+            "use_mask": False,
+        }
+
         # Determine the directory of this file
         current_file_dir = Path(__file__).resolve().parent
 
@@ -102,20 +112,18 @@ class DataLoaderTest(unittest.TestCase):
 
     def test_initialization(self):
         # Only provide the required arguments for initialization and check them
-        batch_size = 32
-        img_size = (256, 256, 3)
+        test_config = self.dummy_config.copy()
+        test_config.update({
+            "batch_size": 32,
+            "img_size": (256, 256, 3),
+        })
 
-        data_loader = self.DataLoader(batch_size=batch_size,
-                                      img_size=img_size,
+        data_loader = self.DataLoader(img_size=test_config["img_size"],
+                                      config=test_config,
                                       augment_model=None,
                                       charlist=["a", "b", "c"])
         self.assertIsInstance(data_loader, self.DataLoader,
                               "DataLoader not instantiated correctly")
-
-        # Check the values
-        self.assertEqual(data_loader.batch_size, batch_size,
-                         f"batch_size not set correctly. Expected: "
-                         f"{batch_size}, got: {data_loader.batch_size}")
 
     # def test_create_data_simple(self):
         # # Sample data

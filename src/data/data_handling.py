@@ -16,7 +16,7 @@ from setup.config import Config
 def initialize_data_loader(config: Config,
                            charlist: List[str],
                            model: tf.keras.Model,
-                           augment_model) -> DataLoader:
+                           augment_model: tf.keras.Sequential) -> DataLoader:
     """
     Initializes a data loader with specified parameters and based on the input
     shape of a given model.
@@ -30,6 +30,8 @@ def initialize_data_loader(config: Config,
         A list of characters to be used by the data loader.
     model : tf.keras.Model
         The Keras model, used to derive input dimensions for the data loader.
+    augment_model : tf.keras.Sequential
+        The Keras model used for data augmentation.
 
     Returns
     -------
@@ -49,19 +51,10 @@ def initialize_data_loader(config: Config,
     img_size = (model_height, config["width"], model_channels)
 
     return DataLoader(
-        batch_size=config["batch_size"],
         img_size=img_size,
-        train_list=config["train_list"],
-        test_list=config["test_list"],
-        validation_list=config["validation_list"],
-        inference_list=config["inference_list"],
         charlist=charlist,
-        multiply=config["aug_multiply"],
-        check_missing_files=config["check_missing_files"],
-        replace_final_layer=config["replace_final_layer"],
-        normalization_file=config["normalization_file"],
-        use_mask=config["use_mask"],
         augment_model=augment_model,
+        config=config
     )
 
 
