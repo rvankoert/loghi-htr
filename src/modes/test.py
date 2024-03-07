@@ -157,9 +157,11 @@ def perform_test(config: Config,
     n_items = 0
 
     for batch_no, batch in enumerate(test_dataset):
-        logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
+        # Unpack the batch and ignore the third element (sample weights)
+        X, y_true, _ = batch
 
-        batch_counter = process_batch(batch, prediction_model, tokenizer,
+        logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
+        batch_counter = process_batch((X, y_true), prediction_model, tokenizer,
                                       config, wbs, dataloader, charlist)
 
         # Update the total counter
