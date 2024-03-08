@@ -159,7 +159,7 @@ class DataManager:
                 partition_list = self.config[f"{partition}_list"]
             if partition_list:
                 # Create dataset for the current partition
-                datasets[partition] = self.create_dataset(
+                datasets[partition] = self._create_dataset(
                     files=partitions[partition],
                     labels=labels[partition],
                     sample_weights=sample_weights[partition],
@@ -410,11 +410,11 @@ class DataManager:
         return int(np.ceil(len(self.raw_data['train'])
                            / self.config['batch_size']))
 
-    def create_dataset(self,
-                       files: List[str],
-                       labels: List[str],
-                       sample_weights: List[str],
-                       partition_name: str) -> tf.data.Dataset:
+    def _create_dataset(self,
+                        files: List[str],
+                        labels: List[str],
+                        sample_weights: List[str],
+                        partition_name: str) -> tf.data.Dataset:
         """
         Create a dataset for a specific partition.
 
@@ -453,8 +453,7 @@ class DataManager:
         dataset = tf.data.Dataset.from_tensor_slices(data)
         if is_training:
             # Add additional repeat and shuffle for training
-            dataset = dataset.repeat(self.config["aug_multiply"])\
-                .shuffle(len(files))
+            dataset = dataset.repeat().shuffle(len(files))
 
         dataset = (dataset
                    .map(data_loader.load_images,

@@ -67,7 +67,6 @@ class ShearXLayer(tf.keras.layers.Layer):
         )
 
         # Apply the shear transformation
-        # Fill value is set to 0 to ensure that binarization is not affected
         sheared_image = tf.raw_ops.ImageProjectiveTransformV3(
             images=inputs,
             transforms=shear_matrix_tf,
@@ -136,6 +135,10 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
         x_deformed = tf.clip_by_value(x_deformed,
                                       clip_value_min=0.0,
                                       clip_value_max=1.0)
+
+        # HACK: Reshape to original shape to force a shape
+        x_deformed = tf.reshape(x_deformed, tf.shape(inputs))
+
         return x_deformed
 
 
