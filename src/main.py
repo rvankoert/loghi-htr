@@ -103,7 +103,8 @@ def main():
         optimizer = get_optimizer(config["optimizer"], lr_schedule)
 
         # Compile the model
-        model.compile(optimizer=optimizer, loss=CTCLoss,
+        model.compile(optimizer=optimizer,
+                      loss=CTCLoss,
                       metrics=[CERMetric(greedy=config["greedy"],
                                          beam_width=config["beam_width"]),
                                WERMetric()],

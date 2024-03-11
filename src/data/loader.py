@@ -1,7 +1,6 @@
 # Imports
 
 # > Standard Library
-import logging
 from typing import Tuple
 
 # > Local dependencies
@@ -106,9 +105,9 @@ class DataLoader:
         try:
             image = tf.image.decode_image(image, channels=self.channels,
                                           expand_animations=False)
-        except ValueError:
-            logging.error("Invalid number of channels. "
-                          "Supported values are 1, 3, or 4.")
+        except ValueError as e:
+            raise ValueError("Invalid number of channels. "
+                             "Expected 1, 3, or 4.") from e
 
         # 2. Resize the Image and Normalize Pixel Values to [0, 1]
         image = tf.image.resize(image, (self.height, 99999),
