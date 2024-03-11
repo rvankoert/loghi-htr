@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 # > Third party dependencies
+import tensorflow as tf
 
 
 class DataManagerTest(unittest.TestCase):
@@ -119,9 +120,136 @@ class DataManagerTest(unittest.TestCase):
         data_manager = self.DataManager(img_size=test_config["img_size"],
                                         config=test_config,
                                         augment_model=None,
-                                        charlist=["a", "b", "c"])
+                                        charlist=list("abc"))
         self.assertIsInstance(data_manager, self.DataManager,
                               "DataManager not instantiated correctly")
+
+    def test_create_data_simple(self):
+        test_config = self.dummy_config.copy()
+        test_config.update({
+            "batch_size": 2,
+            "img_size": (256, 256, 3),
+            "train_list": self.sample_list_file,
+            "normalization_file": None,
+        })
+
+        data_manager = self.DataManager(img_size=test_config["img_size"],
+                                        config=test_config,
+                                        augment_model=tf.keras.Sequential())
+
+        # Check if the data is created correctly
+        for i in range(3):
+            self.assertEqual(data_manager.get_filename("train", i),
+                             self.sample_image_paths[i] + ".png",
+                             "Filename not as expected")
+            self.assertEqual(data_manager.get_ground_truth("train", i),
+                             self.sample_labels[i],
+                             "Label not as expected")
+
+        # Batch size is 2, so we should have ceil(3/2) = 2 batches
+        self.assertEqual(data_manager.get_train_batches(), 2)
+
+        # Check the tokenizer
+        self.assertIsInstance(data_manager.tokenizer, self.Tokenizer,
+                              "Tokenizer not created correctly")
+        self.assertEqual(len(data_manager.tokenizer.charlist), 27,
+                         "Charlist length not as expected")
+
+    def test_missing_files(self):
+        # Create a temporary list file with a missing image
+        temp_sample_list_file = self._create_temp_file(
+            additional_lines=[f"missing_image.png\t{self.sample_labels[0]}"])
+        test_config = self.dummy_config.copy()
+        test_config.update({
+            "batch_size": 1,
+            "img_size": (256, 256, 3),
+            "train_list": temp_sample_list_file,
+            "normalization_file": None,
+        })
+
+        data_manager = self.DataManager(img_size=test_config["img_size"],
+                                        config=test_config,
+                                        augment_model=tf.keras.Sequential())
+
+        # Check if the data is created correctly
+        self.assertEqual(data_manager.get_filename("train", 1),
+                         self.sample_image_paths[1] + ".png",
+                         "Filename not as expected")
+        self.assertEqual(data_manager.get_ground_truth("train", 1),
+                         self.sample_labels[1],
+                         "Label not as expected")
+
+        # The missing image should be ignored, so we should have 3 batches
+        self.assertEqual(data_manager.get_train_batches(), 3)
+
+        # Remove the temporary file
+        self._remove_temp_file(temp_sample_list_file)
+
+    def test_unsupported_chars_in_eval(self):
+        # Create a temporary list file with unsupported characters
+        temp_sample_list_file = self._create_temp_file(
+            additional_lines=[f"{self.sample_image_paths[0]}.png\t"
+                              f"{self.sample_labels[0]}!"])
+        test_config = self.dummy_config.copy()
+        test_config.update({
+            "batch_size": 1,
+            "img_size": (256, 256, 3),
+            "train_list": temp_sample_list_file,
+            "validation_list": temp_sample_list_file,  # Use evaluation list
+            "normalization_file": None,
+        })
+
+        data_manager = self.DataManager(img_size=test_config["img_size"],
+                                        config=test_config,
+                                        augment_model=tf.keras.Sequential())
+
+        # Check if the data is created correctly
+        self.assertEqual(data_manager.get_filename("train", 3),
+                         self.sample_image_paths[0] + ".png",
+                         "Filename not as expected")
+        self.assertEqual(data_manager.get_ground_truth("train", 3),
+                         self.sample_labels[0]+"!",
+                         "Label not as expected")
+
+        with self.assertRaises(IndexError):
+            data_manager.get_filename("validation", 0)
+            data_manager.get_filename("evaluation", 3)
+
+        # Remove the temporary file
+        self._remove_temp_file(temp_sample_list_file)
+
+    def test_injected_charlist(self):
+        # Create a temporary list file with unsupported characters
+        temp_sample_list_file = self._create_temp_file(
+            additional_lines=[f"test-image3.png\t{self.sample_labels[0]}!"])
+        test_config = self.dummy_config.copy()
+        test_config.update({
+            "batch_size": 1,
+            "img_size": (256, 256, 3),
+            "train_list": temp_sample_list_file,
+            "normalization_file": None,
+        })
+        charlist = list(
+            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789, ")
+
+        data_manager = self.DataManager(img_size=test_config["img_size"],
+                                        config=test_config,
+                                        augment_model=tf.keras.Sequential(),
+                                        charlist=charlist)
+
+        # Check if the data is created correctly
+        self.assertEqual(data_manager.get_filename("train", 2),
+                         self.sample_image_paths[2] + ".png",
+                         "Filename not as expected")
+        self.assertEqual(data_manager.get_ground_truth("train", 2),
+                         self.sample_labels[2],
+                         "Label not as expected")
+
+        # The label with unsupported characters should be ignored
+        self.assertEqual(data_manager.get_train_batches(), 3)
+
+        # Remove the temporary file
+        self._remove_temp_file(temp_sample_list_file)
 
 
 if __name__ == "__main__":
