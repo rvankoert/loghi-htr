@@ -45,7 +45,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         An optional Word Beam Search object for advanced decoding, if
         applicable.
     data_manager : DataManager
-        A data data_manager object for additional operations like normalization.
+        A data data_manager object for additional operations like
+        normalization.
     chars : List[str]
         A list of characters used in the model.
 
@@ -131,8 +132,8 @@ def perform_test(config: Config,
     charlist : List[str]
         A list of characters used in the model.
     data_manager : DataManager
-        A data data_manager object for additional operations like normalization and
-        Word Beam Search setup.
+        A data data_manager object for additional operations like normalization
+        and Word Beam Search setup.
 
     Notes
     -----

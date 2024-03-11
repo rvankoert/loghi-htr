@@ -3,11 +3,11 @@
 # > Standard Library
 from typing import Tuple
 
-# > Local dependencies
-from utils.text import Tokenizer
-
 # > Third party libraries
 import tensorflow as tf
+
+# > Local dependencies
+from utils.text import Tokenizer
 
 
 class DataLoader:

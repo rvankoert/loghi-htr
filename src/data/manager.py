@@ -99,8 +99,8 @@ class DataManager:
         labels_dict = defaultdict(list)
         sample_weights_dict = defaultdict(list)
 
-        for partition in ['train', 'evaluation', 'validation',
-                          'test', 'inference']:
+        for partition in ('train', 'evaluation', 'validation',
+                          'test', 'inference'):
             partition_text_file = self.config[f"{partition}_list"] \
                 if partition != "evaluation" else self.evaluation_list
 
@@ -148,8 +148,8 @@ class DataManager:
         # Create datasets for different partitions
         datasets = defaultdict(lambda: None)
 
-        for partition in ['train', 'evaluation', 'validation',
-                          'test', 'inference']:
+        for partition in ('train', 'evaluation', 'validation',
+                          'test', 'inference'):
             # Special case for evaluation partition, since there is no
             # evaluation_list in the config, but the evaluation_list is
             # inferred from the validation_list and train_list in the init
@@ -289,7 +289,7 @@ class DataManager:
         # Normalize the ground truth if a normalization file is provided and
         # the partition is either 'train' or 'evaluation'
         if self.config['normalization_file'] and \
-                (partition_name == 'train' or partition_name == 'evaluation'):
+                partition_name in ('train' or 'evaluation'):
             ground_truth = normalize_text(ground_truth,
                                           self.config['normalization_file'])
 
@@ -360,16 +360,15 @@ class DataManager:
         # and update the character set if the partition is 'train'
         unsupported_characters = set(ground_truth) - characters
         if unsupported_characters:
-
             # Unsupported characters are allowed in the validation, inference,
             # and test partitions, but not in the evaluation partition
             if partition_name in ['validation', 'inference', 'test']:
                 return True
-            elif partition_name == 'train' and not self.charlist:
+
+            if partition_name == 'train' and not self.charlist:
                 characters.update(unsupported_characters)
                 return True
-            else:
-                return False
+            return False
         return True
 
     def _get_sample_weight(self,
