@@ -11,9 +11,7 @@
             "seed": 42
         },
         "misc": {
-            "check_missing_files": false,
             "deterministic": false,
-            "ignore_lines_unknown_character": false,
             "normalization_file": "/path/to/normalization.json"
         },
         "model": {

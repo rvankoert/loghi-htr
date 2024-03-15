@@ -1,16 +1,17 @@
 {
     "args": {
         "augmentation": {
-            "distort_jpeg": false,
-            "do_binarize_otsu": false,
-            "do_binarize_sauvola": false,
-            "do_blur": false,
-            "do_invert": false,
-            "do_random_shear": false,
-            "elastic_transform": true,
-            "multiply": 1,
-            "random_crop": true,
-            "random_width": true
+            "aug_binarize_otsu": false,
+            "aug_binarize_sauvola": false,
+            "aug_blur": false,
+            "aug_distort_jpeg": false,
+            "aug_elastic_transform": true,
+            "aug_invert": false,
+            "aug_multiply": 1,
+            "aug_random_crop": true,
+            "aug_random_shear": false,
+            "aug_random_width": true,
+            "visualize_augments": false
         },
         "decoding": {
             "beam_width": 10,
@@ -38,7 +39,7 @@
             "normalization_file": "/path/to/normalization.json"
         },
         "model": {
-            "model": "None,64,None,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Mp2,2,2,2 Bn Cr3,3,96 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 Bl512 D50 Bl512 D50 Bl512 D50 Bl512 D50 O1s92",
+            "model": "recommended",
             "model_name": "My-Loghi-Model",
             "use_float32": false
         },

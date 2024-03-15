@@ -1,16 +1,17 @@
 {
     "args": {
         "augmentation": {
-            "distort_jpeg": false,
-            "do_binarize_otsu": false,
-            "do_binarize_sauvola": false,
-            "do_blur": false,
-            "do_invert": false,
-            "do_random_shear": false,
-            "elastic_transform": false,
-            "multiply": 1,
-            "random_crop": false,
-            "random_width": false
+            "aug_binarize_otsu": false,
+            "aug_binarize_sauvola": false,
+            "aug_blur": false,
+            "aug_distort_jpeg": false,
+            "aug_elastic_transform": false,
+            "aug_invert": false,
+            "aug_multiply": 1,
+            "aug_random_crop": false,
+            "aug_random_shear": false,
+            "aug_random_width": false,
+            "visualize_augments": false
         },
         "decoding": {
             "beam_width": 10,
@@ -26,6 +27,7 @@
             "height": 64,
             "no_auto": false,
             "output_charlist": null,
+            "thaw": false,
             "use_mask": true
         },
         "general": {
@@ -50,9 +52,7 @@
             "warmup_ratio": 0.0
         },
         "misc": {
-            "check_missing_files": false,
-            "deterministic": false,
-            "ignore_lines_unknown_character": false,
+            "deterministic": false
             "normalization_file": null
         },
         "model": {
@@ -64,7 +64,6 @@
             "model_name": null,
             "replace_final_layer": false,
             "replace_recurrent_layer": null,
-            "thaw": false,
             "use_float32": false
         },
         "training": {

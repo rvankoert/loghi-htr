@@ -152,9 +152,6 @@ def get_arg_parser():
     model_args.add_argument('--replace_recurrent_layer', action='store',
                             help="Replace the recurrent layer in an existing "
                             "model, affecting the final layer as well.")
-    model_args.add_argument('--thaw', action='store_true',
-                            help="Unfreeze convolutional layers in an "
-                            "existing model for further training.")
     model_args.add_argument('--freeze_conv_layers', action='store_true',
                             help="Freeze convolutional layers in an existing "
                             "model, preventing them from updating during "
@@ -273,6 +270,9 @@ def get_arg_parser():
                            default=None, help="Path to save the "
                            "configuration file. If not specified, the "
                            "configuration is set to 'output/config.json'.")
+    depr_args.add_argument('--thaw', action='store_true',
+                           help="Unfreeze convolutional layers in an "
+                           "existing model for further training.")
 
     return parser
 

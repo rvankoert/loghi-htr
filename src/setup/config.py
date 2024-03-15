@@ -195,7 +195,6 @@ class Config:
                 "model_name": args.model_name,
                 "replace_final_layer": args.replace_final_layer,
                 "replace_recurrent_layer": args.replace_recurrent_layer,
-                "thaw": args.thaw,
                 "freeze_conv_layers": args.freeze_conv_layers,
                 "freeze_recurrent_layers": args.freeze_recurrent_layers,
                 "freeze_dense_layers": args.freeze_dense_layers
@@ -232,6 +231,7 @@ class Config:
                 "channels": args.channels,
                 "output_charlist": args.output_charlist,
                 "config_file_output": args.config_file_output,
+                "thaw": args.thaw,
             }
         }
 
