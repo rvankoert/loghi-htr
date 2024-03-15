@@ -24,7 +24,7 @@ Ensure you have the following prerequisites installed or set up:
 - Ubuntu or a similar Linux-based operating system. The provided commands are tailored for such systems.
 
 > [!IMPORTANT]
-> The requirements listed in `requirements.txt` require a Python version > 3.9.
+> The requirements listed in `requirements.txt` require a Python version > 3.9. The `CTCWordBeamSearch` package might have problems with a Python version >= 3.11. In that case, you should downgrade to Python 3.10.
 
 ### Steps
 
@@ -448,7 +448,7 @@ Replace `/path/to/your/model_directory` with the path to the directory containin
 
 The `replace_recurrent_layer` is a feature that allows you to replace the recurrent layers of an existing model with a new architecture defined by a VGSL string. To use it:
 
-1. Specify the model you want to modify using the `--existing_model` argument.
+1. Specify the model you want to modify using the `--model` argument.
 2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
 3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
 4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
