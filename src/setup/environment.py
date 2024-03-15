@@ -13,6 +13,22 @@ import tensorflow as tf
 from setup.config import Config
 
 
+class TensorFlowLogFilter(logging.Filter):
+    """Filter to exclude specific TensorFlow logging messages.
+
+    This filter checks each log record for specific phrases that are to be
+    excluded from the logs. If any of the specified phrases are found in a log
+    message, the message is excluded from the logs.
+    """
+
+    def filter(self, record):
+        # Exclude logs containing the specific message
+        exclude_phrases = [
+            "Reduce to /job:localhost/replica:0/task:0/device:CPU:",
+        ]
+        return not any(phrase in record.msg for phrase in exclude_phrases)
+
+
 def set_deterministic(seed: int) -> None:
     """
     Sets the environment and random seeds to ensure deterministic behavior in
@@ -121,6 +137,7 @@ def setup_logging() -> None:
 
     # Remove the default Tensorflow logger handlers and use our own
     tf_logger = tf.get_logger()
+    tf_logger.addFilter(TensorFlowLogFilter())
     while tf_logger.handlers:
         tf_logger.handlers.pop()
 

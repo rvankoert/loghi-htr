@@ -118,9 +118,6 @@ def load_initial_charlist(charlist_location: str, existing_model: str,
                                     f"{charlist_location} and "
                                     "replace_final_layer is False.")
 
-        logging.info("Using charlist: %s", charlist)
-        logging.info("Charlist length: %s", len(charlist))
-
     return charlist, removed_padding
 
 

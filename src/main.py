@@ -77,6 +77,8 @@ def main():
 
         # Replace the charlist with the one from the data manager
         charlist = data_manager.charlist
+        logging.info("Using charlist: %s", charlist)
+        logging.info("Charlist length: %s", len(charlist))
 
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32

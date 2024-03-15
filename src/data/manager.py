@@ -232,7 +232,7 @@ class DataManager:
         # Update the charlist if it has changed
         if not self.charlist:
             self.charlist = sorted(list(characters))
-            logging.info("Created charlist: %s", self.charlist)
+            logging.debug("Updated charlist: %s", self.charlist)
 
         logging.info("Created data for %s with %s samples",
                      partition_name, len(partitions))

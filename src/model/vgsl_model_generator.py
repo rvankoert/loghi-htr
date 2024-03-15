@@ -306,7 +306,11 @@ class VGSLModelGenerator:
                 ("None,64,None,4 Bn Ce3,3,16 RB3,3,16 RB3,3,16 RBd3,3,32 "
                  "RB3,3,32 RB3,3,32 RB3,3,32 RB3,3,32 RBd3,3,64 RB3,3,64 "
                  "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
-                 "Bl256,D20 Bl256,D20 Bl256,D20 O1s92")
+                 "Bl256,D20 Bl256,D20 Bl256,D20 O1s92"),
+            "recommended":
+                ("None,64,None,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Mp2,2,2,2 Bn "
+                 "Cr3,3,96 Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 "
+                 "Bl512 D50 Bl512 D50 Bl512 D50 Bl512 D50 O1s92")
         }
 
         return model_library
@@ -638,8 +642,6 @@ class VGSLModelGenerator:
         # Check parameter length and generate corresponding Conv2D layer
         if len(conv_filter_params) == 3:
             x, y, d = conv_filter_params
-            logging.warning(
-                "No stride provided, setting default stride of (1,1)")
             return layers.Conv2D(d,
                                  kernel_size=(y, x),
                                  strides=(1, 1),
