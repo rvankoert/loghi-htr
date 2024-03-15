@@ -10,15 +10,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
-from data.loader import DataLoader
+from data.manager import DataManager
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
     calculate_edit_distances, update_statistics, increment_counters
 from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
-from utils.text import preprocess_text, Tokenizer
+from utils.text import preprocess_text, Tokenizer, normalize_text
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
@@ -27,7 +26,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
-                  loader: DataLoader,
+                  data_manager: DataManager,
                   batch_no: int,
                   chars: List[str]) -> Dict[str, int]:
     """
@@ -49,8 +48,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     wbs : Optional[Any]
         An optional Word Beam Search object for advanced decoding, if
         applicable.
-    loader : DataLoader
-        A data loader object for additional operations like normalization.
+    data_manager : DataManager
+        A DataManager object containing the datasets and tokenizers for
+        validation.
     batch_no : int
         The number of the current batch being processed.
     chars : List[str]
@@ -86,7 +86,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         prediction = preprocess_text(prediction)
         original_text = preprocess_text(y_true[index])
         normalized_original = None if not config["normalization_file"] else \
-            loader.normalize(original_text, config["normalization_file"])
+            normalize_text(original_text, config["normalization_file"])
 
         # Calculate edit distances here so we can use them for printing the
         # predictions
@@ -98,9 +98,10 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
         # Print the predictions if there are any errors
         if do_print := distances[0] > 0:
-            filename = loader.get_item('validation',
-                                       (batch_no * config["batch_size"])
-                                       + index)
+            filename = data_manager.get_filename('validation',
+                                                 (batch_no *
+                                                  config["batch_size"])
+                                                 + index)
             wbs_str = char_str[index] if wbs else None
 
             print_predictions(filename, original_text, prediction,
@@ -127,10 +128,8 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
 def perform_validation(config: Config,
                        model: tf.keras.Model,
-                       validation_dataset: DataGenerator,
-                       validation_labels: List[str],
                        charlist: List[str],
-                       dataloader: DataLoader) -> None:
+                       data_manager: DataManager) -> None:
     """
     Performs validation on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).
@@ -142,15 +141,11 @@ def perform_validation(config: Config,
         process such as mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    validation_dataset : DataGenerator
-        The dataset to be used for validation.
-    validation_labels : List[str]
-        A list of labels for the validation dataset.
     charlist : List[str]
         A list of characters used in the model.
-    dataloader : DataLoader
-        A data loader object for additional operations like normalization and
-        Word Beam Search setup.
+    data_manager : DataManager
+        A DataManager object containing the datasets and tokenizers for
+        validation.
 
     Notes
     -----
@@ -162,11 +157,13 @@ def perform_validation(config: Config,
 
     logging.info("Performing validation...")
 
-    tokenizer = Tokenizer(charlist, config["use_mask"])
+    tokenizer = data_manager.tokenizer
+    validation_dataset = data_manager.datasets['validation']
+
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(config, charlist, dataloader) \
+    wbs = setup_word_beam_search(config, charlist) \
         if config["corpus_file"] else None
 
     # Initialize variables for CER calculation
@@ -176,12 +173,13 @@ def perform_validation(config: Config,
     # Process each batch in the validation dataset
     for batch_no, batch in enumerate(validation_dataset):
         X = batch[0]
-        y = validation_labels[batch_no * config["batch_size"]:
-                              batch_no * config["batch_size"] + len(X)]
+        y = [data_manager.get_ground_truth('validation', i)
+             for i in range(batch_no * config["batch_size"],
+                            batch_no * config["batch_size"] + len(X))]
 
         # Logic for processing each batch, calculating CER, etc.
         batch_counter = process_batch((X, y), prediction_model, tokenizer,
-                                      config, wbs, dataloader, batch_no,
+                                      config, wbs, data_manager, batch_no,
                                       charlist)
 
         # Update totals with batch information

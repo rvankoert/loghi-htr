@@ -37,6 +37,12 @@ def get_arg_parser():
                               default=None, help="Path to a file containing "
                               "the list of characters to be recognized. "
                               "Required for inference and validation.")
+    general_args.add_argument('--test_list', metavar='test_list',
+                              type=str, default=None, help="File(s) with "
+                              "textline locations and transcriptions for "
+                              "testing. For multiple files, separate with "
+                              "spaces and use quotes: 'test_file1.txt "
+                              "test_file2.txt'.")
 
     # Training configuration
     training_args = parser.add_argument_group('Training arguments')
@@ -53,12 +59,6 @@ def get_arg_parser():
                                "transcriptions for training. Use "
                                "space-separated quotes for multiple files: "
                                "'training_file1.txt training_file2.txt'.")
-    general_args.add_argument('--test_list', metavar='test_list',
-                              type=str, default=None, help="File(s) with "
-                              "textline locations and transcriptions for "
-                              "testing. For multiple files, separate with "
-                              "spaces and use quotes: 'test_file1.txt "
-                              "test_file2.txt'.")
     training_args.add_argument('--steps_per_epoch', metavar='steps_per_epoch',
                                type=int, default=None, help="Number of steps "
                                "per training epoch. Default: None (calculated "
@@ -234,13 +234,6 @@ def get_arg_parser():
 
     # Miscellaneous configuration
     misc_args = parser.add_argument_group('Miscellaneous arguments')
-    misc_args.add_argument('--ignore_lines_unknown_character',
-                           action='store_true', help="Ignore lines during "
-                           "training/validation that contain characters not "
-                           "in the charlist.")
-    misc_args.add_argument('--check_missing_files', action='store_true',
-                           help="Check for missing files in the dataset "
-                           "before starting training or inference.")
     misc_args.add_argument('--normalization_file', default=None, type=str,
                            help="Path to a JSON file specifying character "
                            "normalizations. Format: {'original': "
@@ -326,18 +319,6 @@ def arg_future_warning(args):
         logger.warning("Argument will lose support in May 2024: "
                        "--config_file_output. The configuration will be saved "
                        "to output/config.json by default.")
-
-    # old data aug arguments
-    # Check for old argument names and issue warnings
-    old_arg_names = [
-        'multiply', 'elastic_transform', 'random_crop', 'random_width',
-        'distort_jpeg', 'do_random_shear', 'do_blur', 'do_invert',
-        'do_binarize_otsu', 'do_binarize_sauvola']
-    for old_arg in old_arg_names:
-        if getattr(args, old_arg, None) is not None:
-            new_arg_name = old_arg.replace("do_", "")
-            logger.warning(f"Argument will lose support in May 2024: "
-                           f"--{old_arg}. Use --aug_{new_arg_name} instead.")
 
 
 def get_args():

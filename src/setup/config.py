@@ -103,6 +103,21 @@ class Config:
         except KeyError:
             return getattr(self.args, key, None)
 
+    def __setitem__(self, key: str, value: any) -> None:
+        """
+        Set a value in the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to set.
+        value : any
+            The value to assign to the key.
+        """
+
+        setattr(self.args, key, value)
+        self.config["args"] = self.organize_args(self.args)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.
@@ -205,9 +220,6 @@ class Config:
                 "wbs_smoothing": args.wbs_smoothing
             },
             "misc": {
-                "ignore_lines_unknown_character":
-                    args.ignore_lines_unknown_character,
-                "check_missing_files": args.check_missing_files,
                 "normalization_file": args.normalization_file,
                 "deterministic": args.deterministic
             },
@@ -238,6 +250,17 @@ class Config:
             If the configuration file does not exist.
         """
 
+        old_augment_lookup = {'multiply': 'aug_multiply',
+                              'elastic_transform': 'aug_elastic_transform',
+                              'random_crop': 'aug_random_crop',
+                              'random_width': 'aug_random_width',
+                              'distort_jpeg': 'aug_distort_jpeg',
+                              'do_random_shear': 'aug_random_shear',
+                              'do_blur': 'aug_blur',
+                              'do_invert': 'aug_invert',
+                              'do_binarize_otsu': 'aug_binarize_otsu',
+                              'do_binarize_sauvola': 'aug_binarize_sauvola'}
+
         with open(config_file, encoding="utf-8") as file:
             config = json.load(file)
             config_args = config.get("args", {})
@@ -256,6 +279,8 @@ class Config:
 
             for value in config_args.values():
                 for subkey, subvalue in value.items():
+                    subkey = old_augment_lookup.get(subkey, subkey)
+
                     try:
                         # If the argument was explicitly provided by the user,
                         # we do not override it. Otherwise, we update it.
@@ -274,21 +299,6 @@ class Config:
                         logging.warning("Invalid argument: %s. Skipping...",
                                         subkey)
                         continue
-
-    def change_arg(self, key: str, value: any) -> None:
-        """
-        Change a specific argument's value.
-
-        Parameters
-        ----------
-        key : str
-            The key of the argument to change.
-        value : any
-            The new value to assign to the argument.
-        """
-
-        setattr(self.args, key, value)
-        self.config["args"] = self.organize_args(self.args)
 
     def update_config_key(self, key: str, value: any) -> None:
         """

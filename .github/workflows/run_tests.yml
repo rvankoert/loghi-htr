@@ -29,10 +29,10 @@ jobs:
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
-    - name: Test DataGenerator
+    - name: Test DataLoader
       if: always()
       run: |
-        python -m unittest tests/test_datagenerator.py
+        python -m unittest tests/test_dataloader.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
@@ -43,10 +43,10 @@ jobs:
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
-    - name: Test DataLoader
+    - name: Test DataManager
       if: always()
       run: |
-        python -m unittest tests/test_dataloader.py
+        python -m unittest tests/test_datamanager.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 

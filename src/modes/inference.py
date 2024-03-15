@@ -8,17 +8,18 @@ from typing import List
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
-from data.loader import DataLoader
+from data.manager import DataManager
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.decoding import decode_batch_predictions
 from utils.text import Tokenizer
 
 
-def perform_inference(config: Config, model: tf.keras.Model,
-                      inference_dataset: DataGenerator, charlist: List[str],
-                      loader: DataLoader) -> None:
+def perform_inference(config: Config,
+                      model: tf.keras.Model,
+                      inference_dataset: tf.data.Dataset,
+                      charlist: List[str],
+                      data_manager: DataManager) -> None:
     """
     Performs inference on a given dataset using a specified model and writes
     the results to a file.
@@ -31,12 +32,12 @@ def perform_inference(config: Config, model: tf.keras.Model,
         masking, the batch size, and parameters for decoding predictions.
     model : tf.keras.Model
         The Keras model to be used for inference.
-    inference_dataset : DataGenerator
+    inference_dataset : tf.data.Dataset
         The dataset on which inference is to be performed.
     charlist : List[str]
         A list of characters used in the model, for decoding predictions.
-    loader : DataLoader
-        A data loader object used for retrieving additional information needed
+    data_manager : DataManager
+        A data manager object used for retrieving additional information needed
         during inference (e.g., filenames).
 
     Notes
@@ -66,9 +67,10 @@ def perform_inference(config: Config, model: tf.keras.Model,
                 prediction = prediction.strip().replace('', '')
 
                 # Format the filename
-                filename = loader.get_item('inference',
-                                           (batch_no * config["batch_size"])
-                                           + index)
+                filename = data_manager.get_filename('inference',
+                                                     (batch_no *
+                                                      config["batch_size"])
+                                                     + index)
 
                 # Write the results to the results file
                 result_str = f"{filename}\t{confidence}\t{prediction}"

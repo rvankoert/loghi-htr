@@ -8,14 +8,13 @@ from typing import Any, Dict, List, Tuple, Optional
 import tensorflow as tf
 
 # > Local dependencies
-from data.generator import DataGenerator
-from data.loader import DataLoader
+from data.manager import DataManager
 from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, calculate_cers, \
     increment_counters, calculate_edit_distances
 from utils.decoding import decode_batch_predictions
-from utils.text import preprocess_text, Tokenizer
+from utils.text import preprocess_text, Tokenizer, normalize_text
 from utils.wbs import setup_word_beam_search, handle_wbs_results
 
 
@@ -24,7 +23,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   tokenizer: Tokenizer,
                   config: Config,
                   wbs: Optional[Any],
-                  loader: DataLoader,
+                  data_manager: DataManager,
                   chars: List[str]) -> Dict[str, int]:
     """
     Processes a batch of data by predicting, calculating Character Error Rate
@@ -45,8 +44,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     wbs : Optional[Any]
         An optional Word Beam Search object for advanced decoding, if
         applicable.
-    loader : DataLoader
-        A data loader object for additional operations like normalization.
+    data_manager : DataManager
+        A data data_manager object for additional operations like
+        normalization.
     chars : List[str]
         A list of characters used in the model.
 
@@ -85,7 +85,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         original_text = preprocess_text(orig_texts[index])\
             .replace("[UNK]", "�")
         normalized_original = None if not config["normalization_file"] else \
-            loader.normalize(original_text, config["normalization_file"])
+            normalize_text(original_text, config["normalization_file"])
 
         # Calculate edit distances
         distances = calculate_edit_distances(prediction, original_text)
@@ -113,9 +113,9 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
 def perform_test(config: Config,
                  model: tf.keras.Model,
-                 test_dataset: DataGenerator,
+                 test_dataset: tf.data.Dataset,
                  charlist: List[str],
-                 dataloader: DataLoader) -> None:
+                 data_manager: DataManager) -> None:
     """
     Performs test run on a dataset using a given model and calculates various
     metrics like Character Error Rate (CER).
@@ -127,13 +127,13 @@ def perform_test(config: Config,
         mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    test_dataset : DataGenerator
+    test_dataset : tf.data.Dataset
         The dataset to be used for testing.
     charlist : List[str]
         A list of characters used in the model.
-    dataloader : DataLoader
-        A data loader object for additional operations like normalization and
-        Word Beam Search setup.
+    data_manager : DataManager
+        A data data_manager object for additional operations like normalization
+        and Word Beam Search setup.
 
     Notes
     -----
@@ -149,7 +149,7 @@ def perform_test(config: Config,
     prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(config, charlist, dataloader) \
+    wbs = setup_word_beam_search(config, charlist) \
         if config["corpus_file"] else None
 
     # Initialize the counters
@@ -157,10 +157,12 @@ def perform_test(config: Config,
     n_items = 0
 
     for batch_no, batch in enumerate(test_dataset):
-        logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
+        # Unpack the batch and ignore the third element (sample weights)
+        X, y_true, _ = batch
 
-        batch_counter = process_batch(batch, prediction_model, tokenizer,
-                                      config, wbs, dataloader, charlist)
+        logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
+        batch_counter = process_batch((X, y_true), prediction_model, tokenizer,
+                                      config, wbs, data_manager, charlist)
 
         # Update the total counter
         for key, value in batch_counter.items():

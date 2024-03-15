@@ -10,13 +10,12 @@ import tensorflow as tf
 from word_beam_search import WordBeamSearch
 
 # > Local imports
-from data.loader import DataLoader
 from setup.config import Config
-from utils.text import preprocess_text
+from utils.text import preprocess_text, normalize_text
 
 
-def setup_word_beam_search(config: Config, charlist: List[str],
-                           loader: DataLoader) -> WordBeamSearch:
+def setup_word_beam_search(config: Config, charlist: List[str]) \
+        -> WordBeamSearch:
     """
     Sets up the Word Beam Search (WBS) algorithm for use in character
     recognition tasks.
@@ -28,9 +27,6 @@ def setup_word_beam_search(config: Config, charlist: List[str],
         the path to the corpus file, beam width, and smoothing parameters.
     charlist : List[str]
         A list of characters used in the model.
-    loader : DataLoader
-        A data loader object capable of normalizing text using a specified
-        normalization file.
 
     Returns
     -------
@@ -63,7 +59,7 @@ def setup_word_beam_search(config: Config, charlist: List[str],
         corpus = ''
         for line in f:
             if config["normalization_file"]:
-                line = loader.normalize(line, config["normalization_file"])
+                line = normalize_text(line, config["normalization_file"])
             corpus += line
     logging.info('Using corpus file: %s', config["corpus_file"])
 

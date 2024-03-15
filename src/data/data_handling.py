@@ -9,59 +9,46 @@ from typing import List, Tuple
 import tensorflow as tf
 
 # > Local dependencies
-from data.loader import DataLoader
+from data.manager import DataManager
 from setup.config import Config
 
 
-def initialize_data_loader(config: Config,
-                           charlist: List[str],
-                           model: tf.keras.Model,
-                           augment_model) -> DataLoader:
+def initialize_data_manager(config: Config,
+                            charlist: List[str],
+                            model: tf.keras.Model,
+                            augment_model: tf.keras.Sequential) -> DataManager:
     """
-    Initializes a data loader with specified parameters and based on the input
+    Initializes a data manager with specified parameters and based on the input
     shape of a given model.
 
     Parameters
     ----------
     config : Config
-        A Config containing various arguments to configure the data loader
+        A Config containing various arguments to configure the data manager
         (e.g., batch size, image size, lists for training, validation, etc.).
     charlist : List[str]
-        A list of characters to be used by the data loader.
+        A list of characters to be used by the data manager.
     model : tf.keras.Model
-        The Keras model, used to derive input dimensions for the data loader.
+        The Keras model, used to derive input dimensions for the data manager.
+    augment_model : tf.keras.Sequential
+        The Keras model used for data augmentation.
 
     Returns
     -------
-    DataLoader
-        An instance of DataLoader configured as per the provided arguments and
+    DataManager
+        An instance of DataManager configured as per the provided arguments and
         model.
-
-    Notes
-    -----
-    The DataLoader is initialized with parameters like image size, batch size,
-    and various data augmentation options. These parameters are derived from
-    both the `args` namespace and the input shape of the provided `model`.
     """
 
     model_height = model.layers[0].input_shape[0][2]
     model_channels = model.layers[0].input_shape[0][3]
     img_size = (model_height, config["width"], model_channels)
 
-    return DataLoader(
-        batch_size=config["batch_size"],
+    return DataManager(
         img_size=img_size,
-        train_list=config["train_list"],
-        test_list=config["test_list"],
-        validation_list=config["validation_list"],
-        inference_list=config["inference_list"],
-        char_list=charlist,
-        multiply=config["multiply"],
-        check_missing_files=config["check_missing_files"],
-        replace_final_layer=config["replace_final_layer"],
-        normalization_file=config["normalization_file"],
-        use_mask=config["use_mask"],
+        charlist=charlist,
         augment_model=augment_model,
+        config=config
     )
 
 
