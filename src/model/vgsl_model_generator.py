@@ -108,7 +108,7 @@ class VGSLModelGenerator:
             raise ValueError("No model provided. Please provide a model name "
                              "from the model library or a VGSL-spec string.")
 
-        if model_spec.startswith("model"):
+        if model_spec in self.model_library.keys():
             try:
                 logging.info("Pulling model from model library")
                 model_string = self.model_library[model_spec]

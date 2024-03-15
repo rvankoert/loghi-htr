@@ -137,10 +137,6 @@ def get_arg_parser():
     model_args.add_argument('--use_float32', action='store_true',
                             help="Use 32-bit float precision in the model. "
                             "Can improve performance at the cost of memory.")
-    model_args.add_argument('--existing_model', metavar='existing_model',
-                            type=str, default=None, help="Path to an existing "
-                            "model to continue training, validation, testing, "
-                            "or inferencing. Used as a starting point.")
     model_args.add_argument('--model_name', metavar='model_name', type=str,
                             default=None, help="Custom name for the model, "
                             "used in outputs. Default: None (uses the model "
@@ -273,20 +269,26 @@ def get_arg_parser():
     depr_args.add_argument('--thaw', action='store_true',
                            help="Unfreeze convolutional layers in an "
                            "existing model for further training.")
+    depr_args.add_argument('--existing_model', metavar='existing_model',
+                           type=str, default=None, help="Path to an existing "
+                           "model to continue training, validation, testing, "
+                           "or inferencing. Used as a starting point.")
 
     return parser
 
 
 def fix_args(args):
     if not args.no_auto and args.train_list:
-        logging.warning('do_train implied by providing a train_list')
+        logging.warning('--do_train implied by providing a train_list')
         args.__dict__['do_train'] = True
     if not args.no_auto and args.batch_size > 1:
-        logging.warning('batch_size > 1, setting use_mask=True')
+        logging.warning('--batch_size > 1, setting use_mask=True')
         args.__dict__['use_mask'] = True
     if not args.no_auto and args.inference_list:
-        logging.warning('do_inference implied by providing a inference_list')
+        logging.warning('--do_inference implied by providing a inference_list')
         args.__dict__['do_inference'] = True
+    if not args.no_auto and args.existing_model:
+        args.__dict__['model'] = args.existing_model
 
 
 def arg_future_warning(args):
@@ -322,6 +324,10 @@ def arg_future_warning(args):
     if args.thaw:
         logging.warning("Argument will lose support in May 2024: --thaw. "
                         "Models are saved with all layers thawed by default.")
+    if args.existing_model:
+        logger.warning("Argument will lose support in May 2024: "
+                       "--existing_model. The --model argument can be used "
+                       "to load or create a model instead.")
 
 
 def get_args():

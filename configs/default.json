@@ -56,7 +56,6 @@
             "normalization_file": null
         },
         "model": {
-            "existing_model": null,
             "freeze_conv_layers": false,
             "freeze_dense_layers": false,
             "freeze_recurrent_layers": false,

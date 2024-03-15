@@ -15,7 +15,7 @@
             "normalization_file": "/path/to/normalization.json"
         },
         "model": {
-            "existing_model": "/path/to/model/",
+            "model": "/path/to/model/",
             "use_float32": false
         },
         "training": {

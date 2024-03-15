@@ -191,7 +191,6 @@ class Config:
             "model": {
                 "model": args.model,
                 "use_float32": args.use_float32,
-                "existing_model": args.existing_model,
                 "model_name": args.model_name,
                 "replace_final_layer": args.replace_final_layer,
                 "replace_recurrent_layer": args.replace_recurrent_layer,
@@ -232,6 +231,7 @@ class Config:
                 "output_charlist": args.output_charlist,
                 "config_file_output": args.config_file_output,
                 "thaw": args.thaw,
+                "existing_model": args.existing_model,
             }
         }
 

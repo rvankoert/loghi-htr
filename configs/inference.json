@@ -21,7 +21,7 @@
             "deterministic": false
         },
         "model": {
-            "existing_model": "/path/to/model/",
+            "model": "/path/to/model/",
             "use_float32": false
         }
     }

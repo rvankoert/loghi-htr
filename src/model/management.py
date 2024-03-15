@@ -86,7 +86,7 @@ def customize_model(model: tf.keras.Model,
                                         use_mask=config["use_mask"])
 
     # Replace the final layer if specified
-    if config["replace_final_layer"] or not config["existing_model"]:
+    if config["replace_final_layer"] or not os.path.isdir(config["model"]):
         new_classes = len(charlist) + \
             2 if config["use_mask"] else len(charlist) + 1
         logging.info("Replacing final layer with %s classes", new_classes)
@@ -191,9 +191,10 @@ def load_or_create_model(config: Config,
         The loaded or newly created Keras model.
     """
 
-    if config["existing_model"]:
-        model = load_model_from_directory(
-            config["existing_model"], custom_objects=custom_objects)
+    # Check if config["model"] is a directory
+    if os.path.isdir(config["model"]):
+        model = load_model_from_directory(config["model"],
+                                          custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
     else:

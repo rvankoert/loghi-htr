@@ -49,9 +49,9 @@ def main():
         os.makedirs(config["output"], exist_ok=True)
 
     # Get the initial character list
-    if config["existing_model"] or config["charlist"]:
+    if os.path.isdir(config["model"]) or config["charlist"]:
         charlist, removed_padding = load_initial_charlist(
-            config["charlist"], config["existing_model"],
+            config["charlist"], config["model"],
             config["output"], config["replace_final_layer"])
     else:
         charlist = []

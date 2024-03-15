@@ -36,10 +36,10 @@
             "normalization_file": "/path/to/normalization.json"
         },
         "model": {
-            "existing_model": "/path/to/model/",
             "freeze_conv_layers": true,
             "freeze_dense_layers": false,
             "freeze_recurrent_layers": false,
+            "model": "/path/to/model/",
             "model_name": "My-Finetuned-Loghi-Model",
             "replace_final_layer": true,
             "replace_recurrent_layer": null,
