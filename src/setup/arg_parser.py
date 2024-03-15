@@ -319,6 +319,9 @@ def arg_future_warning(args):
         logger.warning("Argument will lose support in May 2024: "
                        "--config_file_output. The configuration will be saved "
                        "to output/config.json by default.")
+    if args.thaw:
+        logging.warning("Argument will lose support in May 2024: --thaw. "
+                        "Models are saved with all layers thawed by default.")
 
 
 def get_args():

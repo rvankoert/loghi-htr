@@ -104,8 +104,16 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
             os.makedirs(outputdir, exist_ok=True)
             model_path = os.path.join(outputdir, "model.keras")
 
-            # Save model
-            self.model.save(model_path)
+            # Create a copy of the model
+            unfrozen_model = tf.keras.models.clone_model(self.model)
+            unfrozen_model.set_weights(self.model.get_weights())
+
+            # Unfreeze all layers in the copied model
+            for layer in unfrozen_model.layers:
+                layer.trainable = True
+
+            # Save the unfrozen model
+            unfrozen_model.save(model_path)
 
             # Save additional files
             if self.charlist:
