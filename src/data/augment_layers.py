@@ -291,7 +291,8 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         Parameters
         ----------
         image : tf.Tensor
-            Input image tensor in the format [batch_size, height, width, channels].
+            Input image tensor in the format [batch_size, height, width,
+            channels].
 
         Returns
         -------
