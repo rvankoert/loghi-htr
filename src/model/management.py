@@ -156,7 +156,7 @@ def load_model_from_directory(directory: str,
 
     # Check for a .pb file (indicating SavedModel format)
     if any(file.endswith('.pb') for file in os.listdir(directory)):
-        return tf.keras.models.load_model(directory,
+        return tf.keras.saving.load_model(directory,
                                           custom_objects=custom_objects,
                                           compile=compile)
 
@@ -165,7 +165,7 @@ def load_model_from_directory(directory: str,
         directory) if file.endswith(".keras")), None)
 
     if model_file:
-        return tf.keras.models.load_model(model_file,
+        return tf.keras.saving.load_model(model_file,
                                           custom_objects=custom_objects,
                                           compile=compile)
 
