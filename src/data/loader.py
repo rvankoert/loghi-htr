@@ -60,13 +60,15 @@ class DataLoader:
         """
 
         # Load and preprocess the image
-        image = self._load_and_preprocess_image(image_info_tuple[0])
+        image, original_width = self._load_and_preprocess_image(
+            image_info_tuple[0])
 
         # Encode the label
         encoded_label = self.tokenizer(image_info_tuple[1])
 
         # Ensure the image width is sufficient for CTC decoding
-        image = self._ensure_width_for_ctc(image, encoded_label)
+        image = self._ensure_width_for_ctc(
+            image, encoded_label, original_width)
 
         # Center the image values around 0.5
         image = 0.5 - image
@@ -79,7 +81,8 @@ class DataLoader:
 
         return image, encoded_label, sample_weight
 
-    def _load_and_preprocess_image(self, image_path: str) -> tf.Tensor:
+    def _load_and_preprocess_image(self, image_path: str) \
+            -> Tuple[tf.Tensor, int]:
         """
         Loads and preprocesses a single image.
 
@@ -90,8 +93,9 @@ class DataLoader:
 
         Returns
         -------
-        tf.Tensor
-            A preprocessed image tensor ready for training.
+        Tuple[tf.Tensor, int]
+            A tuple containing the preprocessed image and the original width
+            of the image.
 
         Raises
         ------
@@ -113,6 +117,8 @@ class DataLoader:
         image = tf.image.resize(image, (self.height, 99999),
                                 preserve_aspect_ratio=True) / 255.0
 
+        original_width = tf.shape(image)[1]
+
         # 3. Apply Data Augmentations
         # Add batch dimension (required for augmentation model)
         image = tf.expand_dims(image, 0)
@@ -125,11 +131,12 @@ class DataLoader:
             else:
                 image = layer(image, training=self.is_training)
 
-        return tf.cast(image[0], tf.float32)
+        return tf.cast(image[0], tf.float32), original_width
 
     def _ensure_width_for_ctc(self,
                               image: tf.Tensor,
-                              encoded_label: tf.Tensor) -> tf.Tensor:
+                              encoded_label: tf.Tensor,
+                              original_width: int) -> tf.Tensor:
         """
         Resizes the image if necessary to accommodate the encoded label during
         CTC decoding.
@@ -140,6 +147,8 @@ class DataLoader:
             The preprocessed image tensor.
         encoded_label : tf.Tensor
             The encoded label.
+        original_width : int
+            The original width of the image.
 
         Returns
         -------
@@ -167,7 +176,7 @@ class DataLoader:
         # Mandatory cast to float32
         image = tf.cast(image, tf.float32)
 
-        if tf.shape(image)[1] < required_width:
+        if original_width < required_width:
             image = tf.image.resize_with_pad(
                 image, self.height, required_width)
 

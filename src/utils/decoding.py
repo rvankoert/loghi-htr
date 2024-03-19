@@ -99,17 +99,18 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
     for i, decoded_array in enumerate(ctc_decoded[0]):
         decoded_array += num_oov_indices
 
+        # Normalize the confidence score based on the number of timesteps
+        text = tokenizer.decode(decoded_array).strip().replace("", "")
+
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
-        if len(decoded_array) > 0:
+        if len(text) > 0:
             time_steps = np.array(decoded_array == num_oov_indices-1)\
                 .argmax(axis=0)
             time_steps = time_steps if time_steps > 0 else len(decoded_array)
         else:
             time_steps = 1
 
-        # Normalize the confidence score based on the number of timesteps
-        text = tokenizer.decode(decoded_array).strip().replace("", "")
         confidence = np.exp(log_probs[i][0] / time_steps)
 
         if confidence < 0 or confidence > 1:

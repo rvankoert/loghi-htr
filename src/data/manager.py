@@ -331,7 +331,7 @@ class DataManager:
 
         if not ground_truth:
             if partition_name == "inference":
-                ground_truth = "INFERENCE"
+                ground_truth = "to be determined"
             else:
                 return None, "Empty ground truth"
 
@@ -455,7 +455,7 @@ class DataManager:
         dataset = tf.data.Dataset.from_tensor_slices(data)
         if is_training:
             # Add additional repeat and shuffle for training
-            dataset = dataset.repeat().shuffle(len(files), seed=42)
+            dataset = dataset.repeat().shuffle(len(files))
 
         dataset = (dataset
                    .map(data_loader.load_images,
