@@ -163,6 +163,7 @@ def decode_batch_predictions(pred, utils, greedy=True, beam_width=1, num_oov_ind
                 confidence = np.exp(-log_prob)
             else:
                 confidence = np.exp(log_prob)
+
             i = i + 1
             # print(confidence)
             res = res + num_oov_indices
@@ -207,6 +208,10 @@ def normalize_confidence(confidence, predicted_text):
         confidence = pow(confidence, (1 / len(predicted_text)))
         if confidence < 0:
             confidence = -confidence
+
+    if confidence < 0 or confidence > 1:
+        confidence = np.clip(confidence, 0, 1)
+
     return confidence
 
 
