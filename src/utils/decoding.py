@@ -1,5 +1,8 @@
 # Imports
 
+# > Standard library
+import logging
+
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
@@ -108,6 +111,11 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         # Normalize the confidence score based on the number of timesteps
         text = tokenizer.decode(decoded_array).strip().replace("", "")
         confidence = np.exp(log_probs[i][0] / time_steps)
+
+        if confidence < 0 or confidence > 1:
+            logging.warning("Confidence score out of range: %s, clamping to "
+                            "[0, 1]", confidence)
+            confidence = np.clip(confidence, 0, 1)
 
         output_texts.append((confidence, text))
 
