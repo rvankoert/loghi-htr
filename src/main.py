@@ -65,7 +65,8 @@ def main():
     # Create the model
     with strategy.scope():
         model = load_or_create_model(config, custom_objects)
-        augmentation_model = make_augment_model(config, model.input_shape[-1])
+        augmentation_model = make_augment_model(
+            config, 1)  # model.input_shape[-1])
 
         if config["visualize_augments"]:
             visualize_augments(augmentation_model, config["output"],
@@ -114,6 +115,7 @@ def main():
 
     # Print the model summary
     model.summary()
+    model.save("model.keras")
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
     config.update_config_key("model", summarize_model(model))

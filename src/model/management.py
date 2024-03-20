@@ -1,9 +1,12 @@
 # Imports
 
 # > Standard library
+import json
 import logging
 import os
+import shutil
 from typing import Any, List, Dict, Optional
+import zipfile
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -156,7 +159,7 @@ def load_model_from_directory(directory: str,
 
     # Check for a .pb file (indicating SavedModel format)
     if any(file.endswith('.pb') for file in os.listdir(directory)):
-        return tf.keras.saving.load_model(directory,
+        return tf.keras.models.load_model(directory,
                                           custom_objects=custom_objects,
                                           compile=compile)
 
@@ -165,11 +168,84 @@ def load_model_from_directory(directory: str,
         directory) if file.endswith(".keras")), None)
 
     if model_file:
-        return tf.keras.saving.load_model(model_file,
-                                          custom_objects=custom_objects,
-                                          compile=compile)
+        try:
+            model = tf.keras.models.load_model(model_file,
+                                               custom_objects=custom_objects,
+                                               compile=compile)
+        except TypeError as e:
+            if "Could not deserialize class 'Functional'" in str(e):
+                logging.warning("Model file is in old format and will be "
+                                "converted to new format.")
+                logging.warning("This is highly experimental and may not "
+                                "work.")
+                model = _convert_old_model_to_new(model_file, custom_objects)
+            else:
+                raise e
+
+        return model
 
     raise FileNotFoundError("No suitable model file found in the directory.")
+
+
+def _convert_old_model_to_new(model_file: str,
+                              custom_objects: dict) -> tf.keras.Model:
+    # Temporary directory to extract the .keras file contents
+    temp_dir = "/tmp/keras_model_extraction"
+
+    # Ensure the temp directory is clean
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
+
+    # Extract .keras file
+    with zipfile.ZipFile(model_file, 'r') as zip_ref:
+        zip_ref.extractall(temp_dir)
+
+    # Load model architecture from config.json
+    with open(os.path.join(temp_dir, 'config.json'), 'r') as json_file:
+        model_config = json.load(json_file)
+
+    model_config["module"] = "keras.src.models.functional"
+
+    # Function to recursively correct "axis" in BatchNormalization layers
+    def correct_axis(layer_config):
+        if isinstance(layer_config, dict):
+            if layer_config.get('class_name') == 'BatchNormalization' \
+                    and isinstance(layer_config.get('config', {})
+                                   .get('axis'), list):
+                layer_config['config']['axis'] \
+                    = layer_config['config']['axis'][0]
+            elif layer_config.get('class_name') == 'Bidirectional':
+                lstm_layer_config = layer_config['config']['layer']['config']
+                lstm_layer_config['recurrent_initializer']['class_name'] \
+                    = 'OrthogonalInitializer'
+                lstm_layer_config.pop('time_major', None)
+            elif 'layers' in layer_config:
+                for sub_layer in layer_config['layers']:
+                    correct_axis(sub_layer)
+
+    correct_axis(model_config["config"])
+    model_config["compile_config"]["optimizer"]["module"] = "keras.optimizers"
+    model_config["compile_config"]["optimizer"]["config"].pop(
+        "jit_compile")
+    model_config["compile_config"]["optimizer"]["config"].pop(
+        "is_legacy_optimizer")
+
+    # Save the corrected config back to a temporary json file
+    corrected_config_path = os.path.join(temp_dir, 'corrected_config.json')
+    with open(corrected_config_path, 'w') as json_file:
+        json.dump(model_config, json_file)
+
+    # Load model from corrected config
+    with open(corrected_config_path, 'r') as json_file:
+        corrected_model_json = json_file.read()
+    model = tf.keras.models.model_from_json(
+        corrected_model_json, custom_objects=custom_objects)
+
+    # Load weights into the model
+    model.load_weights(os.path.join(temp_dir, 'model.weights.h5'))
+
+    return model
 
 
 def load_or_create_model(config: Config,
@@ -236,11 +312,13 @@ def verify_charlist_length(charlist: List[str],
 
     # Verify that the length of the charlist is correct
     if use_mask:
-        expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 2 - int(removed_padding)
+        # expected_length = model.get_layer(index=-1) \
+        # .get_output_at(0).shape[2] - 2 - int(removed_padding)
+        expected_length = model.output[0].shape[2] - 2 - int(removed_padding)
     else:
-        expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 1 - int(removed_padding)
+        # expected_length = model.get_layer(index=-1) \
+        # .get_output_at(0).shape[2] - 1 - int(removed_padding)
+        expected_length = model.output[0].shape[2] - 1 - int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "
@@ -278,7 +356,8 @@ def get_prediction_model(model: tf.keras.Model) -> tf.keras.Model:
     if last_dense_layer is None:
         raise ValueError("No dense layer found in the model")
 
-    prediction_model = tf.keras.models.Model(
-        model.get_layer(name="image").input, last_dense_layer.output
-    )
-    return prediction_model
+    # print(model.layers[0])
+    # prediction_model = tf.keras.models.Model(
+        # model.layers[0], last_dense_layer.output
+    # )
+    return model

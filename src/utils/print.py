@@ -165,7 +165,9 @@ def summarize_model(model: tf.keras.Model) -> List[str]:
     """
 
     model_layers = []
-    model.summary(print_fn=model_layers.append)
+    for layer in model.layers:
+        model_layers.append(layer.name)
+    model.summary()
     return model_layers
 
 

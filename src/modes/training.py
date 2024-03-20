@@ -86,8 +86,8 @@ def train_model(model: tf.keras.Model,
         epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
-        workers=num_workers,
-        max_queue_size=config["max_queue_size"],
+        # workers=num_workers,
+        # max_queue_size=config["max_queue_size"],
         steps_per_epoch=config["steps_per_epoch"],
         verbose=config["training_verbosity_mode"]
     )
