@@ -205,7 +205,8 @@ def create_model(model_path: str) -> Tuple[tf.keras.Model, object]:
         'CTCLoss': CTCLoss,
         'ResidualBlock': ResidualBlock
     }
-    model = load_model_from_directory(model_path, custom_objects)
+    model = load_model_from_directory(model_path, output_directory=None,
+                                      custom_objects=custom_objects)
     logger.info(f"Model {model.name} loaded successfully")
 
     if logger.isEnabledFor(logging.DEBUG):
