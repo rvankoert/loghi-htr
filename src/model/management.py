@@ -9,6 +9,7 @@ from typing import Any, List, Dict, Optional
 import tensorflow as tf
 
 # > Local dependencies
+from model.conversion import convert_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
@@ -124,6 +125,7 @@ def customize_model(model: tf.keras.Model,
 
 
 def load_model_from_directory(directory: str,
+                              output_directory: Optional[str] = None,
                               custom_objects: Optional[Dict[str, Any]] = None,
                               compile: bool = True) -> tf.keras.Model:
     """
@@ -137,6 +139,9 @@ def load_model_from_directory(directory: str,
     ----------
     directory : str
         The directory where the model is saved.
+    output_directory : Optional[str], optional
+        The directory where the model should be saved after conversion, by
+        default None.
     custom_objects : Optional[Dict[str, Any]], optional
         Optional dictionary mapping names (strings) to custom classes or
         functions to be considered during deserialization, by default None.
@@ -156,9 +161,7 @@ def load_model_from_directory(directory: str,
 
     # Check for a .pb file (indicating SavedModel format)
     if any(file.endswith('.pb') for file in os.listdir(directory)):
-        return tf.keras.saving.load_model(directory,
-                                          custom_objects=custom_objects,
-                                          compile=compile)
+        return convert_model(directory, output_directory, custom_objects)
 
     # Look for a .keras file
     model_file = next((os.path.join(directory, file) for file in os.listdir(
@@ -194,6 +197,7 @@ def load_or_create_model(config: Config,
     # Check if config["model"] is a directory
     if os.path.isdir(config["model"]):
         model = load_model_from_directory(config["model"],
+                                          output_directory=config["output"],
                                           custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
