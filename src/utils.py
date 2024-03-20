@@ -4,6 +4,7 @@
 import os
 
 # > Local dependencies
+from convert_model import convert_model
 
 # > Third party libraries
 import tensorflow as tf
@@ -215,10 +216,10 @@ def normalize_confidence(confidence, predicted_text):
     return confidence
 
 
-def load_model_from_directory(directory, custom_objects=None):
+def load_model_from_directory(directory, output_directory, custom_objects=None):
     # Check for a .pb file (indicating SavedModel format)
     if any(file.endswith('.pb') for file in os.listdir(directory)):
-        return tf.keras.models.load_model(directory, custom_objects=custom_objects)
+        return convert_model(directory, output_directory)
 
     # Look for a .keras file
     model_file = next((os.path.join(directory, file) for file in os.listdir(

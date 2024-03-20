@@ -124,6 +124,7 @@ def main():
                 'ResidualBlock': ResidualBlock
             }
             model = load_model_from_directory(args.existing_model,
+                                              args.output,
                                               custom_objects=custom_objects)
 
             if args.model_name:
