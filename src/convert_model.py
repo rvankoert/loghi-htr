@@ -49,6 +49,19 @@ def convert_model(directory: str, output_directory: str = None) \
         logging.info("Converting model to .keras format...")
         output_folder = os.path.join(output_directory, model.name)
 
+        # Check if there is already a model.keras file in the output folder
+        if os.path.exists(os.path.join(output_folder, 'model.keras')):
+            logging.warning("A model.keras file already exists in the output "
+                            "folder. Attempting to load the model from disk.")
+            try:
+                return tf.keras.models.load_model(
+                    os.path.join(output_folder, 'model.keras'),
+                    custom_objects=custom_objects)
+            except Exception:
+                raise ValueError(
+                    "Failed to load the model from disk. Please clean the "
+                    f"output folder '{output_folder}' and try again.")
+
         try:
             # Copy the model directory to the output folder
             shutil.copytree(directory, output_folder)
