@@ -40,6 +40,7 @@ def initialize_data_manager(config: Config,
         model.
     """
 
+    # Shape is 4 for V2 models and 3 for V2.1 models
     if len(model.input[0].shape) == 4:
         model_height = model.input[0].shape[2]
         model_channels = model.input[0].shape[3]

@@ -52,6 +52,7 @@ class DataManagerTest(unittest.TestCase):
             "inference_list": "",
             "replace_final_layer": False,
             "use_mask": False,
+            "epochs": 1
         }
 
         # Determine the directory of this file

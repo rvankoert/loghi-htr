@@ -174,15 +174,30 @@ def load_model_from_directory(directory: str,
                                 "experimental and may not work.")
 
             # FIXME: Remove this block once the bug is fixed in TensorFlow
-            elif "A total of 2 objects could not be loaded" in str(e):
+            elif "Layer 'lstm_cell' expected 3 variables, but" in str(e):
                 logging.warning("Handling keras bug where LSTM layers are "
                                 "not saved/loaded correctly. Converting model "
                                 "and saving it again.")
             else:
                 raise e
 
-            return _convert_old_model_to_new(model_file, custom_objects,
-                                             compile=compile)
+            # Convert the old model to the new format
+            model = _convert_old_model_to_new(model_file, custom_objects,
+                                              compile=compile)
+
+            # Save the converted model
+            # Rename the old model file
+            if not os.path.exists(model_file + ".old"):
+                logging.info("Renaming old model file to %s",
+                             model_file + ".old")
+                old_model_file = model_file + ".old"
+                os.rename(model_file, old_model_file)
+
+            # Save the new model
+            logging.info("Saving new model to %s", model_file)
+            model.save(model_file)
+
+            return model
 
     # Check for a .pb file (indicating SavedModel format)
     if any(file.endswith('.pb') for file in os.listdir(directory)):
@@ -190,10 +205,15 @@ def load_model_from_directory(directory: str,
                         "for inference and not for training. Consider using "
                         "Loghi V2 or earlier to convert the model to the new "
                         "format.")
+        logging.warning("Legacy models are only supported with float32 "
+                        "precision. If you encounter issues, try using "
+                        "`--use_float32`.")
+
+        # TODO: Make Input shape dynamic
         inputs = tf.keras.Input(shape=(None, 64, 1))
         model_layer = tf.keras.layers.TFSMLayer(
             directory,
-            call_endpoint='serving_default')(input)
+            call_endpoint='serving_default')(inputs)
         output = tf.keras.layers.Activation('linear')(model_layer)
         model = tf.keras.Model(inputs=inputs, outputs=output)
 
@@ -243,11 +263,10 @@ def _convert_old_model_to_new(model_file: str,
     correct_axis(model_config["config"])
 
     if model_config.get("compile_config"):
-        model_config["compile_config"]["optimizer"]["module"] = "keras.optimizers"
-        model_config["compile_config"]["optimizer"]["config"].pop(
-            "jit_compile", None)
-        model_config["compile_config"]["optimizer"]["config"].pop(
-            "is_legacy_optimizer", None)
+        compile_optimizer = model_config["compile_config"]["optimizer"]
+        compile_optimizer["module"] = "keras.optimizers"
+        compile_optimizer["config"].pop("jit_compile", None)
+        compile_optimizer["config"].pop("is_legacy_optimizer", None)
 
     if not compile:
         model_config.pop("compile_config", None)
@@ -307,8 +326,6 @@ def load_or_create_model(config: Config,
             channels=config["channels"]
         )
         model = model_generator.build()
-        model.build(input_shape=(
-            None, config["height"], None, config["channels"]))
 
     return model
 
@@ -341,6 +358,8 @@ def verify_charlist_length(charlist: List[str],
 
     if type(model.output) is list:
         model_output = model.output[0]
+    elif type(model.output) is dict:
+        model_output = list(model.output.values())[0]
     else:
         model_output = model.output
 

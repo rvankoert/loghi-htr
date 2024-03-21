@@ -113,8 +113,6 @@ def main():
                                WERMetric()],
                       weighted_metrics=[])
 
-        model.save("model.keras")
-
     # Print the model summary
     model.summary()
 
