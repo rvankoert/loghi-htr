@@ -165,9 +165,21 @@ def summarize_model(model: tf.keras.Model) -> List[str]:
     """
 
     model_layers = []
-    for layer in model.layers:
-        model_layers.append(layer.name)
-    model.summary()
+
+    def print_fn(x, *args, **kwargs):
+        unicode_chars_to_remove = [
+            "\u2500", "\u2501", "\u2503", "\u2521", "\u2502", "\u2529",
+            "\u250f", "\u251c", "\u2514", "\u2534", "\u253c",
+            "\u2518", "\u2524", "\u2513", "\u2533", "\u2547"
+        ]
+        for char in unicode_chars_to_remove:
+            x = x.replace(char, "")
+
+        # Split on newlines and add to the list
+        model_layers.extend([x for x in x.split("\n") if x.strip()])
+
+    model.summary(print_fn=print_fn)
+
     return model_layers
 
 

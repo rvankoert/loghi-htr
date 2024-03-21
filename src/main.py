@@ -66,11 +66,11 @@ def main():
     with strategy.scope():
         model = load_or_create_model(config, custom_objects)
         augmentation_model = make_augment_model(
-            config, 1)  # model.input_shape[-1])
+            config, model.input[0].shape[-1])
 
         if config["visualize_augments"]:
             visualize_augments(augmentation_model, config["output"],
-                               model.input_shape[-1])
+                               model.input[0].shape[-1])
 
         # Initialize the DataManager
         data_manager = initialize_data_manager(config, charlist, model,
@@ -113,9 +113,10 @@ def main():
                                WERMetric()],
                       weighted_metrics=[])
 
+        model.save("model.keras")
+
     # Print the model summary
     model.summary()
-    model.save("model.keras")
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
     config.update_config_key("model", summarize_model(model))

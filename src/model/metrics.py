@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 
 
+@tf.keras.utils.register_keras_serializable(package="Loghi", name="CERMetric")
 class CERMetric(tf.keras.metrics.Metric):
     """
     A custom Keras metric to compute the Character Error Rate
@@ -54,6 +55,7 @@ class CERMetric(tf.keras.metrics.Metric):
         self.counter.assign(0.0)
 
 
+@tf.keras.utils.register_keras_serializable(package="Loghi", name="WERMetric")
 class WERMetric(tf.keras.metrics.Metric):
     """
     A custom Keras metric to compute the Word Error Rate

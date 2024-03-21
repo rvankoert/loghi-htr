@@ -11,7 +11,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.manager import DataManager
-from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
     calculate_edit_distances, update_statistics, increment_counters
@@ -160,8 +159,6 @@ def perform_validation(config: Config,
     tokenizer = data_manager.tokenizer
     validation_dataset = data_manager.datasets['validation']
 
-    prediction_model = get_prediction_model(model)
-
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist) \
         if config["corpus_file"] else None
@@ -178,7 +175,7 @@ def perform_validation(config: Config,
                             batch_no * config["batch_size"] + len(X))]
 
         # Logic for processing each batch, calculating CER, etc.
-        batch_counter = process_batch((X, y), prediction_model, tokenizer,
+        batch_counter = process_batch((X, y), model, tokenizer,
                                       config, wbs, data_manager, batch_no,
                                       charlist)
 

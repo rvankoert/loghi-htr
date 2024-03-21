@@ -84,6 +84,12 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         List of tuples containing confidence and decoded text.
     """
 
+    # Check if the predictions are in dictionary format
+    # This is the expected output when using a legacy model
+    if type(pred) is dict:
+        # Assuming there is only one key in the dictionary
+        pred = list(pred.values())[0]
+
     # Get the input length for each sample
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
 

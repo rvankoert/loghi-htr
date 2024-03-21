@@ -60,6 +60,7 @@ def ctc_batch_cost(y_true: tf.Tensor, y_pred: tf.Tensor,
         1)
 
 
+@tf.keras.utils.register_keras_serializable(package="Loghi", name="CTCLoss")
 def CTCLoss(y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
     """
     Compute the CTC loss for a batch of data.

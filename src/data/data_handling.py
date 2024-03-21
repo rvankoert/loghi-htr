@@ -40,10 +40,15 @@ def initialize_data_manager(config: Config,
         model.
     """
 
-    # model_height = model.layers[0].input_shape[0][2]
-    # model_channels = model.layers[0].input_shape[0][3]
-    model_height = model.input[0].shape[2]
-    model_channels = model.input[0].shape[3]
+    if len(model.input[0].shape) == 4:
+        model_height = model.input[0].shape[2]
+        model_channels = model.input[0].shape[3]
+    elif len(model.input[0].shape) == 3:
+        model_height = model.input[0].shape[1]
+        model_channels = model.input[0].shape[2]
+    else:
+        raise ValueError("Invalid input shape for model")
+
     img_size = (model_height, config["width"], model_channels)
 
     return DataManager(

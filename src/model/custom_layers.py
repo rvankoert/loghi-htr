@@ -8,6 +8,8 @@
 import tensorflow as tf
 
 
+@tf.keras.utils.register_keras_serializable(package="Loghi",
+                                            name="ResidualBlock")
 class ResidualBlock(tf.keras.layers.Layer):
     """
     A residual block layer for a neural network.

@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 from typing import Any, List, Dict, Optional
+import warnings
 import zipfile
 
 # > Third-party dependencies
@@ -128,7 +129,7 @@ def customize_model(model: tf.keras.Model,
 
 def load_model_from_directory(directory: str,
                               custom_objects: Optional[Dict[str, Any]] = None,
-                              compile: bool = True) -> tf.keras.Model:
+                              compile: bool = False) -> tf.keras.Model:
     """
     Load a TensorFlow Keras model from a specified directory.
 
@@ -157,30 +158,44 @@ def load_model_from_directory(directory: str,
         If no suitable model file is found in the specified directory.
     """
 
-    # Check for a .pb file (indicating SavedModel format)
-    if any(file.endswith('.pb') for file in os.listdir(directory)):
-        return tf.keras.models.load_model(directory,
-                                          custom_objects=custom_objects,
-                                          compile=compile)
-
     # Look for a .keras file
     model_file = next((os.path.join(directory, file) for file in os.listdir(
         directory) if file.endswith(".keras")), None)
 
     if model_file:
         try:
-            model = tf.keras.models.load_model(model_file,
-                                               custom_objects=custom_objects,
-                                               compile=compile)
-        except TypeError as e:
+            return tf.keras.models.load_model(model_file,
+                                              custom_objects=custom_objects,
+                                              compile=compile)
+        except (TypeError, ValueError) as e:
             if "Could not deserialize class 'Functional'" in str(e):
                 logging.warning("Model file is in old format and will be "
-                                "converted to new format.")
-                logging.warning("This is highly experimental and may not "
-                                "work.")
-                model = _convert_old_model_to_new(model_file, custom_objects)
+                                "converted to new format. This is highly "
+                                "experimental and may not work.")
+
+            # FIXME: Remove this block once the bug is fixed in TensorFlow
+            elif "A total of 2 objects could not be loaded" in str(e):
+                logging.warning("Handling keras bug where LSTM layers are "
+                                "not saved/loaded correctly. Converting model "
+                                "and saving it again.")
             else:
                 raise e
+
+            return _convert_old_model_to_new(model_file, custom_objects,
+                                             compile=compile)
+
+    # Check for a .pb file (indicating SavedModel format)
+    if any(file.endswith('.pb') for file in os.listdir(directory)):
+        logging.warning("Legacy model format detected. This can only be used "
+                        "for inference and not for training. Consider using "
+                        "Loghi V2 or earlier to convert the model to the new "
+                        "format.")
+        inputs = tf.keras.Input(shape=(None, 64, 1))
+        model_layer = tf.keras.layers.TFSMLayer(
+            directory,
+            call_endpoint='serving_default')(input)
+        output = tf.keras.layers.Activation('linear')(model_layer)
+        model = tf.keras.Model(inputs=inputs, outputs=output)
 
         return model
 
@@ -188,7 +203,8 @@ def load_model_from_directory(directory: str,
 
 
 def _convert_old_model_to_new(model_file: str,
-                              custom_objects: dict) -> tf.keras.Model:
+                              custom_objects: dict,
+                              compile: bool = True) -> tf.keras.Model:
     # Temporary directory to extract the .keras file contents
     temp_dir = "/tmp/keras_model_extraction"
 
@@ -225,11 +241,16 @@ def _convert_old_model_to_new(model_file: str,
                     correct_axis(sub_layer)
 
     correct_axis(model_config["config"])
-    model_config["compile_config"]["optimizer"]["module"] = "keras.optimizers"
-    model_config["compile_config"]["optimizer"]["config"].pop(
-        "jit_compile")
-    model_config["compile_config"]["optimizer"]["config"].pop(
-        "is_legacy_optimizer")
+
+    if model_config.get("compile_config"):
+        model_config["compile_config"]["optimizer"]["module"] = "keras.optimizers"
+        model_config["compile_config"]["optimizer"]["config"].pop(
+            "jit_compile", None)
+        model_config["compile_config"]["optimizer"]["config"].pop(
+            "is_legacy_optimizer", None)
+
+    if not compile:
+        model_config.pop("compile_config", None)
 
     # Save the corrected config back to a temporary json file
     corrected_config_path = os.path.join(temp_dir, 'corrected_config.json')
@@ -243,7 +264,13 @@ def _convert_old_model_to_new(model_file: str,
         corrected_model_json, custom_objects=custom_objects)
 
     # Load weights into the model
-    model.load_weights(os.path.join(temp_dir, 'model.weights.h5'))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model.load_weights(os.path.join(temp_dir, 'model.weights.h5'),
+                           skip_mismatch=True)
+
+    # Clean up the temporary directory
+    shutil.rmtree(temp_dir)
 
     return model
 
@@ -280,6 +307,8 @@ def load_or_create_model(config: Config,
             channels=config["channels"]
         )
         model = model_generator.build()
+        model.build(input_shape=(
+            None, config["height"], None, config["channels"]))
 
     return model
 
@@ -310,54 +339,18 @@ def verify_charlist_length(charlist: List[str],
         of the model.
     """
 
+    if type(model.output) is list:
+        model_output = model.output[0]
+    else:
+        model_output = model.output
+
     # Verify that the length of the charlist is correct
     if use_mask:
-        # expected_length = model.get_layer(index=-1) \
-        # .get_output_at(0).shape[2] - 2 - int(removed_padding)
-        expected_length = model.output[0].shape[2] - 2 - int(removed_padding)
+        expected_length = model_output.shape[2] - 2 - int(removed_padding)
     else:
-        # expected_length = model.get_layer(index=-1) \
-        # .get_output_at(0).shape[2] - 1 - int(removed_padding)
-        expected_length = model.output[0].shape[2] - 1 - int(removed_padding)
+        expected_length = model_output.shape[2] - 1 - int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "
             f"model output length ({expected_length}). If the charlist "
             "is correct, try setting use_mask to True.")
-
-
-def get_prediction_model(model: tf.keras.Model) -> tf.keras.Model:
-    """
-    Extracts a prediction model from a given Keras model.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        The complete Keras model from which the prediction model is to be
-        extracted.
-
-    Returns
-    -------
-    tf.keras.Model
-        The prediction model extracted from the given model, typically up to
-        the last dense layer.
-
-    Raises
-    ------
-    ValueError
-        If no dense layer is found in the given model.
-    """
-
-    last_dense_layer = None
-    for layer in reversed(model.layers):
-        if layer.name.startswith('dense'):
-            last_dense_layer = layer
-            break
-    if last_dense_layer is None:
-        raise ValueError("No dense layer found in the model")
-
-    # print(model.layers[0])
-    # prediction_model = tf.keras.models.Model(
-        # model.layers[0], last_dense_layer.output
-    # )
-    return model
