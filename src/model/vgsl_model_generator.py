@@ -308,9 +308,9 @@ class VGSLModelGenerator:
                  "RB3,3,64 RB3,3,64 RB3,3,64 RBd3,3,128 RB3,3,128 Rc "
                  "Bl256,D20 Bl256,D20 Bl256,D20 O1s92"),
             "recommended":
-                ("None,64,None,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Mp2,2,2,2 Bn "
-                 "Cr3,3,96 Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 "
-                 "Bl512 D50 Bl512 D50 Bl512 D50 Bl512 D50 O1s92")
+                ("None,64,None,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Bn Cr3,3,96 "
+                 "Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 Bl512 D50 "
+                 "Bl512 D50 Bl512 D50 Bl512 D50 O1s92")
         }
 
         return model_library
