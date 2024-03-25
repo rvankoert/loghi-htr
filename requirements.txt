@@ -7,7 +7,7 @@ matplotlib==3.8.3
 opencv_python==4.9.0.80
 tf_keras_vis==0.8.6
 elasticdeform==0.5.0
-blinker==1.4
+blinker==1.7.0
 fpdf==1.7.2
 scikit-image==0.22.0
 prometheus-client==0.20.0
