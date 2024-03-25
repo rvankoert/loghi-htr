@@ -2,7 +2,7 @@ flask==3.0.2
 gunicorn==21.2.0
 numpy==1.24.3
 editdistance==0.8.1
-tensorflow==2.14.1
+tensorflow[and-cuda]==2.16.1
 matplotlib==3.8.3
 opencv_python==4.9.0.80
 tf_keras_vis==0.8.6
@@ -11,4 +11,4 @@ blinker==1.7.0
 fpdf==1.7.2
 scikit-image==0.22.0
 prometheus-client==0.20.0
-tf-models-official==2.14.1
+tf-models-official==2.16.0

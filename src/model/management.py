@@ -210,6 +210,7 @@ def load_model_from_directory(directory: str,
                         "`--use_float32`.")
 
         # TODO: Make Input shape dynamic
+        # At least the channel dimension should be readable from the config
         inputs = tf.keras.Input(shape=(None, 64, 1))
         model_layer = tf.keras.layers.TFSMLayer(
             directory,
