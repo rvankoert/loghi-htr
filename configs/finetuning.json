@@ -1,0 +1,59 @@
+{
+    "args": {
+        "augmentation": {
+            "aug_binarize_otsu": false,
+            "aug_binarize_sauvola": false,
+            "aug_blur": false,
+            "aug_distort_jpeg": false,
+            "aug_elastic_transform": true,
+            "aug_invert": false,
+            "aug_multiply": 1,
+            "aug_random_crop": true,
+            "aug_random_shear": false,
+            "aug_random_width": true,
+            "visualize_augments": false
+        },
+        "decoding": {
+            "beam_width": 10,
+            "greedy": false
+        },
+        "general": {
+            "batch_size": 64,
+            "gpu": "0",
+            "output": "output",
+            "seed": 42
+        },
+        "learning_rate": {
+            "decay_per_epoch": false,
+            "decay_rate": 0.95,
+            "decay_steps": -1,
+            "learning_rate": 0.0003,
+            "linear_decay": true,
+            "optimizer": "rmsprop",
+            "warmup_ratio": 0.0
+        },
+        "misc": {
+            "normalization_file": "/path/to/normalization.json"
+        },
+        "model": {
+            "freeze_conv_layers": true,
+            "freeze_dense_layers": false,
+            "freeze_recurrent_layers": false,
+            "model": "/path/to/model/",
+            "model_name": "My-Finetuned-Loghi-Model",
+            "replace_final_layer": true,
+            "replace_recurrent_layer": null,
+            "use_float32": false
+        },
+        "training": {
+            "do_validate": true,
+            "early_stopping_patience": 10,
+            "epochs": 50,
+            "max_queue_size": 256,
+            "output_checkpoints": true,
+            "train_list": "/path/to/train.txt",
+            "training_verbosity_mode": "auto",
+            "validation_list": "/path/to/val.txt"
+        }
+    }
+}

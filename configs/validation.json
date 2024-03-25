@@ -1,0 +1,27 @@
+{
+    "args": {
+        "decoding": {
+            "beam_width": 10,
+            "greedy": false
+        },
+        "general": {
+            "batch_size": 200,
+            "gpu": "0",
+            "output": "output",
+            "seed": 42
+        },
+        "misc": {
+            "deterministic": false,
+            "normalization_file": "/path/to/normalization.json"
+        },
+        "model": {
+            "model": "/path/to/model/",
+            "use_float32": false
+        },
+        "training": {
+            "do_validate": true,
+            "max_queue_size": 256,
+            "validation_list": "/path/to/validation.txt"
+        }
+    }
+}

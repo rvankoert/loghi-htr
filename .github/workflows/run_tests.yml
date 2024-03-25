@@ -8,12 +8,12 @@ jobs:
 
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.9
+        python-version: '3.10'
 
     - name: Install system dependencies
       run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-glx
@@ -23,16 +23,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Test utils
+    - name: Test tokenizer
       run: |
-        python -m unittest tests/test_utils.py
-      env:
-        TF_CPP_MIN_LOG_LEVEL: '2'
-
-    - name: Test DataGenerator
-      if: always()
-      run: |
-        python -m unittest tests/test_datagenerator.py
+        python -m unittest tests/test_tokenizer.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
@@ -40,6 +33,20 @@ jobs:
       if: always()
       run: |
         python -m unittest tests/test_dataloader.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
+    - name: Test data augment layers
+      if: always()
+      run: |
+        python -m unittest tests/test_data_augments.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+
+    - name: Test DataManager
+      if: always()
+      run: |
+        python -m unittest tests/test_datamanager.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
 
@@ -61,5 +68,12 @@ jobs:
       if: always()
       run: |
         python -m unittest tests/test_model_replacement.py
+      env:
+        TF_CPP_MIN_LOG_LEVEL: '2'
+        
+    - name: Test custom LR schedule
+      if: always()
+      run: |
+        python -m unittest tests/test_lr_schedule.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
