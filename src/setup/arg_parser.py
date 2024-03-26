@@ -330,6 +330,31 @@ def arg_future_warning(args):
                        "to load or create a model instead.")
 
 
+def check_required_args(args, explicit):
+    """
+    Check if all required arguments are present in the arguments.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed arguments.
+    explicit : argparse.Namespace
+        The arguments that were explicitly passed.
+
+    Raises
+    ------
+    ValueError
+        If any of the required arguments are missing.
+    """
+
+    required_args = ['model']
+    missing_args = [arg for arg in required_args if not getattr(args, arg)
+                    and not getattr(explicit, arg)]
+    if missing_args:
+        raise ValueError("Missing required arguments: "
+                         f"{', '.join(missing_args)}")
+
+
 def get_args():
     parser = get_arg_parser()
     args = parser.parse_args()
@@ -351,5 +376,6 @@ def get_args():
     # TODO: remove after deprecation period
     arg_future_warning(args)
     fix_args(args)
+    check_required_args(args, explicit)
 
     return args, explicit

@@ -114,6 +114,12 @@ class DataManager:
                     text_file=partition_text_file,
                 )
 
+                if partition == "train" and not self.charlist:
+                    raise ValueError("Character list is empty. Please provide "
+                                     "a valid character list or ensure that "
+                                     "the training data is correctly "
+                                     "formatted.")
+
                 # Fill the dictionary with the data
                 file_names_dict[partition] = file_names
                 labels_dict[partition] = labels
