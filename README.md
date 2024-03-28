@@ -338,7 +338,16 @@ This guide should help you get started with the API. For advanced configurations
 
 The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
 
-![Example time-step prediction](src/visualize/visualize_plots/sample_image.jpg "Example time-step prediction")
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image.jpg" alt="Example time-step prediction">
+  <figcaption>Fig.1 - Time-step Prediction Visualization.</figcaption>
+</figure>
+
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image2.png" width="60%" 
+alt="Example Conv Visualization">
+  <figcaption>Fig.2 - Convolutional Layer Activation Visualization.</figcaption>
+</figure>
 
 ### 1. Visualize setup
 Navigate to the `src/visualize` directory in your project:
