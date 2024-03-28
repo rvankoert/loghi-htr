@@ -30,20 +30,21 @@ if __name__ == '__main__':
     pdf.add_page()
 
     # Set color_scheme
-    if args.light_mode:
-        font_r, font_g, font_b = 0, 0, 0
-    else:
+    if args.dark_mode:
         font_r, font_g, font_b = 255, 255, 255
         # Draw a rectangle to fill the entire page with the default background
         # color
         pdf.rect(0, 0, pdf.w, pdf.h, 'F')
+    else:
+        font_r, font_g, font_b = 0, 0, 0
+
     pdf.set_header(args.replace_header, font_r, font_g, font_b)
 
     TS_PLOT = ("visualize_plots/timestep_prediction_plot"
-               + ("_light" if args.light_mode else "_dark")
+               + ("_dark" if args.dark_mode else "_light")
                + ".jpg")
     ACT_PLOT = ("visualize_plots/model_new10_1channel_filters_act"
-                + ("_light" if args.light_mode else "_dark")
+                + ("_dark" if args.dark_mode else "_light")
                 + ("_detailed" if args.do_detailed else "")
                 + ".png")
 
@@ -58,6 +59,6 @@ if __name__ == '__main__':
                + (args.replace_header if args.replace_header
                   else pdf.extract_model_name(args.existing_model))
                + "_visualization_report"
-               + ("_light" if args.light_mode
-                  else "_dark")
+               + ("_dark" if args.dark_mode
+                  else "_light")
                + ".pdf")

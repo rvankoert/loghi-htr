@@ -4,7 +4,7 @@
 import os
 from pathlib import Path
 import sys
-import csv
+import xlsxwriter
 import re
 from typing import Tuple, List
 
@@ -148,11 +148,11 @@ def get_timestep_indices(model_path: str, preds: np.ndarray,
         timestep_char_list_indices_top_3, step_width, pad_steps_skip
 
 
-def write_ctc_table_to_csv(preds: np.ndarray,
+def write_ctc_table_to_xlsx(preds: np.ndarray,
                            char_list: str,
                            index_correction: int) -> None:
     """
-    Write CTC (Connectionist Temporal Classification) table data to a CSV file.
+    Write CTC (Connectionist Temporal Classification) table data to a xlsx file.
 
     Parameters
     ----------
@@ -166,8 +166,9 @@ def write_ctc_table_to_csv(preds: np.ndarray,
     Notes
     -----
     This function takes CTC predictions in the form of a 3D array, extracts the
-    data, and writes it to a CSV file. It creates columns for each timestep and
-    includes character labels.
+    data, and writes it to a xlsx file. It creates columns for each timestep and
+    includes character labels. Conditional formatting is added to better
+    distinguish between low and high prediction probabilities.
 
     Examples
     --------
@@ -177,8 +178,8 @@ def write_ctc_table_to_csv(preds: np.ndarray,
     ...                    [0.2, 0.1, 0.3]]])
     >>> char_list = "ABC"
     >>> index_correction = 1
-    >>> write_ctc_table_to_csv(preds, char_list, index_correction)
-    # Creates a CSV file with characters and corresponding predictions for each
+    >>> write_ctc_table_to_xlsx(preds, char_list, index_correction)
+    # Creates a xlsx file with characters and corresponding predictions for each
     timestep.
     """
     # Iterate through each index and tensor in preds
@@ -187,31 +188,50 @@ def write_ctc_table_to_csv(preds: np.ndarray,
         # Iterate through each time step in the tensor
         for time_step in tensor:
             # Add the time step to the row
-            tensor_data.append(time_step.tolist())
+            tensor_data.append(np.round(time_step,3).tolist())
 
     # Create columns
     columns = ["ts_" + str(i) for i in range(preds.shape[1])]
     additional_chars = ['MASK', 'BLANK'] if '' in char_list else ["BLANK"]
+
+    # Adjust char_list for special characters
     characters = list(char_list) + additional_chars
     transposed_data = np.transpose(tensor_data)
 
-    if not os.path.isdir(Path(__file__).with_name("visualize_plots")):
-        os.makedirs(Path(__file__).with_name("visualize_plots"))
+    # Ensure the visualize_plots directory exists
+    directory_path = Path(__file__).with_name("visualize_plots")
+    if not os.path.isdir(directory_path):
+        os.makedirs(directory_path)
 
-    # Write results to a CSV file
-    with open(str(Path(__file__).with_name("visualize_plots"))
-              + "/sample_image_preds.csv", 'w', newline="") as csvfile:
-        writer = csv.writer(csvfile)
+    # Setup the XLSX file
+    workbook = xlsxwriter.Workbook(str(directory_path / "sample_image_preds.xlsx"))
+    worksheet = workbook.add_worksheet()
+    bold = workbook.add_format({'bold': True})
 
-        # Write the header
-        writer.writerow(['Chars'] + columns)
+    # Write the header
+    for i, column in enumerate(['Chars'] + columns):
+        worksheet.write(0, i, column, bold)
 
-        # Write the rows with index and data:
-        for i, row in enumerate(transposed_data):
-            # Don't print characters[-1] if index_correction is -1
-            if i + index_correction > -1:
-                writer.writerow(
-                    [characters[i + index_correction]] + list(map(str, row)))
+    # Write the rows with index and data
+    for i, row in enumerate(transposed_data):
+        if i + index_correction > -1:
+            # Replace "unseeable" characters for readability in XLSX
+            char = (characters[i + index_correction].replace(" ","SPACE")
+                                                    .replace("\t", "TAB")
+                                                    .replace("\n", "NEWLINE"))
+            worksheet.write(i + 1, 0, char, bold)
+            for j, cell in enumerate(row):
+                worksheet.write(i + 1, j + 1, cell)
+
+    # Apply conditional formatting to create a heatmap effect
+    # Adjust the range accordingly to your data (+1 due to header row)
+    worksheet.conditional_format(1, 1, len(transposed_data) + 1, len(columns), {
+        'type': '2_color_scale',
+        'min_color': "#FFFFFF",  # White
+        'max_color': "#00FF00"   # Green
+    })
+
+    workbook.close()
 
 
 def create_timestep_plots(bordered_img: np.ndarray, index_correction: int,
@@ -436,10 +456,10 @@ def main(args=None):
         index_correction = -1
 
     # Set color_scheme
-    if args.light_mode:
-        background_color, font_color = [255, 255, 255], (0, 0, 0)  # Light mode
-    else:
+    if args.dark_mode:
         background_color, font_color = [0, 0, 0], (255, 255, 255)  # Dark mode
+    else:
+        background_color, font_color = [255, 255, 255], (0, 0, 0)  # Light mode
 
     # Dynamically calculate the right pad width required to keep all text
     # readable (465px width at least)
@@ -460,8 +480,8 @@ def main(args=None):
                           char_list, timestep_char_list_indices,
                           timestep_char_list_indices_top_3)
 
-    # Take character preds for sample image and create csv file
-    write_ctc_table_to_csv(preds, char_list, index_correction)
+    # Take character preds for sample image and create xlsx file
+    write_ctc_table_to_xlsx(preds, char_list, index_correction)
 
     # Double size
     new_width = bordered_img.shape[1] * 2
@@ -474,7 +494,7 @@ def main(args=None):
     # Save the timestep plot
     cv2.imwrite(str(Path(__file__).with_name("visualize_plots"))
                 + "/timestep_prediction_plot"
-                + ("_light" if args.light_mode else "_dark")
+                + ("_dark" if args.dark_mode else "_light")
                 + ".jpg",
                 bordered_img_resized)
 

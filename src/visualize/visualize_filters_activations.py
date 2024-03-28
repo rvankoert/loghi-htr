@@ -176,7 +176,7 @@ def main(args=None):
         model)
 
     # Top level plot
-    if not args.light_mode:
+    if args.dark_mode:
         plt.style.use('dark_background')
     fig = plt.figure(figsize=(5 * num_filters_per_row,
                      num_filters_per_row), dpi=200)
@@ -306,8 +306,8 @@ def main(args=None):
                           else "_" + str(model_channels) + "channels")
                        + ("_filters_act" if args.sample_image_path
                           else "_filters")
-                       + ("_light" if args.light_mode
-                          else "_dark")
+                       + ("_dark" if args.dark_mode
+                          else "_light")
                        + ("_detailed.png" if args.do_detailed
                           else ".png"))
         plt.savefig(os.path.join(str(Path(__file__)
