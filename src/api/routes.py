@@ -60,7 +60,7 @@ def predict() -> flask.Response:
 
     try:
         app.request_queue.put((image_file, group_id, identifier,
-                               model, whitelist), block=True, timeout=15)
+                               model, whitelist), block=True, timeout=3)
     except Full:
         response = jsonify({
             "status": "error",
@@ -126,6 +126,35 @@ def health() -> flask.Response:
         "status": "healthy",
         "code": 200,
         "message": "All workers are alive",
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+    response.status_code = 200
+
+    return response
+
+
+@main.route("/ready", methods=["GET"])
+@session_key_required
+def ready() -> flask.Response:
+    """
+    Endpoint for getting readiness status
+    """
+
+    if app.request_queue.full():
+        response = jsonify({
+            "status": "unready",
+            "code": 503,
+            "message": "Request queue is full",
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+        response.status_code = 503
+
+        return response
+
+    response = jsonify({
+        "status": "ready",
+        "code": 200,
+        "message": "Request queue is not full",
         "timestamp": datetime.datetime.now().isoformat()
     })
     response.status_code = 200
