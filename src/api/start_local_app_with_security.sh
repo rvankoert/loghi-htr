@@ -13,6 +13,5 @@ export LOGHI_GPUS="0"
 export SECURITY_ENABLED="True"
 export API_KEY_USER_JSON_STRING='{"1234": "test user"}'
 
-gunicorn -w 1 -t 1 \
-    -b $GUNICORN_RUN_HOST --access-logfile $GUNICORN_ACCESSLOG \
-    'app:create_app()'
+gunicorn -w 1 -b $GUNICORN_RUN_HOST \
+    --access-logfile $GUNICORN_ACCESSLOG 'app:create_app()'

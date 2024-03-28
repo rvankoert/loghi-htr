@@ -10,6 +10,5 @@ export LOGHI_PATIENCE=0.5
 export LOGGING_LEVEL="INFO"
 export LOGHI_GPUS="0"
 
-gunicorn -w 1 -t 1 \
-    -b $GUNICORN_RUN_HOST --access-logfile $GUNICORN_ACCESSLOG \
-    'app:create_app()'
+gunicorn -w 1 -b $GUNICORN_RUN_HOST \
+    --access-logfile $GUNICORN_ACCESSLOG 'app:create_app()'
