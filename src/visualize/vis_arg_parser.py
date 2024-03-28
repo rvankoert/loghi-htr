@@ -22,7 +22,7 @@ def get_arg_parser():
     parser.add_argument('--sample_image_path', metavar='sample_image_path',
                         type=str, default="", help='single png to for '
                         'saliency plots')
-    parser.add_argument('--light_mode', action='store_true', default=False,
+    parser.add_argument('--dark_mode', action='store_true', default=False,
                         help='for setting the output image background + font '
                         'color')
     parser.add_argument('--existing_model', metavar='existing_model', type=str,

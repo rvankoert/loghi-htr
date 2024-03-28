@@ -176,11 +176,11 @@ def main(args=None):
         model)
 
     # Top level plot
-    if not args.light_mode:
+    if args.dark_mode:
         plt.style.use('dark_background')
     fig = plt.figure(figsize=(5 * num_filters_per_row,
                      num_filters_per_row), dpi=200)
-    sub_figs = fig.subfigures(len(layer_info), 1)
+    sub_figs = fig.subfigures(len(layer_info), ncols=1)
 
     # Get layout parameters for later plots
     fig.tight_layout()
@@ -249,12 +249,15 @@ def main(args=None):
                     filter_plot[0, filter_index].imshow(
                         filter_images[filter_index], cmap=filter_cmap)
                     filter_plot[0, filter_index].set_title(
-                        "Conv Filter: " + str(filter_index))
+                        "Conv Filter: " + str(filter_index),
+                        fontdict={'fontsize': 10},
+                        loc='left')
                     filter_plot[1, filter_index].imshow(
-                        feature_maps[filter_index], cmap='viridis')
+                        feature_maps[filter_index], cmap='gray')
                     filter_plot[1, filter_index].set_title(
-                        "Layer Activations: " + str(filter_index))
-
+                        "Layer Activations: " + str(filter_index),
+                        fontdict={'fontsize': 10},
+                        loc='left')
                 else:
                     # Add the filter images
                     _, img = visualize_filter(
@@ -289,7 +292,10 @@ def main(args=None):
                                      f"{layer_info_dict.get('kernel_size')}: "
                                      "filters: "
                                      f"{layer_info_dict.get('filters')}",
-                                     fontsize=20)
+                                     fontsize=12,
+                                     weight='bold',
+                                     ha='left',
+                                     x=0.125)
         row_index += 1
 
         if not os.path.isdir(Path(__file__).with_name("visualize_plots")):
@@ -300,8 +306,8 @@ def main(args=None):
                           else "_" + str(model_channels) + "channels")
                        + ("_filters_act" if args.sample_image_path
                           else "_filters")
-                       + ("_light" if args.light_mode
-                          else "_dark")
+                       + ("_dark" if args.dark_mode
+                          else "_light")
                        + ("_detailed.png" if args.do_detailed
                           else ".png"))
         plt.savefig(os.path.join(str(Path(__file__)

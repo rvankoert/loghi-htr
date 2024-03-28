@@ -338,7 +338,16 @@ This guide should help you get started with the API. For advanced configurations
 
 The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
 
-![Example time-step prediction](src/visualize/visualize_plots/sample_image.jpg "Example time-step prediction")
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image.jpg" alt="Example time-step prediction">
+  <figcaption>Fig.1 - Time-step Prediction Visualization.</figcaption>
+</figure>
+
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image2.png" width="60%" 
+alt="Example Conv Visualization">
+  <figcaption>Fig.2 - Convolutional Layer Activation Visualization.</figcaption>
+</figure>
 
 ### 1. Visualize setup
 Navigate to the `src/visualize` directory in your project:
@@ -358,7 +367,8 @@ python3 main.py
 This will output various files into the `visualize_plots directory`:
 * A PDF sheet consisting of all made visualizations for the above call
 * Individual PNG and JPG files of these visualizations
-* A `sample_image_preds.csv` which consist of a character prediction table for each prediction timestep. The highest probability is the character that was chosen by the model
+* A `sample_image_preds.xslx` which consist of a character prediction table for 
+  each prediction timestep. The highest probability is the character that was chosen by the model
 
 Currently, the following visualizers are implemented:
 1. **visualize_timestep_predictions**: Takes the `sample_image` and simulates the model's prediction process for each time step, the top-3 most probable characters per timestep are displayed and the "cleaned" result is shown at the bottom.
@@ -373,7 +383,7 @@ Potential future implementations:
 ### 3. (Optional parameters)
 ```bash
 --do_detailed # Visualize all convolutional layers, not just the first instance of a conv layer
---light_mode  # Plots and overviews are shown in light mode (instead of dark mode)
+--dark_mode  # Plots and overviews are shown in dark mode (instead of light mode)
 --num_filters_per_row # Changes the number of filters per row in the filter activation plots (default =6)
 # NOTE: increasing the num_filters_per_row requires significant computing resources, you might experience an OOM.
 ```
