@@ -24,7 +24,7 @@ Ensure you have the following prerequisites installed or set up:
 - Ubuntu or a similar Linux-based operating system. The provided commands are tailored for such systems.
 
 > [!IMPORTANT]
-> The requirements listed in `requirements.txt` require a Python version > 3.9. The `CTCWordBeamSearch` package might have problems with a Python version >= 3.11. In that case, you should downgrade to Python 3.10.
+> The requirements listed in `requirements.txt` require a Python version > 3.9. This `tensorflow` version requires a Python version <= 3.11.
 
 ### Steps
 
