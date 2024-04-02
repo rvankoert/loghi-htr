@@ -18,6 +18,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))  # noqa: E4
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
 from model.custom_layers import ResidualBlock
+from model.optimization import LoghiLearningRateSchedule
 
 
 def prep_image_for_model(img_path: str, model_channels: int) \
@@ -123,12 +124,25 @@ def init_pre_trained_model():
     # Set seed for plots to check changes in preprocessing
     np.random.seed(seed)
     tf.random.set_seed(seed)
-    model = tf.keras.models.load_model(model_path,
+
+    if any(file.endswith(".keras") for file in os.listdir(model_path)):
+        # Look for a .keras file
+        model_file = next((os.path.join(model_path, file) for file in os.listdir(
+            model_path) if file.endswith(".keras")), None)
+    else:
+        # Else take .pb file approach
+        model_file = model_path
+
+    # Load model and custom objects
+    model = tf.keras.saving.load_model(model_file,
                                        custom_objects={
-                                           "CERMetric": CERMetric,
-                                           "WERMetric": WERMetric,
-                                           "CTCLoss": CTCLoss,
-                                           "ResidualBlock": ResidualBlock})
+                                           'CERMetric': CERMetric,
+                                           'WERMetric': WERMetric,
+                                           'CTCLoss':CTCLoss,
+                                           'ResidualBlock': ResidualBlock,
+                                           'LoghiLearningRateSchedule':
+                                               LoghiLearningRateSchedule})
+
     model_channels = model.input_shape[3]
     model.summary()
 
