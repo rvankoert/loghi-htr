@@ -135,13 +135,7 @@ def init_pre_trained_model():
 
     # Load model and custom objects
     model = tf.keras.saving.load_model(model_file,
-                                       custom_objects={
-                                           'CERMetric': CERMetric,
-                                           'WERMetric': WERMetric,
-                                           'CTCLoss':CTCLoss,
-                                           'ResidualBlock': ResidualBlock,
-                                           'LoghiLearningRateSchedule':
-                                               LoghiLearningRateSchedule})
+                                       compile=False)
 
     model_channels = model.input_shape[3]
     model.summary()

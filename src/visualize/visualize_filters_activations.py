@@ -298,12 +298,9 @@ def main(args=None):
                                      x=0.125)
         row_index += 1
 
-        if not os.path.isdir(Path(__file__).with_name("visualize_plots")):
-            os.makedirs(Path(__file__).with_name("visualize_plots"))
+        os.makedirs(Path(__file__).with_name("visualize_plots"), exist_ok=True)
 
-        output_name = (model.name
-                       + ("_1channel" if model_channels == 1
-                          else "_" + str(model_channels) + "channels")
+        output_name = (args.existing_model.split("/")[-2]
                        + ("_filters_act" if args.sample_image_path
                           else "_filters")
                        + ("_dark" if args.dark_mode

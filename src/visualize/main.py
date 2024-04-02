@@ -43,7 +43,9 @@ if __name__ == '__main__':
     TS_PLOT = ("visualize_plots/timestep_prediction_plot"
                + ("_dark" if args.dark_mode else "_light")
                + ".jpg")
-    ACT_PLOT = ("visualize_plots/model_new10_1channel_filters_act"
+    ACT_PLOT = ("visualize_plots/" + args.existing_model.split("/")[-2]
+                + ("_filters_act" if args.sample_image_path
+                   else "_filters")
                 + ("_dark" if args.dark_mode else "_light")
                 + ("_detailed" if args.do_detailed else "")
                 + ".png")
