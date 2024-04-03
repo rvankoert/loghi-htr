@@ -2,13 +2,14 @@
 
 # > Standard library
 import logging
-from multiprocessing import Process, Manager
+import multiprocessing as mp
 import os
 from typing import Tuple
 
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
 from image_preparator import image_preparation_worker
+from batch_decoder import batch_decoding_worker
 
 # > Third-party dependencies
 from flask import request
@@ -16,6 +17,13 @@ from prometheus_client import Gauge
 
 
 class TensorFlowLogFilter(logging.Filter):
+    """Filter to exclude specific TensorFlow logging messages.
+
+    This filter checks each log record for specific phrases that are to be
+    excluded from the logs. If any of the specified phrases are found in a log
+    message, the message is excluded from the logs.
+    """
+
     def filter(self, record):
         # Exclude logs containing the specific message
         exclude_phrases = [
@@ -63,7 +71,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def extract_request_data() -> Tuple[bytes, str, str, str]:
+def extract_request_data() -> Tuple[bytes, str, str, str, list]:
     """
     Extract image and other form data from the current request.
 
@@ -78,11 +86,13 @@ def extract_request_data() -> Tuple[bytes, str, str, str]:
             Identifier from form data.
         model : str
             Location of the model to use for prediction.
+        whitelist : list of str
+            List of classes to whitelist for output.
 
     Raises
     ------
     ValueError
-        If required data (image, group_id, identifier, model) is missing or if
+        If required data (image, group_id, identifier) is missing or if
         the image format is invalid.
     """
 
@@ -114,7 +124,9 @@ def extract_request_data() -> Tuple[bytes, str, str, str]:
         if not os.path.exists(model):
             raise ValueError(f"Model directory {model} does not exist.")
 
-    return image_content, group_id, identifier, model
+    whitelist = request.form.getlist('whitelist')
+
+    return image_content, group_id, identifier, model, whitelist
 
 
 def get_env_variable(var_name: str, default_value: str = None) -> str:
@@ -150,53 +162,119 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
                 f"Environment variable {var_name} not set and no default "
                 "value provided.")
         logger.warning(
-            f"Environment variable {var_name} not set. Using default value: "
-            f"{default_value}")
+            "Environment variable %s not set. Using default value: "
+            "%s", var_name, default_value)
         return default_value
 
-    logger.debug(f"Environment variable {var_name} set to {value}")
+    logger.debug("Environment variable %s set to %s", var_name, value)
     return value
 
 
-def start_processes(batch_size: int, max_queue_size: int,
-                    output_path: str, gpus: str, model_path: str):
+def start_workers(batch_size: int, max_queue_size: int,
+                  output_path: str, gpus: str, model_path: str,
+                  patience: int):
+    """
+    Initializes and starts multiple multiprocessing workers for image
+    processing and prediction.
+
+    This function sets up three main processes: image preparation,
+    batch prediction, and batch decoding, each running in its own process. It
+    also initializes thread-safe queues for communication between these
+    processes and configures Prometheus gauges to monitor queue sizes.
+
+    Parameters
+    ----------
+    batch_size : int
+        The size of the batch for processing images.
+    max_queue_size : int
+        The maximum size of the request queue.
+    output_path : str
+        The path where the output results will be stored.
+    gpus : str
+        The GPU devices to use for computation.
+    model_path : str
+        The path to the machine learning model for predictions.
+    patience : int
+        The number of seconds to wait for an image to be ready before timing
+        out.
+
+    Returns
+    -------
+    dict
+        A dictionary containing references to the worker processes under the
+        keys "Preparation", "Prediction", and "Decoding".
+    dict
+        A dictionary containing references to the communication queues under
+        the keys "Request", "Prepared", and "Predicted".
+    """
+
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
-    manager = Manager()
-    request_queue = manager.JoinableQueue(maxsize=max_queue_size//2)
-    logger.info(f"Request queue size: {max_queue_size//2}")
+    request_queue = mp.Queue(maxsize=max_queue_size//2)
+    logger.info("Request queue size: %s", max_queue_size // 2)
 
     # Max size of prepared queue is half of the max size of request queue
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
-    prepared_queue = manager.JoinableQueue(maxsize=max_prepared_queue_size)
-    logger.info(f"Prediction queue size: {max_prepared_queue_size}")
+    prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
+    logger.info("Prediction queue size: %s", max_prepared_queue_size)
+
+    # Create a thread-safe Queue for predictions
+    predicted_queue = mp.Queue()
 
     # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge('request_queue_size', "Request queue size")
-    request_queue_size_gauge.set_function(lambda: request_queue.qsize())
-    prepared_queue_size_gauge = Gauge('prepared_queue_size', "Prepared queue size")
-    prepared_queue_size_gauge.set_function(lambda: prepared_queue.qsize())
+    request_queue_size_gauge = Gauge("request_queue_size",
+                                     "Request queue size")
+    request_queue_size_gauge.set_function(request_queue.qsize)
+    prepared_queue_size_gauge = Gauge("prepared_queue_size",
+                                      "Prepared queue size")
+    prepared_queue_size_gauge.set_function(prepared_queue.qsize)
+    predicted_queue_size_gauge = Gauge("predicted_queue_size",
+                                       "Predicted queue size")
+    predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
-    preparation_process = Process(
+    preparation_process = mp.Process(
         target=image_preparation_worker,
         args=(batch_size, request_queue,
-              prepared_queue, model_path),
-        name="Image Preparation Process")
-    preparation_process.daemon = True
+              prepared_queue, model_path,
+              patience),
+        name="Image Preparation Process",
+        daemon=True)
     preparation_process.start()
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
-    prediction_process = Process(
+    prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, output_path, model_path, gpus),
-        name="Batch Prediction Process")
-    prediction_process.daemon = True
+        args=(prepared_queue, predicted_queue,
+              output_path, model_path, gpus),
+        name="Batch Prediction Process",
+        daemon=True)
     prediction_process.start()
 
-    return request_queue, preparation_process, prediction_process
+    # Start the batch decoding process
+    logger.info("Starting batch decoding process")
+    decoding_process = mp.Process(
+        target=batch_decoding_worker,
+        args=(predicted_queue, model_path, output_path),
+        name="Batch Decoding Process",
+        daemon=True)
+    decoding_process.start()
+
+    workers = {
+        "Preparation": preparation_process,
+        "Prediction": prediction_process,
+        "Decoding": decoding_process
+    }
+
+    queues = {
+        "Request": request_queue,
+        "Prepared": prepared_queue,
+        "Predicted": predicted_queue
+    }
+
+    return workers, queues

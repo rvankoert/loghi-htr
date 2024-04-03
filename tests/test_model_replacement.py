@@ -11,7 +11,10 @@ import sys
 import logging
 import unittest
 
-# FIXME initialization fails when all tests are run in series, it works when only this file is run
+# FIXME initialization fails when all tests are run in series, it works when
+# only this file is run
+
+
 class TestReplaceLayers(unittest.TestCase):
     """
     Tests for the `replace_recurrent_layer` function in the `model` module.
@@ -54,11 +57,11 @@ class TestReplaceLayers(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        from vgsl_model_generator import VGSLModelGenerator
+        from model.vgsl_model_generator import VGSLModelGenerator
         cls.VGSLModelGenerator = VGSLModelGenerator
 
-        import model
-        cls.model = model
+        import model.replacing as replacing
+        cls.replacing = replacing
 
     def test_rnn_replacement_simple(self):
         # Create a simple model to test
@@ -76,7 +79,7 @@ class TestReplaceLayers(unittest.TestCase):
         test_model = tf.keras.Model(inputs=inputs, outputs=x)
 
         # Use the function to replace layers
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, "Lfs128 Lf64")
 
         # Check that the model is not None
@@ -94,7 +97,7 @@ class TestReplaceLayers(unittest.TestCase):
         test_model = tf.keras.Model(inputs=inputs, outputs=x)
 
         # Use the function to replace GRU layer
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, "Lfs128")
 
         # Check the last two layers of the new model
@@ -135,7 +138,7 @@ class TestReplaceLayers(unittest.TestCase):
         test_model = tf.keras.Model(inputs=inputs, outputs=x)
 
         # Use the function to replace LSTM layer
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, "Gfs128")
 
         # Check the last two layers of the new model
@@ -175,7 +178,7 @@ class TestReplaceLayers(unittest.TestCase):
         test_model = tf.keras.Model(inputs=inputs, outputs=x)
 
         # Use the function to replace Bidirectional layer
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, "Lfs128 Lf64")
 
         # Check the last two layers of the new model
@@ -213,7 +216,7 @@ class TestReplaceLayers(unittest.TestCase):
 
         # Use the function to replace RNN layers
         vgsl_string = "Lfs128 Gfs64 Bl32"
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, vgsl_string)
 
         # Assertions to check layer types and configurations
@@ -252,7 +255,7 @@ class TestReplaceLayers(unittest.TestCase):
 
         # Use the function to replace RNN layers and include dropout
         vgsl_string = "Lfs128 D10 Gf64 D15"
-        new_model = self.model.replace_recurrent_layer(
+        new_model = self.replacing.replace_recurrent_layer(
             test_model, 29, vgsl_string)
 
         # Assertions to check dropout layers
@@ -282,7 +285,7 @@ class TestReplaceLayers(unittest.TestCase):
 
         # Assert that the ValueError is raised with the expected error message
         with self.assertRaises(ValueError) as context:
-            self.model.replace_recurrent_layer(test_model, 29, "Lfs128")
+            self.replacing.replace_recurrent_layer(test_model, 29, "Lfs128")
 
         self.assertEqual(str(context.exception),
                          "No recurrent layers found in the model.")

@@ -10,7 +10,8 @@ Loghi HTR also works on machine printed text.
 2. [Usage](#usage)
 3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
 4. [API Usage Guide](#api-usage-guide)
-5. [Frequently Asked Questions (FAQ)](#FAQ)
+5. [Model Visualizer Guide](#model-visualizer-guide)
+6. [Frequently Asked Questions (FAQ)](#FAQ)
 
 ## Installation
 
@@ -23,7 +24,7 @@ Ensure you have the following prerequisites installed or set up:
 - Ubuntu or a similar Linux-based operating system. The provided commands are tailored for such systems.
 
 > [!IMPORTANT]
-> The requirements listed in `requirements.txt` require a Python version > 3.8. It should be possible to run in Python <= 3.8, but one would have to downgrade some packages (such as NumPy and Tensorflow).
+> The requirements listed in `requirements.txt` require a Python version > 3.9. This `tensorflow` version requires a Python version <= 3.11.
 
 ### Steps
 
@@ -66,86 +67,55 @@ With these steps, you should have Loghi HTR and all its dependencies installed a
 Example of 'lines.txt' content:
 
 ```
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-0e54d043-4bab-40d7-9458-59aae79ed8a8.png	This is a ground truth transcription
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-f3d8b3cb-ab90-4b64-8360-d46a81ab1dbc.png	It can be generated from PageXML
-/data/textlines/NL-HaNA_2.22.24_HCA30-1049_0004/NL-HaNA_2.22.24_HCA30-1049_0004.xml-700de0f9-56e9-45f9-a184-a4acbe6ed4cf.png	And another textline
+/path/to/texline/1.png  This is a ground truth transcription
+/path/to/texline/2.png  It can be generated from PageXML
+/path/to/texline/3.png  And another textline
 ```
 
-### Command-Line Options:
+### Command-Line Options and Config File Usage
 
-The command-line options include, but are not limited to:
+Our tool provides various command-line options for stages such as training, validation, and inference. To simplify usage, especially for newcomers, we've introduced the option to run the script with a configuration file.
 
-- `--do_train`: Enable the training stage.
-- `--do_validate`: Enable the validation stage.
-- `--do_inference`: Perform inference.
-- `--train_list`: List of files containing training data. Format: `/path/to/textline/image <TAB> transcription`.
-- `--validation_list`: List of files containing validation data. Format: `/path/to/textline/image <TAB> transcription`.
-- `--inference_list`: List of files containing data to perform inference on. Format: `/path/to/textline/image`.
-- `--learning_rate`: Set the learning rate. Recommended values range from 0.001 to 0.000001, with 0.0003 being the default.
-- `--channels`: Number of image channels. Use 3 for standard RGB-images, and 4 for images with an alpha channel containing the textline polygon-mask.
-- `--gpu`: GPU configuration. Use -1 for CPU, 0 for the first GPU, and so on.
-- `--batch_size`: The number of examples to use as input in the model at the same time. Increasing this requires more RAM or VRAM.
-- `--height`: Height to scale the textline image. Internal processing requires images of the same height. 64 is recommended for handwriting.
-- `--use_mask`: Enable when using `batch_size` > 1.
-- `--results_file`: The inference results are aggregated in this file.
-- `--config_file_output`: The output location of the config.
-- `--replace_recurrent_layer`: Specifies the [VGSL string](#variable-size-graph-specification-language-vgsl) to define the architecture of the recurrent layers that will replace the recurrent layers of an existing model. This argument is required when you want to modify the recurrent layers of a model specified by `--existing_model`. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lf64" describes two LSTM layers with 128 and 64 units respectively. When using this argument, ensure that `--existing_model` is also provided to specify the model whose recurrent layers you want to replace.
-- `--replace_final_layer`: Enables the replacement of the final dense layer of an existing model. This is useful when you want to adjust the number of output characters or change the masking option without modifying the rest of the model. When this argument is used, the model specified by `--existing_model` will have its final dense layer replaced with a new one. The number of output units will be adjusted based on the value of `number_characters` and whether the `--use_mask` option is enabled.
+#### Using a Config File
 
-For detailed options and configurations, you can also refer to the help command:
+Instead of using command-line arguments, you can specify parameters in a JSON configuration file. This is recommended for ease of use. To use a configuration file, run the script with:
 
-```bash
+```
+python3 main.py --config_file "/path/to/config.json"
+```
+
+In the `configs` directory, we provide several minimal configuration files tailored to different use cases:
+
+- `default.json`: Contains default values for general use.
+- `training.json`: Configured specifically for training.
+- `validation.json`: Optimized for validation tasks.
+- `inference.json`: Set up for inference processes.
+- `testing.json`: Suitable for testing scenarios.
+- `finetuning.json`: Adjusted for fine-tuning purposes.
+
+These files are designed to provide a good starting point. You can use and modify them as needed.
+
+#### Overriding Config File Parameters with Command-Line Arguments
+
+You can override specific config file parameters with command-line arguments. For example:
+
+```
+python3 main.py --config_file "/path/to/config.json" --gpu 1
+```
+
+This command will use settings from the config file but overrides the GPU setting to use GPU 1.
+
+#### Available Command-Line Options
+
+You can still use command-line arguments. Some of the options include `--train_list`, `--do_validate`, `--learning_rate`, `--gpu`, `--batch_size`, `--epochs`, etc. For a full list and descriptions, refer to the help command:
+
+```
 python3 main.py --help
 ```
 
-### Usage Examples
+#### Note
 
-**Note**: Ensure that the value of `CUDA_VISIBLE_DEVICES` matches the value provided to `--gpu`. For instance, if you set `CUDA_VISIBLE_DEVICES=0`, then `--gpu` should also be set to 0. If you explicitely want to use CPU (not recommended), make sure to set this value to -1.
-
-**Training on GPU**
-
-```bash
-CUDA_VISIBLE_DEVICES=0 
-python3 main.py 
---model model14
---do_train 
---train_list "train_lines_1.txt train_lines_2.txt" 
---do_validate 
---validation_list "validation_lines_1.txt" 
---height 64 
---channels 4 
---learning_rate 0.0001 
---use_mask 
---gpu 0 
-```
-
-**Inference on GPU**
-
-```bash
-CUDA_VISIBLE_DEVICES=0 
-python3 main.py 
---existing_model /path/to/existing/model 
---charlist /path/to/existing/model/charlist.txt
---do_inference 
---inference_list "inference_lines_1.txt"
---height 64 
---channels 4 
---beam_width 10
---use_mask 
---gpu 0 
---batch_size 10 
---results_file results.txt 
---config_file_output config.txt 
-```
-
-_Note_: During inferencing, certain parameters, such as use_mask, height, and channels, must match the parameters used during the training phase.
-
-### Typical setup
-
-
-Docker images containing trained models are available via (to be inserted). Make sure to install nvidia-docker:
-https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
-
+Ensure that the parameters (via config file or command-line arguments) are consistent and appropriate for your operation mode (training, validation, or inference).
 
 ## Variable-size Graph Specification Language (VGSL)
 
@@ -163,21 +133,21 @@ In this example, the string defines a neural network with input layers, convolut
 
 ### Supported Layers and Their Specifications
 
-| **Layer**          | **Spec**                                       | **Example**        | **Description**                                                                                              |
-|--------------------|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------------------------------|
-| Input              | `batch,height,width,depth`                    | `None,64,None,1`   | Input layer with variable batch_size & width, depth of 1 channel                                             |
-| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`            | Dense layer with a 1D sequence as with 10 output classes and softmax                                         |
-| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`        | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                              |
-| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`             | Dense layer with softmax and 64 units                                                                        |
-| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`             | Forward-only LSTM cell with 64 units                                                                         |
-| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`             | Reverse-only GRU cell with 64 units                                                                          |
-| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`            | Bidirectional layer wrapping a LSTM RNN with 256 units                                                       |
-| BatchNormalization | `Bn`                                           | `Bn`               | BatchNormalization layer                                                                                     |
-| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`        | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                        |
-| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`        | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                    |
-| Dropout            | `D<rate>`                                      | `D25`             | Dropout layer with `dropout` = 0.25                                                                          |
-| Reshape            | `Rc`                                           | `Rc`               | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs |
-| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`         | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
+| **Layer**          | **Spec**                                       | **Example**      | **Description**                                                                                                                                   |
+|--------------------|------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| Input              | `batch,height,width,depth`                     | `None,64,None,1` | Input layer with variable batch_size & width, depth of 1 channel                                                                                  |
+| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`          | Dense layer with a 1D sequence as with 10 output classes and softmax                                                                              |
+| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`       | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                                                                   |
+| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`           | Dense layer with softmax and 64 units                                                                                                             |
+| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`           | Forward-only LSTM cell with 64 units                                                                                                              |
+| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`           | Reverse-only GRU cell with 64 units                                                                                                               |
+| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`          | Bidirectional layer wrapping a LSTM RNN with 256 units                                                                                            |
+| BatchNormalization | `Bn`                                           | `Bn`             | BatchNormalization layer                                                                                                                          |
+| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`      | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                                                             |
+| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`      | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                                                         |
+| Dropout            | `D<rate>`                                      | `D25`            | Dropout layer with `dropout` = 0.25                                                                                                               |
+| Reshape            | `Rc`                                           | `Rc`             | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs                                      |
+| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`       | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
 
 ### Layer Details
 #### Input
@@ -278,13 +248,7 @@ You have the choice to run the API using either `gunicorn` (recommended) or `fla
 Using `gunicorn`:
 
 ```bash
-python3 gunicorn_app.py
-```
-
-Or using `flask`:
-
-```bash
-python3 flask_app.py
+gunicorn 'app:create_app()'
 ```
 
 #### Environment Variables Configuration
@@ -295,8 +259,6 @@ Before running the app, you must set several environment variables. The app fetc
 
 ```bash
 GUNICORN_RUN_HOST        # Default: "127.0.0.1:8000": The host and port where the API should run.
-GUNICORN_WORKERS         # Default: "1": Number of worker processes.
-GUNICORN_THREADS         # Default: "1": Number of threads per worker.
 GUNICORN_ACCESSLOG       # Default: "-": Access log settings.
 ```
 
@@ -307,6 +269,7 @@ LOGHI_MODEL_PATH         # Path to the model.
 LOGHI_BATCH_SIZE         # Default: "256": Batch size for processing.
 LOGHI_OUTPUT_PATH        # Directory where predictions are saved.
 LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queue.
+LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images before predicting current batch
 ```
 
 **GPU Options:**
@@ -315,7 +278,14 @@ LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queu
 LOGHI_GPUS               # Default: "0": GPU configuration.
 ```
 
-You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh`.
+**Security Options:**
+
+```bash
+SECURITY_ENABLED         # Default: "false": Enable or disable API security.
+SECURITY_KEY_USER_JSON   # JSON string with API key and associated user data.
+```
+
+You can set these variables in your shell or use a script. An example script to start a `gunicorn` server can be found in `src/api/start_local_app.sh` or `src/api/start_local_app_with_security.sh` for using security.
 
 ### 2. Interacting with the running API
 
@@ -334,13 +304,123 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 > [!WARNING]
 > Continuous model switching with `$model_path` can lead to severe processing delays. For most users, it's best to set the `LOGHI_MODEL_PATH` once and use the same model consistently, restarting the API with a new variable only when necessary.
 
+Optionally, you can add `"whitelist="` fields to add extra metadata to your output. The field values will be used as keys to lookup values in the model config.
+
+**Security and Authentication:**
+
+If security is enabled, you need to first authenticate by obtaining a session key. Use the `/login` endpoint with your API key:
+
+```bash
+curl -v -X POST -H "Authorization: Bearer <your_api_key>" http://localhost:5000/login
+```
+
+Your session key will be returned in the header of the response. Once authenticated, include the received session key in the Authorization header for all subsequent requests:
+
+```bash
+curl -X POST -H "Authorization: Bearer <your_session_key>" -F "image=@$input_path" ... http://localhost:5000/predict
+```
+
+### 3. Server Health Check
+
+To check the health of the server, simply run:
+
+```bash
+curl http://localhost:5000/health
+```
+
+This will respond with a 500 error, and an "unhealthy" status if one of the processes has crashed. Otherwise, it will respond with a 200 error, and a corresponding "healthy" status.
+
 ---
 
 This guide should help you get started with the API. For advanced configurations or troubleshooting, please reach out for support.
 
+## Model Visualizer Guide
+
+The following instructions will explain how to generate visualizations that can help describe an existing model's learned representations when provided with a sample image. The visualizer requires a trained model and a sample image (e.g. PNG or JPG):
+
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image.jpg" alt="Example time-step prediction">
+  <figcaption>Fig.1 - Time-step Prediction Visualization.</figcaption>
+</figure>
+
+<figure>
+  <img src="src/visualize/visualize_plots/sample_image2.png" width="60%" 
+alt="Example Conv Visualization">
+  <figcaption>Fig.2 - Convolutional Layer Activation Visualization.</figcaption>
+</figure>
+
+### 1. Visualize setup
+Navigate to the `src/visualize` directory in your project:
+
+```bash
+cd src/visualize
+```
+
+### 2. Start the visualizers
+
+```bash
+python3 main.py 
+--existing_model /path/to/existing/model 
+--sample_image /path/to/sample/img
+```
+
+This will output various files into the `visualize_plots directory`:
+* A PDF sheet consisting of all made visualizations for the above call
+* Individual PNG and JPG files of these visualizations
+* A `sample_image_preds.xslx` which consist of a character prediction table for 
+  each prediction timestep. The highest probability is the character that was chosen by the model
+
+Currently, the following visualizers are implemented:
+1. **visualize_timestep_predictions**: Takes the `sample_image` and simulates the model's prediction process for each time step, the top-3 most probable characters per timestep are displayed and the "cleaned" result is shown at the bottom.
+2. **visualize_filter_activations**: Display what the convolutional filters have learned after providing it with random noise + show the activation of conv filters for the `sample_image`. Each unique convolutional layer is displayed once.
+
+Potential future implementations:
+* Implement a SHAP visualizer to show the parts of the image that influence the model's character prediction. Or a similar saliency plot.
+* Plot the raw Conv filters (e.g. a 3x3 filter)
+
+**Note**:  If a model has multiple `Cr3,3,64` layers then only the first instance of this configuration is visualized)
+
+### 3. (Optional parameters)
+```bash
+--do_detailed # Visualize all convolutional layers, not just the first instance of a conv layer
+--dark_mode  # Plots and overviews are shown in dark mode (instead of light mode)
+--num_filters_per_row # Changes the number of filters per row in the filter activation plots (default =6)
+# NOTE: increasing the num_filters_per_row requires significant computing resources, you might experience an OOM.
+```
+
+---
+
 ## FAQ
 
 If you're new to using this tool or encounter issues, this FAQ section provides answers to common questions and problems. If you don't find your answer here, please reach out for further assistance.
+
+### How Can I Use One of the Loghi HTR Models in My Own Project?
+
+To integrate a Loghi HTR model into your project, follow these steps:
+
+1. **Obtain the Model**: First, you need to get the HTR model file. This could be done by training a model yourself or downloading a pre-trained model [here](https://images.diginfra.net/pim/loghihtrmodels) or [here](https://surfdrive.surf.nl/files/index.php/s/YA8HJuukIUKznSP?path=%2Floghi-htr).
+
+2. **Loading the Model for Inference**: 
+    - Install TensorFlow in your project environment if you haven't already.
+    - Load the model using TensorFlow's `tf.keras.models.load_model` function. Here's a basic code snippet to help you get started:
+
+      ```python
+      import tensorflow as tf
+
+      model_file = 'path_to_your_model.keras'  # Replace with your model file path
+      model = tf.keras.models.load_model(model_file, compile=False)
+      ```
+
+    - Setting `compile=False` is crucial as it indicates the model is being loaded for inference, not training.
+
+3. **Using the Model for Inference**: 
+    - Once the model is loaded, you can use it to make predictions on handwritten text images.
+    - Prepare your input data (images of handwritten text) according to the model's expected input format.
+    - Use the `model.predict()` method to get the recognition results.
+
+4. **Note on Training**: 
+    - The provided model is pre-trained and configured for inference purposes.
+    - If you wish to retrain or fine-tune the model, this must be done within the Loghi framework, as the model structure and training configurations are tailored to their system.
 
 ### How can I determine the VGSL spec of a model I previously used?
 
@@ -359,7 +439,7 @@ Replace `/path/on/host/to/your/model_directory` with the path to your model dire
 2. Once inside the container, run the VGSL spec generator:
 
 ```bash
-python3 /src/loghi-htr/src/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
+python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
 ```
 
 Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
@@ -369,7 +449,7 @@ Replace `/path/in/container/to/model_directory` with the path you specified in t
 1. Run the VGSL spec generator:
 
 ```bash
-python3 src/vgsl_model_generator.py --model_dir /path/to/your/model_directory
+python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
 ```
 
 Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.
@@ -378,7 +458,7 @@ Replace `/path/to/your/model_directory` with the path to the directory containin
 
 The `replace_recurrent_layer` is a feature that allows you to replace the recurrent layers of an existing model with a new architecture defined by a VGSL string. To use it:
 
-1. Specify the model you want to modify using the `--existing_model` argument.
+1. Specify the model you want to modify using the `--model` argument.
 2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
 3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
 4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
