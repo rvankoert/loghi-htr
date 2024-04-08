@@ -461,7 +461,7 @@ class DataManager:
         dataset = tf.data.Dataset.from_tensor_slices(data)
         if is_training:
             # Add additional repeat and shuffle for training
-            dataset = dataset.repeat().shuffle(len(files))
+            dataset = dataset.repeat().shuffle(len(data))
 
         dataset = (dataset
                    .map(data_loader.load_images,

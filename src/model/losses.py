@@ -39,8 +39,10 @@ def ctc_batch_cost(y_true: tf.Tensor, y_pred: tf.Tensor,
     """
 
     # Squeeze the label and input length tensors to remove the last dimension
-    label_length = tf.cast(array_ops.squeeze(label_length), dtype="int32")
-    input_length = tf.cast(array_ops.squeeze(input_length), dtype="int32")
+    label_length = tf.cast(array_ops.squeeze(label_length, axis=-1),
+                           dtype="int32")
+    input_length = tf.cast(array_ops.squeeze(input_length, axis=-1),
+                           dtype="int32")
     sparse_labels = tf.cast(K.ctc_label_dense_to_sparse(y_true, label_length),
                             dtype="int32")
 
