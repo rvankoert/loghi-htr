@@ -272,6 +272,8 @@ LOGHI_MAX_QUEUE_SIZE     # Default: "10000": Maximum size of the processing queu
 LOGHI_PATIENCE           # Default: "0.5": Maximum time to wait for new images before predicting current batch
 ```
 
+**Important Note:** The `LOGHI_MODEL_PATH` must include a `config.json` file that contains at least the `channels` key, along with its corresponding model value. This file is expected to be automatically generated during the training or fine-tuning process of a model. Older versions of Loghi-HTR (< 1.2.10) did not do this automatically, so please be aware that our `generic-2023-02-15` model lacks this file by default and is configured to use 1 channel.
+
 **GPU Options:**
 
 ```bash
