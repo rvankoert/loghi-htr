@@ -20,6 +20,7 @@ parent_path = os.path.dirname(current_path)
 sys.path.append(parent_path)
 
 from model.management import load_model_from_directory  # noqa: E402
+from setup.environment import initialize_strategy  # noqa: E402
 
 
 def create_model(model_path: str, strategy: tf.distribute.Strategy) \
@@ -61,7 +62,7 @@ def create_model(model_path: str, strategy: tf.distribute.Strategy) \
     return model
 
 
-def setup_gpu_environment(gpus: str) -> bool:
+def setup_gpu_environment(gpus: str) -> List[tf.config.PhysicalDevice]:
     """
     Set up the environment for batch prediction.
 
@@ -72,8 +73,8 @@ def setup_gpu_environment(gpus: str) -> bool:
 
     Returns:
     --------
-    bool
-        True if all GPUs support mixed precision, otherwise False.
+    List[tf.config.PhysicalDevice]
+        List of active GPUs.
     """
 
     # Set the GPU
@@ -99,24 +100,7 @@ def setup_gpu_environment(gpus: str) -> bool:
 
     tf.config.set_visible_devices(active_gpus, 'GPU')
 
-    # Check if all GPUs support mixed precision
-    gpus_support_mixed_precision = bool(active_gpus)
-    for device in active_gpus:
-        tf.config.experimental.set_memory_growth(device, True)
-        if tf.config.experimental.\
-                get_device_details(device)['compute_capability'][0] < 7:
-            gpus_support_mixed_precision = False
-
-    # If all GPUs support mixed precision, enable it
-    if gpus_support_mixed_precision:
-        tf.keras.mixed_precision.set_global_policy('mixed_float16')
-        logging.debug("Mixed precision set to 'mixed_float16'")
-    else:
-        logging.debug(
-            "Not all GPUs support efficient mixed precision. Running in "
-            "standard mode.")
-
-    return gpus_support_mixed_precision
+    return active_gpus
 
 
 def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
@@ -151,8 +135,11 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     logging.info("Batch prediction process started")
 
     # If all GPUs support mixed precision, enable it
-    setup_gpu_environment(gpus)
-    strategy = tf.distribute.MirroredStrategy()
+    active_gpus = setup_gpu_environment(gpus)
+
+    # Set up the strategy
+    strategy = initialize_strategy(use_float32=False,
+                                   active_gpus=active_gpus)
 
     # Create the model and utilities
     model = create_model(model_path, strategy)

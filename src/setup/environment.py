@@ -178,9 +178,23 @@ def initialize_strategy(use_float32: bool,
 
     # Set mixed precision policy
     if not use_float32 and len(active_gpus) > 0:
-        policy = tf.keras.mixed_precision.Policy('mixed_float16')
-        tf.keras.mixed_precision.set_global_policy(policy)
-        logging.info("Using mixed_float16 precision")
+        # Check if all GPUs support mixed precision
+        gpus_support_mixed_precision = bool(active_gpus)
+        for device in active_gpus:
+            tf.config.experimental.set_memory_growth(device, True)
+            if tf.config.experimental.\
+                    get_device_details(device)['compute_capability'][0] < 7:
+                gpus_support_mixed_precision = False
+
+        # If all GPUs support mixed precision, enable it
+        if gpus_support_mixed_precision:
+            policy = tf.keras.mixed_precision.Policy('mixed_float16')
+            tf.keras.mixed_precision.set_global_policy(policy)
+            logging.info("Mixed precision set to 'mixed_float16'")
+        else:
+            logging.warning(
+                "Not all GPUs support efficient mixed precision. Running in "
+                "standard mode.")
     else:
         logging.info("Using float32 precision")
 
