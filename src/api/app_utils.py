@@ -110,6 +110,11 @@ def extract_request_data() -> Tuple[bytes, str, str, str, list]:
 
     image_content = image_file.read()
 
+    # Check if the image content is empty or None
+    if image_content is None or len(image_content) == 0:
+        raise ValueError(
+            "The uploaded image is empty. Please upload a valid image file.")
+
     # Extract other form data
     group_id = request.form.get('group_id')
     if not group_id:

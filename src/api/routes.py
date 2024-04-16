@@ -51,7 +51,19 @@ def predict() -> flask.Response:
 
     # Add incoming request to queue
     # Here, we're just queuing the raw data.
-    image_file, group_id, identifier, model, whitelist = extract_request_data()
+    try:
+        image_file, group_id, identifier, model, whitelist = extract_request_data()
+    except ValueError as e:
+        response = jsonify({
+            "status": "error",
+            "code": 400,
+            "message": str(e),
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+
+        response.status_code = 400
+        logger.error("Error processing request: %s", str(e))
+        return response
 
     logger.debug("Data received: %s, %s", group_id, identifier)
     logger.debug("Adding %s to queue", identifier)
