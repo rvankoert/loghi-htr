@@ -191,12 +191,6 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
                             batch_identifiers, batch_metadata, old_channels,
                             prepared_queue, request_queue)
 
-        # Clearing the current batch
-        batch_images.clear()
-        batch_groups.clear()
-        batch_identifiers.clear()
-        batch_metadata.clear()
-
     # Update the model channels
     num_channels = update_channels(new_model)
 
@@ -470,7 +464,7 @@ def pad_and_queue_batch(model_path: str,
                                        tf.constant(-10, dtype=tf.float32)))
 
     # Convert the dataset to a padded batch
-    padded_batch = next(iter(dataset))
+    padded_batch = tf.data.Dataset.get_single_element(dataset).numpy()
 
     # Push the prepared batch to the prepared_queue
     prepared_queue.put((padded_batch, batch_groups, batch_identifiers,
