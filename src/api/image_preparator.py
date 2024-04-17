@@ -280,9 +280,6 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             batch_identifiers.append(identifier)
             batch_metadata.append(metadata)
 
-            # del image, group, identifier, new_model, whitelist
-            # gc.collect()
-
             # Reset the last image time
             last_image_time = time.time()
 

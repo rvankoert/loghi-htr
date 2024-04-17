@@ -169,8 +169,6 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                          batch_id, num_predictions)
             logging.info("%s batches waiting on prediction",
                          prepared_queue.qsize())
-            # del batch_data
-            # gc.collect()
 
     except Exception as e:
         logging.error("Error in Batch Prediction Worker process: %s", e)
