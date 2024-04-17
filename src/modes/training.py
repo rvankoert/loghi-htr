@@ -79,6 +79,13 @@ def train_model(model: tf.keras.Model,
         )
         callbacks.append(early_stopping)
 
+    # Determine the number of steps per epoch
+    cardinality = training_dataset.cardinality().numpy() \
+        if isinstance(training_dataset, tf.data.Dataset) \
+        else training_dataset.cardinality
+    steps_per_epoch = config["steps_per_epoch"] \
+        if config["steps_per_epoch"] else cardinality
+
     # Train the model
     history = model.fit(
         training_dataset,
@@ -88,7 +95,7 @@ def train_model(model: tf.keras.Model,
         shuffle=True,
         workers=num_workers,
         max_queue_size=config["max_queue_size"],
-        steps_per_epoch=config["steps_per_epoch"],
+        steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
     return history

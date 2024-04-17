@@ -111,7 +111,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
     tf.config.set_visible_devices(active_gpus, 'GPU')
 
     # Initialize the strategy
-    strategy = initialize_strategy(config["use_float32"], config["gpu"])
+    strategy = initialize_strategy(config["use_float32"], active_gpus)
 
     return strategy
 
@@ -143,7 +143,7 @@ def setup_logging() -> None:
 
 
 def initialize_strategy(use_float32: bool,
-                        gpu: str) -> tf.distribute.Strategy:
+                        active_gpus: list[str]) -> tf.distribute.Strategy:
     """
     Initializes the TensorFlow distribution strategy and sets the mixed
     precision policy.
@@ -152,9 +152,8 @@ def initialize_strategy(use_float32: bool,
     ----------
     use_float32 : bool
         Flag indicating whether to use float32 precision.
-    gpu : str
-        A string indicating the GPU configuration. A value of "-1" indicates
-        CPU-only mode.
+    active_gpus : list[str]
+        A list of active GPU devices.
 
     Returns
     -------
@@ -170,13 +169,32 @@ def initialize_strategy(use_float32: bool,
     """
 
     # Set the strategy for distributed training
-    strategy = tf.distribute.MirroredStrategy()
+    if len(active_gpus) > 1:
+        strategy = tf.distribute.MirroredStrategy()
+        logging.info("Detected multiple GPUs, using MirroredStrategy")
+    else:
+        strategy = tf.distribute.get_strategy()
+        logging.info("Using default strategy for single GPU/CPU")
 
     # Set mixed precision policy
-    if not use_float32 and gpu != "-1":
-        policy = tf.keras.mixed_precision.Policy('mixed_float16')
-        tf.keras.mixed_precision.set_global_policy(policy)
-        logging.info("Using mixed_float16 precision")
+    if not use_float32 and len(active_gpus) > 0:
+        # Check if all GPUs support mixed precision
+        gpus_support_mixed_precision = bool(active_gpus)
+        for device in active_gpus:
+            tf.config.experimental.set_memory_growth(device, True)
+            if tf.config.experimental.\
+                    get_device_details(device)['compute_capability'][0] < 7:
+                gpus_support_mixed_precision = False
+
+        # If all GPUs support mixed precision, enable it
+        if gpus_support_mixed_precision:
+            policy = tf.keras.mixed_precision.Policy('mixed_float16')
+            tf.keras.mixed_precision.set_global_policy(policy)
+            logging.info("Mixed precision set to 'mixed_float16'")
+        else:
+            logging.warning(
+                "Not all GPUs support efficient mixed precision. Running in "
+                "standard mode.")
     else:
         logging.info("Using float32 precision")
 

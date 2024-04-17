@@ -477,4 +477,6 @@ class DataManager:
                    .prefetch(AUTOTUNE))\
             .apply(tf.data.experimental.assert_cardinality(num_batches))
 
-        return dataset
+        # Distribute the dataset if needed
+        strategy = tf.distribute.get_strategy()
+        return strategy.experimental_distribute_dataset(dataset)
