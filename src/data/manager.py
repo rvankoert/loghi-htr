@@ -113,12 +113,15 @@ class DataManager:
                     partition_name=partition,
                     text_file=partition_text_file,
                 )
+                if len(file_names) == 0:
+                    raise ValueError("No data found for the specified "
+                                     f"{partition} list(s). Have you verified "
+                                     "the data paths?")
 
                 if partition == "train" and not self.charlist:
-                    raise ValueError("Character list is empty. Please provide "
-                                     "a valid character list or ensure that "
-                                     "the training data is correctly "
-                                     "formatted.")
+                    raise ValueError("Character list is empty after "
+                                     "creating training data. Did you "
+                                     "forget to provide a character list?")
 
                 # Fill the dictionary with the data
                 file_names_dict[partition] = file_names
