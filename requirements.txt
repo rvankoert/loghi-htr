@@ -13,3 +13,4 @@ scikit-image==0.22.0
 prometheus-client==0.20.0
 tf-models-official==2.14.1
 xlsxwriter==3.2.0
+Pillow==10.0.2

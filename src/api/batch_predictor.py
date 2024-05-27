@@ -99,6 +99,8 @@ def setup_gpu_environment(gpus: str) -> List[tf.config.PhysicalDevice]:
         logging.info("Using CPU")
 
     tf.config.set_visible_devices(active_gpus, 'GPU')
+    for gpu in active_gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
 
     return active_gpus
 
