@@ -14,3 +14,4 @@ prometheus-client==0.20.0
 tf-models-official==2.14.1
 xlsxwriter==3.2.0
 six
+Pillow==10.3.0
