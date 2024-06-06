@@ -72,7 +72,8 @@ def predict() -> flask.Response:
 
     try:
         app.request_queue.put((image_file, group_id, identifier,
-                               model, whitelist))
+                               model, whitelist),
+                              block=False)
     except Full:
         response = jsonify({
             "status": "error",
