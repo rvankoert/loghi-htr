@@ -9,7 +9,7 @@ import elasticdeform.tf as etf
 import numpy as np
 from skimage.filters import threshold_otsu, threshold_sauvola
 import tensorflow as tf
-import gaussian_filter2d
+from data.gaussian_filter2d import gaussian_filter2d
 
 class ShearXLayer(tf.keras.layers.Layer):
     def __init__(self, binary=False, **kwargs):
