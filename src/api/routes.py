@@ -72,7 +72,8 @@ def predict() -> flask.Response:
 
     try:
         app.request_queue.put((image_file, group_id, identifier,
-                               model, whitelist), block=True, timeout=3)
+                               model, whitelist),
+                              block=False)
     except Full:
         response = jsonify({
             "status": "error",
@@ -85,9 +86,6 @@ def predict() -> flask.Response:
         })
 
         response.status_code = 429
-
-        logger.warning("Request queue is full. Maybe one of the workers has "
-                       "died?")
 
         return response
 
