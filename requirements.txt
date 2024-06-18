@@ -3,7 +3,6 @@ gunicorn==22.0.0
 numpy==1.26.4
 editdistance==0.8.1
 tensorflow==2.14.1
-keras==2.14.0
 matplotlib==3.8.3
 opencv_python==4.9.0.80
 tf_keras_vis==0.8.6
@@ -15,3 +14,4 @@ prometheus-client==0.20.0
 xlsxwriter==3.2.0
 six
 Pillow==10.3.0
+h5py==3.10.0
