@@ -2,7 +2,8 @@ flask==3.0.2
 gunicorn==22.0.0
 numpy==1.26.4
 editdistance==0.8.1
-tensorflow==2.15.1
+tensorflow==2.14.1
+keras==2.14.0
 matplotlib==3.8.3
 opencv_python==4.9.0.80
 tf_keras_vis==0.8.6
