@@ -7,7 +7,8 @@ from multiprocessing.queues import Full
 
 # > Third-party dependencies
 from fastapi import APIRouter, HTTPException, File, UploadFile, Form, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # > Local dependencies
 from app_utils import extract_request_data
@@ -15,7 +16,8 @@ from app_utils import extract_request_data
 
 def create_router(app: FastAPI) -> APIRouter:
     """
-    Create an API router with endpoints for prediction, health check, and readiness check.
+    Create an API router with endpoints for prediction, health check, and 
+    readiness check.
 
     Parameters
     ----------
@@ -147,5 +149,10 @@ def create_router(app: FastAPI) -> APIRouter:
                 "timestamp": datetime.datetime.now().isoformat()
             }
         )
+
+    @router.get("/prometheus")
+    async def prometheus():
+        metrics = generate_latest()
+        return Response(content=metrics, media_type=CONTENT_TYPE_LATEST)
 
     return router
