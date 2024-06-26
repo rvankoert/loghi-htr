@@ -9,8 +9,7 @@ import elasticdeform.tf as etf
 import numpy as np
 from skimage.filters import threshold_otsu, threshold_sauvola
 import tensorflow as tf
-import tensorflow_models as tfm
-
+from data.gaussian_filter2d import gaussian_filter2d
 
 class ShearXLayer(tf.keras.layers.Layer):
     def __init__(self, binary=False, **kwargs):
@@ -547,9 +546,9 @@ class BlurImageLayer(tf.keras.layers.Layer):
             blur_factor = 1
         else:
             blur_factor = round(random.uniform(0.1, 2), 1)
-        return tfm.vision.augment.gaussian_filter2d(inputs,
-                                                    filter_shape=(11, 11),
-                                                    sigma=blur_factor)
+        return gaussian_filter2d(inputs,
+                                 filter_shape=(11, 11),
+                                 sigma=blur_factor)
 
 
 class RandomWidthLayer(tf.keras.layers.Layer):
