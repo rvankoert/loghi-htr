@@ -23,7 +23,8 @@ from utils.text import Tokenizer  # noqa: E402
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                           model_path: str,
-                          output_path: str) -> None:
+                          output_path: str,
+                          stop_event: multiprocessing.Event) -> None:
     """
     Worker function for batch decoding process.
 
@@ -48,9 +49,12 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     total_outputs = 0
 
     try:
-        while True:
-            encoded_predictions, batch_groups, batch_identifiers, model, \
-                batch_id, batch_metadata = predicted_queue.get()
+        while not stop_event.is_set():
+            try:
+                encoded_predictions, batch_groups, batch_identifiers, model, \
+                    batch_id, batch_metadata = predicted_queue.get(timeout=0.1)
+            except multiprocessing.queues.Empty:
+                continue
 
             # Re-initialize utilities if model has changed
             if model != model_path:

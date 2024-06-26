@@ -1,10 +1,11 @@
 # Imports
 
 # > Standard library
+from typing import List, Optional, Dict
+from fastapi import UploadFile, Form, File, HTTPException
 import logging
 import multiprocessing as mp
 import os
-from typing import Tuple
 
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
@@ -12,7 +13,6 @@ from image_preparator import image_preparation_worker
 from batch_decoder import batch_decoding_worker
 
 # > Third-party dependencies
-from flask import request
 from prometheus_client import Gauge
 
 
@@ -71,13 +71,32 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-def extract_request_data() -> Tuple[bytes, str, str, str, list]:
+async def extract_request_data(
+    image: UploadFile = File(...),
+    group_id: str = Form(...),
+    identifier: str = Form(...),
+    model: Optional[str] = Form(None),
+    whitelist: List[str] = Form([])
+) -> tuple[bytes, str, str, str, list]:
     """
     Extract image and other form data from the current request.
 
+    Parameters
+    ----------
+    image : UploadFile
+        The uploaded image file.
+    group_id : str
+        ID of the group from form data.
+    identifier : str
+        Identifier from form data.
+    model : Optional[str]
+        Location of the model to use for prediction.
+    whitelist : List[str]
+        List of classes to whitelist for output.
+
     Returns
     -------
-    tuple of (bytes, str, str, str)
+    tuple of (bytes, str, str, str, list)
         image_content : bytes
             Content of the uploaded image.
         group_id : str
@@ -91,45 +110,32 @@ def extract_request_data() -> Tuple[bytes, str, str, str, list]:
 
     Raises
     ------
-    ValueError
-        If required data (image, group_id, identifier) is missing or if
-        the image format is invalid.
+    HTTPException
+        If required data is missing or if the image format is invalid.
     """
-
-    # Extract the uploaded image
-    image_file = request.files.get('image')
-    if not image_file:
-        raise ValueError("No image provided.")
-
     # Validate image format
     allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-    if '.' not in image_file.filename or image_file.filename.rsplit('.', 1)[1]\
-            .lower() not in allowed_extensions:
-        raise ValueError(
-            "Invalid image format. Allowed formats: png, jpg, jpeg, gif")
+    file_extension = image.filename.split('.')[-1].lower()
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Allowed formats: "
+            f"{', '.join(allowed_extensions)}")
 
-    image_content = image_file.read()
+    # Read image content
+    image_content = await image.read()
 
-    # Check if the image content is empty or None
-    if image_content is None or len(image_content) == 0:
-        raise ValueError(
-            "The uploaded image is empty. Please upload a valid image file.")
+    # Check if the image content is empty
+    if not image_content:
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded image is empty. Please upload a valid image "
+            "file.")
 
-    # Extract other form data
-    group_id = request.form.get('group_id')
-    if not group_id:
-        raise ValueError("No group_id provided.")
-
-    identifier = request.form.get('identifier')
-    if not identifier:
-        raise ValueError("No identifier provided.")
-
-    model = request.form.get('model')
-    if model:
-        if not os.path.exists(model):
-            raise ValueError(f"Model directory {model} does not exist.")
-
-    whitelist = request.form.getlist('whitelist')
+    # Validate model path if provided
+    if model and not os.path.exists(model):
+        raise HTTPException(
+            status_code=400, detail=f"Model directory {model} does not exist.")
 
     return image_content, group_id, identifier, model, whitelist
 
@@ -177,7 +183,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
 
 def start_workers(batch_size: int, max_queue_size: int,
                   output_path: str, gpus: str, model_path: str,
-                  patience: int):
+                  patience: int, stop_event: mp.Event):
     """
     Initializes and starts multiple multiprocessing workers for image
     processing and prediction.
@@ -246,7 +252,7 @@ def start_workers(batch_size: int, max_queue_size: int,
         target=image_preparation_worker,
         args=(batch_size, request_queue,
               prepared_queue, model_path,
-              patience),
+              patience, stop_event),
         name="Image Preparation Process",
         daemon=True)
     preparation_process.start()
@@ -256,7 +262,7 @@ def start_workers(batch_size: int, max_queue_size: int,
     prediction_process = mp.Process(
         target=batch_prediction_worker,
         args=(prepared_queue, predicted_queue,
-              output_path, model_path, gpus),
+              output_path, model_path, stop_event, gpus),
         name="Batch Prediction Process",
         daemon=True)
     prediction_process.start()
@@ -265,7 +271,8 @@ def start_workers(batch_size: int, max_queue_size: int,
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, model_path, output_path),
+        args=(predicted_queue, model_path, output_path,
+              stop_event),
         name="Batch Decoding Process",
         daemon=True)
     decoding_process.start()
@@ -283,3 +290,24 @@ def start_workers(batch_size: int, max_queue_size: int,
     }
 
     return workers, queues
+
+
+def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
+    """
+    Stop all worker processes gracefully.
+
+    Parameters
+    ----------
+    workers : Dict[str, mp.Process]
+        A dictionary of worker processes with worker names as keys.
+    stop_event : mp.Event
+        An event to signal workers to stop.
+    """
+    # Signal all workers to stop
+    stop_event.set()
+
+    # Wait for all workers to finish
+    for worker in workers.values():
+        logger = logging.getLogger(__name__)
+        logger.info("Waiting for worker process %s to finish", worker.name)
+        worker.join()

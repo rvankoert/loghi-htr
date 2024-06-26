@@ -47,7 +47,7 @@ class SimpleSecurity:
         if not app or not config:
             raise ValueError("App and config must be provided")
 
-        app.extensions["security"] = self
+        # app.extensions["security"] = self
         self.app = app
         self.config = config
         self.enabled = self._security_enabled(config.get("enabled", "false"))
