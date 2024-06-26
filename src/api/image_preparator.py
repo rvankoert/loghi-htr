@@ -20,7 +20,8 @@ def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
                              prepared_queue: multiprocessing.Queue,
                              model_path: str,
-                             patience: float):
+                             patience: float,
+                             stop_event: multiprocessing.Event):
     """
     Worker process to prepare images for batch processing.
 
@@ -60,11 +61,12 @@ def image_preparation_worker(batch_size: int,
     metadata, whitelist = {}, []
 
     try:
-        while True:
+        while not stop_event.is_set():
             num_channels, model, metadata, whitelist = \
                 fetch_and_prepare_images(request_queue, prepared_queue,
                                          batch_size, patience, num_channels,
-                                         model, metadata, whitelist)
+                                         model, metadata, whitelist,
+                                         stop_event)
 
     except Exception as e:
         logging.error("Exception in image preparation worker: %s", e)
@@ -207,7 +209,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                              num_channels: int,
                              current_model: str,
                              metadata: dict,
-                             old_whitelist: list) -> (int, str):
+                             old_whitelist: list,
+                             stop_event: multiprocessing.Event) -> (int, str):
     """
     Fetches and prepares images for processing. We pass the current model, the
     current number of channels, the current metadata, and the current whitelist
@@ -232,6 +235,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
         Metadata for the images.
     old_whitelist : list
         Whitelist for the images.
+    stop_event : multiprocessing.Event
+        Event to signal the worker process to stop.
 
     Returns
     -------
@@ -245,7 +250,7 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
     batch_images, batch_groups, batch_identifiers, batch_metadata \
         = [], [], [], []
 
-    while True:
+    while not stop_event.is_set():
         try:
             image, group, identifier, new_model, whitelist = \
                 request_queue.get(timeout=0.1)
@@ -302,6 +307,9 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             if last_image_time is not None and \
                     (time.time() - last_image_time) >= patience:
                 break
+    else:
+        # If the stop event is set, break the loop
+        return num_channels, current_model, metadata, old_whitelist
 
     # Pad and queue the batch
     pad_and_queue_batch(current_model, batch_images, batch_groups,

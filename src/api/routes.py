@@ -2,171 +2,157 @@
 
 # > Standard library
 import datetime
-import logging
+from typing import List
 from multiprocessing.queues import Full
+
+# > Third-party dependencies
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form, FastAPI
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 # > Local dependencies
 from app_utils import extract_request_data
-from simple_security import session_key_required
-
-# > Third party dependencies
-import flask
-from flask import Blueprint, jsonify, current_app as app
-from prometheus_client import generate_latest
 
 
-logger = logging.getLogger(__name__)
-main = Blueprint('main', __name__)
-
-
-@main.route('/predict', methods=['POST'])
-@session_key_required
-def predict() -> flask.Response:
+def create_router(app: FastAPI) -> APIRouter:
     """
-    Endpoint to receive image data and queue it for prediction.
+    Create an API router with endpoints for prediction, health check, and 
+    readiness check.
 
-    Receives a POST request containing an image, group_id, and identifier.
-    The data is then queued for further processing and prediction.
-
-    Expected POST data
-    ------------------
-    image : file
-        The image file to be processed.
-    group_id : str
-        The group ID associated with the image.
-    identifier : str
-        An identifier for the image.
+    Parameters
+    ----------
+    app : FastAPI
+        The FastAPI application instance.
 
     Returns
     -------
-    Flask.Response
-        A JSON response containing a status message, timestamp, group_id,
-        and identifier. The HTTP status code is 202 (Accepted).
-
-    Side Effects
-    ------------
-    - Logs debug messages regarding the received data and queuing status.
-    - Adds the received data to the global request queue.
+    APIRouter
+        The API router with the defined endpoints.
     """
+    router = APIRouter()
 
-    # Add incoming request to queue
-    # Here, we're just queuing the raw data.
-    try:
-        image_file, group_id, identifier, model, whitelist = extract_request_data()
-    except ValueError as e:
-        response = jsonify({
-            "status": "error",
-            "code": 400,
-            "message": str(e),
-            "timestamp": datetime.datetime.now().isoformat()
-        })
+    @router.post("/predict")
+    async def predict(
+        image: UploadFile = File(...),
+        group_id: str = Form(...),
+        identifier: str = Form(...),
+        model: str = Form(None),
+        whitelist: List[str] = Form([]),
+    ):
+        """
+        Handle image prediction requests.
 
-        response.status_code = 400
-        logger.error("Error processing request: %s", str(e))
-        return response
+        Parameters
+        ----------
+        image : UploadFile
+            The image file to be processed.
+        group_id : str
+            The group identifier.
+        identifier : str
+            The request identifier.
+        model : str, optional
+            The model to be used for prediction (default is None).
+        whitelist : List[str], optional
+            A list of whitelisted items (default is an empty list).
 
-    logger.debug("Data received: %s, %s", group_id, identifier)
-    logger.debug("Adding %s to queue", identifier)
-    logger.debug("Using model %s", model)
-    logger.debug("Using whitelist %s", whitelist)
+        Returns
+        -------
+        JSONResponse
+            A JSON response indicating the status of the request.
+        """
+        try:
+            data = await extract_request_data(
+                image, group_id, identifier, model, whitelist)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-    try:
-        app.request_queue.put((image_file, group_id, identifier,
-                               model, whitelist),
-                              block=False)
-    except Full:
-        response = jsonify({
-            "status": "error",
-            "code": 429,
-            "message": "The server is currently processing a high volume of "
-                       "requests. Please try again later.",
-            "timestamp": datetime.datetime.now().isoformat(),
-            "group_id": group_id,
-            "identifier": identifier,
-        })
+        try:
+            app.state.request_queue.put(data, block=False)
+        except Full:
+            raise HTTPException(
+                status_code=429,
+                detail="The server is currently processing a high volume of "
+                       "requests. Please try again later."
+            )
 
-        response.status_code = 429
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "Request received",
+                "code": 202,
+                "message": "Your request is being processed",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "group_id": group_id,
+                "identifier": identifier
+            }
+        )
 
-        return response
+    @router.get("/health")
+    async def health():
+        """
+        Check the health of the application workers.
 
-    response = jsonify({
-        "status": "Request received",
-        "code": 202,
-        "message": "Your request is being processed",
-        "timestamp": datetime.datetime.now().isoformat(),
-        "group_id": group_id,
-        "identifier": identifier,
-    })
+        Returns
+        -------
+        JSONResponse
+            A JSON response indicating the health status of the application.
+        """
+        for name, worker in app.state.workers.items():
+            if not worker.is_alive():
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "status": "unhealthy",
+                        "code": 500,
+                        "message": f"{name} worker is not alive",
+                        "timestamp": datetime.datetime.now().isoformat()
+                    }
+                )
 
-    response.status_code = 202
-
-    return response
-
-
-@main.route("/prometheus", methods=["GET"])
-@session_key_required
-def prometheus() -> bytes:
-    """
-    Endpoint for getting prometheus statistics
-    """
-    return generate_latest()
-
-
-@main.route("/health", methods=["GET"])
-@session_key_required
-def health() -> flask.Response:
-    """
-    Endpoint for getting health status
-    """
-
-    for name, worker in app.workers.items():
-        if not worker.is_alive():
-            logger.error("%s worker is not alive", name)
-            response = jsonify({
-                "status": "unhealthy",
-                "code": 500,
-                "message": f"{name} worker is not alive",
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "code": 200,
+                "message": "All workers are alive",
                 "timestamp": datetime.datetime.now().isoformat()
-            })
-            response.status_code = 500
+            }
+        )
 
-            return response
+    @router.get("/ready")
+    async def ready():
+        """
+        Check if the request queue is ready to accept new requests.
 
-    response = jsonify({
-        "status": "healthy",
-        "code": 200,
-        "message": "All workers are alive",
-        "timestamp": datetime.datetime.now().isoformat()
-    })
-    response.status_code = 200
+        Returns
+        -------
+        JSONResponse
+            A JSON response indicating the readiness status of the request queue.
+        """
+        if app.state.request_queue.full():
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unready",
+                    "code": 503,
+                    "message": "Request queue is full",
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+            )
 
-    return response
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "ready",
+                "code": 200,
+                "message": "Request queue is not full",
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        )
 
+    @router.get("/prometheus")
+    async def prometheus():
+        metrics = generate_latest()
+        return Response(content=metrics, media_type=CONTENT_TYPE_LATEST)
 
-@main.route("/ready", methods=["GET"])
-@session_key_required
-def ready() -> flask.Response:
-    """
-    Endpoint for getting readiness status
-    """
-
-    if app.request_queue.full():
-        response = jsonify({
-            "status": "unready",
-            "code": 503,
-            "message": "Request queue is full",
-            "timestamp": datetime.datetime.now().isoformat()
-        })
-        response.status_code = 503
-
-        return response
-
-    response = jsonify({
-        "status": "ready",
-        "code": 200,
-        "message": "Request queue is not full",
-        "timestamp": datetime.datetime.now().isoformat()
-    })
-    response.status_code = 200
-
-    return response
+    return router

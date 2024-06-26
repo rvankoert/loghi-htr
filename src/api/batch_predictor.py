@@ -109,6 +109,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                             predicted_queue: multiprocessing.Queue,
                             output_path: str,
                             model_path: str,
+                            stop_event: multiprocessing.Event,
                             gpus: str = '0'):
     """
     Worker process for batch prediction on images.
@@ -126,6 +127,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
         Path where predictions should be saved.
     model_path : str
         Path to the initial model file.
+    stop_event : multiprocessing.Event
+        Event to signal the worker to stop processing.
     gpus : str, optional
         IDs of GPUs to be used (comma-separated). Default is '0'.
 
@@ -149,8 +152,11 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
     old_model_path = model_path
 
     try:
-        while True:
-            batch_data = prepared_queue.get()
+        while not stop_event.is_set():
+            try:
+                batch_data = prepared_queue.get(timeout=0.1)
+            except multiprocessing.queues.Empty:
+                continue
             model_path = batch_data[4]
             batch_id = batch_data[5]
             logging.debug("Received batch %s from prepared_queue", batch_id)
