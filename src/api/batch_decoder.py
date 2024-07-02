@@ -196,7 +196,7 @@ def output_predictions(predictions: List[Tuple[float, str]],
 
         # Create a temporary file in the same directory
         with tempfile.NamedTemporaryFile(mode='w',
-                                         dir=output_dir,
+                                         dir=output_path,
                                          delete=False,
                                          encoding="utf-8") as temp_file:
             temp_file.write(text + "\n")
