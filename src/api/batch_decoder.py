@@ -5,7 +5,9 @@ import logging
 import multiprocessing
 import os
 import sys
+import shutil
 from typing import List, Tuple
+import tempfile
 
 # > Third-party dependencies
 import numpy as np
@@ -148,7 +150,8 @@ def output_predictions(predictions: List[Tuple[float, str]],
                        output_path: str,
                        batch_metadata: List[dict]) -> List[str]:
     """
-    Generate output texts based on the predictions and save to files.
+    Generate output texts based on the predictions and save to files
+    atomically.
 
     Parameters
     ----------
@@ -160,6 +163,8 @@ def output_predictions(predictions: List[Tuple[float, str]],
         List of identifiers for each image.
     output_path: str
         Base path where prediction outputs should be saved.
+    batch_metadata: List[dict]
+        List of metadata dictionaries for each image.
 
     Returns
     -------
@@ -169,26 +174,43 @@ def output_predictions(predictions: List[Tuple[float, str]],
     Side Effects
     ------------
     - Creates directories for groups if they don't exist.
-    - Saves output texts to files within the respective group directories.
+    - Saves output texts to files within the respective group directories
+      atomically.
     - Logs messages regarding directory creation and saving.
     """
-
     outputs = []
     for i, (confidence, pred_text) in enumerate(predictions):
         group_id = groups[i]
         identifier = identifiers[i]
         metadata = batch_metadata[i]
-
         text = f"{identifier}\t{metadata}\t{confidence}\t{pred_text}"
         outputs.append(text)
 
-        # Output the text to a file
+        # Output the text to a file atomically
         output_dir = os.path.join(output_path, group_id)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
             logging.debug("Created output directory: %s", output_dir)
-        with open(os.path.join(output_dir, identifier + ".txt"), "w",
-                  encoding="utf-8") as f:
-            f.write(text + "\n")
+
+        final_path = os.path.join(output_dir, identifier + ".txt")
+
+        # Create a temporary file in the same directory
+        with tempfile.NamedTemporaryFile(mode='w',
+                                         dir=output_dir,
+                                         delete=False,
+                                         encoding="utf-8") as temp_file:
+            temp_file.write(text + "\n")
+            temp_path = temp_file.name
+
+        # Atomically replace the destination file
+        try:
+            shutil.move(temp_path, final_path)
+            logging.debug(f"Atomically wrote file: {final_path}")
+        except Exception as e:
+            logging.error("Failed to atomically write file: %s. Error: %s",
+                          final_path, e)
+            # Clean up the temporary file if the move failed
+            os.unlink(temp_path)
+            raise
 
     return outputs
