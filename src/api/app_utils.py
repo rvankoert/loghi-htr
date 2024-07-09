@@ -2,18 +2,19 @@
 
 # > Standard library
 from typing import List, Optional, Dict
-from fastapi import UploadFile, Form, File, HTTPException
 import logging
 import multiprocessing as mp
 import os
+import asyncio
+
+# > Third-party dependencies
+from fastapi import UploadFile, Form, File, HTTPException
+from prometheus_client import Gauge
 
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
 from image_preparator import image_preparation_worker
 from batch_decoder import batch_decoding_worker
-
-# > Third-party dependencies
-from prometheus_client import Gauge
 
 
 class TensorFlowLogFilter(logging.Filter):
@@ -181,17 +182,9 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def start_workers(batch_size: int, max_queue_size: int,
-                  output_path: str, gpus: str, model_path: str,
-                  patience: int, stop_event: mp.Event):
+def initialize_queues(batch_size: int, max_queue_size: int):
     """
-    Initializes and starts multiple multiprocessing workers for image
-    processing and prediction.
-
-    This function sets up three main processes: image preparation,
-    batch prediction, and batch decoding, each running in its own process. It
-    also initializes thread-safe queues for communication between these
-    processes and configures Prometheus gauges to monitor queue sizes.
+    Initializes the communication queues for the multiprocessing workers.
 
     Parameters
     ----------
@@ -199,26 +192,13 @@ def start_workers(batch_size: int, max_queue_size: int,
         The size of the batch for processing images.
     max_queue_size : int
         The maximum size of the request queue.
-    output_path : str
-        The path where the output results will be stored.
-    gpus : str
-        The GPU devices to use for computation.
-    model_path : str
-        The path to the machine learning model for predictions.
-    patience : int
-        The number of seconds to wait for an image to be ready before timing
-        out.
 
     Returns
     -------
     dict
-        A dictionary containing references to the worker processes under the
-        keys "Preparation", "Prediction", and "Decoding".
-    dict
         A dictionary containing references to the communication queues under
         the keys "Request", "Prepared", and "Predicted".
     """
-
     logger = logging.getLogger(__name__)
 
     # Create a thread-safe Queue
@@ -230,29 +210,74 @@ def start_workers(batch_size: int, max_queue_size: int,
     # expressed in number of batches
     max_prepared_queue_size = max_queue_size // 2 // batch_size
     prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
-    logger.info("Prediction queue size: %s", max_prepared_queue_size)
+    logger.info("Prepared queue size: %s", max_prepared_queue_size)
 
     # Create a thread-safe Queue for predictions
     predicted_queue = mp.Queue()
 
     # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge("request_queue_size",
-                                     "Request queue size")
+    request_queue_size_gauge = Gauge(
+        "request_queue_size", "Request queue size")
     request_queue_size_gauge.set_function(request_queue.qsize)
-    prepared_queue_size_gauge = Gauge("prepared_queue_size",
-                                      "Prepared queue size")
+    prepared_queue_size_gauge = Gauge(
+        "prepared_queue_size", "Prepared queue size")
     prepared_queue_size_gauge.set_function(prepared_queue.qsize)
-    predicted_queue_size_gauge = Gauge("predicted_queue_size",
-                                       "Predicted queue size")
+    predicted_queue_size_gauge = Gauge(
+        "predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
+
+    queues = {
+        "Request": request_queue,
+        "Prepared": prepared_queue,
+        "Predicted": predicted_queue
+    }
+
+    return queues
+
+
+def start_workers(batch_size: int, output_path: str, gpus: str,
+                  model_path: str, patience: int, stop_event: mp.Event,
+                  queues: Dict[str, mp.Queue]):
+    """
+    Initializes and starts multiple multiprocessing workers for image
+    processing and prediction using existing queues.
+
+    Parameters
+    ----------
+    batch_size : int
+        The size of the batch for processing images.
+    output_path : str
+        The path where the output results will be stored.
+    gpus : str
+        The GPU devices to use for computation.
+    model_path : str
+        The path to the machine learning model for predictions.
+    patience : int
+        The number of seconds to wait for an image to be ready before timing
+        out.
+    stop_event : mp.Event
+        An event to signal workers to stop.
+    queues : dict
+        A dictionary containing references to the communication queues.
+
+    Returns
+    -------
+    dict
+        A dictionary containing references to the worker processes under the
+        keys "Preparation", "Prediction", and "Decoding".
+    """
+    logger = logging.getLogger(__name__)
+
+    request_queue = queues["Request"]
+    prepared_queue = queues["Prepared"]
+    predicted_queue = queues["Predicted"]
 
     # Start the image preparation process
     logger.info("Starting image preparation process")
     preparation_process = mp.Process(
         target=image_preparation_worker,
-        args=(batch_size, request_queue,
-              prepared_queue, model_path,
-              patience, stop_event),
+        args=(batch_size, request_queue, prepared_queue,
+              model_path, patience, stop_event),
         name="Image Preparation Process",
         daemon=True)
     preparation_process.start()
@@ -271,8 +296,7 @@ def start_workers(batch_size: int, max_queue_size: int,
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, model_path, output_path,
-              stop_event),
+        args=(predicted_queue, model_path, output_path, stop_event),
         name="Batch Decoding Process",
         daemon=True)
     decoding_process.start()
@@ -283,13 +307,7 @@ def start_workers(batch_size: int, max_queue_size: int,
         "Decoding": decoding_process
     }
 
-    queues = {
-        "Request": request_queue,
-        "Prepared": prepared_queue,
-        "Predicted": predicted_queue
-    }
-
-    return workers, queues
+    return workers
 
 
 def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
@@ -311,3 +329,67 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
         logger = logging.getLogger(__name__)
         logger.info("Waiting for worker process %s to finish", worker.name)
         worker.join()
+
+
+async def restart_workers(batch_size: int, max_queue_size: int,
+                          output_path: str, gpus: str, model_path: str,
+                          patience: int, stop_event: mp.Event,
+                          workers: Dict[str, mp.Process],
+                          queues: Dict[str, mp.Queue]):
+    """
+    Restarts worker processes when the corresponding queues are empty.
+
+    Parameters
+    ----------
+    batch_size : int
+        The size of the batch for processing images.
+    max_queue_size : int
+        The maximum size of the request queue.
+    output_path : str
+        The path where the output results will be stored.
+    gpus : str
+        The GPU devices to use for computation.
+    model_path : str
+        The path to the machine learning model for predictions.
+    patience : int
+        The number of seconds to wait for an image to be ready before timing
+        out.
+    stop_event : mp.Event
+        An event to signal workers to stop.
+    workers : Dict[str, mp.Process]
+        A dictionary of worker processes with worker names as keys.
+    queues : Dict[str, mp.Queue]
+        A dictionary of queues for communication between processes.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Restarting workers. Waiting for all queues to be empty...")
+
+    # Check if all queues are empty multiple times before restarting workers
+    # since the workers might still be processing data while the queues are
+    # empty
+    empty_count = 0
+
+    while True:
+        # Check if all queues are empty
+        if all(queue.empty() for queue in queues.values()):
+            empty_count += 1
+
+            if empty_count >= 3:
+                logger.info("All queues are empty, restarting workers.")
+
+                # Stop all workers
+                stop_workers(workers, stop_event)
+
+                # Clear stop event to allow workers to restart
+                stop_event.clear()
+
+                # Restart workers with existing queues
+                workers = start_workers(batch_size, output_path, gpus,
+                                        model_path, patience, stop_event,
+                                        queues)
+                return workers
+        else:
+            empty_count = 0
+
+        # Sleep for a short duration to avoid busy waiting
+        await asyncio.sleep(5)

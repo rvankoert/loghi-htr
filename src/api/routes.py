@@ -2,11 +2,12 @@
 
 # > Standard library
 import datetime
-from typing import List
+from typing import List, Optional
 from multiprocessing.queues import Full
 
 # > Third-party dependencies
-from fastapi import APIRouter, HTTPException, File, UploadFile, Form, FastAPI
+from fastapi import (APIRouter, HTTPException, File,
+                     UploadFile, Form, FastAPI, Request)
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
@@ -16,7 +17,7 @@ from app_utils import extract_request_data
 
 def create_router(app: FastAPI) -> APIRouter:
     """
-    Create an API router with endpoints for prediction, health check, and 
+    Create an API router with endpoints for prediction, health check, and
     readiness check.
 
     Parameters
@@ -33,10 +34,11 @@ def create_router(app: FastAPI) -> APIRouter:
 
     @router.post("/predict")
     async def predict(
+        request: Request,
         image: UploadFile = File(...),
         group_id: str = Form(...),
         identifier: str = Form(...),
-        model: str = Form(None),
+        model: Optional[str] = Form(None),
         whitelist: List[str] = Form([]),
     ):
         """
@@ -44,15 +46,17 @@ def create_router(app: FastAPI) -> APIRouter:
 
         Parameters
         ----------
+        request : Request
+            The FastAPI request object.
         image : UploadFile
             The image file to be processed.
         group_id : str
             The group identifier.
         identifier : str
             The request identifier.
-        model : str, optional
+        model : Optional[str]
             The model to be used for prediction (default is None).
-        whitelist : List[str], optional
+        whitelist : List[str]
             A list of whitelisted items (default is an empty list).
 
         Returns
@@ -60,30 +64,52 @@ def create_router(app: FastAPI) -> APIRouter:
         JSONResponse
             A JSON response indicating the status of the request.
         """
+        if app.state.restarting:
+            return _create_response(503, "Service Unavailable",
+                                    "The server is currently restarting. "
+                                    "Please try again later.")
+
         try:
-            data = await extract_request_data(
-                image, group_id, identifier, model, whitelist)
+            data = await extract_request_data(image, group_id, identifier,
+                                              model, whitelist)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
         try:
-            app.state.request_queue.put(data, block=False)
+            app.state.queues["Request"].put(data, block=False)
         except Full:
-            raise HTTPException(
-                status_code=429,
-                detail="The server is currently processing a high volume of "
-                       "requests. Please try again later."
-            )
+            raise HTTPException(status_code=429,
+                                detail="The server is currently processing a "
+                                "high volume of requests. Please try again "
+                                "later.")
 
+        return _create_response(202, "Request received", "Your request is "
+                                "being processed",
+                                extra={"group_id": group_id,
+                                       "identifier": identifier})
+
+    @router.get("/status")
+    async def status(request: Request):
+        """
+        Endpoint to check the current status of the application.
+
+        Parameters
+        ----------
+        request : Request
+            The FastAPI request object.
+
+        Returns
+        -------
+        JSONResponse
+            A JSON response indicating the current status of the application.
+        """
+        is_restarting = getattr(request.app.state, "restarting", False)
         return JSONResponse(
-            status_code=202,
+            status_code=200 if not is_restarting else 503,
             content={
-                "status": "Request received",
-                "code": 202,
-                "message": "Your request is being processed",
+                "status": "restarting" if is_restarting else "running",
                 "timestamp": datetime.datetime.now().isoformat(),
-                "group_id": group_id,
-                "identifier": identifier
+                "code": 200 if not is_restarting else 503
             }
         )
 
@@ -97,27 +123,16 @@ def create_router(app: FastAPI) -> APIRouter:
         JSONResponse
             A JSON response indicating the health status of the application.
         """
+        if app.state.restarting:
+            return _create_response(200, "healthy",
+                                    "Application is restarting")
+
         for name, worker in app.state.workers.items():
             if not worker.is_alive():
-                return JSONResponse(
-                    status_code=500,
-                    content={
-                        "status": "unhealthy",
-                        "code": 500,
-                        "message": f"{name} worker is not alive",
-                        "timestamp": datetime.datetime.now().isoformat()
-                    }
-                )
+                return _create_response(500, "unhealthy", f"{name} worker is "
+                                        "not alive")
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "healthy",
-                "code": 200,
-                "message": "All workers are alive",
-                "timestamp": datetime.datetime.now().isoformat()
-            }
-        )
+        return _create_response(200, "healthy", "All workers are alive")
 
     @router.get("/ready")
     async def ready():
@@ -127,28 +142,13 @@ def create_router(app: FastAPI) -> APIRouter:
         Returns
         -------
         JSONResponse
-            A JSON response indicating the readiness status of the request queue.
+            A JSON response indicating the readiness status of the request
+            queue.
         """
-        if app.state.request_queue.full():
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "unready",
-                    "code": 503,
-                    "message": "Request queue is full",
-                    "timestamp": datetime.datetime.now().isoformat()
-                }
-            )
+        if app.state.queues["Request"].full() or app.state.restarting:
+            return _create_response(503, "unready", "Request queue is full")
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "ready",
-                "code": 200,
-                "message": "Request queue is not full",
-                "timestamp": datetime.datetime.now().isoformat()
-            }
-        )
+        return _create_response(200, "ready", "Request queue is not full")
 
     @router.get("/prometheus")
     async def prometheus():
@@ -156,3 +156,35 @@ def create_router(app: FastAPI) -> APIRouter:
         return Response(content=metrics, media_type=CONTENT_TYPE_LATEST)
 
     return router
+
+
+def _create_response(status_code: int, status: str, message: str,
+                     extra: dict = None) -> JSONResponse:
+    """
+    Create a standardized JSON response.
+
+    Parameters
+    ----------
+    status_code : int
+        The HTTP status code.
+    status : str
+        The status message.
+    message : str
+        The detailed message.
+    extra : dict, optional
+        Additional key-value pairs to include in the response.
+
+    Returns
+    -------
+    JSONResponse
+        A standardized JSON response.
+    """
+    content = {
+        "status": status,
+        "code": status_code,
+        "message": message,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    if extra:
+        content.update(extra)
+    return JSONResponse(status_code=status_code, content=content)
