@@ -250,21 +250,15 @@ def write_file_atomically(content: str, target_path: str, temp_dir: str) \
     try:
         # Create a temporary file in the provided temporary directory
         with tempfile.NamedTemporaryFile(mode='w', dir=temp_dir,
-                                         delete=False, encoding="utf-8") \
+                                         delete=True, encoding="utf-8") \
                 as temp_file:
             temp_file.write(content + "\n")
             temp_file_path = temp_file.name
+            os.replace(temp_file_path, target_path)
 
         # On POSIX systems, this is atomic. On Windows, it's the best we can do
-        os.replace(temp_file_path, target_path)
     except IOError as e:
-        if temp_file_path and os.path.exists(temp_file_path):
-            # Clean up the temporary file if it exists
-            os.unlink(temp_file_path)
         raise IOError(
             f"Failed to atomically write file: {target_path}. Error: {e}")
     except Exception as e:
-        if temp_file_path and os.path.exists(temp_file_path):
-            # Clean up the temporary file if it exists
-            os.unlink(temp_file_path)
         raise e  # Re-raise the exception after cleanup
