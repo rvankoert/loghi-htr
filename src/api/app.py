@@ -26,6 +26,9 @@ SAFE_LIMIT = int(psutil.virtual_memory().total * 0.8)
 DEFAULT_MEMORY_LIMIT = min(80 * 1024 * MEGABYTE, SAFE_LIMIT)  # 80GB
 MEMORY_USAGE_PERCENTAGE = 0.8  # 80%
 
+ERR_PORT_IN_USE = 98
+ERR_PERMISSION_DENIED = 13
+
 # Set up logging
 logging_level = get_env_variable("LOGGING_LEVEL", "INFO")
 logger = setup_logging(logging_level)
@@ -162,10 +165,10 @@ async def run_server():
         await server.serve()
     except OSError as e:
         logger.error(f"Error starting server: {e}")
-        if e.errno == 98:
+        if e.errno == ERR_PORT_IN_USE:
             logger.error(
                 f"Port {port} is already in use. Try a different port.")
-        elif e.errno == 13:
+        elif e.errno == ERR_PERMISSION_DENIED:
             logger.error(
                 f"Permission denied when trying to bind to port {port}. Try a "
                 "port number > 1024 or run with sudo.")

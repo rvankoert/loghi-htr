@@ -2,6 +2,7 @@
 
 # > Standard library
 import datetime
+import logging
 from typing import List, Optional
 from multiprocessing.queues import Full
 
@@ -83,6 +84,7 @@ def create_router(app: FastAPI) -> APIRouter:
                                 "high volume of requests. Please try again "
                                 "later.")
 
+        logging.info(f"Request received: {group_id} - {identifier}")
         return _create_response(202, "Request received", "Your request is "
                                 "being processed",
                                 extra={"group_id": group_id,

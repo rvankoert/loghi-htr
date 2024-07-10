@@ -194,35 +194,29 @@ def save_prediction_outputs(
     os.makedirs(temp_dir, exist_ok=True)
     logging.debug(f"Using temporary directory: {temp_dir}")
 
-    try:
-        for prediction, group_id, image_id, metadata in zip(
-            prediction_data, group_ids, image_ids, image_metadata
-        ):
-            confidence, predicted_text = prediction
-            output_text = (
-                f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}")
-            output_texts.append(output_text)
+    for prediction, group_id, image_id, metadata in zip(
+        prediction_data, group_ids, image_ids, image_metadata
+    ):
+        confidence, predicted_text = prediction
+        output_text = (
+            f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}")
+        output_texts.append(output_text)
 
-            group_output_dir = os.path.join(base_output_path, group_id)
-            os.makedirs(group_output_dir, exist_ok=True)
-            logging.debug("Ensured output directory exists: %s",
-                          group_output_dir)
+        group_output_dir = os.path.join(base_output_path, group_id)
+        os.makedirs(group_output_dir, exist_ok=True)
+        logging.debug("Ensured output directory exists: %s",
+                      group_output_dir)
 
-            output_file_path = os.path.join(
-                group_output_dir, f"{image_id}.txt")
+        output_file_path = os.path.join(
+            group_output_dir, f"{image_id}.txt")
 
-            try:
-                write_file_atomically(output_text, output_file_path, temp_dir)
-                logging.debug("Atomically wrote file: %s", output_file_path)
-            except IOError as e:
-                logging.error("Failed to write file %s. Error: %s",
-                              output_file_path, e)
-                raise
-    finally:
-        # Clean up the temporary directory
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
-            logging.debug(f"Cleaned up temporary directory: {temp_dir}")
+        try:
+            write_file_atomically(output_text, output_file_path, temp_dir)
+            logging.debug("Atomically wrote file: %s", output_file_path)
+        except IOError as e:
+            logging.error("Failed to write file %s. Error: %s",
+                          output_file_path, e)
+            raise
 
     return output_texts
 
@@ -250,15 +244,21 @@ def write_file_atomically(content: str, target_path: str, temp_dir: str) \
     try:
         # Create a temporary file in the provided temporary directory
         with tempfile.NamedTemporaryFile(mode='w', dir=temp_dir,
-                                         delete=True, encoding="utf-8") \
+                                         delete=False, encoding="utf-8") \
                 as temp_file:
             temp_file.write(content + "\n")
             temp_file_path = temp_file.name
-            os.replace(temp_file_path, target_path)
 
         # On POSIX systems, this is atomic. On Windows, it's the best we can do
+        os.replace(temp_file_path, target_path)
     except IOError as e:
+        if temp_file_path and os.path.exists(temp_file_path):
+            # Clean up the temporary file if it exists
+            os.unlink(temp_file_path)
         raise IOError(
             f"Failed to atomically write file: {target_path}. Error: {e}")
     except Exception as e:
+        if temp_file_path and os.path.exists(temp_file_path):
+            # Clean up the temporary file if it exists
+            os.unlink(temp_file_path)
         raise e  # Re-raise the exception after cleanup
