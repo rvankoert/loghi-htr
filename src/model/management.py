@@ -14,6 +14,8 @@ from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
 
+from model.custom_model import build_custom_model
+
 
 def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
     """
@@ -201,6 +203,8 @@ def load_or_create_model(config: Config,
                                           custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
+    elif config["model"] == 'custom':
+        model = build_custom_model()
     else:
         model_generator = VGSLModelGenerator(
             model_spec=config["model"],

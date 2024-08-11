@@ -186,7 +186,7 @@ class VGSLModelGenerator:
                 setattr(self, f"lstm_{index}", self.lstm_generator(layer))
                 self.history.append(f"lstm_{index}")
             elif layer.startswith('F'):
-                setattr(self, f"dense{index}", self.fc_generator(layer))
+                setattr(self, f"dense{index}", self.fully_connected_generator(layer))
                 self.history.append(f"dense{index}")
             elif layer.startswith('B'):
                 setattr(self, f"bidirectional_{index}",
@@ -641,19 +641,19 @@ class VGSLModelGenerator:
 
         # Check parameter length and generate corresponding Conv2D layer
         if len(conv_filter_params) == 3:
-            x, y, d = conv_filter_params
-            return layers.Conv2D(d,
-                                 kernel_size=(y, x),
+            width, height, filters = conv_filter_params
+            return layers.Conv2D(filters,
+                                 kernel_size=(height, width),
                                  strides=(1, 1),
                                  padding='same',
                                  activation=activation,
                                  kernel_initializer=self._initializer,
                                  name=name)
         if len(conv_filter_params) == 5:
-            x, y, s_x, s_y, d = conv_filter_params
-            return layers.Conv2D(d,
-                                 kernel_size=(y, x),
-                                 strides=(s_x, s_y),
+            width, height, stride_x, stride_y, filters = conv_filter_params
+            return layers.Conv2D(filters,
+                                 kernel_size=(height, width),
+                                 strides=(stride_x, stride_y),
                                  padding='same',
                                  activation=activation,
                                  kernel_initializer=self._initializer,
@@ -818,8 +818,8 @@ class VGSLModelGenerator:
             return layers.Reshape((-1, prev_layer_y * prev_layer_x))
         raise ValueError(f"Reshape operation {layer} is not supported.")
 
-    def fc_generator(self,
-                     layer: str) -> tf.keras.layers.Dense:
+    def fully_connected_generator(self,
+                                  layer: str) -> tf.keras.layers.Dense:
         """
         Generate a fully connected (dense) layer based on a VGSL specification
         string.
@@ -846,8 +846,8 @@ class VGSLModelGenerator:
 
         Examples
         --------
-        >>> vgsl_gn = VGSLModelGenerator("Some VGSL string")
-        >>> dense_layer = vgsl_gn.fc_generator("Fr64")
+        >>> vgsl_generator = VGSLModelGenerator("Some VGSL string")
+        >>> dense_layer = vgsl_generator.fully_connected_generator("Fr64")
         >>> type(dense_layer)
         <class 'keras.src.layers.core.dense.Dense'>
         >>> dense_layer.activation
@@ -1009,7 +1009,7 @@ class VGSLModelGenerator:
                 f"GRU layer {layer} is of unexpected format. Expected "
                 "format: G(f|r)[s]<n>[,D<rate>,Rd<rate>].")
 
-        direction, summarize, n, dropout, recurrent_dropout = match.groups()
+        direction, summarize, units, dropout, recurrent_dropout = match.groups()
         dropout = 0 if dropout is None else int(dropout.replace('D', ""))
         recurrent_dropout = 0 if recurrent_dropout is None else int(
             recurrent_dropout.replace("Rd", ""))
@@ -1024,15 +1024,15 @@ class VGSLModelGenerator:
                 "Recurrent dropout rate must be in the range [0, 100].")
 
         # Convert n to integer
-        n = int(n)
+        units = int(units)
 
         # Check if the number of units is valid
-        if n <= 0:
+        if units <= 0:
             raise ValueError(
-                f"Invalid number of units {n} for GRU layer {layer}.")
+                f"Invalid number of units {units} for GRU layer {layer}.")
 
         gru_params = {
-            "units": n,
+            "units": units,
             "return_sequences": bool(summarize),
             "go_backwards": direction == 'r',
             "kernel_initializer": self._initializer,
@@ -1262,8 +1262,8 @@ class VGSLModelGenerator:
 
         Examples
         --------
-        >>> vgsl_gn = VGSLModelGenerator("Some VGSL string")
-        >>> output_layer = vgsl_gn.get_output_layer("O1s10", 10)
+        >>> vgsl_generator = VGSLModelGenerator("Some VGSL string")
+        >>> output_layer = vgsl_generator.get_output_layer("O1s10", 10)
         >>> type(output_layer)
         <class 'keras.src.layers.core.dense.Dense'>
         """

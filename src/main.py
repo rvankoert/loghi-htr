@@ -133,10 +133,9 @@ def main():
                               data_manager.datasets["train"],
                               data_manager.datasets["evaluation"],
                               data_manager)
-
         # Plot the training history
-        plot_training_history(history, config["output"],
-                              bool(config["validation_list"]))
+        plot_training_history(history=history, output_path=config["output"],
+                              plot_validation=bool(config["validation_list"]))
 
         timestamps['Training'] = time.time() - tick
 
