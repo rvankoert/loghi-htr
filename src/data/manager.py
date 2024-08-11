@@ -57,11 +57,6 @@ class DataManager:
         if self.config['train_list'] and self.config['validation_list']:
             self.evaluation_list = self.config['validation_list']
 
-        # Remove the evaluation list from the validation list if we are not
-        # doing validation
-        if not self.config['do_validate']:
-            self.config['validation_list'] = ""
-
         # Process the raw data and create file names, labels, sample weights,
         # and tokenizer
         logging.info("Processing raw data...")
