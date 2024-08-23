@@ -383,39 +383,3 @@ def verify_charlist_length(charlist: List[str],
             f"Charlist length ({len(charlist)}) does not match "
             f"model output length ({expected_length}). If the charlist "
             "is correct, try setting use_mask to True.")
-
-
-def get_prediction_model(model: tf.keras.Model) -> tf.keras.Model:
-    """
-    Extracts a prediction model from a given Keras model.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        The complete Keras model from which the prediction model is to be
-        extracted.
-
-    Returns
-    -------
-    tf.keras.Model
-        The prediction model extracted from the given model, typically up to
-        the last dense layer.
-
-    Raises
-    ------
-    ValueError
-        If no dense layer is found in the given model.
-    """
-
-    last_dense_layer = None
-    for layer in reversed(model.layers):
-        if layer.name.startswith('dense'):
-            last_dense_layer = layer
-            break
-    if last_dense_layer is None:
-        raise ValueError("No dense layer found in the model")
-
-    prediction_model = tf.keras.models.Model(
-        model.get_layer(name="image").input, last_dense_layer.output
-    )
-    return prediction_model

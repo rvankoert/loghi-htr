@@ -9,7 +9,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.manager import DataManager
-from model.management import get_prediction_model
 from setup.config import Config
 from utils.decoding import decode_batch_predictions
 from utils.text import Tokenizer
@@ -50,12 +49,11 @@ def perform_inference(config: Config,
     """
 
     tokenizer = Tokenizer(charlist, config["use_mask"])
-    prediction_model = get_prediction_model(model)
 
     with open(config["results_file"], "w", encoding="utf-8") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
-            predictions = prediction_model.predict_on_batch(batch[0])
+            predictions = model.predict_on_batch(batch[0])
             y_pred = decode_batch_predictions(predictions,
                                               tokenizer,
                                               config["greedy"],

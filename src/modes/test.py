@@ -9,7 +9,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.manager import DataManager
-from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, calculate_cers, \
     increment_counters, calculate_edit_distances
@@ -146,7 +145,6 @@ def perform_test(config: Config,
     logging.info("Performing test...")
 
     tokenizer = Tokenizer(charlist, config["use_mask"])
-    prediction_model = get_prediction_model(model)
 
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist) \
@@ -161,7 +159,7 @@ def perform_test(config: Config,
         X, y_true, _ = batch
 
         logging.info("Batch %s/%s", batch_no + 1, len(test_dataset))
-        batch_counter = process_batch((X, y_true), prediction_model, tokenizer,
+        batch_counter = process_batch((X, y_true), model, tokenizer,
                                       config, wbs, data_manager, charlist)
 
         # Update the total counter

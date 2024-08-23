@@ -11,7 +11,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.manager import DataManager
-from model.management import get_prediction_model
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval, \
     calculate_edit_distances, update_statistics, increment_counters
