@@ -170,7 +170,7 @@ def load_model_from_directory(directory: str,
         directory) if file.endswith(".keras")), None)
 
     if model_file:
-        return tf.keras.saving.load_model(model_file,
+        return tf.keras.models.load_model(model_file,
                                           custom_objects=custom_objects,
                                           compile=compile)
 
@@ -245,10 +245,10 @@ def verify_charlist_length(charlist: List[str],
     # Verify that the length of the charlist is correct
     if use_mask:
         expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 2 - int(removed_padding)
+            .output.shape[2] - 2 - int(removed_padding)
     else:
         expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 1 - int(removed_padding)
+            .output.shape[2] - 1 - int(removed_padding)
     if len(charlist) != expected_length:
         raise ValueError(
             f"Charlist length ({len(charlist)}) does not match "

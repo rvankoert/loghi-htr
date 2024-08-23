@@ -40,8 +40,8 @@ def initialize_data_manager(config: Config,
         model.
     """
 
-    model_height = model.layers[0].input_shape[0][2]
-    model_channels = model.layers[0].input_shape[0][3]
+    model_height = model.layers[0].output.shape[2]
+    model_channels = model.layers[0].output.shape[3]
     img_size = (model_height, config["width"], model_channels)
 
     return DataManager(

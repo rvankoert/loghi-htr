@@ -160,7 +160,7 @@ def perform_validation(config: Config,
     tokenizer = data_manager.tokenizer
     validation_dataset = data_manager.datasets['validation']
 
-    prediction_model = get_prediction_model(model)
+    prediction_model = model
 
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist) \
