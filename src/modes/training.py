@@ -93,8 +93,6 @@ def train_model(model: tf.keras.Model,
         epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
-        workers=num_workers,
-        max_queue_size=config["max_queue_size"],
         steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
@@ -129,7 +127,8 @@ def plot_training_history(history: tf.keras.callbacks.History,
         plt.figure()
         plt.plot(history.history[metric], label='Training ' + metric)
         if plot_validation_metric:
-            plt.plot(history.history[f"val_{metric}"], label=f"Validation {metric}")
+            plt.plot(history.history[f"val_{metric}"],
+                     label=f"Validation {metric}")
         plt.title(title)
         plt.xlabel("Epoch #")
         plt.ylabel(metric)

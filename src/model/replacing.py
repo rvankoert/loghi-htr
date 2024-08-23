@@ -139,9 +139,8 @@ def replace_final_layer(model: tf.keras.models.Model,
             last_layer = layer.name
 
     # Create a prediction model up to the last layer
-    prediction_model = keras.models.Model(
-        model.get_layer(name="image").input,
-        model.get_layer(name=last_layer).output
+    prediction_model = tf.keras.models.Model(
+        inputs=model.inputs, outputs=model.get_layer(last_layer).output
     )
 
     # Add a new dense layer with adjusted number of units based on use_mask
