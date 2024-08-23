@@ -186,7 +186,8 @@ class VGSLModelGenerator:
                 setattr(self, f"lstm_{index}", self.lstm_generator(layer))
                 self.history.append(f"lstm_{index}")
             elif layer.startswith('F'):
-                setattr(self, f"dense{index}", self.fully_connected_generator(layer))
+                setattr(self, f"dense{index}",
+                        self.fully_connected_generator(layer))
                 self.history.append(f"dense{index}")
             elif layer.startswith('B'):
                 setattr(self, f"bidirectional_{index}",
@@ -387,10 +388,10 @@ class VGSLModelGenerator:
         # This is only the case where we have a model created with the Keras
         # functional API
         if isinstance(model.layers[0], tf.keras.layers.InputLayer):
-            input_shape = model.layers[0].input_shape[0]
+            input_shape = model.layers[0].output.shape
             start_idx = 1
         else:
-            input_shape = model.layers[0].input_shape
+            input_shape = model.layers[0].input.shape
             start_idx = 0
 
         if not (len(input_shape) == 4 and
@@ -442,7 +443,7 @@ class VGSLModelGenerator:
                     f"{get_dropout(layer.dropout, layer.recurrent_dropout)}")
 
             elif isinstance(layer, layers.Bidirectional):
-                wrapped_layer = layer.layer
+                wrapped_layer = layer.forward_layer
                 cell_type = 'l' if isinstance(
                     wrapped_layer, tf.keras.layers.LSTM) else 'g'
                 dropout = get_dropout(wrapped_layer.dropout,

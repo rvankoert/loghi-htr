@@ -386,8 +386,11 @@ class TestModelToVGSL(unittest.TestCase):
             # If the layer is Bidirectional, update the inner layer's config
             if isinstance(original_layer, tf.keras.layers.Bidirectional):
                 for key in keys_to_ignore:
+                    # NOTE: why is 'layer' not 'forward_layer'?
                     original_config['layer']['config'].pop(key, None)
+                    original_config['backward_layer']['config'].pop(key, None)
                     generated_config['layer']['config'].pop(key, None)
+                    generated_config['backward_layer']['config'].pop(key, None)
             for key in keys_to_ignore:
                 original_config.pop(key, None)
                 generated_config.pop(key, None)

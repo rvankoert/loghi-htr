@@ -232,7 +232,7 @@ class TestReplaceLayers(unittest.TestCase):
                 found_gru = True
             elif isinstance(layer, layers.Bidirectional):
                 self.assertEqual(
-                    layer.layer.units, 32, "Unexpected number of units in "
+                    layer.forward_layer.units, 32, "Unexpected number of units in "
                     "Bidirectional LSTM layer")
                 found_bidir = True
 

@@ -554,36 +554,48 @@ class VGSLModelGeneratorTest(unittest.TestCase):
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.Bidirectional)
-        self.assertIsInstance(model.layers[2].layer, layers.GRU)
-        self.assertEqual(model.layers[2].layer.units, 128)
+        self.assertIsInstance(model.layers[2].forward_layer, layers.GRU)
+        self.assertIsInstance(model.layers[2].backward_layer, layers.GRU)
+        self.assertEqual(model.layers[2].forward_layer.units, 128)
+        self.assertEqual(model.layers[2].backward_layer.units, 128)
 
         vgsl_spec_string = "None,64,None,1 Rc Bl128 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
         self.assertIsInstance(model.layers[2], layers.Bidirectional)
-        self.assertIsInstance(model.layers[2].layer, layers.LSTM)
-        self.assertEqual(model.layers[2].layer.units, 128)
+        self.assertIsInstance(model.layers[2].forward_layer, layers.LSTM)
+        self.assertIsInstance(model.layers[2].backward_layer, layers.LSTM)
+        self.assertEqual(model.layers[2].forward_layer.units, 128)
+        self.assertEqual(model.layers[2].backward_layer.units, 128)
 
         vgsl_spec_string = "None,64,None,1 Rc Bl128,D50 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
 
-        self.assertEqual(model.layers[2].layer.dropout, 0.50)
-        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0)
+        self.assertEqual(model.layers[2].forward_layer.dropout, 0.50)
+        self.assertEqual(model.layers[2].backward_layer.dropout, 0.50)
+        self.assertEqual(model.layers[2].forward_layer.recurrent_dropout, 0)
+        self.assertEqual(model.layers[2].backward_layer.recurrent_dropout, 0)
 
         vgsl_spec_string = "None,64,None,1 Rc Bl128,Rd50 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
 
-        self.assertEqual(model.layers[2].layer.dropout, 0)
-        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0.50)
+        self.assertEqual(model.layers[2].forward_layer.dropout, 0)
+        self.assertEqual(model.layers[2].backward_layer.dropout, 0)
+        self.assertEqual(model.layers[2].forward_layer.recurrent_dropout, 0.50)
+        self.assertEqual(model.layers[2].backward_layer.recurrent_dropout,
+                         0.50)
 
         vgsl_spec_string = "None,64,None,1 Rc Bl128,D42,Rd34 O1s10"
         model_generator = self.VGSLModelGenerator(vgsl_spec_string)
         model = model_generator.build()
 
-        self.assertEqual(model.layers[2].layer.dropout, 0.42)
-        self.assertEqual(model.layers[2].layer.recurrent_dropout, 0.34)
+        self.assertEqual(model.layers[2].forward_layer.dropout, 0.42)
+        self.assertEqual(model.layers[2].backward_layer.dropout, 0.42)
+        self.assertEqual(model.layers[2].forward_layer.recurrent_dropout, 0.34)
+        self.assertEqual(model.layers[2].backward_layer.recurrent_dropout,
+                         0.34)
 
     def test_bidirectional_error_handling(self):
         # Invalid format
