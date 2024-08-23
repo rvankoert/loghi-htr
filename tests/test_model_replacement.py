@@ -11,9 +11,6 @@ import sys
 import logging
 import unittest
 
-# FIXME initialization fails when all tests are run in series, it works when
-# only this file is run
-
 
 class TestReplaceLayers(unittest.TestCase):
     """
