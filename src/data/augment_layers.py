@@ -11,6 +11,7 @@ from skimage.filters import threshold_otsu, threshold_sauvola
 import tensorflow as tf
 from data.gaussian_filter2d import gaussian_filter2d
 
+
 class ShearXLayer(tf.keras.layers.Layer):
     def __init__(self, binary=False, **kwargs):
         super(ShearXLayer, self).__init__(**kwargs)
@@ -587,7 +588,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
             return inputs
 
         # Get the width and height of the input image
-        if len(tf.shape(inputs)) < 4:
+        if inputs.ndim < 4:
             # When input does have a batch size dim
             original_width = tf.shape(inputs)[1]
             original_height = tf.shape(inputs)[0]
