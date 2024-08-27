@@ -13,12 +13,12 @@ import zipfile
 import tensorflow as tf
 
 # > Local dependencies
+from model.custom_model import build_custom_model
 from model.conversion import convert_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
 from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
-
-from model.custom_model import build_custom_model
+from utils.text import Tokenizer
 
 
 def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
@@ -63,7 +63,7 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
 
 def customize_model(model: tf.keras.Model,
                     config: Config,
-                    charlist: List[str]) -> tf.keras.Model:
+                    tokenizer: Tokenizer) -> tf.keras.Model:
     """
     Customizes a Keras model based on various arguments including layer
     replacement and freezing options.
@@ -74,8 +74,8 @@ def customize_model(model: tf.keras.Model,
         The model to be customized.
     config : Config
         A set of arguments controlling how the model should be customized.
-    charlist : List[str]
-        A list of characters used for model customization.
+    tokenizer : Tokenizer
+        The tokenizer object used for tokenization.
 
     Returns
     -------
@@ -88,16 +88,17 @@ def customize_model(model: tf.keras.Model,
         logging.info("Replacing recurrent layer with %s",
                      config["replace_recurrent_layer"])
         model = replace_recurrent_layer(model,
-                                        len(charlist),
+                                        len(tokenizer),
                                         config["replace_recurrent_layer"],
                                         use_mask=config["use_mask"])
 
     # Replace the final layer if specified
     if config["replace_final_layer"] or not os.path.isdir(config["model"]):
-        new_classes = len(charlist) + \
-            2 if config["use_mask"] else len(charlist) + 1
+        new_classes = len(tokenizer) + \
+            2 if config["use_mask"] else len(
+                tokenizer) + 1  # TODO : replace use_mask
         logging.info("Replacing final layer with %s classes", new_classes)
-        model = replace_final_layer(model, len(charlist), model.name,
+        model = replace_final_layer(model, len(tokenizer), model.name,
                                     use_mask=config["use_mask"])
 
     # Freeze layers if specified

@@ -13,71 +13,49 @@ import tensorflow as tf
 class Tokenizer:
     """
     A tokenizer class for character-based tokenization.
-
     This class provides methods for converting a list of characters into
     a TensorFlow StringLookup layer, which maps characters to integers and
-    vice versa. It supports out-of-vocabulary (OOV) tokens and optional
-    masking.
-
-    Attributes
-    ----------
-    charList : list
-        A list of characters to be used for tokenization.
-    char_to_num : tf.keras.layers.StringLookup
-        A TensorFlow StringLookup layer mapping characters to integers.
-    num_to_char : tf.keras.layers.StringLookup
-        A TensorFlow StringLookup layer mapping integers back to characters.
-
-    Methods
-    -------
-    __call__(texts):
-        Tokenizes the input text(s) into a sequence of integers.
-    encode(texts):
-        Encodes the input text(s) into a sequence of integers.
-    decode(tokenized_texts):
-        Decodes the tokenized sequences back into text.
+    vice versa. It supports out-of-vocabulary (OOV) tokens and allows saving
+    and loading the tokenizer configuration to/from a JSON file.
     """
 
     def __init__(self,
-                 chars: list,
-                 use_mask: bool = False,
-                 num_oov_indices: int = 1):
+                 chars: list = None,
+                 num_oov_indices: int = 1,
+                 json_path: str = None):
         """
-        Initializes the Tokenizer with a given character list and mask option.
+        Initializes the Tokenizer with a given character list or loads from a JSON file if provided.
 
         Parameters
         ----------
-        chars : list
+        chars : list, optional
             A list of characters to be used for tokenization.
-        use_mask : bool, optional
-            A flag to indicate whether to use a mask token (default is False).
         num_oov_indices : int, optional
-            The number of out-of-vocabulary indices (default is 0).
-
-        Raises
-        ------
-        ValueError
-            If the character list is empty.
+            The number of out-of-vocabulary indices (default is 1).
+        json_path : str, optional
+            Path to a JSON file to load the tokenizer configuration.
         """
+        if json_path:
+            self.load_from_json(json_path)
+        else:
+            if chars is None or not chars:
+                raise ValueError("The character list cannot be empty.")
+            self.charlist = list(chars)
+            self.num_oov_indices = num_oov_indices
+            self._initialize_string_lookup_layers()
 
-        self.charlist = list(chars)
-        if not self.charlist:
-            raise ValueError("The character list cannot be empty.")
-
-        mask_token = '' if use_mask else None
+    def _initialize_string_lookup_layers(self):
+        """Initializes the StringLookup layers."""
         self.char_to_num = tf.keras.layers.StringLookup(
             vocabulary=self.charlist,
-            num_oov_indices=num_oov_indices,
-            mask_token=mask_token,
+            num_oov_indices=self.num_oov_indices,
             oov_token='[UNK]',
             encoding="UTF-8"
         )
-
         self.num_to_char = tf.keras.layers.StringLookup(
             vocabulary=self.char_to_num.get_vocabulary(),
             num_oov_indices=0,
             oov_token='',
-            mask_token=mask_token,
             encoding="UTF-8",
             invert=True
         )
@@ -97,6 +75,22 @@ class Tokenizer:
             A tensor of tokenized integer sequences.
         """
         return self.char_to_num(tf.strings.unicode_split(texts, 'UTF-8'))
+
+    def __len__(self):
+        """[TODO:description]
+
+        Returns
+        -------
+        [TODO:return]
+            [TODO:description]
+
+        """
+        return len(self.charlist)
+
+    def __str__(self):
+        vocab = self.char_to_num.get_vocabulary()
+        data = {i: char for i, char in enumerate(vocab)}
+        return json.dumps(data, ensure_ascii=False, indent=4)
 
     def encode(self, texts: Union[str, list]) -> tf.Tensor:
         """
@@ -135,6 +129,70 @@ class Tokenizer:
         if isinstance(decoded, np.ndarray):
             return np.array([d.decode("utf-8") for d in decoded])
         return decoded
+
+    def save_to_json(self, json_path: str):
+        """
+        Saves the tokenizer's vocabulary to a JSON file.
+
+        Parameters
+        ----------
+        json_path : str
+            The file path to save the JSON file.
+        """
+        vocab = self.char_to_num.get_vocabulary()
+        data = {i: char for i, char in enumerate(vocab)}
+        with open(json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def load_from_json(self, json_path: str):
+        """
+        Loads the tokenizer's vocabulary from a JSON file.
+
+        Parameters
+        ----------
+        json_path : str
+            The file path to the JSON file.
+        """
+        if not os.path.exists(json_path):
+            raise FileNotFoundError(f"File not found: {json_path}")
+
+        if json_path.endswith('.txt'):
+            # Convert TXT to JSON
+            logging.warning("TXT file detected. Converting to JSON format...")
+            with open(json_path, 'r', encoding='utf-8') as f:
+                chars = f.read().splitlines()
+            data = {i: char for i, char in enumerate(chars)}
+            json_path = json_path.replace('.txt', '.json')
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            logging.info(f"Converted and saved as JSON: {json_path}")
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        chars = [data[str(i)] for i in range(len(data))]
+        self.charlist = chars
+        self.num_oov_indices = 1
+        self._initialize_string_lookup_layers()
+
+    def add_tokens(self, tokens: Union[str, list]):
+        """
+        Adds a token or a list of tokens to the tokenizer.
+
+        Parameters
+        ----------
+        tokens : str or list of str
+            The token or a list of tokens to be added to the tokenizer.
+        """
+        if isinstance(tokens, str):
+            tokens = [tokens]
+
+        # Add new tokens to the character list if they don't already exist
+        new_tokens = [token for token in tokens if token not in self.charlist]
+
+        if new_tokens:
+            self.charlist.extend(new_tokens)
+            self._initialize_string_lookup_layers()
 
 
 def remove_tags(text: str) -> str:

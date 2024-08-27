@@ -10,6 +10,7 @@ import threading
 import tensorflow as tf
 
 # > Local dependencies
+from utils.text import Tokenizer
 from setup.config import Config
 
 
@@ -26,8 +27,8 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         If True, saves the model at the end of each epoch.
     output : str
         Directory path to save the model and additional files.
-    charlist : list of str, optional
-        List of characters used in the model, saved alongside the model.
+    tokenizer : Tokenizer
+        Tokenizer object to be saved with the model.
     config : object, optional
         Configuration object to be saved with the model.
     normalization_file : str, optional
@@ -45,7 +46,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
     """
 
     def __init__(self, save_best: bool = True, save_checkpoint: bool = True,
-                 output: str = "output", charlist: str = None,
+                 output: str = "output", tokenizer: Tokenizer = None,
                  config: Config = None, normalization_file: str = None,
                  logging_level: str = "info"):
         """
@@ -56,7 +57,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output
-        self.charlist = charlist
+        self.tokenizer = tokenizer
         self.config = config
         self.normalization_file = normalization_file
         self.logging_level = logging_level
@@ -116,11 +117,9 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
             unfrozen_model.save(model_path)
 
             # Save additional files
-            if self.charlist:
-                with open(os.path.join(outputdir, "charlist.txt"),
-                          "w", encoding="utf-8") \
-                        as chars_file:
-                    chars_file.write("".join(self.charlist))
+            if self.tokenizer:
+                self.tokenizer.save_to_json(os.path.join(outputdir,
+                                                         "tokenizer.json"))
             if self.config:
                 self.config.save(os.path.join(outputdir, "config.json"))
             if self.normalization_file:

@@ -29,28 +29,22 @@ class DataManager:
         The model used for data augmentation.
     config : Config
         The configuration dictionary containing various settings.
-    charlist : Optional[List[str]], optional
-        The list of characters to use for tokenization, by default None.
+    tokenizer : Optional[Tokenizer], optional
+        The tokenizer to use for encoding text data, by default None.
     """
 
     def __init__(self,
                  img_size: Tuple[int, int, int],
                  augment_model: tf.keras.Sequential,
                  config: Config,
-                 charlist: Optional[List[str]] = None,
+                 tokenizer: Optional[Tokenizer] = None,
                  ):
 
         self.augment_model = augment_model
         self.height = img_size[0]
         self.channels = img_size[2]
         self.config = config
-
-        # Determine the character list
-        if charlist and not config['replace_final_layer']:
-            logging.info('Using injected charlist')
-            self.charlist = sorted(list(charlist))
-        else:
-            self.charlist = []
+        self.tokenizer = tokenizer
 
         # Determine the evaluation list
         self.evaluation_list = None
@@ -60,8 +54,7 @@ class DataManager:
         # Process the raw data and create file names, labels, sample weights,
         # and tokenizer
         logging.info("Processing raw data...")
-        file_names, labels, sample_weights, self.tokenizer \
-            = self._process_raw_data()
+        file_names, labels, sample_weights, self.tokenizer = self._process_raw_data()
 
         self.raw_data = {split: (file_names[split], labels[split],
                                  sample_weights[split])
@@ -91,11 +84,11 @@ class DataManager:
             weights, and the tokenizer.
         """
 
-        # Initialize character set and data partitions with corresponding
-        # labels
+        # Initialize data partitions with corresponding labels
         file_names_dict = defaultdict(list)
         labels_dict = defaultdict(list)
         sample_weights_dict = defaultdict(list)
+        characters = set()
 
         for partition in ('train', 'evaluation', 'validation',
                           'test', 'inference'):
@@ -107,26 +100,26 @@ class DataManager:
                 file_names, labels, sample_weights = self._create_data(
                     partition_name=partition,
                     text_file=partition_text_file,
+                    characters=characters
                 )
                 if len(file_names) == 0:
                     raise ValueError("No data found for the specified "
                                      f"{partition} list(s). Have you verified "
                                      "the data paths?")
 
-                if partition == "train" and not self.charlist:
-                    raise ValueError("Character list is empty after "
-                                     "creating training data. Did you "
-                                     "forget to provide a character list?")
-
                 # Fill the dictionary with the data
                 file_names_dict[partition] = file_names
                 labels_dict[partition] = labels
                 sample_weights_dict[partition] = sample_weights
 
-        # Initialize the tokenizer
-        tokenizer = Tokenizer(self.charlist, self.config['use_mask'])
+        # Initialize the tokenizer if not provided
+        if self.tokenizer is None:
+            if not characters:
+                raise ValueError(
+                    "Character list is empty after creating training data.")
+            self.tokenizer = Tokenizer(sorted(characters))
 
-        return file_names_dict, labels_dict, sample_weights_dict, tokenizer
+        return file_names_dict, labels_dict, sample_weights_dict, self.tokenizer
 
     def _fill_datasets_dict(self,
                             partitions: Dict[str, List[str]],
@@ -135,7 +128,7 @@ class DataManager:
             -> Dict[str, tf.data.Dataset]:
         """
         Initialize data generators for different dataset partitions and
-        update character set and tokenizer based on the dataset.
+        update tokenizer based on the dataset.
 
         Parameters
         ----------
@@ -177,7 +170,8 @@ class DataManager:
 
     def _create_data(self,
                      partition_name: str,
-                     text_file: str) -> Tuple[List[str], List[str], List[str]]:
+                     text_file: str,
+                     characters: Set[str]) -> Tuple[List[str], List[str], List[str]]:
         """
         Create data for a specific partition from a text file.
 
@@ -187,6 +181,8 @@ class DataManager:
             The name of the partition.
         text_file : str
             The path to the text file containing the data.
+        characters : Set[str]
+            The set of characters to be used for the tokenizer.
 
         Returns
         -------
@@ -200,9 +196,6 @@ class DataManager:
         # Define the faulty lines and flaws
         faulty_lines = {}
         flaw_counts = {}
-
-        # Define the character set
-        characters = set(self.charlist)
 
         # Process each file in the data files list
         for file_path in text_file.split():
@@ -229,16 +222,14 @@ class DataManager:
             logging.warning("Faulty lines for %s:", partition_name)
             for line, flaw in faulty_lines.items():
                 logging.warning("%s: %s", line.strip(), flaw)
-            logging.warning("Flaw counts for %s:", partition_name)
-            for flaw, count in flaw_counts.items():
-                logging.warning("%s: %d", flaw, count)
+                logging.warning("Flaw counts for %s:", partition_name)
+                for flaw, count in flaw_counts.items():
+                    logging.warning("%s: %d", flaw, count)
 
-        # Update the charlist if it has changed
-        if not self.charlist:
-            self.charlist = sorted(list(characters))
-            logging.debug("Updated charlist: %s", self.charlist)
+        # Update the character set with any new characters found
+        characters.update(set("".join(labels)))
 
-        logging.info("Created data for %s with %s samples",
+        logging.info("Created data for %s with %d samples",
                      partition_name, len(partitions))
 
         return partitions, labels, sample_weights
@@ -247,8 +238,7 @@ class DataManager:
                       line: str,
                       partition_name: str,
                       characters: Set[str]) \
-        -> Tuple[Optional[Tuple[str, str, float]],
-                 Optional[str]]:
+            -> Tuple[Optional[Tuple[str, str, float]], Optional[str]]:
         """
         Process a single line from the data file.
 
@@ -296,9 +286,12 @@ class DataManager:
         # Normalize the ground truth if a normalization file is provided and
         # the partition is either 'train' or 'evaluation'
         if self.config['normalization_file'] and \
-                partition_name in ('train' or 'evaluation'):
+                partition_name in ('train', 'evaluation'):
             ground_truth = normalize_text(ground_truth,
                                           self.config['normalization_file'])
+
+        # Add characters to the set for tokenizer
+        characters.update(ground_truth)
 
         # Check for unsupported characters in the ground truth
         if not self._is_valid_ground_truth(ground_truth, partition_name,
@@ -372,7 +365,7 @@ class DataManager:
             if partition_name in ('validation', 'inference', 'test'):
                 return True
 
-            if partition_name == 'train' and not self.charlist:
+            if partition_name == 'train':
                 characters.update(unsupported_characters)
                 return True
             return False
@@ -463,7 +456,7 @@ class DataManager:
 
         dataset = (dataset
                    .map(data_loader.load_images,
-                        num_parallel_calls=AUTOTUNE,
+                        num_parallel_calls=tf.data.experimental.AUTOTUNE,
                         deterministic=not is_training)
                    .padded_batch(self.config["batch_size"],
                                  padded_shapes=(
@@ -472,7 +465,7 @@ class DataManager:
                                      tf.constant(-10, dtype=tf.float32),
                                      tf.constant(0, dtype=tf.int64),
                                      tf.constant(1.0, dtype=tf.float32)))
-                   .prefetch(AUTOTUNE))\
+                   .prefetch(tf.data.experimental.AUTOTUNE))\
             .apply(tf.data.experimental.assert_cardinality(num_batches))
 
         # Distribute the dataset if needed

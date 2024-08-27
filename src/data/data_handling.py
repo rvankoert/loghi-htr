@@ -11,10 +11,11 @@ import tensorflow as tf
 # > Local dependencies
 from data.manager import DataManager
 from setup.config import Config
+from utils.text import Tokenizer
 
 
 def initialize_data_manager(config: Config,
-                            charlist: List[str],
+                            tokenizer: Tokenizer,
                             model: tf.keras.Model,
                             augment_model: tf.keras.Sequential) -> DataManager:
     """
@@ -46,7 +47,7 @@ def initialize_data_manager(config: Config,
 
     return DataManager(
         img_size=img_size,
-        charlist=charlist,
+        tokenizer=tokenizer,
         augment_model=augment_model,
         config=config
     )

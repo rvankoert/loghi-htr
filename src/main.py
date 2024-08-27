@@ -48,13 +48,11 @@ def main():
     if config["output"]:
         os.makedirs(config["output"], exist_ok=True)
 
-    # Get the initial character list
-    if os.path.isdir(config["model"]) or config["charlist"]:
-        charlist, removed_padding = load_initial_charlist(
-            config["charlist"], config["model"],
-            config["output"], config["replace_final_layer"])
+    # Get the initial tokenizer
+    if os.path.isdir(config["model"]) or config["tokenizer"]:
+        tokenizer = Tokenizer(json_path=config["tokenizer"])
     else:
-        charlist = []
+        tokenizer = None
         removed_padding = False
 
     # Set the custom objects
@@ -72,22 +70,22 @@ def main():
                                model.input_shape[-1])
 
         # Initialize the DataManager
-        data_manager = initialize_data_manager(config, charlist, model,
+        data_manager = initialize_data_manager(config, tokenizer, model,
                                                augmentation_model)
 
-        # Replace the charlist with the one from the data manager
-        charlist = data_manager.charlist
-        logging.info("Using charlist: %s", charlist)
-        logging.info("Charlist length: %s", len(charlist))
+        # Replace the tokenizer with the one from the data manager
+        tokenizer = data_manager.tokenizer
+        logging.info("Using tokenizer:\n%s", tokenizer)
+        logging.info("Tokenizer size: %s tokens", len(tokenizer))
 
+        # TODO: Continue from here
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
-        model = customize_model(model, config, charlist)
+        model = customize_model(model, config, tokenizer)
 
         # Save the charlist
-        verify_charlist_length(charlist, model, config["use_mask"],
-                               removed_padding)
-        save_charlist(charlist, config["output"])
+        tokenizer.save_to_json(os.path.join(config["output"],
+                                            "tokenizer.json"))
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
@@ -134,7 +132,8 @@ def main():
                               data_manager.datasets["evaluation"],
                               data_manager)
         # Plot the training history
-        plot_training_history(history=history, output_path=config["output"],
+        plot_training_history(history=history,
+                              output_path=config["output"],
                               plot_validation=bool(config["validation_list"]))
 
         timestamps['Training'] = time.time() - tick
