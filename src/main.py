@@ -95,7 +95,7 @@ def main():
             decay_rate=config["decay_rate"],
             decay_steps=config["decay_steps"],
             train_batches=data_manager.get_train_batches(),
-            do_train=config["do_train"],
+            do_train=config["train_list"],
             warmup_ratio=config["warmup_ratio"],
             epochs=config["epochs"],
             decay_per_epoch=config["decay_per_epoch"],

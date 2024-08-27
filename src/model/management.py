@@ -100,14 +100,12 @@ def customize_model(model: tf.keras.Model,
         model = replace_final_layer(model, len(charlist), model.name,
                                     use_mask=config["use_mask"])
 
-    # Freeze or thaw layers if specified
-    if any([config["thaw"], config["freeze_conv_layers"],
-            config["freeze_recurrent_layers"], config["freeze_dense_layers"]]):
+    # Freeze layers if specified
+    if any([config["freeze_conv_layers"],
+            config["freeze_recurrent_layers"],
+            config["freeze_dense_layers"]]):
         for layer in model.layers:
-            if config["thaw"]:
-                layer.trainable = True
-                logging.info("Thawing layer: %s", layer.name)
-            elif config["freeze_conv_layers"] and \
+            if config["freeze_conv_layers"] and \
                 (layer.name.lower().startswith("conv") or
                  layer.name.lower().startswith("residual")):
                 logging.info("Freezing layer: %s", layer.name)

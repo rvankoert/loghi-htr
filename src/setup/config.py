@@ -129,8 +129,7 @@ class Config:
         """
 
         if not output_file:
-            output_file = self.args.config_file_output or \
-                f"{self.args.output}/config.json"
+            output_file = f"{self.args.output}/config.json"
         try:
             with open(output_file, "w", encoding="utf-8") as file:
                 json.dump(self.config, file, indent=4, sort_keys=True)
@@ -222,16 +221,7 @@ class Config:
                 "deterministic": args.deterministic
             },
             "depr": {
-                "do_train": args.do_train,
-                "do_inference": args.do_inference,
                 "use_mask": args.use_mask,
-                "no_auto": args.no_auto,
-                "height": args.height,
-                "channels": args.channels,
-                "output_charlist": args.output_charlist,
-                "config_file_output": args.config_file_output,
-                "thaw": args.thaw,
-                "existing_model": args.existing_model,
             }
         }
 

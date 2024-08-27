@@ -362,7 +362,7 @@ cd src/visualize
 
 ```bash
 python3 main.py 
---existing_model /path/to/existing/model 
+--model /path/to/existing/model 
 --sample_image /path/to/sample/img
 ```
 
