@@ -80,11 +80,11 @@ def train_model(model: tf.keras.Model,
         callbacks.append(early_stopping)
 
     # Determine the number of steps per epoch
-    cardinality = training_dataset.cardinality().numpy() \
-        if isinstance(training_dataset, tf.data.Dataset) \
-        else training_dataset.cardinality
+    # NOTE: None means that the number of steps is equal to the number of
+    # batches in the dataset (default behavior)
+    # FIXME: steps_per_epoch is not working properly
     steps_per_epoch = config["steps_per_epoch"] \
-        if config["steps_per_epoch"] else cardinality
+        if config["steps_per_epoch"] else None
 
     # Train the model
     history = model.fit(
@@ -93,7 +93,7 @@ def train_model(model: tf.keras.Model,
         epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
-        steps_per_epoch=steps_per_epoch,
+        # steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
     return history

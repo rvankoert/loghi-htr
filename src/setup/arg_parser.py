@@ -356,6 +356,8 @@ def check_required_args(args, explicit):
 
 
 def get_args():
+    logger = logging.getLogger(__name__)
+
     parser = get_arg_parser()
     args = parser.parse_args()
 
@@ -377,5 +379,9 @@ def get_args():
     arg_future_warning(args)
     fix_args(args)
     check_required_args(args, explicit)
+
+    if args.steps_per_epoch:
+        logger.warning("The 'steps_per_epoch' functionality currently does not work, and will thus "
+                       "be ignored.")
 
     return args, explicit
