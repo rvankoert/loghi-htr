@@ -221,10 +221,11 @@ class DataManager:
         if faulty_lines:
             logging.warning("Faulty lines for %s:", partition_name)
             for line, flaw in faulty_lines.items():
-                logging.warning("%s: %s", line.strip(), flaw)
-                logging.warning("Flaw counts for %s:", partition_name)
-                for flaw, count in flaw_counts.items():
-                    logging.warning("%s: %d", flaw, count)
+                logging.warning("%s: %s", flaw, line.strip())
+
+            logging.warning("Flaw counts for %s:", partition_name)
+            for flaw, count in flaw_counts.items():
+                logging.warning("%s: %d", flaw, count)
 
         # Update the character set with any new characters found
         characters.update(set("".join(labels)))
@@ -452,7 +453,7 @@ class DataManager:
         dataset = tf.data.Dataset.from_tensor_slices(data)
         if is_training:
             # Add additional repeat and shuffle for training
-            dataset = dataset.repeat()  # .shuffle(len(data))
+            dataset = dataset.repeat().shuffle(len(data))
 
         dataset = (dataset
                    .map(data_loader.load_images,
