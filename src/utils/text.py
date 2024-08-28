@@ -43,7 +43,7 @@ class Tokenizer:
             num_oov_indices=1,
             oov_token='[UNK]',
             encoding="UTF-8",
-            mask_token='[MASK]'
+            mask_token='[PAD]'
         )
         self.num_to_token = tf.keras.layers.StringLookup(
             vocabulary=self.token_to_num.get_vocabulary(),
@@ -51,7 +51,7 @@ class Tokenizer:
             oov_token='',
             encoding="UTF-8",
             invert=True,
-            mask_token='[MASK]'
+            mask_token='[PAD]'
         )
 
         self.token_list = self.token_to_num.get_vocabulary()
@@ -257,11 +257,11 @@ def preprocess_text(text: str) -> str:
     Notes
     -----
     This function performs operations like stripping whitespace, replacing
-    specific characters (e.g., '[MASK]'), and removing certain control tags using
+    specific characters (e.g., '[PAD]'), and removing certain control tags using
     the `remove_tags` function.
     """
 
-    text = text.strip().replace('[MASK]', '')
+    text = text.strip().replace('[PAD]', '')
     text = remove_tags(text)
     return text
 

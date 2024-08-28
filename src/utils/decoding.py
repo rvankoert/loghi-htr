@@ -98,7 +98,7 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         decoded_array += 1  # Shift the index by 1 to account for the blank character
 
         # Normalize the confidence score based on the number of timesteps
-        text = tokenizer.decode(decoded_array).strip().replace("[MASK]", "")
+        text = tokenizer.decode(decoded_array).strip().replace("[PAD]", "")
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character

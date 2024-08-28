@@ -58,9 +58,6 @@ def perform_inference(config: Config,
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):
-                # Remove the special characters from the prediction
-                prediction = prediction.strip().replace('[MASK]', '')
-
                 # Format the filename
                 filename = data_manager.get_filename('inference',
                                                      (batch_no *
