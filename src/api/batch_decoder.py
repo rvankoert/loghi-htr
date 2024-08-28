@@ -38,6 +38,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
         Path to the model directory.
     output_path: str
         Base path where prediction outputs should be saved.
+    stop_event: multiprocessing.Event
+        Event to signal the process to stop.
     """
 
     logging.info("Batch decoding process started")
@@ -129,14 +131,16 @@ def create_tokenizer(model_path: str) -> Tokenizer:
     """
 
     # Load the character list
-    charlist_path = f"{model_path}/charlist.txt"
+    if os.path.exists(os.path.join(model_path, "tokenizer.json")):
+        charlist_path = os.path.join(model_path, "tokenizer.json")
+    else:
+        charlist_path = os.path.join(model_path, "charlist.txt")
+
     try:
-        with open(charlist_path, encoding="utf-8") as file:
-            charlist = [char for char in file.read() if char != '']
-        tokenizer = Tokenizer(charlist, use_mask=True)
+        tokenizer = Tokenizer.load_from_file(charlist_path)
         logging.debug("Utilities initialized")
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"charlist.txt not found at {model_path}") \
+        raise FileNotFoundError(f"Tokenizer not found in {model_path}") \
             from e
     except Exception as e:
         logging.error("Error loading utilities: %s", e)
@@ -192,7 +196,7 @@ def save_prediction_outputs(
         temp_dir = os.path.join(base_output_path, '.temp_prediction_outputs')
 
     os.makedirs(temp_dir, exist_ok=True)
-    logging.debug(f"Using temporary directory: {temp_dir}")
+    logging.debug("Using temporary directory: %s", temp_dir)
 
     for prediction, group_id, image_id, metadata in zip(
         prediction_data, group_ids, image_ids, image_metadata
