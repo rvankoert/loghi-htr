@@ -60,7 +60,7 @@ def main():
         )
 
     # Load the tokenizer if a valid path was found
-    if json_path:
+    if json_path and not config["replace_final_layer"]:
         tokenizer = Tokenizer.load_from_file(json_path)
     else:
         tokenizer = None  # Indicate that a new tokenizer will be created later
@@ -91,7 +91,7 @@ def main():
         # layers, or adjusting for float32
         model = customize_model(model, config, tokenizer)
 
-        # Save the charlist
+        # Save the tokenizer
         tokenizer.save_to_json(os.path.join(config["output"],
                                             "tokenizer.json"))
 

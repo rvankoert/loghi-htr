@@ -33,10 +33,10 @@ def get_arg_parser():
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help="Seed for random number generators to "
                               "ensure reproducibility. Default: 42.")
-    general_args.add_argument('--charlist', metavar='charlist ', type=str,
-                              default=None, help="Path to a file containing "
-                              "the list of characters to be recognized. "
-                              "Required for inference and validation.")
+    general_args.add_argument('--tokenizer', metavar='tokenizer', type=str,
+                              default=None, help="Path to a tokenizer file for "
+                              "the model. Required for inference and "
+                              "validation.")
     general_args.add_argument('--test_list', metavar='test_list',
                               type=str, default=None, help="File(s) with "
                               "textline locations and transcriptions for "

@@ -128,10 +128,7 @@ def replace_final_layer(model: tf.keras.models.Model,
         inputs=model.inputs, outputs=model.get_layer(last_layer).output
     )
 
-    # Account for the mask and OOV tokens
-    units = number_characters + 2
-
-    x = layers.Dense(units, activation="softmax", name="dense_out",
+    x = layers.Dense(number_characters, activation="softmax", name="dense_out",
                      kernel_initializer=initializer)(prediction_model.output)
 
     # Add a linear activation layer with float32 data type

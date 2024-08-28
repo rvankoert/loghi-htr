@@ -159,7 +159,7 @@ class Config:
                 "config_file": args.config_file,
                 "batch_size": args.batch_size,
                 "seed": args.seed,
-                "charlist": args.charlist
+                "tokenizer": args.tokenizer
             },
             "training": {
                 "epochs": args.epochs,

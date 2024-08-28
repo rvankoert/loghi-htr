@@ -22,8 +22,8 @@ def initialize_data_manager(config: Config,
     config : Config
         A Config containing various arguments to configure the data manager
         (e.g., batch size, image size, lists for training, validation, etc.).
-    charlist : List[str]
-        A list of characters to be used by the data manager.
+    tokenizer : Tokenizer
+        The tokenizer to be used for tokenizing text.
     model : tf.keras.Model
         The Keras model, used to derive input dimensions for the data manager.
     augment_model : tf.keras.Sequential
