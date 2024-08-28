@@ -127,9 +127,6 @@ class Tokenizer:
         tf.Tensor
             A tensor of tokenized integer sequences.
         """
-        if isinstance(texts, str):
-            texts = [texts]
-
         split_texts = tf.strings.unicode_split(texts, 'UTF-8')
         return self.token_to_num(split_texts)
 

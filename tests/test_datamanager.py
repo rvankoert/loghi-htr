@@ -117,10 +117,11 @@ class DataManagerTest(unittest.TestCase):
             "img_size": (256, 256, 3),
         })
 
+        tokenizer = self.Tokenizer(tokens=list("abc"))
         data_manager = self.DataManager(img_size=test_config["img_size"],
                                         config=test_config,
                                         augment_model=None,
-                                        charlist=list("abc"))
+                                        tokenizer=tokenizer)
         self.assertIsInstance(data_manager, self.DataManager,
                               "DataManager not instantiated correctly")
 
@@ -152,7 +153,7 @@ class DataManagerTest(unittest.TestCase):
         # Check the tokenizer
         self.assertIsInstance(data_manager.tokenizer, self.Tokenizer,
                               "Tokenizer not created correctly")
-        self.assertEqual(len(data_manager.tokenizer.charlist), 27,
+        self.assertEqual(len(data_manager.tokenizer), 29,
                          "Charlist length not as expected")
 
     def test_missing_files(self):
@@ -211,11 +212,6 @@ class DataManagerTest(unittest.TestCase):
                          self.sample_labels[0]+"!",
                          "Label not as expected")
 
-        # RK: This should not raise an error imho so why is it tested like this?
-        # with self.assertRaises(IndexError):
-        #     data_manager.get_filename("validation", 0)
-        #     data_manager.get_filename("evaluation", 3)
-
         # Remove the temporary file
         self._remove_temp_file(temp_sample_list_file)
 
@@ -232,11 +228,12 @@ class DataManagerTest(unittest.TestCase):
         })
         charlist = list(
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789, ")
+        tokenizer = self.Tokenizer(tokens=charlist)
 
         data_manager = self.DataManager(img_size=test_config["img_size"],
                                         config=test_config,
                                         augment_model=tf.keras.Sequential(),
-                                        charlist=charlist)
+                                        tokenizer=tokenizer)
 
         # Check if the data is created correctly
         self.assertEqual(data_manager.get_filename("train", 2),

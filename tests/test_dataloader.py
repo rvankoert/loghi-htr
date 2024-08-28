@@ -48,7 +48,7 @@ class TestDataLoader(unittest.TestCase):
         cls.ResizeWithPadLayer = ResizeWithPadLayer
 
     def test_initialization(self):
-        tokenizer = self.Tokenizer(chars=list("ABC"), use_mask=False)
+        tokenizer = self.Tokenizer(tokens=list("ABC"))
         dg = self.DataLoader(tokenizer=tokenizer, height=64,
                              augment_model=None)
 
@@ -75,7 +75,7 @@ class TestDataLoader(unittest.TestCase):
         image_info_tuples = list(zip(images, labels, sample_weights))
         dummy_augment_model = tf.keras.Sequential([])
 
-        tokenizer = self.Tokenizer(chars=vocab, use_mask=False)
+        tokenizer = self.Tokenizer(tokens=vocab)
         dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=1,
                              augment_model=dummy_augment_model)
 
@@ -115,7 +115,7 @@ class TestDataLoader(unittest.TestCase):
         dummy_augment_model = tf.keras.Sequential(
             [self.ResizeWithPadLayer(70, additional_width=50)])
 
-        tokenizer = self.Tokenizer(chars=vocab, use_mask=False)
+        tokenizer = self.Tokenizer(tokens=vocab)
         dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=4,
                              augment_model=dummy_augment_model,
                              is_training=True)
