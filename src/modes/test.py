@@ -144,7 +144,7 @@ def perform_test(config: Config,
 
     logging.info("Performing test...")
 
-    tokenizer = Tokenizer(charlist, config["use_mask"])
+    tokenizer = Tokenizer(charlist)
 
     # Setup WordBeamSearch if needed
     wbs = setup_word_beam_search(config, charlist) \

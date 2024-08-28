@@ -220,9 +220,6 @@ class Config:
                 "normalization_file": args.normalization_file,
                 "deterministic": args.deterministic
             },
-            "depr": {
-                "use_mask": args.use_mask,
-            }
         }
 
     def update_args_from_file(self, config_file: str) -> None:

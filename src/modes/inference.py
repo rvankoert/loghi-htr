@@ -48,7 +48,7 @@ def perform_inference(config: Config,
     results.
     """
 
-    tokenizer = Tokenizer(charlist, config["use_mask"])
+    tokenizer = Tokenizer(charlist)
 
     with open(config["results_file"], "w", encoding="utf-8") as results_file:
         for batch_no, batch in enumerate(inference_dataset):

@@ -7,16 +7,14 @@ import logging
 
 # > Local dependencies
 # Data handling
-from data.data_handling import save_charlist, load_initial_charlist, \
-    initialize_data_manager
+from data.data_handling import initialize_data_manager
 
 # Model-specific
 from data.augmentation import make_augment_model, visualize_augments
 from model.custom_layers import ResidualBlock
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
-from model.management import load_or_create_model, customize_model, \
-    verify_charlist_length
+from model.management import load_or_create_model, customize_model
 from model.optimization import create_learning_rate_schedule, get_optimizer, \
     LoghiLearningRateSchedule
 from modes.training import train_model, plot_training_history
@@ -31,6 +29,7 @@ from setup.environment import setup_environment, setup_logging
 
 # Utilities
 from utils.print import summarize_model
+from utils.text import Tokenizer
 
 
 def main():
@@ -48,12 +47,23 @@ def main():
     if config["output"]:
         os.makedirs(config["output"], exist_ok=True)
 
-    # Get the initial tokenizer
-    if os.path.isdir(config["model"]) or config["tokenizer"]:
-        tokenizer = Tokenizer(json_path=config["tokenizer"])
+    # Determine the path to the tokenizer file
+    json_path = None
+
+    if config["tokenizer"]:
+        json_path = config["tokenizer"]
+    elif os.path.isdir(config["model"]):
+        json_path = next(
+            (os.path.join(config["model"], fname) for fname in ["tokenizer.json", "charlist.txt"]
+             if os.path.exists(os.path.join(config["model"], fname))),
+            None
+        )
+
+    # Load the tokenizer if a valid path was found
+    if json_path:
+        tokenizer = Tokenizer.load_from_file(json_path)
     else:
-        tokenizer = None
-        removed_padding = False
+        tokenizer = None  # Indicate that a new tokenizer will be created later
 
     # Set the custom objects
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
@@ -75,10 +85,8 @@ def main():
 
         # Replace the tokenizer with the one from the data manager
         tokenizer = data_manager.tokenizer
-        logging.info("Using tokenizer:\n%s", tokenizer)
         logging.info("Tokenizer size: %s tokens", len(tokenizer))
 
-        # TODO: Continue from here
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
         model = customize_model(model, config, tokenizer)
@@ -143,7 +151,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(config, model, charlist, data_manager)
+        perform_validation(config, model, data_manager)
         timestamps['Validation'] = time.time() - tick
 
     # Test the model
@@ -152,14 +160,14 @@ def main():
 
         tick = time.time()
         perform_test(config, model, data_manager.datasets["test"],
-                     charlist, data_manager)
+                     data_manager)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
         perform_inference(config, model, data_manager.datasets["inference"],
-                          charlist, data_manager)
+                          data_manager)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps

@@ -235,23 +235,7 @@ def get_arg_parser():
                            help="Enable deterministic mode for reproducible "
                            "results, at the cost of performance.")
 
-    # Deprecation zone
-    depr_args = parser.add_argument_group(
-        'Deprecation zone', 'These arguments will be removed in the future')
-    depr_args.add_argument('--use_mask', help='whether or not to mask certain '
-                           'parts of the data. Defaults to true when '
-                           'batch_size > 1', action='store_true')
-
     return parser
-
-
-def arg_future_warning(args):
-    logger = logging.getLogger(__name__)
-
-    # May 2024
-    if args.use_mask:
-        logger.warning("Argument will lose support in May 2024: --use_mask. "
-                       "Masking will be enabled by default.")
 
 
 def check_required_args(args, explicit):
@@ -299,8 +283,6 @@ def get_args():
                                      for key, value in
                                      vars(sentinel_ns).items()})
 
-    # TODO: remove after deprecation period
-    arg_future_warning(args)
     check_required_args(args, explicit)
 
     if args.steps_per_epoch:

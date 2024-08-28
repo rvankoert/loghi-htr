@@ -14,8 +14,7 @@ from model.vgsl_model_generator import VGSLModelGenerator
 
 def replace_recurrent_layer(model: tf.keras.Model,
                             number_characters: int,
-                            vgsl_string: str,
-                            use_mask: bool = False) -> tf.keras.Model:
+                            vgsl_string: str) -> tf.keras.Model:
     """
     Replace recurrent layers in a given Keras model with new layers specified
     by a VGSL string.
@@ -30,10 +29,6 @@ def replace_recurrent_layer(model: tf.keras.Model,
     vgsl_string : str
         The VGSL spec string that defines the new layers to replace the
         recurrent ones.
-    use_mask : bool, optional
-        Whether to use masking for the Dense layer. If True, an additional unit
-        is added.
-        Default is False.
 
     Returns
     -------
@@ -77,16 +72,10 @@ def replace_recurrent_layer(model: tf.keras.Model,
         x = new_layer(x)
 
     dense_layer_name = model.layers[-2].name
-    if use_mask:
-        x = layers.Dense(number_characters + 2,
-                         activation="softmax",
-                         name=dense_layer_name,
-                         kernel_initializer=initializer)(x)
-    else:
-        x = layers.Dense(number_characters + 1,
-                         activation="softmax",
-                         name=dense_layer_name,
-                         kernel_initializer=initializer)(x)
+    x = layers.Dense(number_characters + 2,
+                     activation="softmax",
+                     name=dense_layer_name,
+                     kernel_initializer=initializer)(x)
     output = layers.Activation('linear', dtype=tf.float32)(x)
 
     old_model_name = model.name
@@ -102,8 +91,7 @@ def replace_recurrent_layer(model: tf.keras.Model,
 
 def replace_final_layer(model: tf.keras.models.Model,
                         number_characters: int,
-                        model_name: str,
-                        use_mask: bool = False) -> tf.keras.models.Model:
+                        model_name: str) -> tf.keras.models.Model:
     """
     Replace the final layer of a given Keras model.
 
@@ -119,9 +107,6 @@ def replace_final_layer(model: tf.keras.models.Model,
         Number of units for the new dense layer.
     model_name : str
         Name to assign to the modified model.
-    use_mask : bool, optional
-        Whether to use a mask, which adds two additional units to the layer, by
-        default False.
 
     Returns
     -------
@@ -143,11 +128,8 @@ def replace_final_layer(model: tf.keras.models.Model,
         inputs=model.inputs, outputs=model.get_layer(last_layer).output
     )
 
-    # Add a new dense layer with adjusted number of units based on use_mask
-    if use_mask:
-        units = number_characters + 2
-    else:
-        units = number_characters + 1
+    # Account for the mask and OOV tokens
+    units = number_characters + 2
 
     x = layers.Dense(units, activation="softmax", name="dense_out",
                      kernel_initializer=initializer)(prediction_model.output)

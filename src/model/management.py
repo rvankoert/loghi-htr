@@ -89,17 +89,13 @@ def customize_model(model: tf.keras.Model,
                      config["replace_recurrent_layer"])
         model = replace_recurrent_layer(model,
                                         len(tokenizer),
-                                        config["replace_recurrent_layer"],
-                                        use_mask=config["use_mask"])
+                                        config["replace_recurrent_layer"])
 
     # Replace the final layer if specified
     if config["replace_final_layer"] or not os.path.isdir(config["model"]):
-        new_classes = len(tokenizer) + \
-            2 if config["use_mask"] else len(
-                tokenizer) + 1  # TODO : replace use_mask
+        new_classes = len(tokenizer)
         logging.info("Replacing final layer with %s classes", new_classes)
-        model = replace_final_layer(model, len(tokenizer), model.name,
-                                    use_mask=config["use_mask"])
+        model = replace_final_layer(model, len(tokenizer), model.name)
 
     # Freeze layers if specified
     if any([config["freeze_conv_layers"],
@@ -342,43 +338,3 @@ def load_or_create_model(config: Config,
         model = model_generator.build()
 
     return model
-
-
-def verify_charlist_length(charlist: List[str],
-                           model: tf.keras.Model,
-                           use_mask: bool,
-                           removed_padding: bool) -> None:
-    """
-    Verifies if the length of the character list matches the expected output
-    length of the model.
-
-    Parameters
-    ----------
-    charlist : List[str]
-        List of characters to be verified.
-    model : tf.keras.Model
-        The model whose output length is to be checked.
-    use_mask : bool
-        Indicates whether a mask is being used or not.
-    removed_padding : bool
-        Indicates whether padding was removed from the character list.
-
-    Raises
-    ------
-    ValueError
-        If the length of the charlist does not match the expected output length
-        of the model.
-    """
-
-    # Verify that the length of the charlist is correct
-    if use_mask:
-        expected_length = model.get_layer(index=-1) \
-            .output.shape[2] - 2 - int(removed_padding)
-    else:
-        expected_length = model.get_layer(index=-1) \
-            .output.shape[2] - 1 - int(removed_padding)
-    if len(charlist) != expected_length:
-        raise ValueError(
-            f"Charlist length ({len(charlist)}) does not match "
-            f"model output length ({expected_length}). If the charlist "
-            "is correct, try setting use_mask to True.")

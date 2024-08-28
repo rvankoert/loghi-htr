@@ -462,8 +462,7 @@ The `replace_recurrent_layer` is a feature that allows you to replace the recurr
 
 1. Specify the model you want to modify using the `--model` argument.
 2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
-3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
-4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
+3. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
 
 ### I'm getting the following error when I want to use `replace_recurrent_layer`: `Input 0 of layer "lstm_1" is incompatible with the layer: expected ndim=3, found ndim=2.` What do I do?
 

@@ -4,7 +4,7 @@
 from collections import defaultdict
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -26,8 +26,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
                   config: Config,
                   wbs: Optional[Any],
                   data_manager: DataManager,
-                  batch_no: int,
-                  chars: List[str]) -> Dict[str, int]:
+                  batch_no: int) -> Dict[str, int]:
     """
     Processes a batch of data by predicting, calculating Character Error Rate
     (CER), and handling Word Beam Search (WBS) if enabled.
@@ -52,8 +51,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
         validation.
     batch_no : int
         The number of the current batch being processed.
-    chars : List[str]
-        A list of characters used in the model.
 
     Returns
     -------
@@ -72,7 +69,7 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
     # Transpose the predictions for WordBeamSearch
     if wbs:
         predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
-        char_str = handle_wbs_results(predsbeam, wbs, chars)
+        char_str = handle_wbs_results(predsbeam, wbs, tokenizer.token_list)
     else:
         char_str = None
 
@@ -127,7 +124,6 @@ def process_batch(batch: Tuple[tf.Tensor, tf.Tensor],
 
 def perform_validation(config: Config,
                        model: tf.keras.Model,
-                       charlist: List[str],
                        data_manager: DataManager) -> None:
     """
     Performs validation on a dataset using a given model and calculates various
@@ -140,8 +136,6 @@ def perform_validation(config: Config,
         process such as mask usage and file paths.
     model : tf.keras.Model
         The Keras model to be validated.
-    charlist : List[str]
-        A list of characters used in the model.
     data_manager : DataManager
         A DataManager object containing the datasets and tokenizers for
         validation.
@@ -162,7 +156,7 @@ def perform_validation(config: Config,
     prediction_model = model
 
     # Setup WordBeamSearch if needed
-    wbs = setup_word_beam_search(config, charlist) \
+    wbs = setup_word_beam_search(config, tokenizer) \
         if config["corpus_file"] else None
 
     # Initialize variables for CER calculation
@@ -178,8 +172,7 @@ def perform_validation(config: Config,
 
         # Logic for processing each batch, calculating CER, etc.
         batch_counter = process_batch((X, y), prediction_model, tokenizer,
-                                      config, wbs, data_manager, batch_no,
-                                      charlist)
+                                      config, wbs, data_manager, batch_no)
 
         # Update totals with batch information
         for key, value in batch_counter.items():
