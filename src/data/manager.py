@@ -220,15 +220,13 @@ class DataManager:
         # Log the faulty lines and flaw counts
         if faulty_lines:
             logging.warning("Faulty lines for %s:", partition_name)
+            # Sort the faulty lines by flaw
             for line, flaw in faulty_lines.items():
                 logging.warning("%s: %s", flaw, line.strip())
 
             logging.warning("Flaw counts for %s:", partition_name)
             for flaw, count in flaw_counts.items():
                 logging.warning("%s: %d", flaw, count)
-
-        # Update the character set with any new characters found
-        characters.update(set("".join(labels)))
 
         logging.info("Created data for %s with %d samples",
                      partition_name, len(partitions))
@@ -290,9 +288,6 @@ class DataManager:
                 partition_name in ('train', 'evaluation'):
             ground_truth = normalize_text(ground_truth,
                                           self.config['normalization_file'])
-
-        # Add characters to the set for tokenizer
-        characters.update(ground_truth)
 
         # Check for unsupported characters in the ground truth
         if not self._is_valid_ground_truth(ground_truth, partition_name,
