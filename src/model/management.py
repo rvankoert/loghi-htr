@@ -3,7 +3,7 @@
 # > Standard library
 import logging
 import os
-from typing import Any, List, Dict, Optional
+from typing import Any, Dict, Optional
 import json
 import shutil
 import warnings
@@ -11,12 +11,12 @@ import zipfile
 
 # > Third-party dependencies
 import tensorflow as tf
+from vgslify.generator import VGSLModelGenerator
 
 # > Local dependencies
 from model.custom_model import build_custom_model
 from model.conversion import convert_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
-from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
 from utils.text import Tokenizer
 
@@ -301,18 +301,16 @@ def _convert_old_model_to_new(model_file: str,
     return model
 
 
-def load_or_create_model(config: Config,
-                         custom_objects: Dict[str, Any]) -> tf.keras.Model:
+def load_or_create_model(config: Config, custom_objects: Dict[str, Any]) -> tf.keras.Model:
     """
-    Loads an existing Keras model or creates a new one based on provided
-    arguments.
+    Loads an existing Keras model or creates a new one based on the provided configuration.
 
     Parameters
     ----------
     config : Config
-        The configuration object containing the arguments.
+        Configuration object containing model and other arguments.
     custom_objects : Dict[str, Any]
-        Custom objects required for model loading.
+        Dictionary of custom objects required for model loading.
 
     Returns
     -------
@@ -320,21 +318,102 @@ def load_or_create_model(config: Config,
         The loaded or newly created Keras model.
     """
 
-    # Check if config["model"] is a directory
-    if os.path.isdir(config["model"]):
-        model = load_model_from_directory(config["model"],
-                                          output_directory=config["output"],
-                                          custom_objects=custom_objects)
+    model_path = config["model"]
+
+    # Check if the provided model is a directory (indicating a saved model)
+    if os.path.isdir(model_path):
+        model = load_model_from_directory(
+            model_path, output_directory=config["output"], custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
-    elif config["model"] == 'custom':
+    # Handle 'custom' model type
+    elif model_path == 'custom':
         model = build_custom_model()
     else:
-        model_generator = VGSLModelGenerator(
-            model_spec=config["model"],
-            name=config["model_name"],
-            channels=config["channels"]
-        )
-        model = model_generator.build()
+        model = build_predefined_model(config, model_path)
 
     return model
+
+
+def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
+    """
+    Builds a model from the predefined library based on the configuration.
+
+    Parameters
+    ----------
+    config : Config
+        Configuration object containing model specifications.
+    model_key : str
+        Key for selecting the model from the predefined library.
+
+    Returns
+    -------
+    tf.keras.Model
+        The newly built Keras model.
+    """
+
+    model_library = get_model_library()
+    model_spec = model_library.get(model_key, model_key)
+
+    model_generator = VGSLModelGenerator()
+    model = model_generator.generate_model(model_spec=model_spec)
+
+    if config["model_name"]:
+        model._name = config["model_name"]
+
+    return model
+
+
+def get_model_library() -> dict:
+    """
+    Returns a dictionary of predefined models with their VGSL spec strings.
+
+    Returns
+    -------
+    dict
+        Dictionary of predefined models with their VGSL spec strings.
+    """
+
+    model_library = {
+        "modelkeras":
+            ("None,None,64,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
+             "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
+        "model9":
+            ("None,None,64,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+        "model10":
+            ("None,None,64,4 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+        "model11":
+            ("None,None,64,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
+             "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bl256 Bl256 Bl256 "
+             "Bl256 Bl256 Fe1024 O1s92"),
+        "model12":
+            ("None,None,64,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
+             "Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 Bl256 Bl256 Bl256 Bl256 "
+             "O1s92"),
+        "model13":
+            ("None,None,64,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
+             "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
+             "Bn Rc Bl256 Bl256 Bl256 Bl256 Bl256 O1s92"),
+        "model14":
+            ("None,None,64,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
+             "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+        "model15":
+            ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256,D50 Bg256,D50 Bg256,D50 "
+             "Bg256,D50 Bg256,D50 O1s92"),
+        "model16":
+            ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+             "Lfs128,D50 Lfs128,D50 O1s92"),
+        "recommended":
+            ("None,None,64,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Bn Cr3,3,96 "
+             "Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 Bl512 D50 "
+             "Bl512 D50 Bl512 D50 Bl512 D50 O1s92")
+    }
+
+    return model_library

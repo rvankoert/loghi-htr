@@ -54,9 +54,6 @@ class TestReplaceLayers(unittest.TestCase):
             level=logging.ERROR,
         )
 
-        from model.vgsl_model_generator import VGSLModelGenerator
-        cls.VGSLModelGenerator = VGSLModelGenerator
-
         import model.replacing as replacing
         cls.replacing = replacing
 

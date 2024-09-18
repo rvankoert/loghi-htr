@@ -7,9 +7,7 @@ import logging
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
-# > Local dependencies
-from model.vgsl_model_generator import VGSLModelGenerator
+from vgslify.generator import VGSLModelGenerator
 
 
 def replace_recurrent_layer(model: tf.keras.Model,
@@ -61,18 +59,17 @@ def replace_recurrent_layer(model: tf.keras.Model,
 
     # Generate new layers using VGSLModelGenerator
     logging.info("Generating new layers using VGSLModelGenerator.")
-    vgsl_gen = VGSLModelGenerator(vgsl_string)
+    history = VGSLModelGenerator().generate_history(vgsl_string)
 
-    logging.debug("VGSLModelGenerator history: %s", vgsl_gen.history)
+    logging.debug("VGSLModelGenerator history: %s", history)
 
     # Add the new layers to the model
     x = last_layer.output
-    for layer_name in vgsl_gen.history:
-        new_layer = getattr(vgsl_gen, layer_name)
-        x = new_layer(x)
+    for layer in history:
+        x = layer(x)
 
     dense_layer_name = model.layers[-2].name
-    x = layers.Dense(number_characters + 2,
+    x = layers.Dense(number_characters,
                      activation="softmax",
                      name=dense_layer_name,
                      kernel_initializer=initializer)(x)
