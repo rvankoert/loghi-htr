@@ -356,35 +356,20 @@ To integrate a Loghi HTR model into your project, follow these steps:
 
 ### How can I determine the VGSL spec of a model I previously used?
 
-If you've used one of our older models and would like to know its VGSL specification, follow these steps:
+If you've used one of our models and would like to know its VGSL specification, you can now use the **vgslify** package to generate the VGSL spec directly from your model. Follow the steps below:
 
-**For Docker users:**
+1. Load your model as usual (either from a saved file or from memory).
+2. Use the `vgslify.utils.model_to_spec` function to generate the VGSL spec string.
 
-1. If your Docker container isn't already running with the model directory mounted, start it and bind mount your model directory:
+Example:
 
-```bash
-docker run -it -v /path/on/host/to/your/model_directory:/path/in/container/to/model_directory loghi/docker.htr
+```python
+from vgslify.utils import model_to_spec
+vgsl_spec_string = model_to_spec(model)
+print(vgsl_spec_string)
 ```
 
-Replace `/path/on/host/to/your/model_directory` with the path to your model directory on your host machine, and `/path/in/container/to/model_directory` with the path where you want to access it inside the container.
-
-2. Once inside the container, run the VGSL spec generator:
-
-```bash
-python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
-```
-
-Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
-
-**For Python users:**
-
-1. Run the VGSL spec generator:
-
-```bash
-python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
-```
-
-Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.
+Replace `model` with your loaded TensorFlow model.
 
 ### How do I use `replace_recurrent_layer`?
 
