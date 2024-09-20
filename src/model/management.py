@@ -376,44 +376,44 @@ def get_model_library() -> dict:
 
     model_library = {
         "modelkeras":
-            ("None,None,64,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc "
-             "Fl64 D20 Bl128 D20 Bl64 D20 O1s92"),
+            ("None,None,64,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc3 "
+             "Fl64 D20 Bl128 D20 Bl64 D20 Fs92"),
         "model9":
             ("None,None,64,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
-             "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
         "model10":
             ("None,None,64,4 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
-             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256,D50 Bl256,D50 "
-             "Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
         "model11":
             ("None,None,64,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
-             "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc Bl256 Bl256 Bl256 "
-             "Bl256 Bl256 Fe1024 O1s92"),
+             "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc3 Bl256 Bl256 Bl256 "
+             "Bl256 Bl256 Fe1024 Fs92"),
         "model12":
             ("None,None,64,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
-             "Cr3,3,96 Bn Mp2,2,2,2 Rc Bl256 Bl256 Bl256 Bl256 Bl256 "
-             "O1s92"),
+             "Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256 Bl256 Bl256 Bl256 Bl256 "
+             "Fs92"),
         "model13":
             ("None,None,64,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
              "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
-             "Bn Rc Bl256 Bl256 Bl256 Bl256 Bl256 O1s92"),
+             "Bn Rc3 Bl256 Bl256 Bl256 Bl256 Bl256 Fs92"),
         "model14":
             ("None,None,64,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
-             "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc Bl256,D50 "
-             "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 O1s92"),
+             "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc3 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
         "model15":
             ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-             "Ce3,3,32 Bn Ce3,3,48 Bn Rc Bg256,D50 Bg256,D50 Bg256,D50 "
-             "Bg256,D50 Bg256,D50 O1s92"),
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc3 Bg256,D50 Bg256,D50 Bg256,D50 "
+             "Bg256,D50 Bg256,D50 Fs92"),
         "model16":
             ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
-             "Ce3,3,32 Bn Ce3,3,48 Bn Rc Lfs128,D50 Lfs128,D50 Lfs128,D50 "
-             "Lfs128,D50 Lfs128,D50 O1s92"),
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc3 Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+             "Lfs128,D50 Lfs128,D50 Fs92"),
         "recommended":
             ("None,None,64,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Bn Cr3,3,96 "
-             "Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc Bl512 D50 Bl512 D50 "
-             "Bl512 D50 Bl512 D50 Bl512 D50 O1s92")
+             "Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc3 Bl512 D50 Bl512 D50 "
+             "Bl512 D50 Bl512 D50 Bl512 D50 Fs92")
     }
 
     return model_library
