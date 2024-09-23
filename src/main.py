@@ -31,6 +31,8 @@ from setup.environment import setup_environment, setup_logging
 from utils.print import summarize_model
 from utils.text import Tokenizer
 
+import tensorflow as tf
+
 
 def main():
     """ Main function for the program """

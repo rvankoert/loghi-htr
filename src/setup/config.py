@@ -118,6 +118,25 @@ class Config:
         setattr(self.args, key, value)
         self.config["args"] = self.organize_args(self.args)
 
+    def get(self, key: str, default: any = None) -> any:
+        """
+        Get a value from the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to retrieve.
+        default : any, optional
+            The default value to return if the key does not exist.
+
+        Returns
+        -------
+        any
+            The value corresponding to the key, or the default value.
+        """
+
+        return self.config.get(key, default)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.

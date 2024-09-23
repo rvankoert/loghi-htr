@@ -1,7 +1,7 @@
 # Imports
 
 # > Standard Library
-from typing import Tuple
+from typing import Tuple, Optional
 
 # > Third party libraries
 import tensorflow as tf
@@ -13,7 +13,7 @@ from utils.text import Tokenizer
 class DataLoader:
     def __init__(self,
                  tokenizer: Tokenizer,
-                 augment_model: tf.keras.Sequential,
+                 augmentations: tf.keras.Sequential,
                  height: int = 64,
                  channels: int = 1,
                  is_training: bool = False):
@@ -24,106 +24,52 @@ class DataLoader:
         ----------
         tokenizer: Tokenizer
             The tokenizer used for encoding labels.
-        augment_model: tf.keras.Sequential
-            The model used for data augmentation.
+        augmentations: tf.keras.Sequential
+            The data augmentation layers.
         height : int, optional
             The height of the preprocessed image (default is 64).
         channels : int, optional
             The number of channels in the image (default is 1).
         is_training : bool, optional
-            Indicates whether the DataLoader is used for training (default is
-            False).
+            Indicates whether the DataLoader is used for training (default is False).
         """
-
         self.tokenizer = tokenizer
-        self.augment_model = augment_model
+        self.augmentations = augmentations
         self.height = height
         self.channels = channels
         self.is_training = is_training
 
-    def load_images(self,
-                    image_info_tuple: Tuple[str, str, str]) \
-            -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
-        """
-        Loads, preprocesses a single image, and encodes its label.
-
-        Parameters
-        ----------
-        image_info_tuple : Tuple[str, str, str]
-            A tuple containing image path, label, and sample weight.
-
-        Returns
-        -------
-        Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
-            A tuple containing the preprocessed image, encoded label, and
-            sample weight.
-        """
-
-        # Load and preprocess the image
-        image, original_width = self._load_and_preprocess_image(
-            image_info_tuple[0])
-
-        # Encode the label
-        encoded_label = self.tokenizer(image_info_tuple[1])
-
-        # Ensure the image width is sufficient for CTC decoding
-        image = self._ensure_width_for_ctc(
-            image, encoded_label, original_width)
-
-        # Center the image values around 0.5
-        image = 0.5 - image
-
-        # Transpose the image
-        image = tf.transpose(image, perm=[1, 0, 2])
-
-        # Get the sample weight
-        sample_weight = tf.strings.to_number(image_info_tuple[2])
-
-        return image, encoded_label, sample_weight
-
-    def _load_and_preprocess_image(self, image_path: str) \
-            -> Tuple[tf.Tensor, int]:
+    @tf.function
+    def load_image(self, image_path: tf.Tensor) -> tf.Tensor:
         """
         Loads and preprocesses a single image.
 
         Parameters
         ----------
-        image_path: str
+        image_path: tf.Tensor
             The path to the image file.
 
         Returns
         -------
-        Tuple[tf.Tensor, int]
-            A tuple containing the preprocessed image and the original width
-            of the image.
-
-        Raises
-        ------
-        ValueError
-            If the number of channels is not 1, 3, or 4.
+        tf.Tensor
+            The preprocessed image tensor.
         """
+        # Load the image
+        image_content = tf.io.read_file(image_path)
 
-        # 1. Load the Image
-        image = tf.io.read_file(image_path)
+        # Decode the image (assuming images are in PNG format)
+        image = tf.io.decode_image(
+            image_content, channels=self.channels, expand_animations=False)
 
-        try:
-            image = tf.image.decode_image(image, channels=self.channels,
-                                          expand_animations=False)
-        except ValueError as e:
-            raise ValueError("Invalid number of channels. "
-                             "Expected 1, 3, or 4.") from e
+        # Resize and normalize the image
+        image = tf.image.resize(
+            image, [self.height, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True)
+        image = tf.cast(image, tf.float32) / 255.0
 
-        # 2. Resize the Image and Normalize Pixel Values to [0, 1]
-        image = tf.image.resize(image, (self.height, 99999),
-                                preserve_aspect_ratio=True) / 255.0
-
-        original_width = tf.shape(image)[1]
-
-        # 3. Apply Data Augmentations
         # Add batch dimension (required for augmentation model)
         image = tf.expand_dims(image, 0)
 
-        for layer in self.augment_model.layers:
+        for layer in self.augmentations.layers:
             # Custom layer handling (assuming 'extra_resize_with_pad'
             # remains)
             if layer.name == "extra_resize_with_pad":
@@ -131,15 +77,55 @@ class DataLoader:
             else:
                 image = layer(image, training=self.is_training)
 
-        return tf.cast(image[0], tf.float32), original_width
+        # Remove the batch dimension
+        image = tf.squeeze(image, axis=0)
 
-    def _ensure_width_for_ctc(self,
-                              image: tf.Tensor,
-                              encoded_label: tf.Tensor,
-                              original_width: int) -> tf.Tensor:
+        # Center the image values around 0.5
+        image = image - 0.5
+
+        # Transpose the image
+        image = tf.transpose(image, perm=[1, 0, 2])
+
+        return image
+
+    @tf.function
+    def process_sample(self, image_path: tf.Tensor, label: tf.Tensor, sample_weight: tf.Tensor) \
+            -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         """
-        Resizes the image if necessary to accommodate the encoded label during
-        CTC decoding.
+        Processes a single sample consisting of an image path, label, and sample weight.
+
+        Parameters
+        ----------
+        image_path : tf.Tensor
+            The path to the image file.
+        label : tf.Tensor
+            The label associated with the image.
+        sample_weight : tf.Tensor
+            The sample weight.
+
+        Returns
+        -------
+        Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
+            A tuple containing the preprocessed image, encoded label, and sample weight.
+        """
+        # Load and preprocess the image
+        image = self.load_image(image_path)
+
+        # Encode the label
+        encoded_label = self.tokenizer(label)
+
+        # Ensure the image width is sufficient for CTC decoding
+        image = self._ensure_width_for_ctc(image, encoded_label)
+
+        sample_weight = tf.strings.to_number(
+            sample_weight, out_type=tf.float32)
+
+        return image, encoded_label, sample_weight
+
+    @tf.function
+    def _ensure_width_for_ctc(self, image: tf.Tensor, encoded_label: tf.Tensor) -> tf.Tensor:
+        """
+        Ensures that the image width is sufficient for CTC decoding.
 
         Parameters
         ----------
@@ -147,37 +133,27 @@ class DataLoader:
             The preprocessed image tensor.
         encoded_label : tf.Tensor
             The encoded label.
-        original_width : int
-            The original width of the image.
 
         Returns
         -------
         tf.Tensor
             The resized image tensor.
         """
-
         # Calculate the required width for the image
-        required_width = len(encoded_label)
-
-        num_repetitions = 0
-        last_char = None
-        for char in encoded_label:
-            if char == last_char:
-                num_repetitions += 1
-            last_char = char
-
-        # Add repetitions
-        required_width += num_repetitions
+        required_width = tf.shape(encoded_label)[
+            0] + tf.reduce_sum(tf.cast(tf.equal(encoded_label[:-1], encoded_label[1:]), tf.int32))
 
         # Convert to pixels
         pixels_per_column = 16
         required_width *= pixels_per_column
 
-        # Mandatory cast to float32
-        image = tf.cast(image, tf.float32)
+        # Pad the image if necessary
+        current_width = tf.shape(image)[0]
+        width_diff = required_width - current_width
+        width_diff = tf.maximum(width_diff, 0)
 
-        if original_width < required_width:
-            image = tf.image.resize_with_pad(
-                image, self.height, required_width)
+        if width_diff > 0:
+            padding = [[0, width_diff], [0, 0], [0, 0]]
+            image = tf.pad(image, padding, mode='CONSTANT')
 
         return image

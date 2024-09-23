@@ -429,41 +429,59 @@ class DataManager:
         tf.data.Dataset
             The created dataset.
         """
-
-        # Determine if the dataset is for training
         is_training = partition_name == 'train'
 
-        # Create the data loader that will be used to load and preprocess the
-        # images in the dataset
-        data_loader = DataLoader(self.tokenizer, self.augment_model,
-                                 self.height, self.channels, is_training)
+        # Create separate datasets for files, labels, and sample weights
+        files_ds = tf.data.Dataset.from_tensor_slices(files)
+        labels_ds = tf.data.Dataset.from_tensor_slices(labels)
+        sample_weights_ds = tf.data.Dataset.from_tensor_slices(sample_weights)
 
-        # Zip the files, labels, and sample weights to create the dataset
-        data = list(zip(files, labels, sample_weights))
+        # Zip the datasets together
+        dataset = tf.data.Dataset.zip((files_ds, labels_ds, sample_weights_ds))
 
-        # Determine the number of batches
-        num_batches = np.ceil(len(data) / self.config["batch_size"])
-
-        # Create the dataset
-        dataset = tf.data.Dataset.from_tensor_slices(data)
+        # Shuffle and repeat if training
         if is_training:
-            # Add additional repeat and shuffle for training
-            dataset = dataset.repeat().shuffle(len(data))
+            dataset = dataset.shuffle(buffer_size=dataset.cardinality(),
+                                      reshuffle_each_iteration=True)
+            dataset = dataset.repeat()
 
-        dataset = (dataset
-                   .map(data_loader.load_images,
-                        num_parallel_calls=tf.data.experimental.AUTOTUNE,
-                        deterministic=not is_training)
-                   .padded_batch(self.config["batch_size"],
-                                 padded_shapes=(
-                                     [None, None, self.channels], [None], []),
-                                 padding_values=(
-                                     tf.constant(-10, dtype=tf.float32),
-                                     tf.constant(0, dtype=tf.int64),
-                                     tf.constant(1.0, dtype=tf.float32)))
-                   .prefetch(tf.data.experimental.AUTOTUNE))\
-            .apply(tf.data.experimental.assert_cardinality(num_batches))
+        # Create the data loader
+        data_loader = DataLoader(
+            tokenizer=self.tokenizer,
+            augmentations=self.augment_model,
+            height=self.height,
+            channels=self.channels,
+            is_training=is_training
+        )
 
-        # Distribute the dataset if needed
-        strategy = tf.distribute.get_strategy()
-        return strategy.experimental_distribute_dataset(dataset)
+        # Map the processing function with parallel calls
+        dataset = dataset.map(
+            data_loader.process_sample,
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+
+        # Batch the dataset
+        dataset = dataset.padded_batch(
+            batch_size=self.config["batch_size"],
+            padded_shapes=(
+                [None, None, self.channels],  # Image shape
+                [None],                       # Label shape
+                []                            # Sample weight shape
+            ),
+            padding_values=(
+                tf.constant(-10, dtype=tf.float32),  # Image padding value
+                tf.constant(0, dtype=tf.int64),      # Label padding value
+                # Sample weight padding value
+                tf.constant(1.0, dtype=tf.float32)
+            )
+        )
+
+        # Prefetch data
+        dataset = dataset.prefetch(tf.data.AUTOTUNE)
+
+        # Assert the cardinality of the dataset
+        dataset = dataset.apply(tf.data.experimental.assert_cardinality(
+            len(files) // self.config["batch_size"]))
+
+        # Return the dataset
+        return dataset

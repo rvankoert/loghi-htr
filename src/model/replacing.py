@@ -120,20 +120,15 @@ def replace_final_layer(model: tf.keras.models.Model,
         if not layer.name.startswith(("dense", "activation")):
             last_layer = layer.name
 
-    # Create a prediction model up to the last layer
-    prediction_model = tf.keras.models.Model(
-        inputs=model.inputs, outputs=model.get_layer(last_layer).output
-    )
+    x = layers.Dense(number_characters, name="dense_out",
+                     kernel_initializer=initializer)(model.get_layer(last_layer).output)
 
-    x = layers.Dense(number_characters, activation="softmax", name="dense_out",
-                     kernel_initializer=initializer)(prediction_model.output)
-
-    # Add a linear activation layer with float32 data type
-    output = layers.Activation('linear', dtype=tf.float32)(x)
+    # Add a softmax activation layer with float32 data type
+    output = layers.Activation('softmax', dtype=tf.float32)(x)
 
     # Construct the final model
     new_model = tf.keras.models.Model(
-        inputs=prediction_model.inputs, outputs=output, name=model_name
+        inputs=model.input, outputs=output, name=model_name
     )
 
     return new_model

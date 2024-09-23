@@ -17,6 +17,7 @@ class ShearXLayer(tf.keras.layers.Layer):
         super(ShearXLayer, self).__init__(**kwargs)
         self.fill_value = 1 if binary else 0
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Apply shear transformation along the x-axis to the input image.
@@ -82,6 +83,7 @@ class ElasticTransformLayer(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super(ElasticTransformLayer, self).__init__(**kwargs)
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Apply elastic transformation to an image tensor.
@@ -146,6 +148,7 @@ class DistortImageLayer(tf.keras.layers.Layer):
     def __init__(self, **kwargs):
         super(DistortImageLayer, self).__init__(**kwargs)
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         This layer applies random JPEG quality changes to each image in the
@@ -203,6 +206,7 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         super(RandomVerticalCropLayer, self).__init__(**kwargs)
         self.crop_factor = 0.75
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Applies random crop to each image in the input batch.
@@ -329,6 +333,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
         return background_color
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Resize and pad the input images.
@@ -346,6 +351,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
             Resized and padded image tensor.
         """
 
+        # Skip processing if not training
         if not training:
             return inputs
 
@@ -391,7 +397,6 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         # Pad the image
         padded_img = tf.pad(resized_img, paddings=padding, mode="CONSTANT",
                             constant_values=background_color_scalar)
-        padded_img = tf.cast(padded_img, tf.float16)
 
         return padded_img
 
@@ -412,6 +417,7 @@ class BinarizeLayer(tf.keras.layers.Layer):
         self.window_size = window_size
         self.channels = channels
 
+    @tf.function
     def call(self, inputs):
         """
         Binarize the input tensor using either Otsu's or Sauvola's
@@ -477,6 +483,7 @@ class InvertImageLayer(tf.keras.layers.Layer):
         self.channels = channels
         self.p = p
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Inverts the pixel values of the input tensor.
@@ -523,6 +530,7 @@ class BlurImageLayer(tf.keras.layers.Layer):
         super(BlurImageLayer, self).__init__(**kwargs)
         self.mild_blur = mild_blur
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Apply random Gaussian blur to the input tensor
@@ -558,6 +566,7 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         self.fill_value = 1 if binary else 0
         self.random_width_factor = 1.2
 
+    @tf.function
     def call(self, inputs, training=None):
         """
         Adjusts image width randomly and maintains original dimensions by

@@ -360,6 +360,8 @@ def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
 
     if config["model_name"]:
         model._name = config["model_name"]
+    else:
+        model._name = model_key
 
     return model
 
