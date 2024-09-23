@@ -89,36 +89,33 @@ class DataLoader:
         return image
 
     @tf.function
-    def process_sample(self, image_path: tf.Tensor, label: tf.Tensor, sample_weight: tf.Tensor) \
+    def process_sample(self, inputs) \
             -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         """
         Processes a single sample consisting of an image path, label, and sample weight.
 
         Parameters
         ----------
-        image_path : tf.Tensor
-            The path to the image file.
-        label : tf.Tensor
-            The label associated with the image.
-        sample_weight : tf.Tensor
-            The sample weight.
+        inputs : Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
+            A tuple containing the image path, label, and sample weight.
 
         Returns
         -------
         Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
             A tuple containing the preprocessed image, encoded label, and sample weight.
         """
+
         # Load and preprocess the image
-        image = self.load_image(image_path)
+        image = self.load_image(inputs[0])
 
         # Encode the label
-        encoded_label = self.tokenizer(label)
+        encoded_label = self.tokenizer(inputs[1])
 
         # Ensure the image width is sufficient for CTC decoding
         image = self._ensure_width_for_ctc(image, encoded_label)
 
         sample_weight = tf.strings.to_number(
-            sample_weight, out_type=tf.float32)
+            inputs[2], out_type=tf.float32)
 
         return image, encoded_label, sample_weight
 

@@ -431,13 +431,10 @@ class DataManager:
         """
         is_training = partition_name == 'train'
 
-        # Create separate datasets for files, labels, and sample weights
-        files_ds = tf.data.Dataset.from_tensor_slices(files)
-        labels_ds = tf.data.Dataset.from_tensor_slices(labels)
-        sample_weights_ds = tf.data.Dataset.from_tensor_slices(sample_weights)
-
         # Zip the datasets together
-        dataset = tf.data.Dataset.zip((files_ds, labels_ds, sample_weights_ds))
+        dataset = tf.data.Dataset.from_tensor_slices(
+            list(zip(files, labels, sample_weights))
+        )
 
         # Shuffle and repeat if training
         if is_training:
@@ -457,7 +454,8 @@ class DataManager:
         # Map the processing function with parallel calls
         dataset = dataset.map(
             data_loader.process_sample,
-            num_parallel_calls=tf.data.AUTOTUNE
+            num_parallel_calls=tf.data.AUTOTUNE,
+            deterministic=not is_training
         )
 
         # Batch the dataset

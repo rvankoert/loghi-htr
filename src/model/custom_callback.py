@@ -134,6 +134,22 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         except Exception as e:
             self.logger.error("Error saving model: %s", e)
 
+    def on_train_batch_end(self, batch: int, logs: dict = None):
+        """
+        Actions to perform at the end of each training batch.
+
+        Parameters
+        ----------
+        batch : int
+            The index of the batch that just ended.
+        logs : dict, optional
+            A dictionary of logs from the training process.
+        """
+        current_lr = self.model.optimizer.learning_rate.numpy()
+
+        logs = logs or {}
+        logs["lr"] = current_lr
+
     def on_epoch_end(self, epoch: int, logs: dict = None):
         """
         Actions to perform at the end of each epoch.

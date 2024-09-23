@@ -18,8 +18,7 @@ def train_model(model: tf.keras.Model,
                 config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                data_manager: DataManager,
-                num_workers: int = 20) -> Any:
+                data_manager: DataManager) -> tf.keras.callbacks.History:
     """
     Trains a Keras model using the provided training and validation datasets,
     along with additional arguments.
@@ -36,8 +35,6 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for validation.
     data_manager : DataManager
         A DataManager containing additional information like character list.
-    num_workers : int, default 20
-        Number of workers for data loading.
 
     Returns
     -------
@@ -96,6 +93,7 @@ def train_model(model: tf.keras.Model,
         # steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
+
     return history
 
 
