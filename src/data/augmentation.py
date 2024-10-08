@@ -207,12 +207,6 @@ def get_augment_selection(config: Config, channels: int) -> list:
         logging.info("Selected data augment: random width")
         augment_selection.append(RandomWidthLayer(binary=binarize_present))
 
-    # For some reason, the original adds a 50px pad to the width here
-    augment_selection.append(ResizeWithPadLayer(target_height=64,
-                                                additional_width=50,
-                                                binary=binarize_present,
-                                                name="extra_resize_with_pad"))
-
     if config["aug_random_shear"]:
         # Apply padding to make sure that shear does not cut off img
         augment_selection.append(ResizeWithPadLayer(target_height=64,
@@ -281,5 +275,7 @@ def make_augment_model(config: Config, channels: int) -> tf.keras.Sequential:
 
         new_augment_selection.append(aug_layer)
 
+    if not new_augment_selection:
+        return None
     return tf.keras.Sequential(new_augment_selection,
                                name="data_augment_model")

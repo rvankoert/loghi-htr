@@ -100,20 +100,26 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         """
 
         try:
+            # Extract the functional model (excluding augmentation_model)
+            if isinstance(self.model, tf.keras.Sequential):
+                functional_model = self.model.layers[-1]
+            else:
+                functional_model = self.model
+
             # Create output directory if necessary
-            outputdir = os.path.join(self.output, subdir)
+            outputdir = os.path.join(self.output, functional_model.name, subdir)
             os.makedirs(outputdir, exist_ok=True)
             model_path = os.path.join(outputdir, "model.keras")
 
-            # Create a copy of the model
-            unfrozen_model = tf.keras.models.clone_model(self.model)
-            unfrozen_model.set_weights(self.model.get_weights())
+            # Create a copy of the functional model
+            unfrozen_model = tf.keras.models.clone_model(functional_model)
+            unfrozen_model.set_weights(functional_model.get_weights())
 
             # Unfreeze all layers in the copied model
             for layer in unfrozen_model.layers:
                 layer.trainable = True
 
-            # Save the unfrozen model
+            # Save the unfrozen functional model
             unfrozen_model.save(model_path)
 
             # Save additional files

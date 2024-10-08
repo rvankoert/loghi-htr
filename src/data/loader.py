@@ -13,10 +13,8 @@ from utils.text import Tokenizer
 class DataLoader:
     def __init__(self,
                  tokenizer: Tokenizer,
-                 augmentations: tf.keras.Sequential,
                  height: int = 64,
-                 channels: int = 1,
-                 is_training: bool = False):
+                 channels: int = 1):
         """
         Initializes the DataLoader.
 
@@ -24,20 +22,14 @@ class DataLoader:
         ----------
         tokenizer: Tokenizer
             The tokenizer used for encoding labels.
-        augmentations: tf.keras.Sequential
-            The data augmentation layers.
         height : int, optional
             The height of the preprocessed image (default is 64).
         channels : int, optional
             The number of channels in the image (default is 1).
-        is_training : bool, optional
-            Indicates whether the DataLoader is used for training (default is False).
         """
         self.tokenizer = tokenizer
-        self.augmentations = augmentations
         self.height = height
         self.channels = channels
-        self.is_training = is_training
 
     @tf.function
     def load_image(self, image_path: tf.Tensor) -> tf.Tensor:
@@ -65,20 +57,6 @@ class DataLoader:
         image = tf.image.resize(
             image, [self.height, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True)
         image = tf.cast(image, tf.float32) / 255.0
-
-        # Add batch dimension (required for augmentation model)
-        image = tf.expand_dims(image, 0)
-
-        for layer in self.augmentations.layers:
-            # Custom layer handling (assuming 'extra_resize_with_pad'
-            # remains)
-            if layer.name == "extra_resize_with_pad":
-                image = layer(image, training=True)
-            else:
-                image = layer(image, training=self.is_training)
-
-        # Remove the batch dimension
-        image = tf.squeeze(image, axis=0)
 
         # Center the image values around 0.5
         image = image - 0.5

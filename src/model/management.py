@@ -326,6 +326,7 @@ def load_or_create_model(config: Config, custom_objects: Dict[str, Any]) -> tf.k
             model_path, output_directory=config["output"], custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
+            model.name = config["model_name"]
     # Handle 'custom' model type
     elif model_path == 'custom':
         model = build_custom_model()
@@ -360,8 +361,10 @@ def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
 
     if config["model_name"]:
         model._name = config["model_name"]
+        model.name = config["model_name"]
     else:
         model._name = model_key
+        model.name = model_key
 
     return model
 

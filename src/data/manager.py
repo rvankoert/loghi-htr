@@ -8,7 +8,6 @@ from typing import Dict, Tuple, Optional, List, Set
 
 # > Third party dependencies
 import tensorflow as tf
-from tensorflow.data import AUTOTUNE
 import numpy as np
 
 # > Local dependencies
@@ -25,8 +24,6 @@ class DataManager:
     ----------
     img_size : Tuple[int, int, int]
         The size of the input images (height, width, channels).
-    augment_model : tf.keras.Sequential
-        The model used for data augmentation.
     config : Config
         The configuration dictionary containing various settings.
     tokenizer : Optional[Tokenizer], optional
@@ -35,12 +32,9 @@ class DataManager:
 
     def __init__(self,
                  img_size: Tuple[int, int, int],
-                 augment_model: tf.keras.Sequential,
                  config: Config,
-                 tokenizer: Optional[Tokenizer] = None,
-                 ):
+                 tokenizer: Optional[Tokenizer] = None):
 
-        self.augment_model = augment_model
         self.height = img_size[0]
         self.channels = img_size[2]
         self.config = config
@@ -438,17 +432,15 @@ class DataManager:
 
         # Shuffle and repeat if training
         if is_training:
-            dataset = dataset.shuffle(buffer_size=dataset.cardinality(),
+            dataset = dataset.shuffle(buffer_size=len(files),
                                       reshuffle_each_iteration=True)
             dataset = dataset.repeat()
 
         # Create the data loader
         data_loader = DataLoader(
             tokenizer=self.tokenizer,
-            augmentations=self.augment_model,
             height=self.height,
             channels=self.channels,
-            is_training=is_training
         )
 
         # Map the processing function with parallel calls
@@ -469,17 +461,17 @@ class DataManager:
             padding_values=(
                 tf.constant(-10, dtype=tf.float32),  # Image padding value
                 tf.constant(0, dtype=tf.int64),      # Label padding value
-                # Sample weight padding value
-                tf.constant(1.0, dtype=tf.float32)
-            )
+                tf.constant(1.0, dtype=tf.float32)   # Sample weight padding value
+            ),
+            drop_remainder=False  # Keep the last batch even if it's smaller
         )
 
         # Prefetch data
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
-        # Assert the cardinality of the dataset
-        dataset = dataset.apply(tf.data.experimental.assert_cardinality(
-            len(files) // self.config["batch_size"]))
+        # Assert the cardinality of the dataset if training
+        if is_training:
+            dataset = dataset.apply(tf.data.experimental.assert_cardinality(
+                len(files) // self.config["batch_size"]))
 
-        # Return the dataset
         return dataset
