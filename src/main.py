@@ -78,7 +78,8 @@ def main():
         augmentation_model = make_augment_model(config, model.input_shape[-1])
 
         if config["visualize_augments"] and augmentation_model:
-            visualize_augments(augmentation_model, config["output"],
+            visualize_augments(augmentation_model,
+                               config["output"],
                                model.input_shape[-1])
 
         # Initialize the DataManager
@@ -122,7 +123,7 @@ def main():
 
         # Compile the model
         combined_model.compile(optimizer=optimizer,
-                               loss=CTCLoss,
+                               loss=CTCLoss(),
                                metrics=[CERMetric(greedy=config["greedy"],
                                                   beam_width=config["beam_width"]),
                                         WERMetric()],

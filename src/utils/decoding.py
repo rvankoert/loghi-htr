@@ -103,18 +103,18 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
         if len(text) > 0:
-            time_steps = np.array(decoded_array == 0)\
-                .argmax(axis=0)
+            time_steps = tf.reduce_sum(tf.cast(decoded_array == 0, tf.float32),
+                                       axis=0)
             time_steps = time_steps if time_steps > 0 else len(decoded_array)
         else:
             time_steps = 1
 
-        confidence = np.exp(log_probs[i][0] / time_steps)
+        confidence = tf.exp(log_probs[i][0] / time_steps)
 
         if confidence < 0 or confidence > 1:
             logging.warning("Confidence score out of range: %s, clamping to "
                             "[0, 1]", confidence)
-            confidence = np.clip(confidence, 0, 1)
+            confidence = tf.clip_by_value(confidence, 0, 1)
 
         output_texts.append((confidence, text))
 
