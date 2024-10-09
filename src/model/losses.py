@@ -80,11 +80,11 @@ class CTCLoss(Loss):
 
         # Squeeze the label and input length tensors to remove the last dimension
         label_length = tf.cast(array_ops.squeeze(label_length, axis=-1),
-                            dtype="int64")
+                            dtype="int32")
         input_length = tf.cast(array_ops.squeeze(input_length, axis=-1),
-                            dtype="int64")
+                            dtype="int32")
         sparse_labels = tf.cast(K.ctc_label_dense_to_sparse(y_true, label_length),
-                                dtype="int64")
+                                dtype="int32")
 
         # Apply log transformation to predictions and transpose for CTC loss
         # calculation

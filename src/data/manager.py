@@ -83,6 +83,10 @@ class DataManager:
         labels_dict = defaultdict(list)
         sample_weights_dict = defaultdict(list)
         characters = set()
+        if self.tokenizer and not self.config["replace_final_layer"]:
+            characters = set(self.tokenizer.token_list)
+        else:
+            self.tokenizer = None
 
         for partition in ('train', 'evaluation', 'validation',
                           'test', 'inference'):
@@ -347,7 +351,6 @@ class DataManager:
         """
 
         # Check for unsupported characters in the ground truth
-        # and update the character set if the partition is 'train'
         unsupported_characters = set(ground_truth) - characters
         if unsupported_characters:
             # Unsupported characters are allowed in the validation, inference,
@@ -355,9 +358,12 @@ class DataManager:
             if partition_name in ('validation', 'inference', 'test'):
                 return True
 
-            if partition_name == 'train':
+            if partition_name == 'train' and not self.tokenizer:
+                # Add unsupported characters if we don't have a tokenizer yet
+                # or if we're allowed to replace the final layer
                 characters.update(unsupported_characters)
                 return True
+
             return False
         return True
 
