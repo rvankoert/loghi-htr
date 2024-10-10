@@ -83,7 +83,8 @@ def main():
                                model.input_shape[-1])
 
         # Initialize the DataManager
-        data_manager = initialize_data_manager(config, tokenizer, model)
+        data_manager = initialize_data_manager(config, tokenizer, model,
+                                                augmentation_model)
 
         # Replace the tokenizer with the one from the data manager
         tokenizer = data_manager.tokenizer
@@ -112,27 +113,13 @@ def main():
         # Create the optimizer
         optimizer = get_optimizer(config["optimizer"], lr_schedule)
 
-        if augmentation_model:
-            combined_model = tf.keras.Sequential([
-                tf.keras.layers.InputLayer(input_shape=model.input.shape[1:]),
-                augmentation_model,
-                model
-            ])
-        else:
-            combined_model = tf.keras.Sequential([model])
-
         # Compile the model
-        combined_model.compile(optimizer=optimizer,
-                               loss=CTCLoss(),
-                               metrics=[CERMetric(greedy=config["greedy"],
-                                                  beam_width=config["beam_width"]),
-                                        WERMetric()],
-                               weighted_metrics=[])
-
-    # Print the augmentation model summary
-    if augmentation_model:
-        logging.info("Augmentation Model Summary:")
-        augmentation_model.summary()
+        model.compile(optimizer=optimizer,
+                      loss=CTCLoss(),
+                      metrics=[CERMetric(greedy=config["greedy"],
+                                         beam_width=config["beam_width"]),
+                               WERMetric()],
+                      weighted_metrics=[])
 
     # Print the model summary
     logging.info("Model Summary:")
@@ -151,7 +138,7 @@ def main():
     if config["train_list"]:
         tick = time.time()
 
-        history = train_model(combined_model,
+        history = train_model(model,
                               config,
                               data_manager.datasets["train"],
                               data_manager.datasets["evaluation"],
@@ -168,7 +155,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(config, combined_model, data_manager)
+        perform_validation(config, model, data_manager)
         timestamps['Validation'] = time.time() - tick
 
     # Test the model
@@ -176,14 +163,14 @@ def main():
         logging.warning("Test results are without special markdown tags")
 
         tick = time.time()
-        perform_test(config, combined_model, data_manager.datasets["test"],
+        perform_test(config, model, data_manager.datasets["test"],
                      data_manager)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
-        perform_inference(config, combined_model, data_manager.datasets["inference"],
+        perform_inference(config, model, data_manager.datasets["inference"],
                           data_manager)
         timestamps['Inference'] = time.time() - tick
 

@@ -33,12 +33,14 @@ class DataManager:
     def __init__(self,
                  img_size: Tuple[int, int, int],
                  config: Config,
-                 tokenizer: Optional[Tokenizer] = None):
+                 tokenizer: Optional[Tokenizer] = None,
+                 augmentation_model: Optional[tf.keras.Model] = None):
 
         self.height = img_size[0]
         self.channels = img_size[2]
         self.config = config
         self.tokenizer = tokenizer
+        self.augmentation_model = augmentation_model
 
         # Determine the evaluation list
         self.evaluation_list = None
@@ -447,6 +449,8 @@ class DataManager:
             tokenizer=self.tokenizer,
             height=self.height,
             channels=self.channels,
+            augmentation_model=self.augmentation_model,
+            is_training=is_training
         )
 
         # Map the processing function with parallel calls

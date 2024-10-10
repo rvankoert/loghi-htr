@@ -14,7 +14,9 @@ class DataLoader:
     def __init__(self,
                  tokenizer: Tokenizer,
                  height: int = 64,
-                 channels: int = 1):
+                 channels: int = 1,
+                 augmentation_model: tf.keras.Model = None,
+                 is_training: bool = True):
         """
         Initializes the DataLoader.
 
@@ -26,10 +28,16 @@ class DataLoader:
             The height of the preprocessed image (default is 64).
         channels : int, optional
             The number of channels in the image (default is 1).
+        augmentation_model : tf.keras.Model, optional
+            The augmentation model to be applied to the image (default is None).
+        is_training : bool, optional
+            Whether the model is in training mode (default is True).
         """
         self.tokenizer = tokenizer
         self.height = height
         self.channels = channels
+        self.augment_model = augmentation_model
+        self.is_training = is_training
 
     @tf.function
     def load_image(self, image_path: tf.Tensor) -> tf.Tensor:
@@ -57,6 +65,22 @@ class DataLoader:
         image = tf.image.resize(
             image, [self.height, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True)
         image = tf.cast(image, tf.float32) / 255.0
+
+        if self.augment_model:
+            # Add batch dimension (required for augmentation model)
+            image = tf.expand_dims(image, 0)
+
+            # Apply the augmentation model
+            for layer in self.augment_model.layers:
+                # Custom layer handling (assuming 'extra_resize_with_pad'
+                # remains)
+                if layer.name == "extra_resize_with_pad":
+                    image = layer(image, training=True)
+                else:
+                    image = layer(image, training=self.is_training)
+
+            # Remove batch dimension
+            image = tf.squeeze(image, axis=0)
 
         # Center the image values around 0.5
         image = image - 0.5

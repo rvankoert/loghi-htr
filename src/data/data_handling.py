@@ -11,7 +11,8 @@ from utils.text import Tokenizer
 
 def initialize_data_manager(config: Config,
                             tokenizer: Tokenizer,
-                            model: tf.keras.Model) -> DataManager:
+                            model: tf.keras.Model,
+                            augmentation_model: tf.keras.Model) -> DataManager:
     """
     Initializes a data manager with specified parameters and based on the input
     shape of a given model.
@@ -24,6 +25,8 @@ def initialize_data_manager(config: Config,
     tokenizer : Tokenizer
         The tokenizer to be used for tokenizing text.
     model : tf.keras.Model
+        The Keras model, used to derive input dimensions for the data manager.
+    augmentation_model : tf.keras.Model
         The Keras model, used to derive input dimensions for the data manager.
 
     Returns
@@ -40,5 +43,6 @@ def initialize_data_manager(config: Config,
     return DataManager(
         img_size=img_size,
         config=config,
-        tokenizer=tokenizer
+        tokenizer=tokenizer,
+        augmentation_model=augmentation_model
     )
