@@ -9,7 +9,6 @@ import tempfile
 import unittest
 
 # > Third party dependencies
-import tensorflow as tf
 
 
 class DataManagerTest(unittest.TestCase):
@@ -120,7 +119,6 @@ class DataManagerTest(unittest.TestCase):
         tokenizer = self.Tokenizer(tokens=list("abc"))
         data_manager = self.DataManager(img_size=test_config["img_size"],
                                         config=test_config,
-                                        augment_model=None,
                                         tokenizer=tokenizer)
         self.assertIsInstance(data_manager, self.DataManager,
                               "DataManager not instantiated correctly")
@@ -135,8 +133,7 @@ class DataManagerTest(unittest.TestCase):
         })
 
         data_manager = self.DataManager(img_size=test_config["img_size"],
-                                        config=test_config,
-                                        augment_model=tf.keras.Sequential())
+                                        config=test_config)
 
         # Check if the data is created correctly
         for i in range(3):
@@ -169,8 +166,7 @@ class DataManagerTest(unittest.TestCase):
         })
 
         data_manager = self.DataManager(img_size=test_config["img_size"],
-                                        config=test_config,
-                                        augment_model=tf.keras.Sequential())
+                                        config=test_config)
 
         # Check if the data is created correctly
         self.assertEqual(data_manager.get_filename("train", 1),
@@ -201,8 +197,7 @@ class DataManagerTest(unittest.TestCase):
         })
 
         data_manager = self.DataManager(img_size=test_config["img_size"],
-                                        config=test_config,
-                                        augment_model=tf.keras.Sequential())
+                                        config=test_config)
 
         # Check if the data is created correctly
         self.assertEqual(data_manager.get_filename("train", 3),
@@ -232,7 +227,6 @@ class DataManagerTest(unittest.TestCase):
 
         data_manager = self.DataManager(img_size=test_config["img_size"],
                                         config=test_config,
-                                        augment_model=tf.keras.Sequential(),
                                         tokenizer=tokenizer)
 
         # Check if the data is created correctly

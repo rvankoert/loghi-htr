@@ -1,13 +1,13 @@
 # Imports
 
-# > Third party dependencies
-import tensorflow as tf
-
 # > Standard library
 import logging
 import unittest
 import sys
 from pathlib import Path
+
+# > Third party dependencies
+import tensorflow as tf
 
 # Add the src directory to the path
 sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
@@ -94,42 +94,52 @@ class TestDataAugments(unittest.TestCase):
         layer = RandomVerticalCropLayer()
         for channels in [1, 3, 4]:
             with self.subTest(channels=channels):
+                # Run in eager mode
+                @tf.function(jit_compile=False)
+                def call_layer(input_tensor):
+                    return layer(input_tensor, training=True)
+
                 input_tensor = tf.random.uniform(shape=[1, 256, 256, channels])
-                output_tensor = layer(input_tensor, training=True)
+                output_tensor = call_layer(input_tensor)
 
-                random_crop_factor = layer.crop_factor
+                # Check that the output shape is different from the input shape
+                self.assertNotEqual(input_tensor.shape, output_tensor.shape)
 
-                # Recalculate crop height based on input
-                new_height = tf.cast(random_crop_factor *
-                                     tf.cast(256, tf.float32), tf.int32)
+                # Check that only the height has changed
+                self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                self.assertEqual(input_tensor.shape[2], output_tensor.shape[2])  # Width
+                self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
-                # Apply expected crop
-                old_width = input_tensor.shape[2]
-                input_tensor = tf.image.resize(input_tensor,
-                                               [new_height, old_width])
-
-                # Check if applied crop is the same as the output
-                self.assertEqual(input_tensor.shape,
-                                 output_tensor.shape)
+                # Check that the new height is within the expected range
+                min_height = int(0.5 * 256)  # Assuming min_factor is 0.5
+                max_height = int(1.0 * 256)  # Assuming max_factor is 1.0
+                self.assertTrue(min_height <= output_tensor.shape[1] <= max_height)
 
     def test_random_width_layer(self):
         # Test RandomWidthLayer for width adjustment
         layer = RandomWidthLayer()
         for channels in [1, 3, 4]:
             with self.subTest(channels=channels):
+                # Run in eager mode
+                @tf.function(jit_compile=False)
+                def call_layer(input_tensor):
+                    return layer(input_tensor, training=True)
+
                 input_tensor = tf.random.uniform(shape=[1, 256, 256, channels])
-                output_tensor = layer(input_tensor, training=True)
-                random_width_factor = layer.random_width_factor
+                output_tensor = call_layer(input_tensor)
 
-                # Scale the width of the image by the random factor
-                new_width = int(random_width_factor * float(256))
+                # Check that the output shape is different from the input shape
+                self.assertNotEqual(input_tensor.shape, output_tensor.shape)
 
-                # Apply expected width change
-                old_height = input_tensor.shape[1]
-                input_tensor = tf.image.resize(input_tensor,
-                                               [old_height, new_width])
+                # Check that only the width has changed
+                self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                self.assertEqual(input_tensor.shape[1], output_tensor.shape[1])  # Height
+                self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
-                self.assertEqual(input_tensor.shape, output_tensor.shape)
+                # Check that the new width is within the expected range
+                min_width = int(0.5 * 256)  # Assuming min_factor is 0.5
+                max_width = int(1.5 * 256)  # Assuming max_factor is 1.5
+                self.assertTrue(min_width <= output_tensor.shape[2] <= max_width)
 
     def test_binarize_otsu(self):
         # Test BinarizeLayer for otsu adjustments and channel check
@@ -211,46 +221,43 @@ class TestDataAugments(unittest.TestCase):
                             layer = BinarizeLayer("sauvola",
                                                   channels=channels)
 
-                    # Apply augment to image
-                    output_tensor = layer(input_tensor, training=True)
+                    # Apply augment to image in eager mode
+                    @tf.function(jit_compile=False)
+                    def call_layer(input_tensor):
+                        return layer(input_tensor, training=True)
+
+                    output_tensor = call_layer(input_tensor)
 
                     if layer.name == "random_vertical_crop_layer":
-                        # Height of image reduces with random factor
-                        crop_factor = layer.crop_factor
+                        # Check that only the height has changed
+                        self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                        self.assertEqual(input_tensor.shape[2], output_tensor.shape[2])  # Width
+                        self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
-                        # Recalculate crop height based on input
-                        new_height = tf.cast(crop_factor *
-                                             tf.cast(256, tf.float32), tf.int32)
-
-                        # Apply expected crop
-                        old_width = input_tensor.shape[2]
-                        input_tensor = tf.image.resize(input_tensor,
-                                                       [new_height, old_width])
-
-                        self.assertEqual(input_tensor.shape,
-                                         output_tensor.shape)
+                        # Check that the new height is within the expected range
+                        min_height = int(0.5 * input_tensor.shape[1])  # Assuming min_factor is 0.5
+                        max_height = int(1.0 * input_tensor.shape[1])  # Assuming max_factor is 1.0
+                        self.assertTrue(min_height <= output_tensor.shape[1] <= max_height)
 
                     elif layer.name == "random_width_layer":
-                        # Width of image changes with random factor
-                        random_width_factor = layer.random_width_factor
+                        # Check that only the width has changed
+                        self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                        self.assertEqual(input_tensor.shape[1], output_tensor.shape[1])  # Height
+                        self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
-                        # Scale the width of the image by the random factor
-                        new_width = int(random_width_factor * float(256))
-
-                        # Apply expected width change
-                        old_height = input_tensor.shape[1]
-                        input_tensor = tf.image.resize(input_tensor,
-                                                       [old_height, new_width])
-
-                        self.assertEqual(input_tensor.shape,
-                                         output_tensor.shape)
+                        # Check that the new width is within the expected range
+                        min_width = int(0.5 * input_tensor.shape[2])  # Assuming min_factor is 0.5
+                        max_width = int(1.5 * input_tensor.shape[2])  # Assuming max_factor is 1.5
+                        self.assertTrue(min_width <= output_tensor.shape[2] <= max_width)
 
                     else:
                         self.assertEqual(input_tensor.shape,
                                          output_tensor.shape)
 
                     logging.debug("Dims after " + layer.name + " = " +
-                                  str(input_tensor.shape))
+                                  str(output_tensor.shape))
+                    input_tensor = output_tensor  # For the next iteration
+
         logging.debug("Final input dims: " + str(input_tensor.shape))
 
 

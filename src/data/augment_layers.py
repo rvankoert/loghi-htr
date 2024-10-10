@@ -56,7 +56,7 @@ class ShearXLayer(tf.keras.layers.Layer):
         shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
         # Get the dynamic shape of the input tensor
-        input_shape = tf.shape(inputs)
+        input_shape = inputs.shape
 
         # Ensure output shape is the same as input shape for height and width
         output_shape = [input_shape[1], input_shape[2]]
@@ -231,7 +231,7 @@ class RandomVerticalCropLayer(tf.keras.layers.Layer):
         input_dtype = inputs.dtype
 
         # Get the original height and width of the images
-        input_shape = tf.shape(inputs)
+        input_shape = inputs.shape
         height = input_shape[1]
         width = input_shape[2]
         channels = input_shape[3]
@@ -310,7 +310,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         right_edge = image[:, :, -1:, :]
 
         # Calculate indices for the middle sections
-        height, width = tf.shape(image)[1], tf.shape(image)[2]
+        height, width = image.shape[1], image.shape[2]
         mid_height_start, mid_height_end = height // 4, 3 * height // 4
         mid_width_start, mid_width_end = width // 4, 3 * width // 4
 
@@ -357,7 +357,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
         # Get the target width
         if self.target_width is None:
-            width = tf.shape(inputs)[2]
+            width = inputs.shape[2]
             target_width = width + self.additional_width
         else:
             target_width = self.target_width
@@ -369,12 +369,12 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
         # Pad the width of the image to the target width
         # Calculate the amount of padding required
-        pad_width = target_width - tf.shape(resized_img)[2]
+        pad_width = target_width - resized_img.shape[2]
         left_pad = tf.cast(pad_width / 2, tf.int32)
         right_pad = pad_width - left_pad
 
         # Pad the height of the image to the target height
-        pad_height = self.target_height - tf.shape(resized_img)[1]
+        pad_height = self.target_height - resized_img.shape[1]
         top_pad = tf.cast(pad_height / 2, tf.int32)
         bottom_pad = pad_height - top_pad
 
@@ -435,7 +435,7 @@ class BinarizeLayer(tf.keras.layers.Layer):
         """
 
         # Check input shape
-        input_shape = tf.shape(inputs)
+        input_shape = inputs.shape
 
         if input_shape[-1] == 1:
             # Just take grayscale if it is already 1-channel
@@ -599,12 +599,12 @@ class RandomWidthLayer(tf.keras.layers.Layer):
         # Get the width and height of the input image
         if inputs.ndim < 4:
             # When input does have a batch size dim
-            original_width = tf.shape(inputs)[1]
-            original_height = tf.shape(inputs)[0]
+            original_width = inputs.shape[1]
+            original_height = inputs.shape[0]
         else:
             # When input does not have a batch size dim
-            original_width = tf.shape(inputs)[2]
-            original_height = tf.shape(inputs)[1]
+            original_width = inputs.shape[2]
+            original_height = inputs.shape[1]
 
         def augment_image_width(input_img):
             # Generate a random width scaling factor between 0.75 and 1.25

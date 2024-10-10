@@ -2,7 +2,6 @@
 
 # > Standard library
 import os
-from typing import Any
 
 # > Third-party dependencies
 import matplotlib.pyplot as plt
