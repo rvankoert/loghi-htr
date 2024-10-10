@@ -86,9 +86,6 @@ def get_arg_parser():
                                "0: Silent, 1: Progress Bar, 2: One Line Per "
                                "Epoch. 'auto' defaults to 1 for most cases. "
                                "Default: 'auto'.")
-    training_args.add_argument('--max_queue_size', metavar='max_queue_size',
-                               type=int, default=256, help="Maximum size for "
-                               "the generator queue. Default: 256.")
 
     # Inference configuration
     inference_args = parser.add_argument_group('Inference arguments')

@@ -191,7 +191,6 @@ class Config:
                 "do_validate": args.do_validate,
                 "validation_list": args.validation_list,
                 "training_verbosity_mode": args.training_verbosity_mode,
-                "max_queue_size": args.max_queue_size
             },
             "inference": {
                 "inference_list": args.inference_list,
