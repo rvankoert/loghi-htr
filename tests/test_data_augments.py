@@ -106,14 +106,18 @@ class TestDataAugments(unittest.TestCase):
                 self.assertNotEqual(input_tensor.shape, output_tensor.shape)
 
                 # Check that only the height has changed
-                self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
-                self.assertEqual(input_tensor.shape[2], output_tensor.shape[2])  # Width
-                self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
+                self.assertEqual(
+                    input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                self.assertEqual(
+                    input_tensor.shape[2], output_tensor.shape[2])  # Width
+                self.assertEqual(
+                    input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
                 # Check that the new height is within the expected range
                 min_height = int(0.5 * 256)  # Assuming min_factor is 0.5
                 max_height = int(1.0 * 256)  # Assuming max_factor is 1.0
-                self.assertTrue(min_height <= output_tensor.shape[1] <= max_height)
+                self.assertTrue(
+                    min_height <= output_tensor.shape[1] <= max_height)
 
     def test_random_width_layer(self):
         # Test RandomWidthLayer for width adjustment
@@ -132,14 +136,18 @@ class TestDataAugments(unittest.TestCase):
                 self.assertNotEqual(input_tensor.shape, output_tensor.shape)
 
                 # Check that only the width has changed
-                self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
-                self.assertEqual(input_tensor.shape[1], output_tensor.shape[1])  # Height
-                self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
+                self.assertEqual(
+                    input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                self.assertEqual(
+                    input_tensor.shape[1], output_tensor.shape[1])  # Height
+                self.assertEqual(
+                    input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
                 # Check that the new width is within the expected range
                 min_width = int(0.5 * 256)  # Assuming min_factor is 0.5
                 max_width = int(1.5 * 256)  # Assuming max_factor is 1.5
-                self.assertTrue(min_width <= output_tensor.shape[2] <= max_width)
+                self.assertTrue(
+                    min_width <= output_tensor.shape[2] <= max_width)
 
     def test_binarize_otsu(self):
         # Test BinarizeLayer for otsu adjustments and channel check
@@ -210,7 +218,8 @@ class TestDataAugments(unittest.TestCase):
             with self.subTest(channels=channels):
                 input_tensor = tf.random.uniform(
                     shape=[1, 256, 256, channels])
-                logging.debug("Initial input size = " + str(input_tensor.shape))
+                logging.debug("Initial input size = " +
+                              str(input_tensor.shape))
                 for layer in augment_selection_b:
                     # Check if BinarizeLayer so channels can be set correctly
                     if isinstance(layer, BinarizeLayer):
@@ -230,25 +239,37 @@ class TestDataAugments(unittest.TestCase):
 
                     if layer.name == "random_vertical_crop_layer":
                         # Check that only the height has changed
-                        self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
-                        self.assertEqual(input_tensor.shape[2], output_tensor.shape[2])  # Width
-                        self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
+                        self.assertEqual(
+                            input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                        self.assertEqual(
+                            input_tensor.shape[2], output_tensor.shape[2])  # Width
+                        self.assertEqual(
+                            input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
                         # Check that the new height is within the expected range
-                        min_height = int(0.5 * input_tensor.shape[1])  # Assuming min_factor is 0.5
-                        max_height = int(1.0 * input_tensor.shape[1])  # Assuming max_factor is 1.0
-                        self.assertTrue(min_height <= output_tensor.shape[1] <= max_height)
+                        # Assuming min_factor is 0.5
+                        min_height = int(0.5 * input_tensor.shape[1])
+                        # Assuming max_factor is 1.0
+                        max_height = int(1.0 * input_tensor.shape[1])
+                        self.assertTrue(
+                            min_height <= output_tensor.shape[1] <= max_height)
 
                     elif layer.name == "random_width_layer":
                         # Check that only the width has changed
-                        self.assertEqual(input_tensor.shape[0], output_tensor.shape[0])  # Batch size
-                        self.assertEqual(input_tensor.shape[1], output_tensor.shape[1])  # Height
-                        self.assertEqual(input_tensor.shape[3], output_tensor.shape[3])  # Channels
+                        self.assertEqual(
+                            input_tensor.shape[0], output_tensor.shape[0])  # Batch size
+                        self.assertEqual(
+                            input_tensor.shape[1], output_tensor.shape[1])  # Height
+                        self.assertEqual(
+                            input_tensor.shape[3], output_tensor.shape[3])  # Channels
 
                         # Check that the new width is within the expected range
-                        min_width = int(0.5 * input_tensor.shape[2])  # Assuming min_factor is 0.5
-                        max_width = int(1.5 * input_tensor.shape[2])  # Assuming max_factor is 1.5
-                        self.assertTrue(min_width <= output_tensor.shape[2] <= max_width)
+                        # Assuming min_factor is 0.5
+                        min_width = int(0.5 * input_tensor.shape[2])
+                        # Assuming max_factor is 1.5
+                        max_width = int(1.5 * input_tensor.shape[2])
+                        self.assertTrue(
+                            min_width <= output_tensor.shape[2] <= max_width)
 
                     else:
                         self.assertEqual(input_tensor.shape,
