@@ -17,4 +17,4 @@ fastapi==0.112.1
 uvicorn==0.30.6
 typing-extensions==4.12.2
 psutil==5.9.5
-vgslify==0.12.0
+vgslify==0.13.0

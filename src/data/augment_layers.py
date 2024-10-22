@@ -435,7 +435,7 @@ class BinarizeLayer(tf.keras.layers.Layer):
         """
 
         # Check input shape
-        input_shape = tf.shape(inputs)
+        input_shape = inputs.shape
 
         if input_shape[-1] == 1:
             # Just take grayscale if it is already 1-channel
