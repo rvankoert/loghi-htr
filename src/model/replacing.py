@@ -59,13 +59,14 @@ def replace_recurrent_layer(model: tf.keras.Model,
 
     # Generate new layers using VGSLModelGenerator
     logging.info("Generating new layers using VGSLModelGenerator.")
+    vgsl_string = "None,None " + vgsl_string
     history = VGSLModelGenerator().generate_history(vgsl_string)
 
     logging.debug("VGSLModelGenerator history: %s", history)
 
     # Add the new layers to the model
     x = last_layer.output
-    for layer in history:
+    for layer in history[1:]:
         x = layer(x)
 
     dense_layer_name = model.layers[-2].name
