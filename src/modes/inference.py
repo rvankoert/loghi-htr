@@ -9,7 +9,6 @@ import tensorflow as tf
 
 # > Local dependencies
 from data.manager import DataManager
-from model.management import get_prediction_model
 from setup.config import Config
 from utils.decoding import decode_batch_predictions
 from utils.text import Tokenizer
@@ -18,7 +17,6 @@ from utils.text import Tokenizer
 def perform_inference(config: Config,
                       model: tf.keras.Model,
                       inference_dataset: tf.data.Dataset,
-                      charlist: List[str],
                       data_manager: DataManager) -> None:
     """
     Performs inference on a given dataset using a specified model and writes
@@ -34,8 +32,6 @@ def perform_inference(config: Config,
         The Keras model to be used for inference.
     inference_dataset : tf.data.Dataset
         The dataset on which inference is to be performed.
-    charlist : List[str]
-        A list of characters used in the model, for decoding predictions.
     data_manager : DataManager
         A data manager object used for retrieving additional information needed
         during inference (e.g., filenames).
@@ -49,13 +45,12 @@ def perform_inference(config: Config,
     results.
     """
 
-    tokenizer = Tokenizer(charlist, config["use_mask"])
-    prediction_model = get_prediction_model(model)
+    tokenizer = data_manager.tokenizer
 
     with open(config["results_file"], "w", encoding="utf-8") as results_file:
         for batch_no, batch in enumerate(inference_dataset):
             # Get the predictions
-            predictions = prediction_model.predict_on_batch(batch[0])
+            predictions = model.predict_on_batch(batch[0])
             y_pred = decode_batch_predictions(predictions,
                                               tokenizer,
                                               config["greedy"],
@@ -63,9 +58,6 @@ def perform_inference(config: Config,
 
             # Print the predictions and process the CER
             for index, (confidence, prediction) in enumerate(y_pred):
-                # Remove the special characters from the prediction
-                prediction = prediction.strip().replace('', '')
-
                 # Format the filename
                 filename = data_manager.get_filename('inference',
                                                      (batch_no *

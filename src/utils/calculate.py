@@ -81,6 +81,9 @@ def calculate_edit_distances(prediction: str, original_text: str) \
     distances.
     """
 
+    # Replace [UNK] tokens with a control character for edit distance calculation
+    original_text = original_text.replace("[UNK]", "")
+
     # Preprocess the text
     lower_prediction, simple_prediction = simplify_text(prediction)
     lower_original, simple_original = simplify_text(original_text)

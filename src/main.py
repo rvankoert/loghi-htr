@@ -7,16 +7,14 @@ import logging
 
 # > Local dependencies
 # Data handling
-from data.data_handling import save_charlist, load_initial_charlist, \
-    initialize_data_manager
+from data.data_handling import initialize_data_manager
 
 # Model-specific
 from data.augmentation import make_augment_model, visualize_augments
 from model.custom_layers import ResidualBlock
 from model.losses import CTCLoss
 from model.metrics import CERMetric, WERMetric
-from model.management import load_or_create_model, customize_model, \
-    verify_charlist_length
+from model.management import load_or_create_model, customize_model
 from model.optimization import create_learning_rate_schedule, get_optimizer, \
     LoghiLearningRateSchedule
 from modes.training import train_model, plot_training_history
@@ -31,6 +29,9 @@ from setup.environment import setup_environment, setup_logging
 
 # Utilities
 from utils.print import summarize_model
+from utils.text import Tokenizer
+
+import tensorflow as tf
 
 
 def main():
@@ -48,14 +49,23 @@ def main():
     if config["output"]:
         os.makedirs(config["output"], exist_ok=True)
 
-    # Get the initial character list
-    if os.path.isdir(config["model"]) or config["charlist"]:
-        charlist, removed_padding = load_initial_charlist(
-            config["charlist"], config["model"],
-            config["output"], config["replace_final_layer"])
+    # Determine the path to the tokenizer file
+    json_path = None
+
+    if config["tokenizer"]:
+        json_path = config["tokenizer"]
+    elif os.path.isdir(config["model"]):
+        json_path = next(
+            (os.path.join(config["model"], fname) for fname in ["tokenizer.json", "charlist.txt"]
+             if os.path.exists(os.path.join(config["model"], fname))),
+            None
+        )
+
+    # Load the tokenizer if a valid path was found
+    if json_path and not config["replace_final_layer"]:
+        tokenizer = Tokenizer.load_from_file(json_path)
     else:
-        charlist = []
-        removed_padding = False
+        tokenizer = None  # Indicate that a new tokenizer will be created later
 
     # Set the custom objects
     custom_objects = {'CERMetric': CERMetric, 'WERMetric': WERMetric,
@@ -67,27 +77,26 @@ def main():
         model = load_or_create_model(config, custom_objects)
         augmentation_model = make_augment_model(config, model.input_shape[-1])
 
-        if config["visualize_augments"]:
-            visualize_augments(augmentation_model, config["output"],
+        if config["visualize_augments"] and augmentation_model:
+            visualize_augments(augmentation_model,
+                               config["output"],
                                model.input_shape[-1])
 
         # Initialize the DataManager
-        data_manager = initialize_data_manager(config, charlist, model,
-                                               augmentation_model)
+        data_manager = initialize_data_manager(config, tokenizer, model,
+                                                augmentation_model)
 
-        # Replace the charlist with the one from the data manager
-        charlist = data_manager.charlist
-        logging.info("Using charlist: %s", charlist)
-        logging.info("Charlist length: %s", len(charlist))
+        # Replace the tokenizer with the one from the data manager
+        tokenizer = data_manager.tokenizer
+        logging.info("Tokenizer size: %s tokens", len(tokenizer))
 
         # Additional model customization such as freezing layers, replacing
         # layers, or adjusting for float32
-        model = customize_model(model, config, charlist)
+        model = customize_model(model, config, tokenizer)
 
-        # Save the charlist
-        verify_charlist_length(charlist, model, config["use_mask"],
-                               removed_padding)
-        save_charlist(charlist, config["output"])
+        # Save the tokenizer
+        tokenizer.save_to_json(os.path.join(config["output"],
+                                            "tokenizer.json"))
 
         # Create the learning rate schedule
         lr_schedule = create_learning_rate_schedule(
@@ -95,7 +104,7 @@ def main():
             decay_rate=config["decay_rate"],
             decay_steps=config["decay_steps"],
             train_batches=data_manager.get_train_batches(),
-            do_train=config["do_train"],
+            do_train=config["train_list"],
             warmup_ratio=config["warmup_ratio"],
             epochs=config["epochs"],
             decay_per_epoch=config["decay_per_epoch"],
@@ -106,13 +115,14 @@ def main():
 
         # Compile the model
         model.compile(optimizer=optimizer,
-                      loss=CTCLoss,
+                      loss=CTCLoss(),
                       metrics=[CERMetric(greedy=config["greedy"],
                                          beam_width=config["beam_width"]),
                                WERMetric()],
                       weighted_metrics=[])
 
     # Print the model summary
+    logging.info("Model Summary:")
     model.summary()
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
@@ -134,7 +144,8 @@ def main():
                               data_manager.datasets["evaluation"],
                               data_manager)
         # Plot the training history
-        plot_training_history(history=history, output_path=config["output"],
+        plot_training_history(history=history,
+                              output_path=config["output"],
                               plot_validation=bool(config["validation_list"]))
 
         timestamps['Training'] = time.time() - tick
@@ -144,7 +155,7 @@ def main():
         logging.warning("Validation results are without special markdown tags")
 
         tick = time.time()
-        perform_validation(config, model, charlist, data_manager)
+        perform_validation(config, model, data_manager)
         timestamps['Validation'] = time.time() - tick
 
     # Test the model
@@ -153,14 +164,14 @@ def main():
 
         tick = time.time()
         perform_test(config, model, data_manager.datasets["test"],
-                     charlist, data_manager)
+                     data_manager)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
         perform_inference(config, model, data_manager.datasets["inference"],
-                          charlist, data_manager)
+                          data_manager)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps

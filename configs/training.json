@@ -17,9 +17,6 @@
             "beam_width": 10,
             "greedy": false
         },
-        "depr": {
-            "channels": 1
-        },
         "general": {
             "batch_size": 64,
             "gpu": "0",

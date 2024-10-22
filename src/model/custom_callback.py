@@ -10,6 +10,7 @@ import threading
 import tensorflow as tf
 
 # > Local dependencies
+from utils.text import Tokenizer
 from setup.config import Config
 
 
@@ -26,8 +27,8 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         If True, saves the model at the end of each epoch.
     output : str
         Directory path to save the model and additional files.
-    charlist : list of str, optional
-        List of characters used in the model, saved alongside the model.
+    tokenizer : Tokenizer
+        Tokenizer object to be saved with the model.
     config : object, optional
         Configuration object to be saved with the model.
     normalization_file : str, optional
@@ -45,7 +46,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
     """
 
     def __init__(self, save_best: bool = True, save_checkpoint: bool = True,
-                 output: str = "output", charlist: str = None,
+                 output: str = "output", tokenizer: Tokenizer = None,
                  config: Config = None, normalization_file: str = None,
                  logging_level: str = "info"):
         """
@@ -56,7 +57,7 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         self.save_best = save_best
         self.save_checkpoint = save_checkpoint
         self.output = output
-        self.charlist = charlist
+        self.tokenizer = tokenizer
         self.config = config
         self.normalization_file = normalization_file
         self.logging_level = logging_level
@@ -99,28 +100,32 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
         """
 
         try:
+            # Extract the functional model (excluding augmentation_model)
+            if isinstance(self.model, tf.keras.Sequential):
+                functional_model = self.model.layers[-1]
+            else:
+                functional_model = self.model
+
             # Create output directory if necessary
-            outputdir = os.path.join(self.output, subdir)
+            outputdir = os.path.join(self.output, functional_model.name, subdir)
             os.makedirs(outputdir, exist_ok=True)
             model_path = os.path.join(outputdir, "model.keras")
 
-            # Create a copy of the model
-            unfrozen_model = tf.keras.models.clone_model(self.model)
-            unfrozen_model.set_weights(self.model.get_weights())
+            # Create a copy of the functional model
+            unfrozen_model = tf.keras.models.clone_model(functional_model)
+            unfrozen_model.set_weights(functional_model.get_weights())
 
             # Unfreeze all layers in the copied model
             for layer in unfrozen_model.layers:
                 layer.trainable = True
 
-            # Save the unfrozen model
+            # Save the unfrozen functional model
             unfrozen_model.save(model_path)
 
             # Save additional files
-            if self.charlist:
-                with open(os.path.join(outputdir, "charlist.txt"),
-                          "w", encoding="utf-8") \
-                        as chars_file:
-                    chars_file.write("".join(self.charlist))
+            if self.tokenizer:
+                self.tokenizer.save_to_json(os.path.join(outputdir,
+                                                         "tokenizer.json"))
             if self.config:
                 self.config.save(os.path.join(outputdir, "config.json"))
             if self.normalization_file:
@@ -134,6 +139,22 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
 
         except Exception as e:
             self.logger.error("Error saving model: %s", e)
+
+    def on_train_batch_end(self, batch: int, logs: dict = None):
+        """
+        Actions to perform at the end of each training batch.
+
+        Parameters
+        ----------
+        batch : int
+            The index of the batch that just ended.
+        logs : dict, optional
+            A dictionary of logs from the training process.
+        """
+        current_lr = self.model.optimizer.learning_rate.numpy()
+
+        logs = logs or {}
+        logs["lr"] = current_lr
 
     def on_epoch_end(self, epoch: int, logs: dict = None):
         """

@@ -11,9 +11,6 @@ import sys
 import logging
 import unittest
 
-# FIXME initialization fails when all tests are run in series, it works when
-# only this file is run
-
 
 class TestReplaceLayers(unittest.TestCase):
     """
@@ -56,9 +53,6 @@ class TestReplaceLayers(unittest.TestCase):
             datefmt="%d/%m/%Y %H:%M:%S",
             level=logging.ERROR,
         )
-
-        from model.vgsl_model_generator import VGSLModelGenerator
-        cls.VGSLModelGenerator = VGSLModelGenerator
 
         import model.replacing as replacing
         cls.replacing = replacing
@@ -232,7 +226,7 @@ class TestReplaceLayers(unittest.TestCase):
                 found_gru = True
             elif isinstance(layer, layers.Bidirectional):
                 self.assertEqual(
-                    layer.layer.units, 32, "Unexpected number of units in "
+                    layer.forward_layer.units, 32, "Unexpected number of units in "
                     "Bidirectional LSTM layer")
                 found_bidir = True
 

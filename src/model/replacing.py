@@ -7,15 +7,12 @@ import logging
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
-# > Local dependencies
-from model.vgsl_model_generator import VGSLModelGenerator
+from vgslify.generator import VGSLModelGenerator
 
 
 def replace_recurrent_layer(model: tf.keras.Model,
                             number_characters: int,
-                            vgsl_string: str,
-                            use_mask: bool = False) -> tf.keras.Model:
+                            vgsl_string: str) -> tf.keras.Model:
     """
     Replace recurrent layers in a given Keras model with new layers specified
     by a VGSL string.
@@ -30,10 +27,6 @@ def replace_recurrent_layer(model: tf.keras.Model,
     vgsl_string : str
         The VGSL spec string that defines the new layers to replace the
         recurrent ones.
-    use_mask : bool, optional
-        Whether to use masking for the Dense layer. If True, an additional unit
-        is added.
-        Default is False.
 
     Returns
     -------
@@ -66,27 +59,21 @@ def replace_recurrent_layer(model: tf.keras.Model,
 
     # Generate new layers using VGSLModelGenerator
     logging.info("Generating new layers using VGSLModelGenerator.")
-    vgsl_gen = VGSLModelGenerator(vgsl_string)
+    vgsl_string = "None,None " + vgsl_string
+    history = VGSLModelGenerator().generate_history(vgsl_string)
 
-    logging.debug("VGSLModelGenerator history: %s", vgsl_gen.history)
+    logging.debug("VGSLModelGenerator history: %s", history)
 
     # Add the new layers to the model
     x = last_layer.output
-    for layer_name in vgsl_gen.history:
-        new_layer = getattr(vgsl_gen, layer_name)
-        x = new_layer(x)
+    for layer in history[1:]:
+        x = layer(x)
 
     dense_layer_name = model.layers[-2].name
-    if use_mask:
-        x = layers.Dense(number_characters + 2,
-                         activation="softmax",
-                         name=dense_layer_name,
-                         kernel_initializer=initializer)(x)
-    else:
-        x = layers.Dense(number_characters + 1,
-                         activation="softmax",
-                         name=dense_layer_name,
-                         kernel_initializer=initializer)(x)
+    x = layers.Dense(number_characters,
+                     activation="softmax",
+                     name=dense_layer_name,
+                     kernel_initializer=initializer)(x)
     output = layers.Activation('linear', dtype=tf.float32)(x)
 
     old_model_name = model.name
@@ -102,8 +89,7 @@ def replace_recurrent_layer(model: tf.keras.Model,
 
 def replace_final_layer(model: tf.keras.models.Model,
                         number_characters: int,
-                        model_name: str,
-                        use_mask: bool = False) -> tf.keras.models.Model:
+                        model_name: str) -> tf.keras.models.Model:
     """
     Replace the final layer of a given Keras model.
 
@@ -119,9 +105,6 @@ def replace_final_layer(model: tf.keras.models.Model,
         Number of units for the new dense layer.
     model_name : str
         Name to assign to the modified model.
-    use_mask : bool, optional
-        Whether to use a mask, which adds two additional units to the layer, by
-        default False.
 
     Returns
     -------
@@ -138,27 +121,15 @@ def replace_final_layer(model: tf.keras.models.Model,
         if not layer.name.startswith(("dense", "activation")):
             last_layer = layer.name
 
-    # Create a prediction model up to the last layer
-    prediction_model = keras.models.Model(
-        model.get_layer(name="image").input,
-        model.get_layer(name=last_layer).output
-    )
+    x = layers.Dense(number_characters, name="dense_out",
+                     kernel_initializer=initializer)(model.get_layer(last_layer).output)
 
-    # Add a new dense layer with adjusted number of units based on use_mask
-    if use_mask:
-        units = number_characters + 2
-    else:
-        units = number_characters + 1
-
-    x = layers.Dense(units, activation="softmax", name="dense_out",
-                     kernel_initializer=initializer)(prediction_model.output)
-
-    # Add a linear activation layer with float32 data type
-    output = layers.Activation('linear', dtype=tf.float32)(x)
+    # Add a softmax activation layer with float32 data type
+    output = layers.Activation('softmax', dtype=tf.float32)(x)
 
     # Construct the final model
     new_model = tf.keras.models.Model(
-        inputs=prediction_model.inputs, outputs=output, name=model_name
+        inputs=model.input, outputs=output, name=model_name
     )
 
     return new_model

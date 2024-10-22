@@ -181,7 +181,6 @@ def initialize_strategy(use_float32: bool,
         # Check if all GPUs support mixed precision
         gpus_support_mixed_precision = bool(active_gpus)
         for device in active_gpus:
-            tf.config.experimental.set_memory_growth(device, True)
             if tf.config.experimental.\
                     get_device_details(device)['compute_capability'][0] < 7:
                 gpus_support_mixed_precision = False

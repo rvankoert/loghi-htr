@@ -49,20 +49,6 @@ jobs:
         python -m unittest tests/test_datamanager.py
       env:
         TF_CPP_MIN_LOG_LEVEL: '2'
-
-    - name: Test model creation
-      if: always()
-      run: |
-        python -m unittest tests/test_model_creation.py
-      env:
-        TF_CPP_MIN_LOG_LEVEL: '2'
-        
-    - name: Test model to VGSL
-      if: always()
-      run: |
-        python -m unittest tests/test_model_to_vgsl.py
-      env:
-        TF_CPP_MIN_LOG_LEVEL: '2'
         
     - name: Test replacing model layers
       if: always()

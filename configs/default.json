@@ -19,17 +19,6 @@
             "greedy": false,
             "wbs_smoothing": 0.1
         },
-        "depr": {
-            "channels": 3,
-            "config_file_output": null,
-            "do_inference": false,
-            "do_train": true,
-            "height": 64,
-            "no_auto": false,
-            "output_charlist": null,
-            "thaw": false,
-            "use_mask": true
-        },
         "general": {
             "batch_size": 4,
             "charlist": null,

@@ -8,7 +8,7 @@ Loghi HTR also works on machine printed text.
 
 1. [Installation](#installation)
 2. [Usage](#usage)
-3. [Variable-size Graph Specification Language (VGSL)](#variable-size-graph-specification-language-vgsl)
+3. [Creating Models](#creating-models)
 4. [API Usage Guide](#api-usage-guide)
 5. [Model Visualizer Guide](#model-visualizer-guide)
 6. [Frequently Asked Questions (FAQ)](#FAQ)
@@ -117,117 +117,47 @@ python3 main.py --help
 
 Ensure that the parameters (via config file or command-line arguments) are consistent and appropriate for your operation mode (training, validation, or inference).
 
-## Variable-size Graph Specification Language (VGSL)
+## Creating Models
 
-Variable-size Graph Specification Language (VGSL) is a powerful tool that enables the creation of TensorFlow graphs, comprising convolutions and LSTMs, tailored for variable-sized images. This concise definition string simplifies the process of defining complex neural network architectures. For a detailed overview of VGSL, also refer to the [official documentation](https://github.com/mldbai/tensorflow-models/blob/master/street/g3doc/vgslspecs.md).
+In this project, we use the **vgslify** package to generate models from Variable-size Graph Specification Language (VGSL) strings. VGSL is a concise tool that enables the creation of complex neural network architectures tailored for variable-sized images. The **vgslify** package makes it easy to define models using a simple specification string and the `--model` argument.
 
-**Disclaimer:** _The base models provided in the `VGSLModelGenerator.model_library` were only tested on pre-processed HTR images with a height of 64 and variable width._
+You can either use a custom VGSL model via the `--model` argument or select one of the several predefined models provided by this project.
 
-### How VGSL works
+### 1. Using VGSLify with the `--model` Argument
 
-VGSL operates through short definition strings. For instance:
+The `--model` argument allows you to pass a VGSL string to define a custom model architecture. VGSLify then builds the corresponding model using the backend you specify (e.g., TensorFlow or PyTorch). For more details on how to write VGSL strings, check out the [vgslify repository](https://github.com/timkoornstra/vgslify).
 
-`None,64,None,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc Fc64 D20 Lrs128 D20 Lrs64 D20 O1s92`
+For example, you can generate a model with a convolutional layer, max-pooling layer, and a softmax output layer using the `--model` argument:
 
-In this example, the string defines a neural network with input layers, convolutional layers, pooling, reshaping, fully connected layers, LSTM and output layers. Each segment of the string corresponds to a specific layer or operation in the neural network. Moreover, VGSL provides the flexibility to specify the type of activation function for certain layers, enhancing customization.
+```bash
+python3 src/main.py --model "None,None,64,1 Cr3,3,32 Mp2,2,2,2 O1s92" ...
+```
 
-### Supported Layers and Their Specifications
+### 2. Using Predefined Models
 
-| **Layer**          | **Spec**                                       | **Example**      | **Description**                                                                                                                                   |
-|--------------------|------------------------------------------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| Input              | `batch,height,width,depth`                     | `None,64,None,1` | Input layer with variable batch_size & width, depth of 1 channel                                                                                  |
-| Output             | `O(2\|1\|0)(l\|s)`                             | `O1s10`          | Dense layer with a 1D sequence as with 10 output classes and softmax                                                                              |
-| Conv2D             | `C(s\|t\|r\|e\|l\|m),<x>,<y>[<s_x>,<s_y>],<d>` | `Cr3,3,64`       | Conv2D layer with Relu, a 3x3 filter, 1x1 stride and 64 filters                                                                                   |
-| Dense (FC)         | `F(s\|t\|r\|l\|m)<d>`                          | `Fs64`           | Dense layer with softmax and 64 units                                                                                                             |
-| LSTM               | `L(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Lf64`           | Forward-only LSTM cell with 64 units                                                                                                              |
-| GRU                | `G(f\|r)[s]<n>,[D<rate>,Rd<rate>]`             | `Gr64`           | Reverse-only GRU cell with 64 units                                                                                                               |
-| Bidirectional      | `B(g\|l)<n>[D<rate>Rd<rate>]`                  | `Bl256`          | Bidirectional layer wrapping a LSTM RNN with 256 units                                                                                            |
-| BatchNormalization | `Bn`                                           | `Bn`             | BatchNormalization layer                                                                                                                          |
-| MaxPooling2D       | `Mp<x>,<y>,<s_x>,<s_y>`                        | `Mp2,2,1,1`      | MaxPooling2D layer with 2x2 pool size and 1x1 strides                                                                                             |
-| AvgPooling2D       | `Ap<x>,<y>,<s_x>,<s_y>`                        | `Ap2,2,2,2`      | AveragePooling2D layer with 2x2 pool size and 2x2 strides                                                                                         |
-| Dropout            | `D<rate>`                                      | `D25`            | Dropout layer with `dropout` = 0.25                                                                                                               |
-| Reshape            | `Rc`                                           | `Rc`             | Reshape layer returns a new (collapsed) tf.Tensor with a different shape based on the previous layer outputs                                      |
-| ResidualBlock      | `RB[d]<x>,<y>,<z>`                             | `RB3,3,64`       | Residual Block with optional downsample. Has a kernel size of <x>,<y> and a depth of <z>. If `d` is provided, the block will downsample the input |
+Alternatively, you can choose from several predefined models that are optimized for different tasks. One of the simplest models you can try is `--model modelkeras`, which is based on a similar model from the [Keras Captcha OCR tutorial](https://keras.io/examples/vision/captcha_ocr/#model). You can use this by running the following:
 
-### Layer Details
-#### Input
+```bash
+python3 src/main.py --model modelkeras ...
+```
 
-- **Spec**: `batch,height,width,depth`
-- **Description**: Represents the input layer in TensorFlow, based on standard TF tensor dimensions.
-- **Example**: `None,64,None,1` creates a `tf.layers.Input` with a variable batch size, height of 64, variable width and a depth of 1 (input channels)
+### 3. Recommended Starting Models
 
-#### Output
+A good starting point is the `recommended` model, which offers a balanced architecture for speed and accuracy. This model can be used with the following command:
 
-- **Spec**: `O(2|1|0)(l|s)<n>`
-- **Description**: Output layer providing either a 2D vector (heat) map of the input (`2`), a 1D sequence of vector values (`1`) or a 0D single vector value (`0`) with `n` classes. Currently, only a 1D sequence of vector values is supported. 
-- **Example**: `O1s10` creates a Dense layer with a 1D sequence as output with 10 classes and softmax.
+```bash
+python3 src/main.py --model recommended ...
+```
 
-#### Conv2D
+### 4. Full Model Library
 
-- **Spec**: `C(s|t|r|e|l|m)<x>,<y>[,<s_x>,<s_y>],<d>`
-- **Description**: Convolutional layer using a `x`,`y` window and `d` filters. Optionally, the stride window can be set with (`s_x`, `s_y`).
-- **Examples**: 
-  - `Cr3,3,64` creates a Conv2D layer with a Relu activation function, a 3x3 filter, 1x1 stride, and 64 filters.
-  - `Cr3,3,1,3,128` creates a Conv2D layer with a Relu activation function, a 3x3 filter, 1x3 strides, and 128 filters.
+Here are the available predefined models:
 
-#### Dense (Fully-connected layer)
+- `modelkeras`: A basic model inspired by the Keras Captcha OCR example.
+- `model9` to `model16`: These models vary in complexity, depth, and the number of bidirectional LSTMs.
+- `recommended`: A well-balanced model for general tasks, incorporating convolutional layers, batch normalization, max pooling, and bidirectional LSTMs with dropout.
 
-- **Spec**: `F(s|t|r|e|l|m)<d>`
-- **Description**: Fully-connected layer with `s|t|r|e|l|m` non-linearity and `d` units.
-- **Example**: `Fs64` creates a FC layer with softmax non-linearity and 64 units.
-
-#### LSTM
-
-- **Spec**: `L(f|r)[s]<n>[,D<rate>,Rd<rate>]`
-- **Description**: LSTM cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
-- **Example**: `Lf64` creates a forward-only LSTM cell with 64 units.
-
-#### GRU
-
-- **Spec**: `G(f|r)[s]<n>[,D<rate>,Rd<rate>]`
-- **Description**: GRU cell running either forward-only (`f`) or reversed-only (`r`), with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
-- **Example**: `Gf64` creates a forward-only GRU cell with 64 units.
-
-#### Bidirectional
-
-- **Spec**: `B(g|l)<n>[,D<rate>,Rd<rate>]`
-  - **Description**: Bidirectional layer wrapping either a LSTM (`l`) or GRU (`g`) RNN layer, running in both directions, with `n` units. Optionally, the `rate` can be set for the `dropout` and/or the `recurrent_dropout`, where `rate` indicates a percentage between 0 and 100.
-- **Example**: `Bl256` creates a Bidirectional RNN layer using a LSTM Cell with 256 units.
-
-#### BatchNormalization
-
-- **Spec**: `Bn`
-- **Description**: A technique often used to standardize the inputs to a layer for each mini-batch. Helps stabilize the learning process.
-- **Example**: `Bn` applies a transformation maintaining mean output close to 0 and output standard deviation close to 1.
-
-#### MaxPooling2D
-
-- **Spec**: `Mp<x>,<y>,<s_x>,<s_y>`
-- **Description**: Downsampling technique using a `x`,`y` window. The window is shifted by strides `s_x`, `s_y`.
-- **Example**: `Mp2,2,2,2` creates a MaxPooling2D layer with pool size (2,2) and strides of (2,2).
-
-#### AvgPooling2D
-
-- **Spec**: `Ap<x>,<y>,<s_x>,<s_y>`
-- **Description**: Downsampling technique using a `x`,`y` window. The window is shifted by strides `s_x`, `s_y`.
-- **Example**: `Ap2,2,2,2` creates an AveragePooling2D layer with pool size (2,2) and strides of (2,2).
-
-#### Dropout
-
-- **Spec**: `D<rate>`
-- **Description**: Regularization layer that sets input units to 0 at a rate of `rate` during training. Used to prevent overfitting.
-- **Example**: `D50` creates a Dropout layer with a dropout rate of 0.5 (`D`/100).
-
-#### Reshape
-
-- **Spec**: `Rc`
-- **Description**: Reshapes the output tensor from the previous layer, making it compatible with RNN layers.
-- **Example**: `Rc` applies a specific transformation: `layers.Reshape((-1, prev_layer_y * prev_layer_x))`.
-
-#### ResidualBlock
-- **Spec**: `RB[d]<x>,<y>,<z>`
-- **Description**: A Residual Block with a kernel size of <x>,<y> and a depth of <z>. If [d] is provided, the block will downsample the input. Residual blocks are used to allow for deeper networks by adding skip connections, which helps in preventing the vanishing gradient problem.
-- **Example**: `RB3,3,64` creates a Residual Block with a 3x3 kernel size and a depth of 64 filters.
+Each model is designed to tackle specific use cases and input/output configurations, and you can explore each by using the corresponding `--model` argument. For more details, refer to the VGSL specification or check out the available models in the model library within the project.
 
 ## API Usage Guide
 
@@ -362,7 +292,7 @@ cd src/visualize
 
 ```bash
 python3 main.py 
---existing_model /path/to/existing/model 
+--model /path/to/existing/model 
 --sample_image /path/to/sample/img
 ```
 
@@ -426,35 +356,20 @@ To integrate a Loghi HTR model into your project, follow these steps:
 
 ### How can I determine the VGSL spec of a model I previously used?
 
-If you've used one of our older models and would like to know its VGSL specification, follow these steps:
+If you've used one of our models and would like to know its VGSL specification, you can now use the **vgslify** package to generate the VGSL spec directly from your model. Follow the steps below:
 
-**For Docker users:**
+1. Load your model as usual (either from a saved file or from memory).
+2. Use the `vgslify.utils.model_to_spec` function to generate the VGSL spec string.
 
-1. If your Docker container isn't already running with the model directory mounted, start it and bind mount your model directory:
+Example:
 
-```bash
-docker run -it -v /path/on/host/to/your/model_directory:/path/in/container/to/model_directory loghi/docker.htr
+```python
+from vgslify.utils import model_to_spec
+vgsl_spec_string = model_to_spec(model)
+print(vgsl_spec_string)
 ```
 
-Replace `/path/on/host/to/your/model_directory` with the path to your model directory on your host machine, and `/path/in/container/to/model_directory` with the path where you want to access it inside the container.
-
-2. Once inside the container, run the VGSL spec generator:
-
-```bash
-python3 /src/loghi-htr/src/model/vgsl_model_generator.py --model_dir /path/in/container/to/model_directory
-```
-
-Replace `/path/in/container/to/model_directory` with the path you specified in the previous step.
-
-**For Python users:**
-
-1. Run the VGSL spec generator:
-
-```bash
-python3 src/model/vgsl_model_generator.py --model_dir /path/to/your/model_directory
-```
-
-Replace `/path/to/your/model_directory` with the path to the directory containing your saved model.
+Replace `model` with your loaded TensorFlow model.
 
 ### How do I use `replace_recurrent_layer`?
 
@@ -462,8 +377,7 @@ The `replace_recurrent_layer` is a feature that allows you to replace the recurr
 
 1. Specify the model you want to modify using the `--model` argument.
 2. Provide the VGSL string that defines the new recurrent layer architecture with the `--replace_recurrent_layer` argument. The VGSL string describes the type, direction, and number of units for the recurrent layers. For example, "Lfs128 Lfs64" describes two LSTM layers with 128 and 64 units respectively, with both layers returning sequences.
-3. (Optional) Use `--use_mask` if you want the replaced layer to account for masking.
-4. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
+3. Execute your script or command, and the tool will replace the recurrent layers of your existing model based on the VGSL string you provided.
 
 ### I'm getting the following error when I want to use `replace_recurrent_layer`: `Input 0 of layer "lstm_1" is incompatible with the layer: expected ndim=3, found ndim=2.` What do I do?
 
