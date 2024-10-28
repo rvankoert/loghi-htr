@@ -31,8 +31,6 @@ from setup.environment import setup_environment, setup_logging
 from utils.print import summarize_model
 from utils.text import Tokenizer
 
-import tensorflow as tf
-
 
 def main():
     """ Main function for the program """
@@ -84,7 +82,7 @@ def main():
 
         # Initialize the DataManager
         data_manager = initialize_data_manager(config, tokenizer, model,
-                                                augmentation_model)
+                                               augmentation_model)
 
         # Replace the tokenizer with the one from the data manager
         tokenizer = data_manager.tokenizer

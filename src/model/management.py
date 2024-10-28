@@ -326,7 +326,7 @@ def load_or_create_model(config: Config, custom_objects: Dict[str, Any]) -> tf.k
             model_path, output_directory=config["output"], custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
-            #model.name = config["model_name"]
+
     # Handle 'custom' model type
     elif model_path == 'custom':
         model = build_custom_model()
@@ -357,14 +357,9 @@ def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
     model_spec = model_library.get(model_key, model_key)
 
     model_generator = VGSLModelGenerator()
-    model = model_generator.generate_model(model_spec=model_spec)
-
-    if config["model_name"]:
-        model._name = config["model_name"]
-        #model.name = config["model_name"]
-    else:
-        model._name = model_key
-        #model.name = model_key
+    model = model_generator.generate_model(model_spec=model_spec,
+                                           model_name=config["model_name"] if config["model_name"]
+                                           else model_key)
 
     return model
 
