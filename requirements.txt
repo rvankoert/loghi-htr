@@ -13,7 +13,7 @@ xlsxwriter==3.2.0
 six
 Pillow==10.4.0
 h5py==3.11.0
-fastapi==0.112.1
+fastapi[standard]==0.112.1
 uvicorn==0.30.6
 typing-extensions==4.12.2
 psutil==5.9.5

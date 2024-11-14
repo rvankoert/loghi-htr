@@ -24,6 +24,7 @@ from utils.text import Tokenizer  # noqa: E402
 
 
 def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
+                          base_model_dir: str,
                           model_path: str,
                           output_path: str,
                           stop_event: multiprocessing.Event) -> None:
@@ -34,6 +35,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     ----------
     predicted_queue: multiprocessing.Queue
         Queue containing predicted texts and other information.
+    base_model_dir: str
+        Base path to the model directory.
     model_path: str
         Path to the model directory.
     output_path: str
@@ -48,7 +51,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     tf.config.experimental.set_visible_devices([], 'GPU')
 
     # Initialize utilities
-    tokenizer = create_tokenizer(model_path)
+    model_name = model_path
+    tokenizer = create_tokenizer(os.path.join(base_model_dir, model_path))
 
     total_outputs = 0
 
@@ -61,10 +65,11 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 continue
 
             # Re-initialize utilities if model has changed
-            if model != model_path:
-                tokenizer = create_tokenizer(model)
+            if model != model_name:
+                tokenizer = create_tokenizer(
+                    os.path.join(base_model_dir, model))
                 logging.info("Utilities re-initialized for %s", model)
-                model_path = model
+                model_name = model
 
             decoded_predictions = batch_decode(encoded_predictions, tokenizer)
 

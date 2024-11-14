@@ -19,7 +19,8 @@ import tensorflow as tf
 def image_preparation_worker(batch_size: int,
                              request_queue: multiprocessing.Queue,
                              prepared_queue: multiprocessing.Queue,
-                             model_path: str,
+                             base_model_dir: str,
+                             model_name: str,
                              patience: float,
                              stop_event: multiprocessing.Event):
     """
@@ -36,7 +37,9 @@ def image_preparation_worker(batch_size: int,
         Queue from which raw images are fetched.
     prepared_queue : multiprocessing.Queue
         Queue to which prepared images are pushed.
-    model_path : str
+    base_model_dir : str
+        Path to the base model directory.
+    model_name : str
         Path to the initial model used for image preparation.
     patience : float
         Max time to wait for new images.
@@ -51,22 +54,22 @@ def image_preparation_worker(batch_size: int,
     # Disable GPU visibility to prevent memory allocation issues
     tf.config.set_visible_devices([], 'GPU')
 
-    # Define the number of channels for the images
-    num_channels = update_channels(model_path)
-
     # Define the model path
-    model = model_path
+    model_location = os.path.join(base_model_dir, model_name)
+
+    # Define the number of channels for the images
+    num_channels = update_channels(model_location)
 
     # Initialize the metadata and whitelist as default values
     metadata, whitelist = {}, []
 
     try:
         while not stop_event.is_set():
-            num_channels, model, metadata, whitelist = \
+            num_channels, model_location, metadata, whitelist = \
                 fetch_and_prepare_images(request_queue, prepared_queue,
                                          batch_size, patience, num_channels,
-                                         model, metadata, whitelist,
-                                         stop_event)
+                                         base_model_dir, model_name, metadata,
+                                         whitelist, stop_event)
 
     except Exception as e:
         logging.error("Exception in image preparation worker: %s", e)
@@ -150,6 +153,7 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
                         batch_identifiers: list,
                         batch_metadata: list,
                         old_channels: int,
+                        base_model_dir: str,
                         new_model: str,
                         old_model: str) -> (int, str):
     """
@@ -171,6 +175,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
         Metadata for each image in the batch.
     old_channels : int
         Number of channels for the old model.
+    base_model_dir : str
+        Path to the base model directory.
     new_model : str
         Path of the new model.
     old_model : str
@@ -186,6 +192,8 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
 
     logging.info("Detected model change. Switching to the new model.")
 
+    new_model_path = os.path.join(base_model_dir, new_model)
+
     # If there are images in the current batch, process them before changing
     # the model
     if batch_images:
@@ -197,7 +205,7 @@ def handle_model_change(prepared_queue: multiprocessing.Queue,
                             prepared_queue, request_queue)
 
     # Update the model channels
-    num_channels = update_channels(new_model)
+    num_channels = update_channels(new_model_path)
 
     return num_channels, new_model
 
@@ -207,7 +215,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                              batch_size: int,
                              patience: float,
                              num_channels: int,
-                             current_model: str,
+                             base_model_dir: str,
+                             current_model_name: str,
                              metadata: dict,
                              old_whitelist: list,
                              stop_event: multiprocessing.Event) -> (int, str):
@@ -252,17 +261,17 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
 
     while not stop_event.is_set():
         try:
-            image, group, identifier, new_model, whitelist = \
+            image, group, identifier, new_model_name, whitelist = \
                 request_queue.get(timeout=0.1)
             logging.debug("Retrieved %s from request_queue", identifier)
 
             # Metadata change detection
             # If the metadata is None or the model has changed or the
             # whitelist has changed, update the metadata
-            if (new_model != current_model and new_model is not None) \
+            if (new_model_name != current_model_name and new_model_name is not None) \
                     or whitelist != old_whitelist:
                 # Update the metadata
-                model_path = new_model if new_model else current_model
+                model_path = os.path.join(base_model_dir, new_model_name)
                 logging.info("Detected metadata change. Updating metadata.")
                 metadata = fetch_metadata(whitelist, model_path)
                 old_whitelist = whitelist
@@ -271,8 +280,8 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
             # Model change detection
             # If the model has changed, process the current batch before
             # continuing
-            if new_model and new_model != current_model:
-                num_channels, current_model = \
+            if new_model_name and new_model_name != current_model_name:
+                num_channels, current_model_name = \
                     handle_model_change(prepared_queue,
                                         request_queue,
                                         batch_images,
@@ -280,8 +289,9 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                                         batch_identifiers,
                                         batch_metadata,
                                         num_channels,
-                                        new_model,
-                                        current_model)
+                                        base_model_dir,
+                                        new_model_name,
+                                        current_model_name)
 
             batch_images.append(image)
             batch_groups.append(group)
@@ -309,14 +319,14 @@ def fetch_and_prepare_images(request_queue: multiprocessing.Queue,
                 break
     else:
         # If the stop event is set, break the loop
-        return num_channels, current_model, metadata, old_whitelist
+        return num_channels, current_model_name, metadata, old_whitelist
 
     # Pad and queue the batch
-    pad_and_queue_batch(current_model, batch_images, batch_groups,
+    pad_and_queue_batch(current_model_name, batch_images, batch_groups,
                         batch_identifiers, batch_metadata, num_channels,
                         prepared_queue, request_queue)
 
-    return num_channels, current_model, metadata, old_whitelist
+    return num_channels, current_model_name, metadata, old_whitelist
 
 
 def fetch_metadata(whitelist: list, model_path: str):

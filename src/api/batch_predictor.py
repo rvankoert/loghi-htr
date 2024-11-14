@@ -23,13 +23,15 @@ from model.management import load_model_from_directory  # noqa: E402
 from setup.environment import initialize_strategy  # noqa: E402
 
 
-def create_model(model_path: str, strategy: tf.distribute.Strategy) \
+def create_model(base_model_dir: str, model_path: str, strategy: tf.distribute.Strategy) \
         -> tf.keras.Model:
     """
     Load a pre-trained model and create utility methods.
 
     Parameters
     ----------
+    base_model_dir : str
+        Path to the models directory.
     model_path : str
         Path to the pre-trained model file.
     strategy : tf.distribute.Strategy
@@ -50,7 +52,8 @@ def create_model(model_path: str, strategy: tf.distribute.Strategy) \
     logging.info("Loading model...")
     with strategy.scope():
         try:
-            model = load_model_from_directory(model_path, compile=False)
+            model_location = os.path.join(base_model_dir, model_path)
+            model = load_model_from_directory(model_location, compile=False)
             logging.info("Model %s loaded successfully", model.name)
 
             if logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -108,6 +111,7 @@ def setup_gpu_environment(gpus: str) -> List[tf.config.PhysicalDevice]:
 def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                             predicted_queue: multiprocessing.Queue,
                             output_path: str,
+                            base_model_dir: str,
                             model_path: str,
                             stop_event: multiprocessing.Event,
                             gpus: str = '0'):
@@ -125,6 +129,8 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
         Queue from which preprocessed images are fetched.
     output_path : str
         Path where predictions should be saved.
+    base_model_dir : str
+        Path to the models directory.
     model_path : str
         Path to the initial model file.
     stop_event : multiprocessing.Event
@@ -147,7 +153,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
                                    active_gpus=active_gpus)
 
     # Create the model and utilities
-    model = create_model(model_path, strategy)
+    model = create_model(base_model_dir, model_path, strategy)
 
     old_model_path = model_path
 
@@ -163,7 +169,7 @@ def batch_prediction_worker(prepared_queue: multiprocessing.Queue,
 
             if model_path != old_model_path:
                 old_model_path = model_path
-                model = create_model(model_path, strategy)
+                model = create_model(base_model_dir, model_path, strategy)
                 logging.info("Model reloaded due to change in model path")
 
             # Make predictions on the batch

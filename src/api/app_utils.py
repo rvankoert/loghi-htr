@@ -133,11 +133,6 @@ async def extract_request_data(
             detail="The uploaded image is empty. Please upload a valid image "
             "file.")
 
-    # Validate model path if provided
-    if model and not os.path.exists(model):
-        raise HTTPException(
-            status_code=400, detail=f"Model directory {model} does not exist.")
-
     return image_content, group_id, identifier, model, whitelist
 
 
@@ -235,8 +230,8 @@ def initialize_queues(batch_size: int, max_queue_size: int):
     return queues
 
 
-def start_workers(batch_size: int, output_path: str, gpus: str,
-                  model_path: str, patience: int, stop_event: mp.Event,
+def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
+                  model_name: str, patience: int, stop_event: mp.Event,
                   queues: Dict[str, mp.Queue]):
     """
     Initializes and starts multiple multiprocessing workers for image
@@ -250,8 +245,11 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
         The path where the output results will be stored.
     gpus : str
         The GPU devices to use for computation.
-    model_path : str
-        The path to the machine learning model for predictions.
+    base_model_dir : str
+        The path to the base machine learning model for predictions.
+    model_name : str
+        The path to the machine learning model for predictions relative to the
+        base model path.
     patience : int
         The number of seconds to wait for an image to be ready before timing
         out.
@@ -276,8 +274,8 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
     logger.info("Starting image preparation process")
     preparation_process = mp.Process(
         target=image_preparation_worker,
-        args=(batch_size, request_queue, prepared_queue,
-              model_path, patience, stop_event),
+        args=(batch_size, request_queue, prepared_queue, base_model_dir,
+              model_name, patience, stop_event),
         name="Image Preparation Process",
         daemon=True)
     preparation_process.start()
@@ -286,8 +284,8 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, predicted_queue,
-              output_path, model_path, stop_event, gpus),
+        args=(prepared_queue, predicted_queue, output_path, base_model_dir,
+              model_name, stop_event, gpus),
         name="Batch Prediction Process",
         daemon=True)
     prediction_process.start()
@@ -296,7 +294,8 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, model_path, output_path, stop_event),
+        args=(predicted_queue, base_model_dir,
+              model_name, output_path, stop_event),
         name="Batch Decoding Process",
         daemon=True)
     decoding_process.start()
