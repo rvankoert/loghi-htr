@@ -8,9 +8,10 @@ import os
 import sys
 import time
 import uuid
-from typing import List
+from typing import List, Tuple
 
 # > Third-party dependencies
+import numpy as np
 import tensorflow as tf
 
 # Add parent directory to path for imports
@@ -350,10 +351,151 @@ def create_dataset(request_queue: multiprocessing.Queue, batch_size: int,
     return dataset
 
 
+def output_prediction_error(output_path: str,
+                            group_id: str,
+                            identifier: str,
+                            text: str):
+    """
+    Output an error message to a file.
+
+    Parameters
+    ----------
+    output_path : str
+        Base path where prediction outputs should be saved.
+    group_id : str
+        Group ID of the image.
+    identifier : str
+        Identifier of the image.
+    text : str
+        Error message to be saved.
+    """
+
+    output_dir = os.path.join(output_path, group_id)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, identifier + ".error"), "w",
+              encoding="utf-8") as f:
+        f.write(str(text) + "\n")
+
+
+def predict(model: tf.keras.Model,
+            batch_images: tf.Tensor,
+            batch_id: str) -> np.ndarray:
+    """
+    Make predictions on a batch of images using the provided model.
+
+    Parameters
+    ----------
+    model : TensorFlow model
+        The model used for making predictions.
+    batch_images : tf.Tensor
+        A tensor of images for which predictions need to be made.
+    batch_id : str
+        Unique identifier for the current batch.
+
+    Returns
+    -------
+    np.ndarray
+        An array of predictions made by the model.
+    """
+
+    logging.info("Predicting batch of size %d (%s)",
+                 len(batch_images), batch_id)
+    t1 = time.time()
+    encoded_predictions = model.predict_on_batch(batch_images)
+
+    logging.info("Made %d predictions in %.2f seconds (%s)",
+                 len(encoded_predictions), time.time() - t1, batch_id)
+    logging.debug("Predictions: %s", encoded_predictions)
+    return encoded_predictions
+
+
+def safe_predict(model: tf.keras.Model,
+                 predicted_queue: multiprocessing.Queue,
+                 batch_images: tf.Tensor,
+                 batch_info: List[Tuple[str, str]],
+                 output_path: str,
+                 batch_id: str) -> List[str]:
+    """
+    Attempt to predict on a batch of images using the provided model. If a
+    TensorFlow Out of Memory (OOM) error occurs, the batch is split in half and
+    each half is attempted again, recursively. If an OOM error occurs with a
+    batch of size 1, the offending image is logged and skipped.
+
+    Parameters
+    ----------
+    model : TensorFlow model
+        The model used for making predictions.
+    predicted_queue : multiprocessing.Queue
+        Queue where predictions are sent.
+    batch_images : tf.Tensor
+        A tensor of images for which predictions need to be made.
+    batch_info : List of tuples
+        A list of tuples containing additional information (e.g., group and
+        identifier) for each image in `batch_images`.
+    output_path : str
+        Path where any output files should be saved.
+    batch_id : str
+        Unique identifier for the current batch.
+
+    Returns
+    -------
+    List
+        A list of predictions made by the model. If an image causes an OOM
+        error, it is skipped, and no prediction is returned for it.
+    """
+
+    try:
+        return predict(model, batch_images, batch_id)
+
+    except tf.errors.ResourceExhaustedError as e:
+        # If the batch size is 1 and still causing OOM, then skip the image and
+        # return an empty list
+        if len(batch_images) == 1:
+            logging.error(
+                "OOM error with single image. Skipping image %s.",
+                batch_info[0][1])
+
+            output_prediction_error(
+                output_path, batch_info[0][0], batch_info[0][1], e)
+            return []
+
+        logging.warning(
+            "OOM error with batch size %s. Splitting batch %s in half and "
+            "retrying.", len(batch_images), batch_id)
+
+        # Splitting batch in half
+        mid_index = len(batch_images) // 2
+        first_half_images = batch_images[:mid_index]
+        second_half_images = batch_images[mid_index:]
+        first_half_info = batch_info[:mid_index]
+        second_half_info = batch_info[mid_index:]
+
+        # Recursive calls for each half
+        first_half_predictions = safe_predict(
+            model, predicted_queue, first_half_images,
+            first_half_info, output_path, batch_id
+        )
+        second_half_predictions = safe_predict(
+            model, predicted_queue, second_half_images,
+            second_half_info, output_path, batch_id
+        )
+
+        return np.concatenate((first_half_predictions,
+                               second_half_predictions))
+    except Exception as e:
+        logging.error("Error predicting batch %s: %s", batch_id, e)
+        for group, identifier in batch_info:
+            output_prediction_error(output_path, group, identifier, e)
+
+        return []
+
+
 def batch_prediction_worker(request_queue: multiprocessing.Queue,
                             predicted_queue: multiprocessing.Queue,
                             base_model_dir: str,
                             initial_model_path: str,
+                            error_output_path: str,
                             stop_event: multiprocessing.Event,
                             gpus: str = '0',
                             batch_size: int = 32,
@@ -371,6 +513,8 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
         Base directory where models are stored.
     initial_model_path : str
         Initial model path relative to `base_model_dir`.
+    error_output_path : str
+        Base path where prediction errors should be saved.
     stop_event : multiprocessing.Event
         Event to signal the worker to stop processing.
     gpus : str, optional
@@ -421,13 +565,11 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
 
             # Perform predictions
             batch_id = str(uuid.uuid4())
-            with strategy.scope():
-                logging.info("Predicting batch of size %d (%s)",
-                             len(images), batch_id)
-                t1 = time.time()
-                encoded_predictions = model.predict_on_batch(images)
-                logging.info("Made %d predictions in %.2f seconds (%s)",
-                             len(encoded_predictions), time.time() - t1, batch_id)
+            encoded_predictions = safe_predict(
+                model, predicted_queue, images, list(
+                    zip(batch_groups, batch_identifiers)),
+                error_output_path, batch_id
+            )
 
             predicted_queue.put((encoded_predictions, batch_groups, batch_identifiers,
                                  model_path, batch_id, batch_whitelist))

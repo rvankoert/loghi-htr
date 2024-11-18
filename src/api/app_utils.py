@@ -58,12 +58,12 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Set up the basic logging configuration
     logging.basicConfig(
-        format="[%(process)d] %(asctime)s - %(levelname)s - %(message)s",
+        format="[%(processName)s] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging_levels[level],
     )
 
-    # Get TensorFlow's logger and remove its handlers to prevent duplicate logs
+    # Configure TensorFlow logger to use the custom filter
     tf_logger = logging.getLogger('tensorflow')
     tf_logger.addFilter(TensorFlowLogFilter())
     while tf_logger.handlers:
@@ -264,8 +264,9 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     prediction_process = mp.Process(
         target=batch_prediction_worker,
         args=(request_queue, predicted_queue, base_model_dir,
-              model_name, stop_event, gpus, batch_size, patience),
-        name="Batch Prediction Process",
+              model_name, output_path, stop_event, gpus,
+              batch_size, patience),
+        name="PredictionProcess",
         daemon=True)
     prediction_process.start()
 
@@ -275,7 +276,7 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
         target=batch_decoding_worker,
         args=(predicted_queue, base_model_dir,
               model_name, output_path, stop_event),
-        name="Batch Decoding Process",
+        name="DecodingProcess",
         daemon=True)
     decoding_process.start()
 
