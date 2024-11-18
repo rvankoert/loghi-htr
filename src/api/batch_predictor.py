@@ -174,35 +174,6 @@ def create_model(base_model_dir: str, model_path: str, strategy: tf.distribute.S
     return model, num_channels
 
 
-def resize_and_pad_image(image: tf.Tensor, target_height: int) -> tf.Tensor:
-    """
-    Resize and pad an image tensor to the desired height while maintaining aspect ratio.
-
-    Parameters
-    ----------
-    image : tf.Tensor
-        Image tensor to be resized and padded.
-    target_height : int
-        Desired height of the output image.
-
-    Returns
-    -------
-    tf.Tensor
-        Resized and padded image tensor.
-    """
-    shape = tf.shape(image)
-    width = tf.cast(shape[1], tf.float32)
-    height = tf.cast(shape[0], tf.float32)
-    aspect_ratio = width / height
-    target_width = tf.cast(target_height * aspect_ratio, tf.int32)
-    padded_image = tf.image.resize_with_pad(
-        image, target_height, target_width + 50, method=tf.image.ResizeMethod.BILINEAR
-    )
-
-    normalized_image = 0.5 - padded_image  # Normalize the image
-    return normalized_image
-
-
 def process_sample(image_bytes: tf.Tensor, group_id: tf.Tensor, identifier: tf.Tensor,
                    model: tf.Tensor, whitelist: tf.Tensor, num_channels: int) -> tuple:
     """
@@ -236,8 +207,20 @@ def process_sample(image_bytes: tf.Tensor, group_id: tf.Tensor, identifier: tf.T
         logging.error("Invalid image for identifier: %s",
                       identifier.numpy().decode('utf-8'))
 
-    image = resize_and_pad_image(image, target_height=64)
-    image = tf.transpose(image, perm=[1, 0, 2])  # Change from HWC to WHC
+    # Resize and normalize the image
+    image = tf.image.resize(
+        image, [64, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True)
+    image = tf.cast(image, tf.float32) / 255.0
+
+    # Resize and pad the image
+    image = tf.image.resize_with_pad(
+        image, 64, tf.shape(image)[1] + 50, method=tf.image.ResizeMethod.BILINEAR)
+
+    # Normalize the image
+    image = 0.5 - image
+
+    # Transpose the image dimensions if necessary
+    image = tf.transpose(image, perm=[1, 0, 2])  # From HWC to WHC
 
     return image, group_id, identifier, model, whitelist
 
