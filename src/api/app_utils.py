@@ -177,7 +177,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def initialize_queues(batch_size: int, max_queue_size: int):
+def initialize_queues(max_queue_size: int):
     """
     Initializes the communication queues for the multiprocessing workers.
 
@@ -198,14 +198,8 @@ def initialize_queues(batch_size: int, max_queue_size: int):
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
-    request_queue = mp.Queue(maxsize=max_queue_size//2)
-    logger.info("Request queue size: %s", max_queue_size // 2)
-
-    # Max size of prepared queue is half of the max size of request queue
-    # expressed in number of batches
-    max_prepared_queue_size = max_queue_size // 2 // batch_size
-    prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
-    logger.info("Prepared queue size: %s", max_prepared_queue_size)
+    request_queue = mp.Queue(maxsize=max_queue_size)
+    logger.info("Request queue size: %s", max_queue_size)
 
     # Create a thread-safe Queue for predictions
     predicted_queue = mp.Queue()
@@ -214,16 +208,12 @@ def initialize_queues(batch_size: int, max_queue_size: int):
     request_queue_size_gauge = Gauge(
         "request_queue_size", "Request queue size")
     request_queue_size_gauge.set_function(request_queue.qsize)
-    prepared_queue_size_gauge = Gauge(
-        "prepared_queue_size", "Prepared queue size")
-    prepared_queue_size_gauge.set_function(prepared_queue.qsize)
     predicted_queue_size_gauge = Gauge(
         "predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
     queues = {
         "Request": request_queue,
-        "Prepared": prepared_queue,
         "Predicted": predicted_queue
     }
 
@@ -267,25 +257,14 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     logger = logging.getLogger(__name__)
 
     request_queue = queues["Request"]
-    # prepared_queue = queues["Prepared"]
     predicted_queue = queues["Predicted"]
-
-    # Start the image preparation process
-    # logger.info("Starting image preparation process")
-    # preparation_process = mp.Process(
-    # target=image_preparation_worker,
-    # args=(batch_size, request_queue, prepared_queue, base_model_dir,
-    # model_name, patience, stop_event),
-    # name="Image Preparation Process",
-    # daemon=True)
-    # preparation_process.start()
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
         args=(request_queue, predicted_queue, base_model_dir,
-              model_name, stop_event, gpus, batch_size),
+              model_name, stop_event, gpus, batch_size, patience),
         name="Batch Prediction Process",
         daemon=True)
     prediction_process.start()
@@ -301,7 +280,6 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     decoding_process.start()
 
     workers = {
-        # "Preparation": preparation_process,
         "Prediction": prediction_process,
         "Decoding": decoding_process
     }
@@ -330,11 +308,9 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
         worker.join()
 
 
-async def restart_workers(batch_size: int, max_queue_size: int,
-                          output_path: str, gpus: str, base_model_dir: str,
+async def restart_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
                           model_name: str, patience: int, stop_event: mp.Event,
-                          workers: Dict[str, mp.Process],
-                          queues: Dict[str, mp.Queue]):
+                          workers: Dict[str, mp.Process], queues: Dict[str, mp.Queue]):
     """
     Restarts worker processes when the corresponding queues are empty.
 
@@ -342,8 +318,6 @@ async def restart_workers(batch_size: int, max_queue_size: int,
     ----------
     batch_size : int
         The size of the batch for processing images.
-    max_queue_size : int
-        The maximum size of the request queue.
     output_path : str
         The path where the output results will be stored.
     gpus : str

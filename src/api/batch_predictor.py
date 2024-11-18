@@ -250,7 +250,7 @@ def process_sample(image_bytes, group_id, identifier, model, whitelist, num_chan
     return image, group_id, identifier, model, whitelist
 
 
-def data_generator(request_queue, current_model_path_holder, stop_event):
+def data_generator(request_queue, current_model_path_holder, stop_event, patience):
     """
     Generator function to yield data from the request queue, ensuring batches contain only one model.
 
@@ -302,7 +302,7 @@ def data_generator(request_queue, current_model_path_holder, stop_event):
                 break
 
 
-def create_dataset(request_queue, batch_size, current_model_path_holder, num_channels, stop_event):
+def create_dataset(request_queue, batch_size, current_model_path_holder, num_channels, stop_event, patience):
     """
     Create a tf.data.Dataset from the request queue.
 
@@ -316,6 +316,10 @@ def create_dataset(request_queue, batch_size, current_model_path_holder, num_cha
         A single-element list holding the current model path.
     num_channels : int
         Number of channels for the images.
+    stop_event : multiprocessing.Event
+        Event to signal the worker to stop processing.
+    patience : int
+        Time in seconds to wait for new requests before yielding the current batch.
 
     Returns
     -------
@@ -325,7 +329,7 @@ def create_dataset(request_queue, batch_size, current_model_path_holder, num_cha
 
     dataset = tf.data.Dataset.from_generator(
         lambda: data_generator(
-            request_queue, current_model_path_holder, stop_event),
+            request_queue, current_model_path_holder, stop_event, patience),
         output_types=(tf.string, tf.string, tf.string, tf.string, tf.string),
         output_shapes=((), (), (), (), (None, ))
     )
@@ -370,7 +374,8 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
                             initial_model_path: str,
                             stop_event: multiprocessing.Event,
                             gpus: str = '0',
-                            batch_size: int = 32):
+                            batch_size: int = 32,
+                            patience: int = 1):
     """
     Worker process for batch prediction on images.
 
@@ -388,6 +393,8 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
         IDs of GPUs to be used (comma-separated). Default is '0'.
     batch_size : int, optional
         Batch size for predictions.
+    patience : int, optional
+        Time in seconds to wait for new requests before yielding the current batch. Default is 1.
 
     Side Effects
     ------------
@@ -408,7 +415,7 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
     while not stop_event.is_set():
         # Create the dataset
         dataset = create_dataset(request_queue, batch_size, current_model_path_holder,
-                                 num_channels, stop_event)
+                                 num_channels, stop_event, patience)
 
         # Iterate over the dataset
         for batch in dataset:
