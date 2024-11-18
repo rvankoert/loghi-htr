@@ -4,13 +4,13 @@
 import asyncio
 from contextlib import asynccontextmanager
 import os
-import psutil
 import socket
 import multiprocessing as mp
 
 # > Third-party dependencies
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import psutil
 from uvicorn.config import Config
 from uvicorn.server import Server
 
@@ -115,6 +115,7 @@ async def monitor_memory(app: FastAPI):
                     app.state.config["max_queue_size"],
                     app.state.config["output_path"],
                     app.state.config["gpus"],
+                    app.state.config["base_model_dir"],
                     app.state.config["model_name"],
                     app.state.config["patience"],
                     app.state.stop_event, app.state.workers, app.state.queues)

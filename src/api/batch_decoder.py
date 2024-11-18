@@ -3,9 +3,9 @@
 # > Standard library
 import logging
 import multiprocessing
+import json
 import os
 import sys
-import shutil
 from typing import List, Tuple, Dict
 import tempfile
 
@@ -60,7 +60,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
         while not stop_event.is_set():
             try:
                 encoded_predictions, batch_groups, batch_identifiers, model, \
-                    batch_id, batch_metadata = predicted_queue.get(timeout=0.1)
+                    batch_id, batch_whitelists = predicted_queue.get(
+                        timeout=0.1)
             except multiprocessing.queues.Empty:
                 continue
 
@@ -72,6 +73,11 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 model_name = model
 
             decoded_predictions = batch_decode(encoded_predictions, tokenizer)
+
+            # Fetch metadata based on the whitelist keys
+            batch_metadata = fetch_metadata(batch_whitelists,
+                                            base_model_dir,
+                                            model_path)
 
             logging.debug("Outputting predictions...")
             outputted_predictions = save_prediction_outputs(
@@ -206,6 +212,9 @@ def save_prediction_outputs(
     for prediction, group_id, image_id, metadata in zip(
         prediction_data, group_ids, image_ids, image_metadata
     ):
+        group_id = group_id.numpy().decode('utf-8')
+        image_id = image_id.numpy().decode('utf-8')
+
         confidence, predicted_text = prediction
         output_text = (
             f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}")
@@ -271,3 +280,57 @@ def write_file_atomically(content: str, target_path: str, temp_dir: str) \
             # Clean up the temporary file if it exists
             os.unlink(temp_file_path)
         raise e  # Re-raise the exception after cleanup
+
+
+def fetch_metadata(whitelists: list, base_model_dir: str, model_path: str) -> str:
+    """
+    Fetch metadata based on the whitelist keys from a JSON configuration file.
+
+    Parameters
+    ----------
+    whitelist : list
+        A list of keys to search for in the JSON configuration.
+    model_path : str
+        Path to the model directory containing the 'config.json' file.
+
+    Returns
+    -------
+    str
+        A JSON string of the metadata dictionary.
+    """
+
+    config_path = os.path.join(base_model_dir, model_path, "config.json")
+
+    with open(config_path, 'r', encoding="utf-8") as file:
+        config = json.load(file)
+
+    values = {}
+
+    def search_key(data, key):
+        if key in data:
+            return data[key]
+        for sub_value in data.values():
+            if isinstance(sub_value, dict):
+                result = search_key(sub_value, key)
+                if result is not None:
+                    return result
+        return None
+
+    jsons = []
+    warned_keys = []
+    for whitelist in whitelists:
+        for key in whitelist:
+            key = key.numpy().decode('utf-8')
+            value = search_key(config, key)
+            if value is None:
+                values[key] = "NOT_FOUND"
+                if key in warned_keys:
+                    continue
+                logging.warning(
+                    "Key %s not found in config file. Recording 'NOT_FOUND'", key)
+                warned_keys.append(key)
+            else:
+                values[key] = value
+
+        jsons.append(json.dumps(values))
+    return jsons

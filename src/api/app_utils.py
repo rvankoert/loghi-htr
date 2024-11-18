@@ -13,7 +13,6 @@ from prometheus_client import Gauge
 
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
-from image_preparator import image_preparation_worker
 from batch_decoder import batch_decoding_worker
 
 
@@ -28,7 +27,8 @@ class TensorFlowLogFilter(logging.Filter):
     def filter(self, record):
         # Exclude logs containing the specific message
         exclude_phrases = [
-            "Reduce to /job:localhost/replica:0/task:0/device:CPU:"
+            "Reduce to /job:localhost/replica:0/task:0/device:CPU:",
+            "Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence",
         ]
         return not any(phrase in record.msg for phrase in exclude_phrases)
 
@@ -267,25 +267,25 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     logger = logging.getLogger(__name__)
 
     request_queue = queues["Request"]
-    prepared_queue = queues["Prepared"]
+    # prepared_queue = queues["Prepared"]
     predicted_queue = queues["Predicted"]
 
     # Start the image preparation process
-    logger.info("Starting image preparation process")
-    preparation_process = mp.Process(
-        target=image_preparation_worker,
-        args=(batch_size, request_queue, prepared_queue, base_model_dir,
-              model_name, patience, stop_event),
-        name="Image Preparation Process",
-        daemon=True)
-    preparation_process.start()
+    # logger.info("Starting image preparation process")
+    # preparation_process = mp.Process(
+    # target=image_preparation_worker,
+    # args=(batch_size, request_queue, prepared_queue, base_model_dir,
+    # model_name, patience, stop_event),
+    # name="Image Preparation Process",
+    # daemon=True)
+    # preparation_process.start()
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, predicted_queue, output_path, base_model_dir,
-              model_name, stop_event, gpus),
+        args=(request_queue, predicted_queue, base_model_dir,
+              model_name, stop_event, gpus, batch_size),
         name="Batch Prediction Process",
         daemon=True)
     prediction_process.start()
@@ -301,7 +301,7 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     decoding_process.start()
 
     workers = {
-        "Preparation": preparation_process,
+        # "Preparation": preparation_process,
         "Prediction": prediction_process,
         "Decoding": decoding_process
     }
@@ -331,8 +331,8 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
 
 
 async def restart_workers(batch_size: int, max_queue_size: int,
-                          output_path: str, gpus: str, model_path: str,
-                          patience: int, stop_event: mp.Event,
+                          output_path: str, gpus: str, base_model_dir: str,
+                          model_name: str, patience: int, stop_event: mp.Event,
                           workers: Dict[str, mp.Process],
                           queues: Dict[str, mp.Queue]):
     """
@@ -384,7 +384,8 @@ async def restart_workers(batch_size: int, max_queue_size: int,
 
                 # Restart workers with existing queues
                 workers = start_workers(batch_size, output_path, gpus,
-                                        model_path, patience, stop_event,
+                                        base_model_dir, model_name,
+                                        patience, stop_event,
                                         queues)
                 return workers
         else:
