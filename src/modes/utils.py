@@ -19,7 +19,7 @@ def setup_workers(config: Config,
                   result_queue: Optional[Queue] = None,
                   wbs=None) -> List[DecodingWorker]:
     """Sets up decode workers with optional result writer integration."""
-    num_decode_workers: int = 2  # Adjust based on available CPU cores
+    num_decode_workers: int = config["decoding_threads"]  # Adjust based on available CPU cores
     decode_workers: List[DecodingWorker] = [
         DecodingWorker(data_manager.tokenizer, config,
                        result_queue if result_queue else None,

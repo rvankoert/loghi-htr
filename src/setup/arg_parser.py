@@ -231,6 +231,9 @@ def get_arg_parser():
     misc_args.add_argument('--deterministic', action='store_true',
                            help="Enable deterministic mode for reproducible "
                            "results, at the cost of performance.")
+    misc_args.add_argument('--decoding_threads', metavar='decoding_threads',
+                           type=int, default=2, help="Number of threads to use "
+                           "for decoding. Default: 2.")
 
     return parser
 

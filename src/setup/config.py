@@ -236,7 +236,8 @@ class Config:
             },
             "misc": {
                 "normalization_file": args.normalization_file,
-                "deterministic": args.deterministic
+                "deterministic": args.deterministic,
+                "decoding_threads": args.decoding_threads,
             },
         }
 
