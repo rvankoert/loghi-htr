@@ -1,6 +1,9 @@
-export LOGHI_BATCH_SIZE=300
-export LOGHI_MODEL_PATH="/home/tim/Downloads/new_model"
-export LOGHI_OUTPUT_PATH="/home/tim/Documents/development/loghi-htr/output/"
+#!/bin/bash 
+export LOGHI_BASE_MODEL_DIR="/path/to/loghi-models/"
+export LOGHI_MODEL_NAME="SOME_MODEL_NAME"
+export LOGHI_OUTPUT_PATH="/path/to/output/dir/"
+
+export LOGHI_BATCH_SIZE=200
 export LOGHI_MAX_QUEUE_SIZE=50000
 export LOGHI_PATIENCE=0.5
 

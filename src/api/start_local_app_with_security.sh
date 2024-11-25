@@ -1,17 +1,17 @@
-export GUNICORN_RUN_HOST='0.0.0.0:5000'
-export GUNICORN_ACCESSLOG='-'
+#!/bin/bash 
+export LOGHI_BASE_MODEL_DIR="/path/to/loghi-models/"
+export LOGHI_MODEL_NAME="SOME_MODEL_NAME"
+export LOGHI_OUTPUT_PATH="/path/to/output/dir/"
 
-export LOGHI_BATCH_SIZE=300
-export LOGHI_MODEL_PATH="/home/tim/Downloads/new_model"
-export LOGHI_OUTPUT_PATH="/home/tim/Documents/development/loghi-htr/output/"
+export LOGHI_BATCH_SIZE=200
 export LOGHI_MAX_QUEUE_SIZE=50000
 export LOGHI_PATIENCE=0.5
 
 export LOGGING_LEVEL="INFO"
 export LOGHI_GPUS="0"
 
+# NOTE: This is currently not working. The API key is not being checked.
 export SECURITY_ENABLED="True"
 export API_KEY_USER_JSON_STRING='{"1234": "test user"}'
 
-gunicorn -w 1 -b $GUNICORN_RUN_HOST \
-    --access-logfile $GUNICORN_ACCESSLOG 'app:create_app()'
+uvicorn app:app --host 0.0.0.0 --port 5000
