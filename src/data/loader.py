@@ -83,7 +83,7 @@ class DataLoader:
             image = tf.squeeze(image, axis=0)
 
         # Center the image values around 0.5
-        image = image - 0.5
+        image = 0.5 - image
 
         # Transpose the image
         image = tf.transpose(image, perm=[1, 0, 2])
