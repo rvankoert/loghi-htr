@@ -113,7 +113,7 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
 
         if confidence < 0 or confidence > 1:
             logging.warning("Confidence score out of range: %s, clamping to "
-                            "[0, 1]", confidence)
+                            "[0, 1]", confidence.numpy())
             confidence = tf.clip_by_value(confidence, 0, 1)
 
         output_texts.append((confidence, text))

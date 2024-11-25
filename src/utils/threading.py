@@ -102,11 +102,12 @@ class MetricsCalculator(Thread):
         A list of metric names that are calculated and displayed.
     """
 
-    def __init__(self, config: Config, maxsize: int = 100):
+    def __init__(self, config: Config, log_results: bool = True, maxsize: int = 100):
         super().__init__()
         self.queue: Queue[str] = Queue(maxsize=maxsize)
         self.config: Config = config
         self.running: bool = True
+        self.log_results: bool = log_results
 
         self.total_counter = defaultdict(int)
         self.total_stats = []
@@ -125,7 +126,7 @@ class MetricsCalculator(Thread):
                 for result in batch_result:
                     prediction = result["prediction"]
                     confidence = result["confidence"]
-                    y_true = result["y_true"]
+                    y_true = result["y_true"].replace("[UNK]", "�")
                     filename = result["filename"]
                     char_str = result.get("char_str", None)
 
@@ -147,7 +148,7 @@ class MetricsCalculator(Thread):
                         calculate_edit_distances(char_str, original_text)
 
                     # Print the predictions if there are any errors
-                    if do_print := distances[0] > 0:
+                    if do_print := distances[0] > 0 and self.log_results:
                         print_predictions(filename, original_text, prediction,
                                           normalized_original, char_str)
                         logging.info("Confidence = %.4f", confidence)
@@ -184,8 +185,10 @@ class MetricsCalculator(Thread):
                 self.total_stats.append(self.n_items)
 
                 # Print batch info
-                display_statistics(batch_stats, self.total_stats, self.metrics)
-                logging.info("")
+                if self.log_results:
+                    display_statistics(
+                        batch_stats, self.total_stats, self.metrics)
+                    logging.info("")
 
                 self.queue.task_done()
             except Empty:
