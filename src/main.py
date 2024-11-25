@@ -18,9 +18,7 @@ from model.management import load_or_create_model, customize_model
 from model.optimization import create_learning_rate_schedule, get_optimizer, \
     LoghiLearningRateSchedule
 from modes.training import train_model, plot_training_history
-from modes.validation import perform_validation
-from modes.test import perform_test
-from modes.inference import perform_inference
+from modes.evaluation import perform_evaluation
 
 # Setup and configuration
 from setup.arg_parser import get_args
@@ -148,27 +146,22 @@ def main():
 
         timestamps['Training'] = time.time() - tick
 
-    # Evaluate the model
-    if config["do_validate"]:
-        logging.warning("Validation results are without special markdown tags")
+    # Evaluation modes and their corresponding conditions
+    evaluation_modes = [
+        ("validation", config["do_validate"],
+         "Validation results are without special markdown tags"),
+        ("test", config["test_list"],
+         "Test results are without special markdown tags"),
+        ("inference", config["inference_list"], None)
+    ]
 
-        tick = time.time()
-        perform_validation(config, model, data_manager)
-        timestamps['Validation'] = time.time() - tick
-
-    # Test the model
-    if config["test_list"]:
-        logging.warning("Test results are without special markdown tags")
-
-        tick = time.time()
-        perform_test(config, model, data_manager)
-        timestamps['Test'] = time.time() - tick
-
-    # Infer with the model
-    if config["inference_list"]:
-        tick = time.time()
-        perform_inference(config, model, data_manager)
-        timestamps['Inference'] = time.time() - tick
+    for mode, condition, warning in evaluation_modes:
+        if condition:
+            if warning:
+                logging.warning(warning)
+            tick = time.time()
+            perform_evaluation(config, model, data_manager, mode)
+            timestamps[mode.capitalize()] = time.time() - tick
 
     # Log the timestamps
     logging.info("--------------------------------------------------------")
