@@ -73,41 +73,39 @@ class MetricsCalculator(Thread):
     """
     A thread that processes and calculates metrics for model predictions.
 
-    The class runs in a separate thread, processes results from a queue, and calculates
-    metrics such as character error rates (CER), word-level error rates, and other statistics
-    for a batch of predictions.
-
     Parameters
     ----------
     config : Config
         Configuration settings for processing, including normalization files.
+    log_results : bool, optional
+        Whether to log detailed prediction results, by default True.
     maxsize : int, optional
-        Maximum size of the input queue to limit memory usage, by default 100.
+        Maximum size of the input queue, by default 100.
 
     Attributes
     ----------
     queue : Queue[str]
-        A queue that holds batch results for processing.
+        Queue holding batch results for processing.
     config : Config
-        Configuration settings for processing, including normalization files.
+        Configuration settings, including normalization files.
     running : bool
-        A flag indicating if the thread is still running.
+        Flag indicating if the thread is active.
     total_counter : defaultdict[int]
-        A counter that accumulates metrics across all batches.
+        Accumulated metrics across all batches.
     total_stats : list
-        A list that stores cumulative statistics for each batch processed.
+        Cumulative statistics for each processed batch.
     n_items : int
-        The total number of items processed across batches.
+        Total number of processed items.
     metrics : list
-        A list of metric names that are calculated and displayed.
+        Names of metrics being calculated.
     """
 
-    def __init__(self, config: Config, log_results: bool = True, maxsize: int = 100):
+    def __init__(self, config, log_results: bool = True, maxsize: int = 100):
         super().__init__()
-        self.queue: Queue[str] = Queue(maxsize=maxsize)
-        self.config: Config = config
-        self.running: bool = True
-        self.log_results: bool = log_results
+        self.queue = Queue(maxsize=maxsize)
+        self.config = config
+        self.running = True
+        self.log_results = log_results
 
         self.total_counter = defaultdict(int)
         self.total_stats = []
@@ -115,84 +113,79 @@ class MetricsCalculator(Thread):
         self.metrics = []
 
     def run(self) -> None:
-        """Main loop of the thread that processes results from the queue and updates metrics."""
+        """Main loop that processes results from the queue and updates metrics."""
         while self.running or not self.queue.empty():
             try:
-                batch_result: str = self.queue.get(timeout=1.0)
-
-                # Initialize the batch counter
-                batch_counter = defaultdict(int)
-
-                for result in batch_result:
-                    prediction = result["prediction"]
-                    confidence = result["confidence"]
-                    y_true = result["y_true"].replace("[UNK]", "�")
-                    filename = result["filename"]
-                    char_str = result.get("char_str", None)
-
-                    # Preprocess the text for CER calculation
-                    prediction = preprocess_text(prediction)
-                    original_text = preprocess_text(y_true)
-                    normalized_original = None if not self.config["normalization_file"] else \
-                        normalize_text(
-                            original_text, self.config["normalization_file"])
-
-                    # Calculate edit distances here so we can use them for printing the
-                    # predictions
-                    distances = calculate_edit_distances(
-                        prediction, original_text)
-                    normalized_distances = None if not self.config["normalization_file"] else \
-                        calculate_edit_distances(
-                            prediction, normalized_original)
-                    wbs_distances = None if not char_str else \
-                        calculate_edit_distances(char_str, original_text)
-
-                    # Print the predictions if there are any errors
-                    if do_print := distances[0] > 0 and self.log_results:
-                        print_predictions(filename, original_text, prediction,
-                                          normalized_original, char_str)
-                        logging.info("Confidence = %.4f", confidence)
-                        logging.info("")
-
-                    # Wrap the distances and originals in dictionaries
-                    distances_dict = {"distances": distances,
-                                      "Normalized distances": normalized_distances,
-                                      "WBS distances": wbs_distances}
-                    original_dict = {"original": original_text,
-                                     "Normalized original": normalized_original,
-                                     "WBS original": original_text}
-
-                    # Update the batch counter
-                    batch_counter = increment_counters(distances_dict,
-                                                       original_dict,
-                                                       batch_counter,
-                                                       do_print)
-
-                    # Update the total counter
-                    self.total_counter = increment_counters(distances_dict,
-                                                            original_dict,
-                                                            self.total_counter,
-                                                            do_print=False)
-
-                # Calculate the CER statistics for this prediction
-                self.metrics, batch_stats, self.total_stats = \
-                    update_statistics(batch_counter, self.total_counter)
-
-                # Add the number of items to the total tally
-                self.n_items += len(batch_result)
-                self.metrics.append('Items')
-                batch_stats.append(len(batch_result))
-                self.total_stats.append(self.n_items)
-
-                # Print batch info
-                if self.log_results:
-                    display_statistics(
-                        batch_stats, self.total_stats, self.metrics)
-                    logging.info("")
-
+                batch_result = self.queue.get(timeout=1.0)
+                self._process_batch(batch_result)
                 self.queue.task_done()
             except Empty:
                 continue
+
+    def _process_batch(self, batch_result: list) -> None:
+        """Processes a batch of predictions and updates counters and metrics."""
+        batch_counter = defaultdict(int)
+
+        for result in batch_result:
+            prediction = preprocess_text(result["prediction"])
+            original_text = preprocess_text(result["y_true"])
+            normalized_original = (
+                normalize_text(
+                    original_text, self.config["normalization_file"])
+                if self.config["normalization_file"] else None
+            )
+            char_str = result.get("char_str", None)
+            distances = calculate_edit_distances(prediction, original_text)
+            normalized_distances = (
+                calculate_edit_distances(prediction, normalized_original)
+                if normalized_original else None
+            )
+            wbs_distances = (
+                calculate_edit_distances(char_str, original_text)
+                if char_str else None
+            )
+
+            if do_print := distances[0] > 0 and self.log_results:
+                print_predictions(
+                    result["filename"], original_text, prediction,
+                    normalized_original, char_str
+                )
+                logging.info("Confidence = %.4f", result["confidence"])
+                logging.info("")
+
+            distances_dict = {
+                "distances": distances,
+                "Normalized distances": normalized_distances,
+                "WBS distances": wbs_distances,
+            }
+            original_dict = {
+                "original": original_text,
+                "Normalized original": normalized_original,
+                "WBS original": original_text,
+            }
+
+            batch_counter = increment_counters(
+                distances_dict, original_dict, batch_counter, do_print=do_print
+            )
+            self.total_counter = increment_counters(
+                distances_dict, original_dict, self.total_counter, do_print=False
+            )
+
+        self._update_statistics(batch_counter, len(batch_result))
+
+    def _update_statistics(self, batch_counter: defaultdict, batch_size: int) -> None:
+        """Updates statistics and optionally logs them."""
+        self.metrics, batch_stats, self.total_stats = update_statistics(
+            batch_counter, self.total_counter
+        )
+        self.n_items += batch_size
+        self.metrics.append("Items")
+        batch_stats.append(batch_size)
+        self.total_stats.append(self.n_items)
+
+        if self.log_results:
+            display_statistics(batch_stats, self.total_stats, self.metrics)
+            logging.info("")
 
     def stop(self) -> None:
         """Stops the thread and waits for it to terminate."""

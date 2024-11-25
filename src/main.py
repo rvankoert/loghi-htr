@@ -161,15 +161,13 @@ def main():
         logging.warning("Test results are without special markdown tags")
 
         tick = time.time()
-        perform_test(config, model, data_manager.datasets["test"],
-                     data_manager)
+        perform_test(config, model, data_manager)
         timestamps['Test'] = time.time() - tick
 
     # Infer with the model
     if config["inference_list"]:
         tick = time.time()
-        perform_inference(config, model, data_manager.datasets["inference"],
-                          data_manager)
+        perform_inference(config, model, data_manager)
         timestamps['Inference'] = time.time() - tick
 
     # Log the timestamps
