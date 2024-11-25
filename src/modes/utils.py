@@ -11,14 +11,33 @@ import tensorflow as tf
 from data.manager import DataManager
 from setup.config import Config
 from utils.calculate import calc_95_confidence_interval
-from utils.threading import DecodingWorker
+from utils.threading import DecodingWorker, MetricsCalculator
 
 
 def setup_workers(config: Config,
                   data_manager: DataManager,
                   result_queue: Optional[Queue] = None,
                   wbs=None) -> List[DecodingWorker]:
-    """Sets up decode workers with optional result writer integration."""
+    """
+    Sets up decode workers with optional result writer integration.
+
+    Parameters
+    ----------
+    config : Config
+        The configuration object containing decoding settings, including the number of decoding
+        threads.
+    data_manager : DataManager
+        The data manager providing access to tokenizers and data utilities.
+    result_queue : Optional[Queue], optional
+        A queue for handling results, by default None.
+    wbs : optional
+        Optional integration for WBS (if provided), by default None.
+
+    Returns
+    -------
+    List[DecodingWorker]
+        A list of initialized and started decoding workers.
+    """
     num_decode_workers: int = config["decoding_threads"]  # Adjust based on available CPU cores
     decode_workers: List[DecodingWorker] = [
         DecodingWorker(data_manager.tokenizer, config,
@@ -33,8 +52,30 @@ def setup_workers(config: Config,
     return decode_workers
 
 
-def process_batches(dataset, model, config, data_manager, decode_workers, mode: str):
-    """Processes batches from the dataset and distributes work to decode workers."""
+def process_batches(dataset: tf.data.Dataset, model: tf.keras.Model, config: Config,
+                    data_manager: DataManager, decode_workers: List[DecodingWorker], mode: str):
+    """
+    Processes batches from the dataset and distributes work to decode workers.
+
+    Parameters
+    ----------
+    dataset : tf.data.Dataset
+        The dataset to be processed, typically yielding batches of input data.
+    model : tf.keras.Model
+        The model used for generating predictions on the input batches.
+    config : Config
+        Configuration object containing settings like batch size.
+    data_manager : DataManager
+        The data manager providing utility functions for accessing filenames and ground truth data.
+    decode_workers : List[DecodingWorker]
+        List of decode workers to which the processing work will be distributed.
+    mode : str
+        The mode of processing (e.g., 'inference', 'training').
+
+    Returns
+    -------
+    None
+    """
     for batch_no, batch in enumerate(dataset):
         X = batch[0]
         if mode != 'inference':
@@ -58,8 +99,25 @@ def process_batches(dataset, model, config, data_manager, decode_workers, mode: 
         )
 
 
-def output_statistics(metrics_calculator, config, mode: str, wbs=None):
-    """Logs final statistics and writes them to a CSV file."""
+def output_statistics(metrics_calculator: MetricsCalculator, config: Config, mode: str, wbs=None):
+    """
+    Logs final statistics and writes them to a CSV file.
+
+    Parameters
+    ----------
+    metrics_calculator : MetricsCalculator
+        Object responsible for computing and storing metrics for evaluation.
+    config : Config
+        Configuration object containing output directory and optional normalization settings.
+    mode : str
+        Mode of operation for the statistics (e.g., 'training', 'evaluation').
+    wbs : optional
+        Optional integration for WBS-specific metrics, by default None.
+
+    Returns
+    -------
+    None
+    """
     logging.info("--------------------------------------------------------")
     logging.info("")
     logging.info("Final %s statistics", mode)
