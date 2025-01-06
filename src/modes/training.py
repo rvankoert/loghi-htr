@@ -2,7 +2,6 @@
 
 # > Standard library
 import os
-from typing import Any
 
 # > Third-party dependencies
 import matplotlib.pyplot as plt
@@ -18,8 +17,7 @@ def train_model(model: tf.keras.Model,
                 config: Config,
                 training_dataset: tf.data.Dataset,
                 validation_dataset: tf.data.Dataset,
-                data_manager: DataManager,
-                num_workers: int = 20) -> Any:
+                data_manager: DataManager) -> tf.keras.callbacks.History:
     """
     Trains a Keras model using the provided training and validation datasets,
     along with additional arguments.
@@ -36,8 +34,6 @@ def train_model(model: tf.keras.Model,
         The dataset to be used for validation.
     data_manager : DataManager
         A DataManager containing additional information like character list.
-    num_workers : int, default 20
-        Number of workers for data loading.
 
     Returns
     -------
@@ -62,7 +58,7 @@ def train_model(model: tf.keras.Model,
         LoghiCustomCallback(save_best=True,
                             save_checkpoint=config["output_checkpoints"],
                             output=config["output"],
-                            charlist=data_manager.charlist,
+                            tokenizer=data_manager.tokenizer,
                             config=config,
                             normalization_file=config["normalization_file"])
 
@@ -80,11 +76,11 @@ def train_model(model: tf.keras.Model,
         callbacks.append(early_stopping)
 
     # Determine the number of steps per epoch
-    cardinality = training_dataset.cardinality().numpy() \
-        if isinstance(training_dataset, tf.data.Dataset) \
-        else training_dataset.cardinality
+    # NOTE: None means that the number of steps is equal to the number of
+    # batches in the dataset (default behavior)
+    # FIXME: steps_per_epoch is not working properly
     steps_per_epoch = config["steps_per_epoch"] \
-        if config["steps_per_epoch"] else cardinality
+        if config["steps_per_epoch"] else None
 
     # Train the model
     history = model.fit(
@@ -93,11 +89,10 @@ def train_model(model: tf.keras.Model,
         epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
-        workers=num_workers,
-        max_queue_size=config["max_queue_size"],
-        steps_per_epoch=steps_per_epoch,
+        # steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
+
     return history
 
 
@@ -129,7 +124,8 @@ def plot_training_history(history: tf.keras.callbacks.History,
         plt.figure()
         plt.plot(history.history[metric], label='Training ' + metric)
         if plot_validation_metric:
-            plt.plot(history.history[f"val_{metric}"], label=f"Validation {metric}")
+            plt.plot(history.history[f"val_{metric}"],
+                     label=f"Validation {metric}")
         plt.title(title)
         plt.xlabel("Epoch #")
         plt.ylabel(metric)

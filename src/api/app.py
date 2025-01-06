@@ -4,13 +4,13 @@
 import asyncio
 from contextlib import asynccontextmanager
 import os
-import psutil
 import socket
 import multiprocessing as mp
 
 # > Third-party dependencies
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import psutil
 from uvicorn.config import Config
 from uvicorn.server import Server
 
@@ -36,7 +36,8 @@ logger = setup_logging(logging_level)
 # Configuration
 config = {
     "batch_size": int(get_env_variable("LOGHI_BATCH_SIZE", "256")),
-    "model_path": get_env_variable("LOGHI_MODEL_PATH"),
+    "base_model_dir": get_env_variable("LOGHI_BASE_MODEL_DIR"),
+    "model_name": get_env_variable("LOGHI_MODEL_NAME"),
     "output_path": get_env_variable("LOGHI_OUTPUT_PATH"),
     "max_queue_size": int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000")),
     "patience": float(get_env_variable("LOGHI_PATIENCE", "0.5")),
@@ -66,10 +67,11 @@ async def lifespan(app: FastAPI):
     stop_event = mp.Event()
 
     logger.info("Starting worker processes")
-    queues = initialize_queues(config["batch_size"], config["max_queue_size"])
+    queues = initialize_queues(config["max_queue_size"])
     workers = start_workers(config["batch_size"], config["output_path"],
-                            config["gpus"], config["model_path"],
-                            config["patience"], stop_event, queues)
+                            config["gpus"], config["base_model_dir"],
+                            config["model_name"], config["patience"],
+                            stop_event, queues)
 
     app.state.request_queue = queues["Request"]
     app.state.stop_event = stop_event
@@ -110,12 +112,14 @@ async def monitor_memory(app: FastAPI):
                 app.state.restarting = True
                 app.state.workers = await restart_workers(
                     app.state.config["batch_size"],
-                    app.state.config["max_queue_size"],
                     app.state.config["output_path"],
                     app.state.config["gpus"],
-                    app.state.config["model_path"],
+                    app.state.config["base_model_dir"],
+                    app.state.config["model_name"],
                     app.state.config["patience"],
-                    app.state.stop_event, app.state.workers, app.state.queues)
+                    app.state.stop_event,
+                    app.state.workers,
+                    app.state.queues)
                 app.state.restarting = False
 
             await asyncio.sleep(MEMORY_CHECK_INTERVAL)

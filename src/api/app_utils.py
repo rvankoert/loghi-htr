@@ -13,7 +13,6 @@ from prometheus_client import Gauge
 
 # > Local dependencies
 from batch_predictor import batch_prediction_worker
-from image_preparator import image_preparation_worker
 from batch_decoder import batch_decoding_worker
 
 
@@ -28,7 +27,8 @@ class TensorFlowLogFilter(logging.Filter):
     def filter(self, record):
         # Exclude logs containing the specific message
         exclude_phrases = [
-            "Reduce to /job:localhost/replica:0/task:0/device:CPU:"
+            "Reduce to /job:localhost/replica:0/task:0/device:CPU:",
+            "Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence",
         ]
         return not any(phrase in record.msg for phrase in exclude_phrases)
 
@@ -58,12 +58,12 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Set up the basic logging configuration
     logging.basicConfig(
-        format="[%(process)d] %(asctime)s - %(levelname)s - %(message)s",
+        format="[%(processName)s] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=logging_levels[level],
     )
 
-    # Get TensorFlow's logger and remove its handlers to prevent duplicate logs
+    # Configure TensorFlow logger to use the custom filter
     tf_logger = logging.getLogger('tensorflow')
     tf_logger.addFilter(TensorFlowLogFilter())
     while tf_logger.handlers:
@@ -133,11 +133,6 @@ async def extract_request_data(
             detail="The uploaded image is empty. Please upload a valid image "
             "file.")
 
-    # Validate model path if provided
-    if model and not os.path.exists(model):
-        raise HTTPException(
-            status_code=400, detail=f"Model directory {model} does not exist.")
-
     return image_content, group_id, identifier, model, whitelist
 
 
@@ -182,7 +177,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def initialize_queues(batch_size: int, max_queue_size: int):
+def initialize_queues(max_queue_size: int):
     """
     Initializes the communication queues for the multiprocessing workers.
 
@@ -203,14 +198,8 @@ def initialize_queues(batch_size: int, max_queue_size: int):
 
     # Create a thread-safe Queue
     logger.info("Initializing request queue")
-    request_queue = mp.Queue(maxsize=max_queue_size//2)
-    logger.info("Request queue size: %s", max_queue_size // 2)
-
-    # Max size of prepared queue is half of the max size of request queue
-    # expressed in number of batches
-    max_prepared_queue_size = max_queue_size // 2 // batch_size
-    prepared_queue = mp.Queue(maxsize=max_prepared_queue_size)
-    logger.info("Prepared queue size: %s", max_prepared_queue_size)
+    request_queue = mp.Queue(maxsize=max_queue_size)
+    logger.info("Request queue size: %s", max_queue_size)
 
     # Create a thread-safe Queue for predictions
     predicted_queue = mp.Queue()
@@ -219,24 +208,20 @@ def initialize_queues(batch_size: int, max_queue_size: int):
     request_queue_size_gauge = Gauge(
         "request_queue_size", "Request queue size")
     request_queue_size_gauge.set_function(request_queue.qsize)
-    prepared_queue_size_gauge = Gauge(
-        "prepared_queue_size", "Prepared queue size")
-    prepared_queue_size_gauge.set_function(prepared_queue.qsize)
     predicted_queue_size_gauge = Gauge(
         "predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
     queues = {
         "Request": request_queue,
-        "Prepared": prepared_queue,
         "Predicted": predicted_queue
     }
 
     return queues
 
 
-def start_workers(batch_size: int, output_path: str, gpus: str,
-                  model_path: str, patience: int, stop_event: mp.Event,
+def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
+                  model_name: str, patience: int, stop_event: mp.Event,
                   queues: Dict[str, mp.Queue]):
     """
     Initializes and starts multiple multiprocessing workers for image
@@ -250,8 +235,11 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
         The path where the output results will be stored.
     gpus : str
         The GPU devices to use for computation.
-    model_path : str
-        The path to the machine learning model for predictions.
+    base_model_dir : str
+        The path to the base machine learning model for predictions.
+    model_name : str
+        The path to the machine learning model for predictions relative to the
+        base model path.
     patience : int
         The number of seconds to wait for an image to be ready before timing
         out.
@@ -269,26 +257,16 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
     logger = logging.getLogger(__name__)
 
     request_queue = queues["Request"]
-    prepared_queue = queues["Prepared"]
     predicted_queue = queues["Predicted"]
-
-    # Start the image preparation process
-    logger.info("Starting image preparation process")
-    preparation_process = mp.Process(
-        target=image_preparation_worker,
-        args=(batch_size, request_queue, prepared_queue,
-              model_path, patience, stop_event),
-        name="Image Preparation Process",
-        daemon=True)
-    preparation_process.start()
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(prepared_queue, predicted_queue,
-              output_path, model_path, stop_event, gpus),
-        name="Batch Prediction Process",
+        args=(request_queue, predicted_queue, base_model_dir,
+              model_name, output_path, stop_event, gpus,
+              batch_size, patience),
+        name="PredictionProcess",
         daemon=True)
     prediction_process.start()
 
@@ -296,13 +274,13 @@ def start_workers(batch_size: int, output_path: str, gpus: str,
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, model_path, output_path, stop_event),
-        name="Batch Decoding Process",
+        args=(predicted_queue, base_model_dir,
+              model_name, output_path, stop_event),
+        name="DecodingProcess",
         daemon=True)
     decoding_process.start()
 
     workers = {
-        "Preparation": preparation_process,
         "Prediction": prediction_process,
         "Decoding": decoding_process
     }
@@ -331,11 +309,9 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
         worker.join()
 
 
-async def restart_workers(batch_size: int, max_queue_size: int,
-                          output_path: str, gpus: str, model_path: str,
-                          patience: int, stop_event: mp.Event,
-                          workers: Dict[str, mp.Process],
-                          queues: Dict[str, mp.Queue]):
+async def restart_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
+                          model_name: str, patience: int, stop_event: mp.Event,
+                          workers: Dict[str, mp.Process], queues: Dict[str, mp.Queue]):
     """
     Restarts worker processes when the corresponding queues are empty.
 
@@ -343,8 +319,6 @@ async def restart_workers(batch_size: int, max_queue_size: int,
     ----------
     batch_size : int
         The size of the batch for processing images.
-    max_queue_size : int
-        The maximum size of the request queue.
     output_path : str
         The path where the output results will be stored.
     gpus : str
@@ -385,7 +359,8 @@ async def restart_workers(batch_size: int, max_queue_size: int,
 
                 # Restart workers with existing queues
                 workers = start_workers(batch_size, output_path, gpus,
-                                        model_path, patience, stop_event,
+                                        base_model_dir, model_name,
+                                        patience, stop_event,
                                         queues)
                 return workers
         else:

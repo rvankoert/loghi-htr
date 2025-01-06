@@ -118,6 +118,25 @@ class Config:
         setattr(self.args, key, value)
         self.config["args"] = self.organize_args(self.args)
 
+    def get(self, key: str, default: any = None) -> any:
+        """
+        Get a value from the configuration dictionary.
+
+        Parameters
+        ----------
+        key : str
+            The key of the value to retrieve.
+        default : any, optional
+            The default value to return if the key does not exist.
+
+        Returns
+        -------
+        any
+            The value corresponding to the key, or the default value.
+        """
+
+        return self.config.get(key, default)
+
     def save(self, output_file: str = None) -> None:
         """
         Save the configuration settings to a file.
@@ -129,8 +148,7 @@ class Config:
         """
 
         if not output_file:
-            output_file = self.args.config_file_output or \
-                f"{self.args.output}/config.json"
+            output_file = f"{self.args.output}/config.json"
         try:
             with open(output_file, "w", encoding="utf-8") as file:
                 json.dump(self.config, file, indent=4, sort_keys=True)
@@ -160,7 +178,7 @@ class Config:
                 "config_file": args.config_file,
                 "batch_size": args.batch_size,
                 "seed": args.seed,
-                "charlist": args.charlist
+                "tokenizer": args.tokenizer
             },
             "training": {
                 "epochs": args.epochs,
@@ -173,7 +191,6 @@ class Config:
                 "do_validate": args.do_validate,
                 "validation_list": args.validation_list,
                 "training_verbosity_mode": args.training_verbosity_mode,
-                "max_queue_size": args.max_queue_size
             },
             "inference": {
                 "inference_list": args.inference_list,
@@ -219,20 +236,9 @@ class Config:
             },
             "misc": {
                 "normalization_file": args.normalization_file,
-                "deterministic": args.deterministic
+                "deterministic": args.deterministic,
+                "decoding_threads": args.decoding_threads,
             },
-            "depr": {
-                "do_train": args.do_train,
-                "do_inference": args.do_inference,
-                "use_mask": args.use_mask,
-                "no_auto": args.no_auto,
-                "height": args.height,
-                "channels": args.channels,
-                "output_charlist": args.output_charlist,
-                "config_file_output": args.config_file_output,
-                "thaw": args.thaw,
-                "existing_model": args.existing_model,
-            }
         }
 
     def update_args_from_file(self, config_file: str) -> None:

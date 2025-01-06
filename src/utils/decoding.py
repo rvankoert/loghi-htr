@@ -60,8 +60,8 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
 
 
 def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
-                             greedy: bool = True, beam_width: int = 1,
-                             num_oov_indices: int = 1) -> list:
+                             greedy: bool = True, beam_width: int = 1) \
+        -> list:
     """
     Decodes batch predictions using CTC Decoder.
 
@@ -75,8 +75,6 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         If true, use greedy decoder, else use beam search decoder.
     beam_width : int, optional
         Width of the beam for beam search decoder.
-    num_oov_indices : int, optional
-        Number of out-of-vocabulary indices.
 
     Returns
     -------
@@ -97,26 +95,26 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
     # Convert the decoded sequence to text
     output_texts = []
     for i, decoded_array in enumerate(ctc_decoded[0]):
-        decoded_array += num_oov_indices
+        decoded_array += 1  # Shift the index by 1 to account for the blank character
 
         # Normalize the confidence score based on the number of timesteps
-        text = tokenizer.decode(decoded_array).strip().replace("", "")
+        text = tokenizer.decode(decoded_array).strip().replace("[PAD]", "")
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
         if len(text) > 0:
-            time_steps = np.array(decoded_array == num_oov_indices-1)\
-                .argmax(axis=0)
+            time_steps = tf.reduce_sum(tf.cast(decoded_array == 0, tf.float32),
+                                       axis=0)
             time_steps = time_steps if time_steps > 0 else len(decoded_array)
         else:
             time_steps = 1
 
-        confidence = np.exp(log_probs[i][0] / time_steps)
+        confidence = tf.exp(log_probs[i][0] / time_steps)
 
         if confidence < 0 or confidence > 1:
             logging.warning("Confidence score out of range: %s, clamping to "
-                            "[0, 1]", confidence)
-            confidence = np.clip(confidence, 0, 1)
+                            "[0, 1]", confidence.numpy())
+            confidence = tf.clip_by_value(confidence, 0, 1)
 
         output_texts.append((confidence, text))
 
