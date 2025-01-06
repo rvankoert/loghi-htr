@@ -20,7 +20,6 @@
         },
         "training": {
             "do_validate": true,
-            "max_queue_size": 256,
             "validation_list": "/path/to/validation.txt"
         }
     }

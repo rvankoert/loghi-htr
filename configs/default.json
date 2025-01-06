@@ -21,11 +21,11 @@
         },
         "general": {
             "batch_size": 4,
-            "charlist": null,
             "config_file": null,
             "gpu": "0",
             "output": "output",
-            "seed": 42
+            "seed": 42,
+            "tokenizer": null
         },
         "inference": {
             "inference_list": null,
@@ -41,6 +41,7 @@
             "warmup_ratio": 0.0
         },
         "misc": {
+            "decoding_threads": 2,
             "deterministic": false
             "normalization_file": null
         },

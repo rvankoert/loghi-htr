@@ -44,7 +44,6 @@
             "do_validate": true,
             "early_stopping_patience": 20,
             "epochs": 100,
-            "max_queue_size": 256,
             "output_checkpoints": true,
             "train_list": "/path/to/train.txt",
             "training_verbosity_mode": "auto",
