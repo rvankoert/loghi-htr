@@ -15,23 +15,23 @@ from vis_arg_parser import get_args
 
 # Add the above directory to the path
 sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))  # noqa: E402
-from model.losses import CTCLoss
-from model.metrics import CERMetric, WERMetric
-from model.custom_layers import ResidualBlock
-from model.optimization import LoghiLearningRateSchedule
+
+width_padding = 50
 
 
-def prep_image_for_model(img_path: str, model_channels: int) \
+def preprocess_image(image_path: str, model_channels: int, target_height: int) \
         -> Tuple[np.ndarray, tf.Tensor, tf.Tensor]:
     """
     Prepare an image for input to a model.
 
     Parameters
     ----------
-    img_path : str
+    image_path : str
         The path to the image file.
     model_channels : int
         The number of channels expected by the model.
+    target_height : int
+        The image target height
 
     Returns
     -------
@@ -51,31 +51,26 @@ def prep_image_for_model(img_path: str, model_channels: int) \
 
     Examples
     --------
-    >>> img_path = "/path/to/your/image.jpg"
+    >>> image_path = "/path/to/your/image.jpg"
     >>> model_channels = 3
-    >>> img, width, height = prep_image_for_model(img_path, model_channels)
+    >>> img, width, height = preprocess_image(image_path, model_channels)
     # Returns a tuple with the preprocessed image and its dimensions.
     """
     # Remake data_generator parts
-    target_height = 64
-    original_image = tf.io.read_file(img_path)
+    original_image = tf.io.read_file(image_path)
     original_image = tf.image.decode_image(
         original_image, channels=model_channels)
     original_image = tf.image.resize(original_image,
-                                     [target_height,
-                                      tf.cast(target_height *
-                                              tf.shape(original_image)[1]
-                                              / tf.shape(original_image)[0],
-                                              tf.int32)],
+                                     [target_height, 99999],
                                      preserve_aspect_ratio=True)
 
     image_width = tf.shape(original_image)[1]
     image_height = tf.shape(original_image)[0]
 
     # Normalize the image and something else
-    img = 0.5 - (original_image / 255)
     # Pad the image
-    img = tf.image.resize_with_pad(img, target_height, tf.shape(img)[1] + 50)
+    img = 0.5 - (original_image / 255.0)
+    img = tf.image.resize_with_pad(img, image_height, image_width + width_padding)
     img = tf.transpose(img, perm=[1, 0, 2])
     img = np.expand_dims(img, axis=0)
     return img, image_width, image_height
@@ -104,7 +99,7 @@ def init_pre_trained_model():
 
     Examples
     --------
-    >>> loaded_model, channels, path = init_pre_trained_model()
+    >>> loaded_model, channels, path, model_height = init_pre_trained_model()
     # Returns a tuple with the loaded model, number of channels, and the model
     path.
     """
@@ -138,6 +133,7 @@ def init_pre_trained_model():
                                        compile=False)
 
     model_channels = model.input_shape[3]
+    model_height = model.input_shape[2]
     model.summary()
 
-    return model, model_channels, model_path
+    return model, model_channels, model_path, model_height

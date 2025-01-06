@@ -12,6 +12,8 @@ from typing import Tuple, List
 import numpy as np
 import cv2
 
+import vis_utils
+
 # Prep GPU support and set seeds/objects
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_DETERMINISTIC_OPS'] = '0'
@@ -23,7 +25,7 @@ import tensorflow as tf  # noqa: E402
 # Add the above directory to the path
 sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
 from vis_arg_parser import get_args  # noqa: E402
-from vis_utils import prep_image_for_model, init_pre_trained_model  # noqa: E402
+from vis_utils import preprocess_image, init_pre_trained_model  # noqa: E402
 
 
 def remove_tags(text: str) -> str:
@@ -64,6 +66,15 @@ def remove_tags(text: str) -> str:
     # public static String SUPERSCRIPTCHAR = "␆";
     text = text.replace('␆', '')
     return text
+
+
+def find_blanks(text_line, char_list):
+    blanks = 0
+    for step in text_line:
+        char_index = tf.get_static_value(tf.math.argmax(step))
+        if char_index == len(char_list):
+            blanks += 1
+    return blanks
 
 
 def get_timestep_indices(model_path: str, preds: np.ndarray,
@@ -134,16 +145,16 @@ def get_timestep_indices(model_path: str, preds: np.ndarray,
     pad_steps_skip = 0
     for text_line in preds:
         timesteps = len(text_line)
+        blanks = find_blanks(text_line, char_list)
+        timesteps = timesteps - blanks
         print("timesteps: ", timesteps)
-        step_width = (tf.get_static_value(image_width) + 50) / timesteps
+        step_width = (tf.get_static_value(image_width) + vis_utils.width_padding) / timesteps
         print("step_width: ", step_width)
-        pad_steps_skip = 50 // step_width
+        pad_steps_skip = vis_utils.width_padding // step_width
         print("pad_steps_skip: ", pad_steps_skip)
         for time_step in text_line:
-            timestep_char_list_indices.append(
-                tf.get_static_value(tf.math.argmax(time_step)))
-            timestep_char_list_indices_top_3.append(tf.get_static_value(
-                tf.math.top_k(time_step, k=top_k, sorted=True)))
+            timestep_char_list_indices.append(tf.get_static_value(tf.math.argmax(time_step)))
+            timestep_char_list_indices_top_3.append(tf.get_static_value(tf.math.top_k(time_step, k=top_k, sorted=True)))
     return char_list, timestep_char_list_indices, \
         timestep_char_list_indices_top_3, step_width, pad_steps_skip
 
@@ -304,53 +315,63 @@ def create_timestep_plots(bordered_img: np.ndarray, index_correction: int,
     line_start = 0
     # Retrieve the top 5 predictions for each timestep and write them down
     # underneath each other
+    last_character = ""
+    character_list_length = len(char_list)
     for index, char_index in enumerate(timestep_char_list_indices):
         line_start += step_width
         start_point = (round(line_start), 50)
         end_point = (round(line_start), tf.get_static_value(image_height) + 50)
         # char_list + 1 is blank token, which is final character
-        if char_index < len(char_list) + 1:
-            timestep_char_labels_cleaned.append(
-                remove_tags(char_list[char_index + index_correction]))
-            if index < pad_steps_skip:
-                continue
-                # Do not draw predictions that are spaces or
-                # "invisible characters" for better readability
-            if re.sub(r'\W+', ' ', remove_tags(char_list[char_index])).strip()\
-                    in [" ", ""]:
-                # Do not increment the line_start again
-                continue
 
-            cv2.line(bordered_img,
-                     start_point,
-                     end_point,
-                     color=(0, 0, 255),
-                     thickness=1)
-            cv2.putText(bordered_img,
-                        remove_tags(char_list[char_index + index_correction]),
-                        org=start_point,
-                        color=(0, 0, 255),
-                        fontFace=cv2.FONT_HERSHEY_DUPLEX,
-                        lineType=cv2.LINE_AA,
-                        fontScale=1,
-                        thickness=1)
+        blank_character = char_index == character_list_length+1
+        if blank_character:
+            character = "BLANK"
+            last_character = character
+            continue
+        character = remove_tags(char_list[char_index + index_correction])
+        if last_character == character:
+            continue
+        last_character = character
+        timestep_char_labels_cleaned.append(character)
+        if index < pad_steps_skip:
+            continue
+            # Do not draw predictions that are spaces or
+            # "invisible characters" for better readability
+        if re.sub(r'\W+', ' ', character).strip()\
+                in [" ", ""]:
+            # Do not increment the line_start again
+            continue
 
-            # Add the top-2 to top-5 most probable characters for the current
-            # time step
-            table_start_height = 170
-            for top_char_index in \
-                    timestep_char_list_indices_top_3[index].indices.numpy()[1:]:
-                if top_char_index < len(char_list) + 1:
-                    cv2.putText(bordered_img,
-                                remove_tags(char_list[top_char_index +
-                                                      index_correction]),
-                                org=(round(line_start), table_start_height),
-                                color=(0, 0, 255),
-                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                lineType=cv2.LINE_AA,
-                                fontScale=1,
-                                thickness=1)
-                    table_start_height += 50
+        cv2.line(bordered_img,
+                 start_point,
+                 end_point,
+                 color=(0, 0, 255),
+                 thickness=1)
+        cv2.putText(bordered_img,
+                    character,
+                    org=start_point,
+                    color=(0, 0, 255),
+                    fontFace=cv2.FONT_HERSHEY_DUPLEX,
+                    lineType=cv2.LINE_AA,
+                    fontScale=1,
+                    thickness=1)
+
+        # Add the top-2 to top-5 most probable characters for the current
+        # time step
+        table_start_height = 170
+        for top_char_index in \
+                timestep_char_list_indices_top_3[index].indices.numpy()[1:]:
+            if top_char_index < len(char_list) + 1:
+                cv2.putText(bordered_img,
+                            remove_tags(char_list[top_char_index +
+                                                  index_correction]),
+                            org=(round(line_start), table_start_height),
+                            color=(0, 0, 255),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            lineType=cv2.LINE_AA,
+                            fontScale=1,
+                            thickness=1)
+                table_start_height += 50
 
     # Add the top-5 for the specific timestep
     row_num = 2
@@ -421,7 +442,7 @@ def main(args=None):
         args = get_args()
 
     # Load in pre-trained model and get model channels
-    model, model_channels, model_path = init_pre_trained_model()
+    model, model_channels, model_path, model_height = init_pre_trained_model()
 
     # Make sure image is provided with call
     if args.sample_image_path:
@@ -429,24 +450,23 @@ def main(args=None):
             raise FileNotFoundError("Please provide a valid path to a sample "
                                     "image, you provided: "
                                     + args.sample_image_path)
-        img_path = args.sample_image_path
+        image_path = args.sample_image_path
     else:
         raise ValueError("Please provide a path to a sample image")
 
     # Prepare image based on model channels
-    img, image_width, image_height = prep_image_for_model(
-        img_path, model_channels)
-    preds = model.predict(img)
+    image, image_width, image_height = preprocess_image(image_path, model_channels, model_height)
+    predictions = model.predict(image)
 
     # Read char_list and calculate character indices for sample image preds
     (char_list, timestep_char_list_indices, timestep_char_list_indices_top_3,
-     step_width, pad_steps_skip) = get_timestep_indices(model_path, preds,
+     step_width, pad_steps_skip) = get_timestep_indices(model_path, predictions,
                                                         image_width)
 
     # Take the "raw" sample image and plot the pred results on top
-    original_image = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
+    original_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     original_image_padded = cv2.resize(
-        original_image, (tf.get_static_value(image_width) + 50, 64))
+        original_image, (tf.get_static_value(image_width) + vis_utils.width_padding, 64))
 
     # Set index_correction in case masking was used
     # if blank token in char_list -> take normal else i-1
@@ -481,7 +501,7 @@ def main(args=None):
                           timestep_char_list_indices_top_3)
 
     # Take character preds for sample image and create xlsx file
-    write_ctc_table_to_xlsx(preds, char_list, index_correction)
+    write_ctc_table_to_xlsx(predictions, char_list, index_correction)
 
     # Double size
     new_width = bordered_img.shape[1] * 2
