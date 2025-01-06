@@ -19,24 +19,13 @@
             "greedy": false,
             "wbs_smoothing": 0.1
         },
-        "depr": {
-            "channels": 3,
-            "config_file_output": null,
-            "do_inference": false,
-            "do_train": true,
-            "height": 64,
-            "no_auto": false,
-            "output_charlist": null,
-            "thaw": false,
-            "use_mask": true
-        },
         "general": {
             "batch_size": 4,
-            "charlist": null,
             "config_file": null,
             "gpu": "0",
             "output": "output",
-            "seed": 42
+            "seed": 42,
+            "tokenizer": null
         },
         "inference": {
             "inference_list": null,
@@ -52,6 +41,7 @@
             "warmup_ratio": 0.0
         },
         "misc": {
+            "decoding_threads": 2,
             "deterministic": false
             "normalization_file": null
         },

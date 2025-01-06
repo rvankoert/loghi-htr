@@ -19,7 +19,6 @@
             "use_float32": false
         },
         "training": {
-            "max_queue_size": 256,
             "test_list": "/path/to/test.txt"
         }
     }

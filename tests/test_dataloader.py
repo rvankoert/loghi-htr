@@ -9,7 +9,6 @@ import unittest
 # > Local Dependencies
 
 # > Third party dependencies
-import tensorflow as tf
 
 
 class TestDataLoader(unittest.TestCase):
@@ -48,9 +47,8 @@ class TestDataLoader(unittest.TestCase):
         cls.ResizeWithPadLayer = ResizeWithPadLayer
 
     def test_initialization(self):
-        tokenizer = self.Tokenizer(chars=list("ABC"), use_mask=False)
-        dg = self.DataLoader(tokenizer=tokenizer, height=64,
-                             augment_model=None)
+        tokenizer = self.Tokenizer(tokens=list("ABC"))
+        dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=1)
 
         # Verify that the instance variables are initialized correctly.
         self.assertEqual(dg.height, 64)
@@ -73,16 +71,14 @@ class TestDataLoader(unittest.TestCase):
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890,")
 
         image_info_tuples = list(zip(images, labels, sample_weights))
-        dummy_augment_model = tf.keras.Sequential([])
 
-        tokenizer = self.Tokenizer(chars=vocab, use_mask=False)
-        dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=1,
-                             augment_model=dummy_augment_model)
+        tokenizer = self.Tokenizer(tokens=vocab)
+        dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=1)
 
         for image_info_tuple in image_info_tuples:
             # Mock TensorFlow's file reading and decoding operations
             preprocessed_image, encoded_label, sample_weight \
-                = dg.load_images(image_info_tuple)
+                = dg.process_sample(image_info_tuple)
 
             # Assert the shape of the preprocessed image
             self.assertEqual(preprocessed_image.shape[1], 64)
@@ -94,48 +90,6 @@ class TestDataLoader(unittest.TestCase):
 
             # Assert the sample weights
             self.assertEqual(sample_weight, float(image_info_tuple[2]))
-
-    def test_load_images_with_augmentation(self):
-        images = [
-            "tests/data/test-image1.png",
-            "tests/data/test-image2.png",
-            "tests/data/test-image3.png",
-        ]
-        sample_weights = ["1.0", "0.0", "0.4"]
-        labels = []
-        for image in images:
-            image_label_loc = image.replace("png", "txt")
-            with open(image_label_loc, "r") as f:
-                labels.append(f.read())
-
-        vocab = list(
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890,")
-
-        image_info_tuples = list(zip(images, labels, sample_weights))
-        dummy_augment_model = tf.keras.Sequential(
-            [self.ResizeWithPadLayer(70, additional_width=50)])
-
-        tokenizer = self.Tokenizer(chars=vocab, use_mask=False)
-        dg = self.DataLoader(tokenizer=tokenizer, height=64, channels=4,
-                             augment_model=dummy_augment_model,
-                             is_training=True)
-
-        for image_info_tuple in image_info_tuples:
-            # Mock TensorFlow's file reading and decoding operations
-            preprocessed_image, encoded_label, sample_weight \
-                = dg.load_images(image_info_tuple)
-
-            # Assert the shape of the preprocessed image
-            self.assertEqual(preprocessed_image.shape[1], 70)
-            self.assertEqual(preprocessed_image.shape[2], 4)
-
-            # Assert correct encoding of the label
-            decoded_label = tokenizer.decode(encoded_label)
-            self.assertEqual(decoded_label, image_info_tuple[1])
-
-            # Assert the sample weights
-            self.assertEqual(sample_weight, float(image_info_tuple[2]))
-
 
 if __name__ == '__main__':
     unittest.main()

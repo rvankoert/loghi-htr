@@ -16,7 +16,7 @@ import tensorflow as tf
 sys.path.append(str(Path(__file__).resolve().parents[1] / '../src'))
 
 from vis_arg_parser import get_args  # noqa: E402
-from vis_utils import prep_image_for_model, init_pre_trained_model  # noqa: E402
+from vis_utils import preprocess_image, init_pre_trained_model  # noqa: E402
 
 
 def visualize_filter(filter_index, channels,
@@ -166,7 +166,7 @@ def main(args=None):
         args = get_args()
 
     # Load in pre-trained model and get model channels
-    model, model_channels, _ = init_pre_trained_model()
+    model, model_channels, _, model_height = init_pre_trained_model()
 
     # Prep plots
     num_filters_per_row = args.num_filters_per_row  # Number of filters per row
@@ -227,18 +227,18 @@ def main(args=None):
                     img_path = args.sample_image_path
 
                     # Prepare image based on model channels
-                    img, image_width, _ = prep_image_for_model(
-                        img_path, model_channels)
-                    maps = feature_extractor.predict(img)
+                    image, image_width, _ = preprocess_image(
+                        img_path, model_channels, model_height)
+                    maps = feature_extractor.predict(image)
 
                     # Add the filter images
-                    _, img = visualize_filter(
+                    _, image = visualize_filter(
                         random_filter_indices[filter_index],
                         model_channels,
                         feature_extractor,
                         image_width
                     )
-                    filter_images.append(img)
+                    filter_images.append(image)
 
                     # Add the feature maps
                     feature_maps.append(
@@ -260,12 +260,12 @@ def main(args=None):
                         loc='left')
                 else:
                     # Add the filter images
-                    _, img = visualize_filter(
+                    _, image = visualize_filter(
                         random_filter_indices[filter_index],
                         feature_extractor,
                         model_channels
                     )
-                    filter_images.append(img)
+                    filter_images.append(image)
 
                     # Individual plot level
                     filter_plot[filter_index].imshow(

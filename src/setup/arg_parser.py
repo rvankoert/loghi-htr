@@ -33,10 +33,10 @@ def get_arg_parser():
     general_args.add_argument('--seed', metavar='seed', type=int, default=42,
                               help="Seed for random number generators to "
                               "ensure reproducibility. Default: 42.")
-    general_args.add_argument('--charlist', metavar='charlist ', type=str,
-                              default=None, help="Path to a file containing "
-                              "the list of characters to be recognized. "
-                              "Required for inference and validation.")
+    general_args.add_argument('--tokenizer', metavar='tokenizer', type=str,
+                              default=None, help="Path to a tokenizer file for "
+                              "the model. Required for inference and "
+                              "validation.")
     general_args.add_argument('--test_list', metavar='test_list',
                               type=str, default=None, help="File(s) with "
                               "textline locations and transcriptions for "
@@ -86,9 +86,6 @@ def get_arg_parser():
                                "0: Silent, 1: Progress Bar, 2: One Line Per "
                                "Epoch. 'auto' defaults to 1 for most cases. "
                                "Default: 'auto'.")
-    training_args.add_argument('--max_queue_size', metavar='max_queue_size',
-                               type=int, default=256, help="Maximum size for "
-                               "the generator queue. Default: 256.")
 
     # Inference configuration
     inference_args = parser.add_argument_group('Inference arguments')
@@ -234,100 +231,11 @@ def get_arg_parser():
     misc_args.add_argument('--deterministic', action='store_true',
                            help="Enable deterministic mode for reproducible "
                            "results, at the cost of performance.")
-
-    # Deprecation zone
-    depr_args = parser.add_argument_group(
-        'Deprecation zone', 'These arguments will be removed in the future')
-    depr_args.add_argument('--do_train', help='enable the training. '
-                           'Use this flag if you want to train.',
-                           action='store_true')
-    depr_args.add_argument('--do_inference', help='inference',
-                           action='store_true')
-    depr_args.add_argument('--use_mask', help='whether or not to mask certain '
-                           'parts of the data. Defaults to true when '
-                           'batch_size > 1', action='store_true')
-    depr_args.add_argument('--no_auto', action='store_true',
-                           help='No Auto disabled automatic "fixing" of '
-                           'certain parameters')
-    depr_args.add_argument('--height', metavar='height', type=int, default=64,
-                           help='rescale everything to this height before '
-                           'training, default 64')
-    depr_args.add_argument('--channels', metavar='channels', type=int,
-                           default=3, help='number of channels to use. 1 for '
-                           'grey-scale/binary images, three for color images, '
-                           '4 for png\'s with transparency')
-    depr_args.add_argument('--output_charlist', metavar='output_charlist',
-                           type=str, default=None, help="Path to save the "
-                           "character list used during training/inference. "
-                           "If not specified, the charlist is saved to"
-                           "'output/charlist.txt'.")
-    depr_args.add_argument('--config_file_output',
-                           metavar='config_file_output', type=str,
-                           default=None, help="Path to save the "
-                           "configuration file. If not specified, the "
-                           "configuration is set to 'output/config.json'.")
-    depr_args.add_argument('--thaw', action='store_true',
-                           help="Unfreeze convolutional layers in an "
-                           "existing model for further training.")
-    depr_args.add_argument('--existing_model', metavar='existing_model',
-                           type=str, default=None, help="Path to an existing "
-                           "model to continue training, validation, testing, "
-                           "or inferencing. Used as a starting point.")
+    misc_args.add_argument('--decoding_threads', metavar='decoding_threads',
+                           type=int, default=2, help="Number of threads to use "
+                           "for decoding. Default: 2.")
 
     return parser
-
-
-def fix_args(args):
-    if not args.no_auto and args.train_list:
-        logging.warning('--do_train implied by providing a train_list')
-        args.__dict__['do_train'] = True
-    if not args.no_auto and args.batch_size > 1:
-        logging.warning('--batch_size > 1, setting use_mask=True')
-        args.__dict__['use_mask'] = True
-    if not args.no_auto and args.inference_list:
-        logging.warning('--do_inference implied by providing a inference_list')
-        args.__dict__['do_inference'] = True
-    if not args.no_auto and args.existing_model:
-        args.__dict__['model'] = args.existing_model
-
-
-def arg_future_warning(args):
-    logger = logging.getLogger(__name__)
-
-    # May 2024
-    if args.do_train:
-        logger.warning("Argument will lose support in May 2024: --do_train. "
-                       "Training will be enabled by providing a train_list. ")
-    if args.do_inference:
-        logger.warning("Argument will lose support in May 2024: "
-                       "--do_inference. Inference will be enabled by "
-                       "providing an inference_list. ")
-    if args.use_mask:
-        logger.warning("Argument will lose support in May 2024: --use_mask. "
-                       "Masking will be enabled by default.")
-    if args.no_auto:
-        logger.warning("Argument will lose support in May 2024: --no_auto.")
-    if args.height:
-        logger.warning("Argument will lose support in May 2024: --height. "
-                       "Height will be inferred from the VGSL spec.")
-    if args.channels:
-        logger.warning("Argument will lose support in May 2024: --channels. "
-                       "Channels will be inferred from the VGSL spec.")
-    if args.output_charlist:
-        logger.warning("Argument will lose support in May 2024: "
-                       "--output_charlist. The charlist will be saved to "
-                       "output/charlist.txt by default.")
-    if args.config_file_output:
-        logger.warning("Argument will lose support in May 2024: "
-                       "--config_file_output. The configuration will be saved "
-                       "to output/config.json by default.")
-    if args.thaw:
-        logging.warning("Argument will lose support in May 2024: --thaw. "
-                        "Models are saved with all layers thawed by default.")
-    if args.existing_model:
-        logger.warning("Argument will lose support in May 2024: "
-                       "--existing_model. The --model argument can be used "
-                       "to load or create a model instead.")
 
 
 def check_required_args(args, explicit):
@@ -356,6 +264,8 @@ def check_required_args(args, explicit):
 
 
 def get_args():
+    logger = logging.getLogger(__name__)
+
     parser = get_arg_parser()
     args = parser.parse_args()
 
@@ -373,9 +283,10 @@ def get_args():
                                      for key, value in
                                      vars(sentinel_ns).items()})
 
-    # TODO: remove after deprecation period
-    arg_future_warning(args)
-    fix_args(args)
     check_required_args(args, explicit)
+
+    if args.steps_per_epoch:
+        logger.warning("The 'steps_per_epoch' functionality currently does not work, and will thus "
+                       "be ignored.")
 
     return args, explicit

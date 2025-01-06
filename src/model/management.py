@@ -3,18 +3,22 @@
 # > Standard library
 import logging
 import os
-from typing import Any, List, Dict, Optional
+from typing import Any, Dict, Optional
+import json
+import shutil
+import warnings
+import zipfile
 
 # > Third-party dependencies
 import tensorflow as tf
+from vgslify.generator import VGSLModelGenerator
 
 # > Local dependencies
+from model.custom_model import build_custom_model
 from model.conversion import convert_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
-from model.vgsl_model_generator import VGSLModelGenerator
 from setup.config import Config
-
-from model.custom_model import build_custom_model
+from utils.text import Tokenizer
 
 
 def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
@@ -59,7 +63,7 @@ def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
 
 def customize_model(model: tf.keras.Model,
                     config: Config,
-                    charlist: List[str]) -> tf.keras.Model:
+                    tokenizer: Tokenizer) -> tf.keras.Model:
     """
     Customizes a Keras model based on various arguments including layer
     replacement and freezing options.
@@ -70,8 +74,8 @@ def customize_model(model: tf.keras.Model,
         The model to be customized.
     config : Config
         A set of arguments controlling how the model should be customized.
-    charlist : List[str]
-        A list of characters used for model customization.
+    tokenizer : Tokenizer
+        The tokenizer object used for tokenization.
 
     Returns
     -------
@@ -84,26 +88,21 @@ def customize_model(model: tf.keras.Model,
         logging.info("Replacing recurrent layer with %s",
                      config["replace_recurrent_layer"])
         model = replace_recurrent_layer(model,
-                                        len(charlist),
-                                        config["replace_recurrent_layer"],
-                                        use_mask=config["use_mask"])
+                                        len(tokenizer),
+                                        config["replace_recurrent_layer"])
 
     # Replace the final layer if specified
     if config["replace_final_layer"] or not os.path.isdir(config["model"]):
-        new_classes = len(charlist) + \
-            2 if config["use_mask"] else len(charlist) + 1
+        new_classes = len(tokenizer)
         logging.info("Replacing final layer with %s classes", new_classes)
-        model = replace_final_layer(model, len(charlist), model.name,
-                                    use_mask=config["use_mask"])
+        model = replace_final_layer(model, len(tokenizer), model.name)
 
-    # Freeze or thaw layers if specified
-    if any([config["thaw"], config["freeze_conv_layers"],
-            config["freeze_recurrent_layers"], config["freeze_dense_layers"]]):
+    # Freeze layers if specified
+    if any([config["freeze_conv_layers"],
+            config["freeze_recurrent_layers"],
+            config["freeze_dense_layers"]]):
         for layer in model.layers:
-            if config["thaw"]:
-                layer.trainable = True
-                logging.info("Thawing layer: %s", layer.name)
-            elif config["freeze_conv_layers"] and \
+            if config["freeze_conv_layers"] and \
                 (layer.name.lower().startswith("conv") or
                  layer.name.lower().startswith("residual")):
                 logging.info("Freezing layer: %s", layer.name)
@@ -170,25 +169,148 @@ def load_model_from_directory(directory: str,
         directory) if file.endswith(".keras")), None)
 
     if model_file:
-        return tf.keras.saving.load_model(model_file,
-                                          custom_objects=custom_objects,
-                                          compile=compile)
+        try:
+            return tf.keras.models.load_model(model_file,
+                                              custom_objects=custom_objects,
+                                              compile=compile)
+        except (TypeError, ValueError):
+            logging.error("Error loading model. Attempting to convert the "
+                          "model to the new format.")
+
+            # Convert the old model to the new format
+            model = _convert_old_model_to_new(model_file, custom_objects,
+                                              compile=compile)
+
+            # Save the converted model
+            # Rename the old model file
+            if not os.path.exists(model_file + ".old"):
+                logging.info("Renaming old model file to %s",
+                             model_file + ".old")
+                old_model_file = model_file + ".old"
+                os.rename(model_file, old_model_file)
+
+            # Save the new model
+            logging.info("Saving new model to %s", model_file)
+            model.save(model_file)
+
+            return model
 
     raise FileNotFoundError("No suitable model file found in the directory.")
 
 
-def load_or_create_model(config: Config,
-                         custom_objects: Dict[str, Any]) -> tf.keras.Model:
+def _convert_old_model_to_new(model_file: str,
+                              custom_objects: dict,
+                              compile: bool = True) -> tf.keras.Model:
     """
-    Loads an existing Keras model or creates a new one based on provided
-    arguments.
+    Converts an old v2 Keras model to the new v3 format.
+
+    Parameters
+    ----------
+    model_file : str
+        The path to the .keras file containing the old model.
+    custom_objects : dict
+        Custom objects required for model loading.
+    compile : bool, optional
+        Whether to compile the model after loading, by default True.
+
+    Returns
+    -------
+    tf.keras.Model
+        The converted Keras model.
+    """
+
+    # Temporary directory to extract the .keras file contents
+    temp_dir = "/tmp/keras_model_extraction"
+
+    # Ensure the temp directory is clean
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
+
+    # Extract .keras file
+    with zipfile.ZipFile(model_file, 'r') as zip_ref:
+        zip_ref.extractall(temp_dir)
+
+    # Load model architecture from config.json
+    with open(os.path.join(temp_dir, 'config.json'), 'r') as json_file:
+        model_config = json.load(json_file)
+
+    model_config["module"] = "keras.src.models.functional"
+
+    # Function to recursively correct "axis" in BatchNormalization layers
+    def correct_axis(layer_config):
+        if isinstance(layer_config, dict):
+            if layer_config.get('class_name') == 'BatchNormalization' \
+                    and isinstance(layer_config.get('config', {})
+                                   .get('axis'), list):
+                layer_config['config']['axis'] \
+                    = layer_config['config']['axis'][0]
+            elif layer_config.get('class_name') == 'Bidirectional':
+                lstm_layer_config = layer_config['config']['layer']['config']
+                lstm_layer_config['recurrent_initializer']['class_name'] \
+                    = 'OrthogonalInitializer'
+                lstm_layer_config.pop('time_major', None)
+            elif 'layers' in layer_config:
+                for sub_layer in layer_config['layers']:
+                    correct_axis(sub_layer)
+
+    correct_axis(model_config["config"])
+
+    # Replace 'Policy' with 'DTypePolicy' in all layers' dtype configurations
+    def replace_policy_with_dtypepolicy(obj):
+        if isinstance(obj, dict):
+            if obj.get('class_name') == 'Policy':
+                obj['class_name'] = 'DTypePolicy'
+            for key, value in obj.items():
+                replace_policy_with_dtypepolicy(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                replace_policy_with_dtypepolicy(item)
+
+    replace_policy_with_dtypepolicy(model_config["config"]['layers'])
+
+    if model_config.get("compile_config"):
+        compile_optimizer = model_config["compile_config"]["optimizer"]
+        compile_optimizer["module"] = "keras.optimizers"
+        compile_optimizer["config"].pop("jit_compile", None)
+        compile_optimizer["config"].pop("is_legacy_optimizer", None)
+
+    if not compile:
+        model_config.pop("compile_config", None)
+
+    # Save the corrected config back to a temporary json file
+    corrected_config_path = os.path.join(temp_dir, 'corrected_config.json')
+    with open(corrected_config_path, 'w') as json_file:
+        json.dump(model_config, json_file)
+
+    # Load model from corrected config
+    with open(corrected_config_path, 'r') as json_file:
+        corrected_model_json = json_file.read()
+    model = tf.keras.models.model_from_json(
+        corrected_model_json, custom_objects=custom_objects)
+
+    # Load weights into the model
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model.load_weights(os.path.join(temp_dir, 'model.weights.h5'),
+                           skip_mismatch=True)
+
+    # Clean up the temporary directory
+    shutil.rmtree(temp_dir)
+
+    return model
+
+
+def load_or_create_model(config: Config, custom_objects: Dict[str, Any]) -> tf.keras.Model:
+    """
+    Loads an existing Keras model or creates a new one based on the provided configuration.
 
     Parameters
     ----------
     config : Config
-        The configuration object containing the arguments.
+        Configuration object containing model and other arguments.
     custom_objects : Dict[str, Any]
-        Custom objects required for model loading.
+        Dictionary of custom objects required for model loading.
 
     Returns
     -------
@@ -196,97 +318,102 @@ def load_or_create_model(config: Config,
         The loaded or newly created Keras model.
     """
 
-    # Check if config["model"] is a directory
-    if os.path.isdir(config["model"]):
-        model = load_model_from_directory(config["model"],
-                                          output_directory=config["output"],
-                                          custom_objects=custom_objects)
+    model_path = config["model"]
+
+    # Check if the provided model is a directory (indicating a saved model)
+    if os.path.isdir(model_path):
+        model = load_model_from_directory(
+            model_path, output_directory=config["output"], custom_objects=custom_objects)
         if config["model_name"]:
             model._name = config["model_name"]
-    elif config["model"] == 'custom':
+
+    # Handle 'custom' model type
+    elif model_path == 'custom':
         model = build_custom_model()
     else:
-        model_generator = VGSLModelGenerator(
-            model_spec=config["model"],
-            name=config["model_name"],
-            channels=config["channels"]
-        )
-        model = model_generator.build()
+        model = build_predefined_model(config, model_path)
 
     return model
 
 
-def verify_charlist_length(charlist: List[str],
-                           model: tf.keras.Model,
-                           use_mask: bool,
-                           removed_padding: bool) -> None:
+def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
     """
-    Verifies if the length of the character list matches the expected output
-    length of the model.
+    Builds a model from the predefined library based on the configuration.
 
     Parameters
     ----------
-    charlist : List[str]
-        List of characters to be verified.
-    model : tf.keras.Model
-        The model whose output length is to be checked.
-    use_mask : bool
-        Indicates whether a mask is being used or not.
-    removed_padding : bool
-        Indicates whether padding was removed from the character list.
-
-    Raises
-    ------
-    ValueError
-        If the length of the charlist does not match the expected output length
-        of the model.
-    """
-
-    # Verify that the length of the charlist is correct
-    if use_mask:
-        expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 2 - int(removed_padding)
-    else:
-        expected_length = model.get_layer(index=-1) \
-            .get_output_at(0).shape[2] - 1 - int(removed_padding)
-    if len(charlist) != expected_length:
-        raise ValueError(
-            f"Charlist length ({len(charlist)}) does not match "
-            f"model output length ({expected_length}). If the charlist "
-            "is correct, try setting use_mask to True.")
-
-
-def get_prediction_model(model: tf.keras.Model) -> tf.keras.Model:
-    """
-    Extracts a prediction model from a given Keras model.
-
-    Parameters
-    ----------
-    model : tf.keras.Model
-        The complete Keras model from which the prediction model is to be
-        extracted.
+    config : Config
+        Configuration object containing model specifications.
+    model_key : str
+        Key for selecting the model from the predefined library.
 
     Returns
     -------
     tf.keras.Model
-        The prediction model extracted from the given model, typically up to
-        the last dense layer.
-
-    Raises
-    ------
-    ValueError
-        If no dense layer is found in the given model.
+        The newly built Keras model.
     """
 
-    last_dense_layer = None
-    for layer in reversed(model.layers):
-        if layer.name.startswith('dense'):
-            last_dense_layer = layer
-            break
-    if last_dense_layer is None:
-        raise ValueError("No dense layer found in the model")
+    model_library = get_model_library()
+    model_spec = model_library.get(model_key, model_key)
 
-    prediction_model = tf.keras.models.Model(
-        model.get_layer(name="image").input, last_dense_layer.output
-    )
-    return prediction_model
+    model_generator = VGSLModelGenerator()
+    model = model_generator.generate_model(model_spec=model_spec,
+                                           model_name=config["model_name"] if config["model_name"]
+                                           else model_key)
+
+    return model
+
+
+def get_model_library() -> dict:
+    """
+    Returns a dictionary of predefined models with their VGSL spec strings.
+
+    Returns
+    -------
+    dict
+        Dictionary of predefined models with their VGSL spec strings.
+    """
+
+    model_library = {
+        "modelkeras":
+            ("None,None,64,1 Cr3,3,32 Mp2,2,2,2 Cr3,3,64 Mp2,2,2,2 Rc3 "
+             "Fl64 D20 Bl128 D20 Bl64 D20 Fs92"),
+        "model9":
+            ("None,None,64,1 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
+        "model10":
+            ("None,None,64,4 Cr3,3,24 Bn Mp2,2,2,2 Cr3,3,48 Bn Mp2,2,2,2 "
+             "Cr3,3,96 Bn Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256,D50 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
+        "model11":
+            ("None,None,64,1 Cr3,3,24 Bn Ap2,2,2,2 Cr3,3,48 Bn Cr3,3,96 Bn"
+             "Ap2,2,2,2 Cr3,3,96 Bn Ap2,2,2,2 Rc3 Bl256 Bl256 Bl256 "
+             "Bl256 Bl256 Fe1024 Fs92"),
+        "model12":
+            ("None,None,64,1 Cr1,3,12 Bn Cr3,3,48 Bn Mp2,2,2,2 Cr3,3,96 "
+             "Cr3,3,96 Bn Mp2,2,2,2 Rc3 Bl256 Bl256 Bl256 Bl256 Bl256 "
+             "Fs92"),
+        "model13":
+            ("None,None,64,1 Cr1,3,12 Bn Cr3,1,24 Bn Mp2,2,2,2 Cr1,3,36 "
+             "Bn Cr3,1,48 Bn Cr1,3,64 Bn Cr3,1,96 Bn Cr1,3,96 Bn Cr3,1,96 "
+             "Bn Rc3 Bl256 Bl256 Bl256 Bl256 Bl256 Fs92"),
+        "model14":
+            ("None,None,64,1 Ce3,3,24 Bn Mp2,2,2,2 Ce3,3,36 Bn Mp2,2,2,2 "
+             "Ce3,3,64 Bn Mp2,2,2,2 Ce3,3,96 Bn Ce3,3,128 Bn Rc3 Bl256,D50 "
+             "Bl256,D50 Bl256,D50 Bl256,D50 Bl256,D50 Fs92"),
+        "model15":
+            ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc3 Bg256,D50 Bg256,D50 Bg256,D50 "
+             "Bg256,D50 Bg256,D50 Fs92"),
+        "model16":
+            ("None,None,64,1 Ce3,3,8 Bn Mp2,2,2,2 Ce3,3,12 Bn Ce3,3,20 Bn "
+             "Ce3,3,32 Bn Ce3,3,48 Bn Rc3 Lfs128,D50 Lfs128,D50 Lfs128,D50 "
+             "Lfs128,D50 Lfs128,D50 Fs92"),
+        "recommended":
+            ("None,None,64,1 Cr3,3,24 Mp2,2,2,2 Bn Cr3,3,48 Bn Cr3,3,96 "
+             "Mp2,2,2,2 Bn Cr3,3,96 Mp2,2,2,2 Bn Rc3 Bl512 D50 Bl512 D50 "
+             "Bl512 D50 Bl512 D50 Bl512 D50 Fs92")
+    }
+
+    return model_library

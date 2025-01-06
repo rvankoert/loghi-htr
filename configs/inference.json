@@ -17,7 +17,6 @@
             "results_file": "output/results.txt"
         },
         "misc": {
-            "check_missing_files": false,
             "deterministic": false
         },
         "model": {

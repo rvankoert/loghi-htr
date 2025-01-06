@@ -1,14 +1,16 @@
 # Imports
 
-# > Third party dependencies
-import tensorflow as tf
-import numpy as np
-
 # > Standard library
-import logging
 import unittest
-from pathlib import Path
+import os
+import json
+from tempfile import TemporaryDirectory
+import logging
 import sys
+from pathlib import Path
+
+# > Third-party dependencies
+import tensorflow as tf
 
 
 class TestTokenizer(unittest.TestCase):
@@ -24,91 +26,113 @@ class TestTokenizer(unittest.TestCase):
         # Add the src directory to the path
         sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))
 
+        # Import Tokenizer class
         from utils.text import Tokenizer
         cls.Tokenizer = Tokenizer
 
-    def test_tokenizer_class(self):
-        # Test without mask and no oov indices
-        tokenizer = self.Tokenizer(chars=['a', 'b', 'c'], use_mask=False)
-        self.assertEqual(tokenizer.charlist, ['a', 'b', 'c'])
+    def test_initialize_string_lookup_layers(self):
+        # Test initialization with a basic token list
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
 
-        # Test with mask
-        tokenizer = self.Tokenizer(chars=['a', 'b', 'c'], use_mask=True)
-        self.assertTrue(isinstance(tokenizer.char_to_num,
-                        tf.keras.layers.StringLookup))
-        self.assertTrue(tokenizer.char_to_num.mask_token, '')
+        self.assertEqual(tokenizer.token_list, [
+                         '[PAD]', '[UNK]', 'a', 'b', 'c'])
+        self.assertIsInstance(tokenizer.token_to_num,
+                              tf.keras.layers.StringLookup)
+        self.assertIsInstance(tokenizer.num_to_token,
+                              tf.keras.layers.StringLookup)
 
-        # Test set_charlist function with no oov indices.
-        # Setting OOV indices to a value > 1 is broken.
-        tokenizer = self.Tokenizer(chars=['a', 'b', 'c', 'd'],
-                                   use_mask=False, num_oov_indices=0)
-        self.assertEqual(tokenizer.charlist, ['a', 'b', 'c', 'd'])
-        self.assertTrue(isinstance(tokenizer.char_to_num,
-                        tf.keras.layers.StringLookup))
+    def test_tokenizer_call(self):
+        # Test tokenizing a simple text string
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
 
-    def test_ctc_decode_greedy(self):
-        # Mock data
-        y_pred = np.random.random((32, 10, 5))
-        input_length = np.random.randint(1, 10, size=(32,))
+        text = 'abc'
+        tokenized_output = tokenizer(text)
+        expected_output = [2, 3, 4]  # Corresponding indices of 'a', 'b', 'c'
 
-        # Call the function with greedy=True
-        from utils.decoding import ctc_decode
-        decoded_dense, log_prob = ctc_decode(y_pred, input_length,
-                                             greedy=True)
+        self.assertTrue(tf.reduce_all(
+            tf.equal(tokenized_output, expected_output)))
 
-        # Verify that the output is as expected
-        self.assertTrue(isinstance(decoded_dense[0], tf.Tensor))
-        self.assertTrue(isinstance(log_prob, tf.Tensor))
+    def test_tokenizer_decode(self):
+        # Test decoding a sequence of token indices back into text
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
 
-    def test_ctc_decode_beam(self):
-        # Mock data
-        y_pred = np.random.random((32, 10, 5))
-        input_length = np.random.randint(1, 10, size=(32,))
-        beam_width = 100
+        tokenized_input = tf.constant([2, 3, 4])  # Indices of 'a', 'b', 'c'
+        decoded_text = tokenizer.decode(tokenized_input)
 
-        # Call the function with greedy=False
-        from utils.decoding import ctc_decode
-        decoded_dense, log_prob = ctc_decode(y_pred, input_length,
-                                             greedy=False,
-                                             beam_width=beam_width)
+        self.assertEqual(decoded_text, 'abc')
 
-        # Verify that the output is as expected
-        # Ensure that the output is a list of tensors
-        self.assertTrue(isinstance(decoded_dense, list))
-        self.assertTrue(isinstance(decoded_dense[0], tf.Tensor))
-        self.assertTrue(isinstance(log_prob, tf.Tensor))
+    def test_load_from_file(self):
+        # Test loading from a JSON file
+        tokens = ['a', 'b', 'c']
 
-    def test_decode_batch(self):
+        with TemporaryDirectory() as temp_dir:
+            json_path = os.path.join(temp_dir, 'tokenizer.json')
+            tokenizer = self.Tokenizer(tokens=tokens)
+            tokenizer.save_to_json(json_path)
+
+            loaded_tokenizer = self.Tokenizer.load_from_file(json_path)
+            self.assertEqual(loaded_tokenizer.token_list, tokenizer.token_list)
+
+    def test_load_from_legacy_file(self):
+        # Test loading from a legacy charlist.txt file and converting to JSON
         chars = ['a', 'b', 'c']
-        tokenizer = self.Tokenizer(chars=chars, use_mask=False)
+        with TemporaryDirectory() as temp_dir:
+            txt_path = os.path.join(temp_dir, 'charlist.txt')
+            with open(txt_path, 'w', encoding='utf-8') as f:
+                f.write(''.join(chars))
 
-        # Mock data
-        y_pred = np.random.random((32, 10, 5))
+            loaded_tokenizer = self.Tokenizer.load_from_file(txt_path)
+            # Skipping [PAD], [UNK]
+            self.assertEqual(loaded_tokenizer.token_list[2:], chars)
+            self.assertTrue(os.path.exists(
+                os.path.join(temp_dir, 'tokenizer.json')))
 
-        # Call the function
-        from utils.decoding import decode_batch_predictions
-        result = decode_batch_predictions(y_pred, tokenizer)
+    def test_save_to_json(self):
+        # Test saving tokenizer to a JSON file
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
 
-        # Verify that the output is as expected
-        self.assertTrue(isinstance(result, list))
-        self.assertTrue(isinstance(result[0][0], np.float32))
-        self.assertTrue(isinstance(result[0][1], str))
+        with TemporaryDirectory() as temp_dir:
+            json_path = os.path.join(temp_dir, 'tokenizer.json')
+            tokenizer.save_to_json(json_path)
 
-    def test_decode_batch_with_beam(self):
-        chars = ['a', 'b', 'c']
-        tokenizer = self.Tokenizer(chars=chars, use_mask=False)
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            self.assertEqual([data[str(i)]
+                             for i in range(len(data))], tokenizer.token_list)
 
-        # Mock data
-        y_pred = np.random.random((32, 10, 5))
+    def test_add_tokens(self):
+        # Test adding new tokens
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
 
-        # Call the function
-        from utils.decoding import decode_batch_predictions
-        result = decode_batch_predictions(y_pred, tokenizer, beam_width=100)
+        tokenizer.add_tokens(['d', 'e'])
+        self.assertIn('d', tokenizer.token_list)
+        self.assertIn('e', tokenizer.token_list)
 
-        # Verify that the output is as expected
-        self.assertTrue(isinstance(result, list))
-        self.assertTrue(isinstance(result[0][0], np.float32))
-        self.assertTrue(isinstance(result[0][1], str))
+    def test_empty_token_list(self):
+        # Test initializing the tokenizer with an empty token list
+        with self.assertRaises(ValueError):
+            self.Tokenizer(tokens=[])
+
+    def test_tokenizer_str(self):
+        # Test string representation of tokenizer
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
+        tokenizer_str = str(tokenizer)
+
+        expected_str = json.dumps(
+            dict(enumerate(tokenizer.token_list)), ensure_ascii=False, indent=4)
+        self.assertEqual(tokenizer_str, expected_str)
+
+    def test_tokenizer_len(self):
+        # Test length of tokenizer
+        tokens = ['a', 'b', 'c']
+        tokenizer = self.Tokenizer(tokens=tokens)
+        self.assertEqual(len(tokenizer), len(tokenizer.token_list))
 
 
 if __name__ == '__main__':
