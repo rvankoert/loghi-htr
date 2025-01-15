@@ -2,6 +2,7 @@
 
 # > Standard library
 import logging
+import threading
 
 # > Third-party dependencies
 import tensorflow as tf
@@ -14,10 +15,9 @@ from utils.threading import ResultWriter, MetricsCalculator
 from utils.wbs import setup_word_beam_search
 
 
-def perform_evaluation(config: Config,
-                       model: tf.keras.Model,
-                       data_manager: DataManager,
-                       mode: str) -> None:
+def perform_evaluation(
+    config: Config, model: tf.keras.Model, data_manager: DataManager, mode: str
+) -> None:
     """
     Generic evaluation function for inference, test, and validation.
 
@@ -36,31 +36,41 @@ def perform_evaluation(config: Config,
 
     dataset = data_manager.datasets[mode]
     tokenizer = data_manager.tokenizer
-    wbs = setup_word_beam_search(
-        config, tokenizer.token_list) if config["corpus_file"] else None
+    wbs = (
+        setup_word_beam_search(config, tokenizer.token_list)
+        if config["corpus_file"]
+        else None
+    )
 
-    if mode == 'inference':
+    stop_event = threading.Event()
+
+    if mode == "inference":
         # Initialize result writer for inference
-        writer = ResultWriter(config["results_file"],
-                              maxsize=config["batch_size"] * 5)
+        writer = ResultWriter(
+            config["results_file"],
+            stop_event=stop_event,
+            maxsize=config["batch_size"] * 5,
+        )
         writer.start()
     else:
         # Initialize metrics calculator for test/validation
         writer = MetricsCalculator(
-            config, log_results=mode == "validation", maxsize=100)
+            config, stop_event=stop_event, log_results=mode == "validation", maxsize=100
+        )
         writer.start()
 
     # Initialize decode workers
-    decode_workers = setup_workers(config, data_manager, writer.queue, wbs)
+    decode_workers = setup_workers(config, data_manager, stop_event, writer.queue, wbs)
 
     try:
-        process_batches(dataset, model, config, data_manager,
-                        decode_workers, mode)
+        process_batches(
+            dataset, model, config, data_manager, decode_workers, mode, stop_event
+        )
     finally:
         # Clean up workers
         for worker in decode_workers:
             worker.stop()
         writer.stop()
 
-    if mode in ('test', 'validation'):
+    if mode in ("test", "validation"):
         output_statistics(writer, config, mode, wbs)

@@ -11,8 +11,12 @@ import tensorflow as tf
 from utils.text import Tokenizer
 
 
-def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
-               greedy: bool = True, beam_width: int = 100) -> tuple:
+def ctc_decode(
+    y_pred: np.ndarray,
+    input_length: np.ndarray,
+    greedy: bool = True,
+    beam_width: int = 100,
+) -> tuple:
     """
     Decodes the prediction using CTC Decoder.
 
@@ -36,8 +40,9 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
     """
 
     # Transpose the predictions
-    y_pred = tf.math.log(tf.transpose(y_pred, perm=[1, 0, 2])
-                         + tf.keras.backend.epsilon())
+    y_pred = tf.math.log(
+        tf.transpose(y_pred, perm=[1, 0, 2]) + tf.keras.backend.epsilon()
+    )
 
     # Convert the input length to int32
     input_length = tf.cast(input_length, tf.int32)
@@ -45,23 +50,27 @@ def ctc_decode(y_pred: np.ndarray, input_length: np.ndarray,
     # Decode the sequence
     if greedy or beam_width == 1:
         decoded, log_prob = tf.nn.ctc_greedy_decoder(
-            inputs=y_pred, sequence_length=input_length, merge_repeated=True)
+            inputs=y_pred, sequence_length=input_length, merge_repeated=True
+        )
         log_prob = -log_prob
     else:
         decoded, log_prob = tf.nn.ctc_beam_search_decoder(
-            inputs=y_pred, sequence_length=input_length,
-            beam_width=beam_width, top_paths=1)
+            inputs=y_pred,
+            sequence_length=input_length,
+            beam_width=beam_width,
+            top_paths=1,
+        )
 
-    # Convert sparse to dense
-    decoded_dense = [tf.sparse.to_dense(st, default_value=-1)
-                     for st in decoded]
+    with tf.device("/cpu:0"):
+        # Convert sparse to dense
+        decoded_dense = [tf.sparse.to_dense(st, default_value=-1) for st in decoded]
 
     return decoded_dense, log_prob
 
 
-def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
-                             greedy: bool = True, beam_width: int = 1) \
-        -> list:
+def decode_batch_predictions(
+    pred: np.ndarray, tokenizer: Tokenizer, greedy: bool = True, beam_width: int = 1
+) -> list:
     """
     Decodes batch predictions using CTC Decoder.
 
@@ -89,8 +98,9 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
     pred = tf.cast(pred, tf.float32)
 
     # Decode the predictions
-    ctc_decoded, log_probs = ctc_decode(pred, input_length=input_len,
-                                        greedy=greedy, beam_width=beam_width)
+    ctc_decoded, log_probs = ctc_decode(
+        pred, input_length=input_len, greedy=greedy, beam_width=beam_width
+    )
 
     # Convert the decoded sequence to text
     output_texts = []
@@ -103,8 +113,7 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
         if len(text) > 0:
-            time_steps = tf.reduce_sum(tf.cast(decoded_array == 0, tf.float32),
-                                       axis=0)
+            time_steps = tf.reduce_sum(tf.cast(decoded_array == 0, tf.float32), axis=0)
             time_steps = time_steps if time_steps > 0 else len(decoded_array)
         else:
             time_steps = 1
@@ -112,8 +121,10 @@ def decode_batch_predictions(pred: np.ndarray, tokenizer: Tokenizer,
         confidence = tf.exp(log_probs[i][0] / time_steps)
 
         if confidence < 0 or confidence > 1:
-            logging.warning("Confidence score out of range: %s, clamping to "
-                            "[0, 1]", confidence.numpy())
+            logging.warning(
+                "Confidence score out of range: %s, clamping to " "[0, 1]",
+                confidence.numpy(),
+            )
             confidence = tf.clip_by_value(confidence, 0, 1)
 
         output_texts.append((confidence, text))
