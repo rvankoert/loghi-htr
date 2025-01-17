@@ -285,8 +285,4 @@ def get_args():
 
     check_required_args(args, explicit)
 
-    if args.steps_per_epoch:
-        logger.warning("The 'steps_per_epoch' functionality currently does not work, and will thus "
-                       "be ignored.")
-
     return args, explicit

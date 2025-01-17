@@ -60,12 +60,12 @@ class DataManager:
         # Fill the datasets dictionary with datasets for different partitions
         logging.info("Creating datasets...")
         self.datasets = self._fill_datasets_dict(file_names, labels,
-                                                 sample_weights)
+                                                 sample_weights, config['steps_per_epoch'])
 
     def _process_raw_data(self) -> Tuple[Dict[str, List[str]],
-                                         Dict[str, List[str]],
-                                         Dict[str, List[str]],
-                                         Tokenizer]:
+    Dict[str, List[str]],
+    Dict[str, List[str]],
+    Tokenizer]:
         """
         Process the raw data and create file names, labels, sample weights,
         and tokenizer.
@@ -118,13 +118,13 @@ class DataManager:
                 raise ValueError(
                     "Character list is empty after creating training data.")
             self.tokenizer = Tokenizer(sorted(characters))
-
         return file_names_dict, labels_dict, sample_weights_dict, self.tokenizer
 
     def _fill_datasets_dict(self,
                             partitions: Dict[str, List[str]],
                             labels: Dict[str, List[str]],
-                            sample_weights: Dict[str, List[str]]) \
+                            sample_weights: Dict[str, List[str]],
+                            steps_per_epoch: int) \
             -> Dict[str, tf.data.Dataset]:
         """
         Initialize data generators for different dataset partitions and
@@ -163,7 +163,8 @@ class DataManager:
                     files=partitions[partition],
                     labels=labels[partition],
                     sample_weights=sample_weights[partition],
-                    partition_name=partition
+                    partition_name=partition,
+                    steps_per_epoch=steps_per_epoch
                 )
 
         return datasets
@@ -222,7 +223,12 @@ class DataManager:
             logging.warning("Faulty lines for %s:", partition_name)
             # Sort the faulty lines by flaw
             for line, flaw in faulty_lines.items():
-                logging.warning("%s: %s", flaw, line.strip())
+                if u"\u009D" in line:
+                    line = line.replace(u"\u009D", u"")
+                    logging.warning("Special character found in line: %s", line)
+                # Remove the special character that is causing the output to stop
+
+                logging.warning("%s: %s", flaw, line)
 
             logging.warning("Flaw counts for %s:", partition_name)
             for flaw, count in flaw_counts.items():
@@ -411,7 +417,8 @@ class DataManager:
                         files: List[str],
                         labels: List[str],
                         sample_weights: List[str],
-                        partition_name: str) -> tf.data.Dataset:
+                        partition_name: str,
+                        steps_per_epoch: int) -> tf.data.Dataset:
         """
         Create a dataset for a specific partition.
 
@@ -465,13 +472,13 @@ class DataManager:
             batch_size=self.config["batch_size"],
             padded_shapes=(
                 [None, None, self.channels],  # Image shape
-                [None],                       # Label shape
-                []                            # Sample weight shape
+                [None],  # Label shape
+                []  # Sample weight shape
             ),
             padding_values=(
                 tf.constant(-10, dtype=tf.float32),  # Image padding value
-                tf.constant(0, dtype=tf.int64),      # Label padding value
-                tf.constant(1.0, dtype=tf.float32)   # Sample weight padding value
+                tf.constant(0, dtype=tf.int64),  # Label padding value
+                tf.constant(1.0, dtype=tf.float32)  # Sample weight padding value
             ),
             drop_remainder=False  # Keep the last batch even if it's smaller
         )
@@ -480,7 +487,7 @@ class DataManager:
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         # Assert the cardinality of the dataset if training
-        if is_training:
+        if is_training and steps_per_epoch is None:
             dataset = dataset.apply(tf.data.experimental.assert_cardinality(
                 len(files) // self.config["batch_size"]))
 

@@ -89,7 +89,7 @@ def train_model(model: tf.keras.Model,
         epochs=config["epochs"],
         callbacks=callbacks,
         shuffle=True,
-        # steps_per_epoch=steps_per_epoch,
+        steps_per_epoch=steps_per_epoch,
         verbose=config["training_verbosity_mode"]
     )
 
