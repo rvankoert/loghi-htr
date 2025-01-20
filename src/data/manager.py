@@ -59,8 +59,10 @@ class DataManager:
 
         # Fill the datasets dictionary with datasets for different partitions
         logging.info("Creating datasets...")
+        steps_per_epoch = config["steps_per_epoch"] \
+            if "steps_per_epoch" in config else None
         self.datasets = self._fill_datasets_dict(file_names, labels,
-                                                 sample_weights, config['steps_per_epoch'])
+                                                 sample_weights, steps_per_epoch)
 
     def _process_raw_data(self) -> Tuple[Dict[str, List[str]],
     Dict[str, List[str]],
