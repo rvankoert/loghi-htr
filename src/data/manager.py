@@ -59,7 +59,10 @@ class DataManager:
 
         # Fill the datasets dictionary with datasets for different partitions
         logging.info("Creating datasets...")
-        steps_per_epoch = config["steps_per_epoch"]
+        try:
+            steps_per_epoch = config["steps_per_epoch"]
+        except KeyError:
+            steps_per_epoch = None
         self.datasets = self._fill_datasets_dict(file_names, labels,
                                                  sample_weights, steps_per_epoch)
 
