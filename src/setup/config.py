@@ -58,7 +58,7 @@ class Config:
 
         self.explicit_args = explicit_args or argparse.Namespace()
         self.args = args or argparse.Namespace()
-        if self.args.config_file:
+        if self.args.config_file is not None and self.args.config_file:
             self.update_args_from_file(self.args.config_file)
 
         self.git_hash = get_git_hash()
