@@ -61,7 +61,7 @@ class DataManager:
         logging.info("Creating datasets...")
         if "steps_per_epoch" in config:
             steps_per_epoch = config["steps_per_epoch"]
-        else
+        else:
             steps_per_epoch = None
         self.datasets = self._fill_datasets_dict(file_names, labels,
                                                  sample_weights, steps_per_epoch)
