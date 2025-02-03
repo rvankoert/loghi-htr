@@ -1,5 +1,5 @@
 # Imports
-
+import argparse
 # > Standard library
 import logging
 import os
@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 # > Third party dependencies
+import tensorflow as tf
 
 
 class DataManagerTest(unittest.TestCase):
@@ -36,6 +37,10 @@ class DataManagerTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
+        # Reset the default graph before each test
+        tf.compat.v1.reset_default_graph()
+
         # Set up logging
         logging.basicConfig(
             format="%(asctime)s - %(levelname)s - %(message)s",
@@ -242,6 +247,30 @@ class DataManagerTest(unittest.TestCase):
 
         # Remove the temporary file
         self._remove_temp_file(temp_sample_list_file)
+
+    def test_manager_steps_per_epoch(self):
+        # Import the get_arg_parser function
+        from setup.arg_parser import get_arg_parser
+        from setup.config import Config
+
+        # Create a temporary list file with unsupported characters
+        args = []
+
+        parser = get_arg_parser()
+        # parser.add_argument('--config_file', type=str, default=None)
+        # parser.add_argument('--img_size', type=str, default=None)
+        # parser.add_argument('--train_list', type=str, default=None)
+        # parser.add_argument('--normalization_file', type=str, default=None)
+        # parser.add_argument('--gpu', type=str, default=-1)
+
+        parsed_args = parser.parse_args(args)
+        config = Config(args=parsed_args)
+
+        steps_per_epoch = config["steps_per_epoch"]
+        # else:
+        #     steps_per_epoch = None
+        if config["steps_per_epoch"]:
+            steps_per_epoch = 5
 
 
 if __name__ == "__main__":
