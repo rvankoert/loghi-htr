@@ -1,7 +1,7 @@
 numpy==1.26.4
 editdistance==0.8.1
 tensorflow==2.14.1
-matplotlib==3.9.2
+matplotlib==3.10.0
 opencv_python==4.10.0.84
 tf_keras_vis==0.8.7
 elasticdeform==0.5.1

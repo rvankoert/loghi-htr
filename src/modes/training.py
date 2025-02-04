@@ -112,6 +112,7 @@ def plot_metric(metric, history, title, output_path, plot_validation_metric):
 
     # Plot the validation metric if requested
     if plot_validation_metric:
+        print(f"Validation metric: val_{metric}")
         val_metric = f"val_{metric}"
         if val_metric not in history.history:
             raise ValueError(f"Validation metric '{val_metric}' not found in history")
