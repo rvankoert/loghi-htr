@@ -137,10 +137,10 @@ def plot_training_history(history: tf.keras.callbacks.History,
     plot_metric(metric="loss",
                 history=history,
                 title="Training Loss",
-                filename= os.path.join(output_path, 'loss_plot.png'),
+                output_path=os.path.join(output_path, 'loss_plot.png'),
                 plot_validation_metric=plot_validation)
     plot_metric(metric="CER_metric",
                 history=history,
                 title="Character Error Rate (CER)",
-                filename=os.path.join(output_path, 'cer_plot.png'),
+                output_path=os.path.join(output_path, 'cer_plot.png'),
                 plot_validation_metric=plot_validation)
