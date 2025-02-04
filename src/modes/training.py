@@ -99,10 +99,24 @@ def train_model(model: tf.keras.Model,
 def plot_metric(metric, history, title, output_path, plot_validation_metric):
     plt.style.use("ggplot")
     plt.figure()
+
+    # Print the history dictionary to debug
+    print(f"History dictionary: {history.history}")
+
+    # Check if the metric exists in the history
+    if metric not in history.history:
+        raise ValueError(f"Metric '{metric}' not found in history")
+
+    # Plot the training metric
     plt.plot(history.history[metric], label='Training ' + metric)
+
+    # Plot the validation metric if requested
     if plot_validation_metric:
-        plt.plot(history.history[f"val_{metric}"],
-                 label=f"Validation {metric}")
+        val_metric = f"val_{metric}"
+        if val_metric not in history.history:
+            raise ValueError(f"Validation metric '{val_metric}' not found in history")
+        plt.plot(history.history[val_metric], label=f"Validation {metric}")
+
     plt.title(title)
     plt.xlabel("Epoch #")
     plt.ylabel(metric)
@@ -133,6 +147,9 @@ def plot_training_history(history: tf.keras.callbacks.History,
     This function generates and saves two plots: one for training loss and the
     other for Character Error Rate (CER).
     """
+
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
 
     plot_metric(metric="loss",
                 history=history,
