@@ -21,8 +21,7 @@ class Tokenizer:
     the tokenizer configuration to/from a JSON file.
     """
 
-    def __init__(self,
-                 tokens: List[str] = None):
+    def __init__(self, tokens: List[str] = None):
         """
         Initializes a new Tokenizer with a list of tokens.
 
@@ -41,17 +40,17 @@ class Tokenizer:
         self.token_to_num = tf.keras.layers.StringLookup(
             vocabulary=self.token_list,
             num_oov_indices=1,
-            oov_token='[UNK]',
+            oov_token="[UNK]",
             encoding="UTF-8",
-            mask_token='[PAD]'
+            mask_token="[PAD]",
         )
         self.num_to_token = tf.keras.layers.StringLookup(
             vocabulary=self.token_to_num.get_vocabulary(),
             num_oov_indices=0,
-            oov_token='',
+            oov_token="",
             encoding="UTF-8",
             invert=True,
-            mask_token='[PAD]'
+            mask_token="[PAD]",
         )
 
         self.token_list = self.token_to_num.get_vocabulary()
@@ -79,30 +78,32 @@ class Tokenizer:
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        if file_path.endswith('.txt'):
-            logging.warning("Loading from a legacy charlist.txt file. "
-                            "This file will be converted to a new tokenizer.json file.")
+        if file_path.endswith(".txt"):
+            logging.warning(
+                "Loading from a legacy charlist.txt file. "
+                "This file will be converted to a new tokenizer.json file."
+            )
             # Handle legacy charlist.txt file
-            unwanted_chars = ["", ""]  # pylint: disable=E2513
-            with open(file_path, 'r', encoding='utf-8') as f:
+            unwanted_chars = [""]
+            with open(file_path, "r", encoding="utf-8") as f:
                 # Convert the single line of characters into a list of characters
-                chars = [char for char in f.read() if not
-                         char in unwanted_chars]
+                chars = [char for char in f.read() if char not in unwanted_chars]
 
             # Save the tokens as a new tokenizer.json file
             json_dir = os.path.dirname(file_path)
-            json_file = os.path.join(json_dir, 'tokenizer.json')
+            json_file = os.path.join(json_dir, "tokenizer.json")
 
             # Create a new instance of Tokenizer
             tokenizer = cls(tokens=chars)
             tokenizer.save_to_json(json_file)
 
-            logging.info("Legacy charlist.txt file loaded and converted to %s",
-                         json_file)
+            logging.info(
+                "Legacy charlist.txt file loaded and converted to %s", json_file
+            )
             return tokenizer
 
         # Load from JSON file
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         tokens = [data[str(i)] for i in range(len(data))]
@@ -127,7 +128,7 @@ class Tokenizer:
         tf.Tensor
             A tensor of tokenized integer sequences.
         """
-        split_texts = tf.strings.unicode_split(texts, 'UTF-8')
+        split_texts = tf.strings.unicode_split(texts, "UTF-8")
         return self.token_to_num(split_texts)
 
     def __len__(self):
@@ -170,8 +171,9 @@ class Tokenizer:
         tf.Tensor
             A tensor of decoded strings.
         """
-        decoded = tf.strings.reduce_join(self.num_to_token(tokenized_texts),
-                                         axis=-1).numpy()
+        decoded = tf.strings.reduce_join(
+            self.num_to_token(tokenized_texts), axis=-1
+        ).numpy()
         if isinstance(decoded, bytes):
             return decoded.decode("utf-8")
         if isinstance(decoded, np.ndarray):
@@ -189,7 +191,7 @@ class Tokenizer:
         """
         vocab = self.token_to_num.get_vocabulary()
         data = dict(enumerate(vocab))
-        with open(json_path, 'w', encoding='utf-8') as f:
+        with open(json_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
     def add_tokens(self, tokens: Union[str, List[str]]):
@@ -205,8 +207,7 @@ class Tokenizer:
             tokens = [tokens]
 
         # Add new tokens to the token list if they don't already exist
-        new_tokens = [
-            token for token in tokens if token not in self.token_list]
+        new_tokens = [token for token in tokens if token not in self.token_list]
 
         if new_tokens:
             self.token_list.extend(new_tokens)
@@ -233,7 +234,7 @@ def remove_tags(text: str) -> str:
     '␃', '␅', '␄', and '␆' from the text.
     """
 
-    return re.sub(r'[␃␅␄␆]', '', text)
+    return re.sub(r"[␃␅␄␆]", "", text)
 
 
 def preprocess_text(text: str) -> str:
@@ -258,7 +259,7 @@ def preprocess_text(text: str) -> str:
     the `remove_tags` function.
     """
 
-    text = text.strip().replace('[PAD]', '')
+    text = text.strip().replace("[PAD]", "")
     text = remove_tags(text)
     return text
 
@@ -287,7 +288,7 @@ def simplify_text(text: str) -> Tuple[str, str]:
     """
 
     lower_text = text.lower()
-    simple_text = re.sub(r'[^a-zA-Z0-9]', '', lower_text)
+    simple_text = re.sub(r"[^a-zA-Z0-9]", "", lower_text)
     return lower_text, simple_text
 
 
@@ -310,7 +311,7 @@ def normalize_text(text: str, replacements: str) -> str:
         Normalized string
     """
 
-    with open(replacements, 'r', encoding='utf-8') as f:
+    with open(replacements, "r", encoding="utf-8") as f:
         replacements = json.load(f)
         for key, value in replacements.items():
             text = text.replace(key, value)
