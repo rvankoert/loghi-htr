@@ -405,6 +405,7 @@ class DataManager:
         return sample_weight
 
     def get_filename(self, partition: str, item_id: int):
+        logging.info("get_filename: "+ str( len(self.raw_data[partition][0])) + " : " + str( item_id))
         """ Get the filename for the given partition and item id """
         return self.raw_data[partition][0][item_id]
 
@@ -491,7 +492,7 @@ class DataManager:
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         # Assert the cardinality of the dataset if training
-        if is_training and steps_per_epoch is None:
+        if steps_per_epoch is None:
             dataset = dataset.apply(tf.data.experimental.assert_cardinality(
                 len(files) // self.config["batch_size"]))
 
