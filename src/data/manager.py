@@ -493,7 +493,7 @@ class DataManager:
 
         # Assert the cardinality of the dataset if training
         if steps_per_epoch is None:
-            dataset = dataset.apply(tf.data.experimental.assert_cardinality(
-                len(files) // self.config["batch_size"]))
+            dataset = dataset.apply(tf.data.experimental.assert_cardinality(np.ceil(
+                len(files) // self.config["batch_size"])))
 
         return dataset
