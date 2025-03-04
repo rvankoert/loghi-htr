@@ -62,8 +62,9 @@ def ctc_decode(
         )
 
     with tf.device("/cpu:0"):
-        # Convert sparse to dense
-        decoded_dense = [tf.sparse.to_dense(st, default_value=-1) for st in decoded]
+        with tf.control_dependencies([decoded, log_prob]):
+            # Convert sparse to dense
+            decoded_dense = [tf.sparse.to_dense(st, default_value=-1) for st in decoded]
 
     return decoded_dense, log_prob
 
