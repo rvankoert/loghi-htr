@@ -21,6 +21,7 @@ from utils.decoding import decode_batch_predictions
 from utils.print import print_predictions, display_statistics
 from utils.wbs import handle_wbs_results
 from utils.text import preprocess_text, normalize_text, Tokenizer
+import traceback
 
 
 class ResultWriter(Thread):
@@ -69,6 +70,7 @@ class ResultWriter(Thread):
                     except Empty:
                         continue
         except Exception as e:
+            logging.error(traceback.format_exc())
             logging.error("ResultWriter encountered an error: %s", str(e))
             self.stop_event.set()
         finally:
@@ -139,6 +141,7 @@ class MetricsCalculator(Thread):
                 except Empty:
                     continue
         except Exception as e:
+            logging.error(traceback.format_exc())
             logging.error("MetricsCalculator encountered an error: %s", str(e))
             self.stop_event.set()
         finally:
@@ -317,6 +320,7 @@ class DecodingWorker(Thread):
                 except Empty:
                     continue
         except Exception as e:
+            logging.error(traceback.format_exc())
             logging.error("DecodingWorker encountered an error: %s", str(e))
             self.stop_event.set()
         finally:

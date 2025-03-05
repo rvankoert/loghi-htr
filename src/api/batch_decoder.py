@@ -7,6 +7,7 @@ import multiprocessing
 import os
 import sys
 import tempfile
+import traceback
 from typing import List, Tuple, Dict, Optional
 
 # > Third-party dependencies
@@ -282,6 +283,7 @@ def save_prediction_outputs(
             group_id = group_id.numpy().decode('utf-8')
             image_id = image_id.numpy().decode('utf-8')
         except UnicodeDecodeError as e:
+            logging.error(traceback.format_exc())
             logging.error("Error decoding group_id or image_id: %s", e)
             continue  # Skip this entry
 
