@@ -42,9 +42,7 @@ def setup_workers(
     List[DecodingWorker]
         A list of initialized and started decoding workers.
     """
-    num_decode_workers: int = config[
-        "decoding_threads"
-    ]  # Adjust based on available CPU cores
+    num_decode_workers: int = 1
     decode_workers: List[DecodingWorker] = [
         DecodingWorker(
             data_manager.tokenizer,
@@ -119,7 +117,7 @@ def process_batches(
             data_manager.get_filename(mode, (batch_no * config["batch_size"]) + idx)
             for idx in range(len(predictions))
         ]
-
+        logging.info("Processing batch %s", batch_no)
         worker_idx: int = batch_no % len(decode_workers)
         decode_workers[worker_idx].input_queue.put(
             (predictions, batch_no, batch_filenames, y)
