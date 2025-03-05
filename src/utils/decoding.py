@@ -61,12 +61,11 @@ def ctc_decode(
             top_paths=1,
         )
 
-    with tf.device("/cpu:0"):
-        with tf.control_dependencies([decoded, log_prob]):
-            # Convert sparse to dense
-            decoded_dense = [tf.sparse.to_dense(st, default_value=-1) for st in decoded]
-
-    return decoded_dense, log_prob
+    # with tf.device("/cpu:0"):
+        # Convert sparse to dense
+    decoded_dense = [tf.sparse.to_dense(st, default_value=-1) for st in decoded]
+    with tf.control_dependencies([decoded_dense, log_prob]):
+        return decoded_dense, log_prob
 
 
 def decode_batch_predictions(
