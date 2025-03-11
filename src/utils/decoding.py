@@ -101,20 +101,19 @@ def decode_batch_predictions(
         pred, input_length=input_len, greedy=greedy, beam_width=beam_width
     )
 
+
     # Convert the decoded sequence to text
     output_texts = []
     for i, decoded_array in enumerate(ctc_decoded[0]):
-        decoded_array += 1  # Shift the index by 1 to account for the blank character
+        decoded_array += 1  # Shift the index by 1 to account for the PADDING character
 
         # Normalize the confidence score based on the number of timesteps
         text = tokenizer.decode(decoded_array).strip().replace("[PAD]", "")
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
-        if len(text) > 0:
-            time_steps = np.array(decoded_array == 0)\
-                .argmax(axis=0)
-        else:
+        time_steps = np.sum(decoded_array != 1)
+        if time_steps == 0:
             time_steps = 1
 
         if len(log_probs) < i:
@@ -129,7 +128,7 @@ def decode_batch_predictions(
 
         if confidence < 0 or confidence > 1:
             logging.warning(
-                "Confidence score out of range: %s, clamping to " "[0, 1]",
+                "Confidence score out of range: %s, clipping to " "[0, 1]",
                 confidence,
             )
             confidence = np.clip(confidence, 0, 1)
