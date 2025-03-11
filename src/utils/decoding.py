@@ -112,10 +112,10 @@ def decode_batch_predictions(
 
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
-        time_steps = np.sum(decoded_array != 1)
+        time_steps = np.sum(decoded_array != 0)
         if time_steps == 0:
             time_steps = 1
-
+        logging.warning("Time steps: %s", time_steps)
         if len(log_probs) < i:
             logging.warning(
                 "Log probability not found for sample %d, skipping", i
