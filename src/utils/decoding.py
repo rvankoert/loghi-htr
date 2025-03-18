@@ -115,7 +115,7 @@ def decode_batch_predictions(
         time_steps = np.sum(decoded_array != 0)
         if time_steps == 0:
             time_steps = 1
-        logging.warning("Time steps: %s", time_steps)
+        logging.debug("Time steps: %s", time_steps)
         if len(log_probs) < i:
             logging.warning(
                 "Log probability not found for sample %d, skipping", i
