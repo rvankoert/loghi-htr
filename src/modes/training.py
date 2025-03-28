@@ -100,9 +100,6 @@ def plot_metric(metric, history, title, output_path, plot_validation_metric):
     plt.style.use("ggplot")
     plt.figure()
 
-    # Print the history dictionary to debug
-    print(f"History dictionary: {history.history}")
-
     # Check if the metric exists in the history
     if metric not in history.history:
         raise ValueError(f"Metric '{metric}' not found in history")
