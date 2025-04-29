@@ -237,8 +237,11 @@ class Config:
             "misc": {
                 "normalization_file": args.normalization_file,
                 "deterministic": args.deterministic,
-                "decoding_threads": 1,
+                "decoding_threads": 1
             },
+            "experimental": {
+                "bidirectional": args.bidirectional
+            }
         }
 
     def update_args_from_file(self, config_file: str) -> None:

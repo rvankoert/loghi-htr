@@ -87,7 +87,7 @@ class DataLoader:
 
         # Transpose the image
         image = tf.transpose(image, perm=[1, 0, 2])
-
+        image = tf.cast(image, tf.float32)
         return image
 
     @tf.function
@@ -100,7 +100,6 @@ class DataLoader:
         ----------
         inputs : Tuple[tf.Tensor, tf.Tensor, tf.Tensor]
             A tuple containing the image path, label, and sample weight.
-
         Returns
         -------
         Tuple[tf.Tensor, tf.Tensor, tf.Tensor]

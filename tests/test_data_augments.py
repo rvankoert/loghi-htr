@@ -8,6 +8,8 @@ from pathlib import Path
 
 # > Third party dependencies
 import tensorflow as tf
+from PIL import Image
+import numpy as np
 
 # Add the src directory to the path
 sys.path.append(str(Path(__file__).resolve().parents[1] / 'src'))

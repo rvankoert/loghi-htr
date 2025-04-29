@@ -22,6 +22,7 @@ sys.path.append(parent_path)
 
 from utils.decoding import decode_batch_predictions  # noqa: E402
 from utils.text import Tokenizer  # noqa: E402
+from bidi.algorithm import get_display
 
 
 def batch_decode(encoded_predictions: np.ndarray,
@@ -236,7 +237,8 @@ def save_prediction_outputs(
     image_ids: List[bytes],
     base_output_path: str,
     image_metadata: List[str],
-    temp_dir: Optional[str] = None
+    temp_dir: Optional[str] = None,
+    bidirectional: bool = False
 ) -> List[str]:
     """
     Save decoded predictions to output files atomically.
@@ -288,6 +290,8 @@ def save_prediction_outputs(
             continue  # Skip this entry
 
         confidence, predicted_text = prediction
+        if bidirectional:
+            predicted_text = get_display(predicted_text)
         output_text = f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}"
         output_texts.append(output_text)
 

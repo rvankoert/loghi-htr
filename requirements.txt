@@ -19,3 +19,4 @@ typing-extensions==4.12.2
 psutil==5.9.5
 scipy==1.14.1
 vgslify==0.13.3
+python-bidi

@@ -14,6 +14,7 @@ import numpy as np
 from data.loader import DataLoader
 from setup.config import Config
 from utils.text import Tokenizer, normalize_text
+from bidi.algorithm import get_display
 
 
 class DataManager:
@@ -104,7 +105,8 @@ class DataManager:
                 file_names, labels, sample_weights = self._create_data(
                     partition_name=partition,
                     text_file=partition_text_file,
-                    characters=characters
+                    characters=characters,
+                    bidirectional=self.config["bidirectional"]
                 )
                 if len(file_names) == 0:
                     raise ValueError("No data found for the specified "
@@ -176,7 +178,8 @@ class DataManager:
     def _create_data(self,
                      partition_name: str,
                      text_file: str,
-                     characters: Set[str]) -> Tuple[List[str], List[str], List[str]]:
+                     characters: Set[str],
+                     bidirectional: bool) -> Tuple[List[str], List[str], List[str]]:
         """
         Create data for a specific partition from a text file.
 
@@ -188,6 +191,8 @@ class DataManager:
             The path to the text file containing the data.
         characters : Set[str]
             The set of characters to be used for the tokenizer.
+        bidirectional : bool
+            Whether to use bidirectional text processing.
 
         Returns
         -------
@@ -216,6 +221,8 @@ class DataManager:
                     if data is not None:
                         file_name, ground_truth, sample_weight = data
                         partitions.append(file_name)
+                        if bidirectional:
+                            ground_truth = get_display(ground_truth)
                         labels.append(ground_truth)
                         sample_weights.append(str(sample_weight))
                     else:
@@ -466,7 +473,7 @@ class DataManager:
 
         # Map the processing function with parallel calls
         dataset = dataset.map(
-            data_loader.process_sample,
+            lambda inputs: data_loader.process_sample(inputs),
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=not is_training
         )

@@ -1,5 +1,5 @@
 # Imports
-
+import argparse
 # > Standard library
 import os
 import time
@@ -30,12 +30,17 @@ from utils.print import summarize_model
 from utils.text import Tokenizer
 
 
-def main():
+def main(args=None):
     """ Main function for the program """
     setup_logging()
 
     # Get the arguments
-    parsed_args = get_args()
+    if args is None:
+        parsed_args = get_args()
+        print('parsed_args: ', parsed_args)
+    else:
+        parsed_args = get_args(args)
+        # parsed_args = args
     config = Config(*parsed_args)
 
     # Set up the environment

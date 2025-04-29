@@ -232,8 +232,14 @@ def get_arg_parser():
                            help="Enable deterministic mode for reproducible "
                            "results, at the cost of performance.")
     misc_args.add_argument('--decoding_threads', metavar='decoding_threads',
-                           type=int, default=2, help="Number of threads to use "
-                           "for decoding. Default: 2.")
+                           type=int, default=1, help="Number of threads to use "
+                           "for decoding. Default: 1.")
+
+    # Experimental configuration
+    experimental_args = parser.add_argument_group('Experimental arguments')
+    experimental_args.add_argument('--bidirectional', action='store_true',
+                           help="Enable bidirectional reading direction for usage with"
+                           "Arabic, Hebrew and other RTL languages.")
 
     return parser
 
@@ -263,12 +269,14 @@ def check_required_args(args, explicit):
                          f"{', '.join(missing_args)}")
 
 
-def get_args():
+def get_args(args=None):
     logger = logging.getLogger(__name__)
 
     parser = get_arg_parser()
-    args = parser.parse_args()
-
+    if args is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(args)
     # Determine which arguments were explicitly passed.
     # https://stackoverflow.com/questions/58594956/find-out-which-arguments-were-passed-explicitly-in-argparse
     sentinel = object()

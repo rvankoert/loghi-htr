@@ -1,6 +1,3 @@
-# Imports
-
-# > Standard library
 import logging
 import os
 from pathlib import Path

@@ -1,4 +1,4 @@
-# Loghi-core HTR
+# Loghi HTR
 
 Loghi HTR is a system to generate text from images. It's part of the Loghi framework, which consists of several tools for layout analysis and HTR (Handwritten Text Recogntion).
 

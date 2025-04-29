@@ -53,6 +53,7 @@ class ShearXLayer(tf.keras.layers.Layer):
         shear_factor = tf.random.uniform(shape=[1], minval=-1.0, maxval=1.0)[0]
 
         # Define the shear matrix
+        # shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
         shear_matrix = [1.0, shear_factor, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 
         # Get the dynamic shape of the input tensor
@@ -75,7 +76,7 @@ class ShearXLayer(tf.keras.layers.Layer):
             fill_value=self.fill_value,
             fill_mode="CONSTANT",
             interpolation="NEAREST")
-
+        sheared_image = tf.cast(sheared_image, tf.float32)
         return sheared_image
 
 
@@ -397,7 +398,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
         # Pad the image
         padded_img = tf.pad(resized_img, paddings=padding, mode="CONSTANT",
                             constant_values=background_color_scalar)
-
+        padded_img = tf.cast(padded_img, tf.float32)
         return padded_img
 
 
@@ -554,7 +555,12 @@ class BlurImageLayer(tf.keras.layers.Layer):
         if self.mild_blur:
             blur_factor = 1
         else:
-            blur_factor = round(random.uniform(0.1, 2), 1)
+            blur_factor = random.uniform(0.1, 2)
+            if blur_factor < 0.5:
+                return inputs
+            # blur_factor = 0.1
+            print(f"Blur factor: {blur_factor}")
+            # blur_factor = np.clip(blur_factor, 0.0, 2.0)
         return gaussian_filter2d(inputs,
                                  filter_shape=(11, 11),
                                  sigma=blur_factor)

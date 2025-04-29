@@ -22,6 +22,7 @@ from utils.print import print_predictions, display_statistics
 from utils.wbs import handle_wbs_results
 from utils.text import preprocess_text, normalize_text, Tokenizer
 import traceback
+from bidi.algorithm import get_display
 
 
 class ResultWriter(Thread):
@@ -154,6 +155,10 @@ class MetricsCalculator(Thread):
         for result in batch_result:
             prediction = preprocess_text(result["prediction"])
             original_text = preprocess_text(result["y_true"])
+            if self.config["bidirectional"]:
+                prediction = get_display(prediction)
+                original_text = get_display(original_text)
+
             normalized_original = (
                 normalize_text(original_text, self.config["normalization_file"])
                 if self.config["normalization_file"]
