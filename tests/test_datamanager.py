@@ -57,6 +57,7 @@ class DataManagerTest(unittest.TestCase):
             "replace_final_layer": False,
             "use_mask": False,
             "bidirectional": False,
+            "test_images": False
         }
 
         # Determine the directory of this file
