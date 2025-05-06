@@ -1,5 +1,5 @@
 # Imports
-
+from collections import OrderedDict
 # > Standard library
 from typing import List, Optional, Dict
 import logging
@@ -177,7 +177,7 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def initialize_queues(max_queue_size: int):
+def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
     """
     Initializes the communication queues for the multiprocessing workers.
 
@@ -212,9 +212,12 @@ def initialize_queues(max_queue_size: int):
         "predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
+    status_dict = OrderedDict()
+
     queues = {
         "Request": request_queue,
-        "Predicted": predicted_queue
+        "Predicted": predicted_queue,
+        "Status": status_dict
     }
 
     return queues
@@ -258,6 +261,7 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
 
     request_queue = queues["Request"]
     predicted_queue = queues["Predicted"]
+    status_dict = queues["Status"]
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
@@ -275,7 +279,8 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     decoding_process = mp.Process(
         target=batch_decoding_worker,
         args=(predicted_queue, base_model_dir,
-              model_name, output_path, stop_event),
+              model_name, output_path, stop_event,
+              status_dict),
         name="DecodingProcess",
         daemon=True)
     decoding_process.start()

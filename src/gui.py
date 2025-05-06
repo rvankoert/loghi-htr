@@ -1,13 +1,30 @@
-# src/gui.py
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import threading
 import logging
-import os
 from main import main
 from setup.arg_parser import get_arg_parser
 
+
 class MainApp:
+
+    def is_file_chooser_parameter(self, param):
+        if param in ["validation_list", "train_list", "inference_list", "config_file", "results_file", "corpus_file",
+                     "normalization_file", "tokenizer"]:
+            return True
+        return False
+
+    def get_default_value(self, param):
+        if param == "model":
+            return "recommended"
+        return None
+
+    def setFolderPath(self, entry, root):
+        folder_selected = filedialog.askopenfilename(parent=root)
+        entry.delete(0, tk.END)  # Clear the current value
+        entry.insert(0, folder_selected)  # Insert the selected path
+
+
     def __init__(self, root):
         self.root = root
         self.root.title("Model Training GUI")
@@ -28,7 +45,14 @@ class MainApp:
         for i, arg in enumerate(args):
             label = tk.Label(root, text=arg)
             label.grid(row=(i // num_columns) + 1, column=(i % num_columns) * 2, padx=5, pady=5, sticky='w')
-            if type(args[arg]) == bool:
+            if self.is_file_chooser_parameter(arg):
+                entry = tk.Entry(root)
+                entry.insert(0, str(args[arg]) if args[arg] is not None else "")
+                self.args[arg] = entry
+                # if entry is clicked open file dialog that fills the entry
+                entry.bind("<Button-1>", lambda e, entry=entry: self.setFolderPath(entry,root))
+
+            elif type(args[arg]) == bool:
                 var = tk.BooleanVar(value=args[arg])
                 entry = tk.Checkbutton(root, variable=var)
                 self.args[arg] = var
@@ -36,6 +60,8 @@ class MainApp:
                 entry = tk.Entry(root)
                 if args[arg] is not None:
                     entry.insert(0, str(args[arg]))
+                elif self.get_default_value(arg) is not None:
+                    entry.insert(0, str(self.get_default_value(arg)))
                 self.args[arg] = entry
             entry.grid(row=(i // num_columns) + 1, column=(i % num_columns) * 2 + 1, padx=5, pady=5, sticky='w')
 
@@ -64,6 +90,9 @@ class MainApp:
         # Run the main function in a separate thread
         thread = threading.Thread(target=self.execute_main, args=[args_list])
         thread.start()
+
+        # Close the GUI
+        self.root.destroy()
 
     def execute_main(self, args):
         try:

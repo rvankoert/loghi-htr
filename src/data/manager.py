@@ -106,7 +106,8 @@ class DataManager:
                     partition_name=partition,
                     text_file=partition_text_file,
                     characters=characters,
-                    bidirectional=self.config["bidirectional"]
+                    bidirectional=self.config["bidirectional"],
+                    test_images=self.config["test_images"]
                 )
                 if len(file_names) == 0:
                     raise ValueError("No data found for the specified "
@@ -179,7 +180,8 @@ class DataManager:
                      partition_name: str,
                      text_file: str,
                      characters: Set[str],
-                     bidirectional: bool) -> Tuple[List[str], List[str], List[str]]:
+                     bidirectional: bool,
+                     test_images: bool) -> Tuple[List[str], List[str], List[str]]:
         """
         Create data for a specific partition from a text file.
 
@@ -217,7 +219,8 @@ class DataManager:
                 for line in file:
                     data, flaw = self._process_line(line,
                                                     partition_name,
-                                                    characters)
+                                                    characters,
+                                                    test_images)
                     if data is not None:
                         file_name, ground_truth, sample_weight = data
                         partitions.append(file_name)
@@ -253,7 +256,8 @@ class DataManager:
     def _process_line(self,
                       line: str,
                       partition_name: str,
-                      characters: Set[str]) \
+                      characters: Set[str],
+                      test_images:bool) \
             -> Tuple[Optional[Tuple[str, str, float]], Optional[str]]:
         """
         Process a single line from the data file.
@@ -293,6 +297,15 @@ class DataManager:
             logging.warning("Missing: %s in %s. Skipping...",
                             file_name, partition_name)
             return None, "Missing file"
+        if test_images:
+        #     load image
+            # Check if the file is a valid image
+            try:
+                image = tf.io.read_file(file_name)
+                image = tf.image.decode_image(image, channels=self.channels)
+            except Exception as e:
+                logging.warning("Invalid image file: %s. Skipping...", file_name)
+                return None, "Invalid image file"
 
         # Extract the ground truth from the fields
         ground_truth, flaw = self._get_ground_truth(fields, partition_name)

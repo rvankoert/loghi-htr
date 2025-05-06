@@ -43,6 +43,8 @@ def get_arg_parser():
                               "testing. For multiple files, separate with "
                               "spaces and use quotes: 'test_file1.txt "
                               "test_file2.txt'.")
+    general_args.add_argument('--test_images', action='store_true',
+                              help="Enable testing of input images")
 
     # Training configuration
     training_args = parser.add_argument_group('Training arguments')

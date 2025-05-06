@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import traceback
+from collections import OrderedDict
 from typing import List, Tuple, Dict, Optional
 
 # > Third-party dependencies
@@ -238,7 +239,8 @@ def save_prediction_outputs(
     base_output_path: str,
     image_metadata: List[str],
     temp_dir: Optional[str] = None,
-    bidirectional: bool = False
+    bidirectional: bool = False,
+    status_dict: Optional[OrderedDict] = None
 ) -> List[str]:
     """
     Save decoded predictions to output files atomically.
@@ -305,9 +307,24 @@ def save_prediction_outputs(
         try:
             write_file_atomically(output_text, output_file_path, temp_dir)
             logging.debug("Atomically wrote file: %s", output_file_path)
+            if len(status_dict) > 1000000:
+                status_dict.popitem(last=False)
+            status_dict[image_id] = {
+                "confidence": confidence,
+                "predicted_text": predicted_text,
+                "metadata": metadata,
+                "status": "done"
+            }
+
         except IOError as e:
             logging.error("Failed to write file %s. Error: %s",
                           output_file_path, e)
+            status_dict[image_id] = {
+                "confidence": confidence,
+                "predicted_text": predicted_text,
+                "metadata": metadata,
+                "status": "error"
+            }
             raise
 
     return output_texts
@@ -317,7 +334,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                           base_model_dir: str,
                           model_path: str,
                           output_path: str,
-                          stop_event: multiprocessing.Event) -> None:
+                          stop_event: multiprocessing.Event,
+                          status_dict: OrderedDict) -> None:
     """
     Worker function for processing and decoding batches of predictions.
 
@@ -380,7 +398,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 batch_groups,
                 batch_identifiers,
                 output_path,
-                batch_metadata
+                batch_metadata,
+                status_dict
             )
             total_outputs += len(outputted_predictions)
 

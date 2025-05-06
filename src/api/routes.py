@@ -78,6 +78,13 @@ def create_router(app: FastAPI) -> APIRouter:
 
         try:
             app.state.queues["Request"].put(data, block=False)
+            if len(app.state.queues["Status"] >= 1000000):
+                app.state.queues["Status"].popitem(last=False)
+            app.state.queues["Status"][identifier] = {
+                "status": "pending",
+                "timestamp": datetime.datetime.now().isoformat(),
+                "group_id": group_id,
+            }
         except Full:
             raise HTTPException(status_code=429,
                                 detail="The server is currently processing a "
@@ -156,6 +163,17 @@ def create_router(app: FastAPI) -> APIRouter:
     async def prometheus():
         metrics = generate_latest()
         return Response(content=metrics, media_type=CONTENT_TYPE_LATEST)
+
+    @router.get("/status/{identifier}/")
+    async def status(identifier: str):
+        # look up identifier in the request queue
+        status = app.state.queues["Status"][identifier]
+        if status:
+            return JSONResponse(status_code=200, content=status)
+        else:
+            return JSONResponse(status_code=200, content={
+                "status": "not found"
+            })
 
     return router
 
