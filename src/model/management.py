@@ -173,7 +173,7 @@ def load_model_from_directory(directory: str,
             return tf.keras.models.load_model(model_file,
                                               custom_objects=custom_objects,
                                               compile=compile)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as err:
             logging.error("Error loading model. Attempting to convert the "
                           "model to the new format.")
 

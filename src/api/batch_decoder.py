@@ -8,12 +8,13 @@ import os
 import sys
 import tempfile
 import traceback
-from collections import OrderedDict
 from typing import List, Tuple, Dict, Optional
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
+
+import multiprocessing as mp
 
 # > Local imports
 # Add parent directory to path for local imports
@@ -240,7 +241,7 @@ def save_prediction_outputs(
     image_metadata: List[str],
     temp_dir: Optional[str] = None,
     bidirectional: bool = False,
-    status_dict: Optional[OrderedDict] = None
+    status_queue: mp.Queue = None
 ) -> List[str]:
     """
     Save decoded predictions to output files atomically.
@@ -260,6 +261,10 @@ def save_prediction_outputs(
     temp_dir : Optional[str], default=None
         Directory to use for temporary files. If None, a subdirectory of
         `base_output_path` is used.
+    bidirectional : bool, default=False
+        Whether to apply bidirectional text processing.
+    status_queue : mp.Queue
+        Queue for sending status updates back to the main process.
 
     Returns
     -------
@@ -307,25 +312,25 @@ def save_prediction_outputs(
         try:
             write_file_atomically(output_text, output_file_path, temp_dir)
             logging.debug("Atomically wrote file: %s", output_file_path)
-            if len(status_dict) > 1000000:
-                status_dict.popitem(last=False)
-            status_dict[image_id] = {
-                "confidence": confidence,
+            status_queue.put({
+                "identifier": image_id,
+                "confidence": float(confidence),
                 "predicted_text": predicted_text,
                 "metadata": metadata,
-                "status": "done"
-            }
+                "status": "finished"
+            })
 
         except IOError as e:
             logging.error("Failed to write file %s. Error: %s",
                           output_file_path, e)
-            status_dict[image_id] = {
+            status_queue.put({
+                "identifier": image_id,
                 "confidence": confidence,
                 "predicted_text": predicted_text,
                 "metadata": metadata,
                 "status": "error"
-            }
-            raise
+            })
+            raise e
 
     return output_texts
 
@@ -335,7 +340,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                           model_path: str,
                           output_path: str,
                           stop_event: multiprocessing.Event,
-                          status_dict: OrderedDict) -> None:
+                          status_queue: mp.Queue) -> None:
     """
     Worker function for processing and decoding batches of predictions.
 
@@ -351,6 +356,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
         Directory where decoded prediction outputs should be saved.
     stop_event : multiprocessing.Event
         Event to signal the process to stop.
+    status_queue : mp.Queue
+        Queue for sending status updates back to the main process.
 
     Raises
     ------
@@ -379,7 +386,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 continue  # No data available, continue checking
 
             # Re-initialize tokenizer if model has changed
-            if model != current_model_name:
+            if model != current_model_name and model is not None:
                 tokenizer = create_tokenizer(
                     os.path.join(base_model_dir, model))
                 logging.info("Tokenizer re-initialized for model: %s", model)
@@ -399,7 +406,9 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 batch_identifiers,
                 output_path,
                 batch_metadata,
-                status_dict
+                temp_dir=None,
+                bidirectional=False,
+                status_queue=status_queue
             )
             total_outputs += len(outputted_predictions)
 

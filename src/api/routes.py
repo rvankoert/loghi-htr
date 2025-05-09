@@ -78,13 +78,12 @@ def create_router(app: FastAPI) -> APIRouter:
 
         try:
             app.state.queues["Request"].put(data, block=False)
-            if len(app.state.queues["Status"] >= 1000000):
-                app.state.queues["Status"].popitem(last=False)
-            app.state.queues["Status"][identifier] = {
-                "status": "pending",
+            app.state.status_queue.put({
+                "identifier": identifier,
+                "status": "queued",
                 "timestamp": datetime.datetime.now().isoformat(),
                 "group_id": group_id,
-            }
+            })
         except Full:
             raise HTTPException(status_code=429,
                                 detail="The server is currently processing a "
@@ -167,11 +166,24 @@ def create_router(app: FastAPI) -> APIRouter:
     @router.get("/status/{identifier}/")
     async def status(identifier: str):
         # look up identifier in the request queue
-        status = app.state.queues["Status"][identifier]
+        while True:
+            try:
+                obj = app.state.status_queue.get(timeout=0.1)
+            except Exception:
+                break
+            else:
+                app.state.status_dict[obj["identifier"]] = obj
+
+        try:
+            status = app.state.status_dict[identifier]
+        except KeyError:
+            status = None
+
         if status:
             return JSONResponse(status_code=200, content=status)
         else:
-            return JSONResponse(status_code=200, content={
+            return JSONResponse(status_code=404, content={
+                "identifier": identifier,
                 "status": "not found"
             })
 

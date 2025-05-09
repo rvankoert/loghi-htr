@@ -1,6 +1,7 @@
 numpy==1.26.4
 editdistance==0.8.1
-tensorflow==2.14.1
+tensorflow==2.19.0
+keras==3.9.2
 matplotlib==3.10.0
 opencv_python==4.10.0.84
 tf_keras_vis==0.8.7
@@ -12,7 +13,7 @@ prometheus-client==0.20.0
 xlsxwriter==3.2.0
 six
 Pillow==10.4.0
-h5py==3.10.0
+h5py==3.11.0
 fastapi[standard]==0.112.1
 uvicorn==0.30.6
 typing-extensions==4.12.2

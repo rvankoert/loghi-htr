@@ -1,5 +1,3 @@
-# Imports
-from collections import OrderedDict
 # > Standard library
 from typing import List, Optional, Dict
 import logging
@@ -177,16 +175,16 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
+def initialize_queues(max_queue_size: int, max_ledger_size: int) -> Dict[str, mp.Queue]:
     """
     Initializes the communication queues for the multiprocessing workers.
 
     Parameters
     ----------
-    batch_size : int
-        The size of the batch for processing images.
     max_queue_size : int
         The maximum size of the request queue.
+    max_ledger_size: int
+        The maximum size of the status queue.
 
     Returns
     -------
@@ -212,12 +210,15 @@ def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
         "predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
 
-    status_dict = OrderedDict()
+    status_queue = mp.Queue(maxsize=max_ledger_size)
+    status_queue_size_gauge = Gauge(
+        "status_queue_size", "Status queue size")
+    status_queue_size_gauge.set_function(status_queue.qsize)
 
     queues = {
         "Request": request_queue,
         "Predicted": predicted_queue,
-        "Status": status_dict
+        "Status": status_queue
     }
 
     return queues
@@ -225,7 +226,7 @@ def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
 
 def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
                   model_name: str, patience: int, stop_event: mp.Event,
-                  queues: Dict[str, mp.Queue]):
+                  queues: Dict[str, mp.Queue]) -> Dict[str, mp.Process]:
     """
     Initializes and starts multiple multiprocessing workers for image
     processing and prediction using existing queues.
@@ -261,7 +262,6 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
 
     request_queue = queues["Request"]
     predicted_queue = queues["Predicted"]
-    status_dict = queues["Status"]
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
@@ -279,8 +279,7 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     decoding_process = mp.Process(
         target=batch_decoding_worker,
         args=(predicted_queue, base_model_dir,
-              model_name, output_path, stop_event,
-              status_dict),
+              model_name, output_path, stop_event, queues["Status"]),
         name="DecodingProcess",
         daemon=True)
     decoding_process.start()
@@ -316,7 +315,8 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
 
 async def restart_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
                           model_name: str, patience: int, stop_event: mp.Event,
-                          workers: Dict[str, mp.Process], queues: Dict[str, mp.Queue]):
+                          workers: Dict[str, mp.Process], queues: Dict[str, mp.Queue],
+                          status_queue: mp.Queue = None):
     """
     Restarts worker processes when the corresponding queues are empty.
 
@@ -339,6 +339,8 @@ async def restart_workers(batch_size: int, output_path: str, gpus: str, base_mod
         A dictionary of worker processes with worker names as keys.
     queues : Dict[str, mp.Queue]
         A dictionary of queues for communication between processes.
+    status_queue : mp.Queue
+        A queue for status updates. Default is None.
     """
     logger = logging.getLogger(__name__)
     logger.info("Restarting workers. Waiting for all queues to be empty...")
@@ -366,7 +368,7 @@ async def restart_workers(batch_size: int, output_path: str, gpus: str, base_mod
                 workers = start_workers(batch_size, output_path, gpus,
                                         base_model_dir, model_name,
                                         patience, stop_event,
-                                        queues)
+                                        queues, status_queue=status_queue)
                 return workers
         else:
             empty_count = 0

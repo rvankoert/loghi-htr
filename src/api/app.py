@@ -2,6 +2,7 @@
 
 # > Standard library
 import asyncio
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 import os
 import socket
@@ -40,6 +41,7 @@ config = {
     "model_name": get_env_variable("LOGHI_MODEL_NAME"),
     "output_path": get_env_variable("LOGHI_OUTPUT_PATH"),
     "max_queue_size": int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000")),
+    "max_ledger_size": int(get_env_variable("LOGHI_MAX_LEDGER_SIZE", "1000000")),
     "patience": float(get_env_variable("LOGHI_PATIENCE", "0.5")),
     "gpus": get_env_variable("LOGHI_GPUS", "0"),
 }
@@ -67,19 +69,21 @@ async def lifespan(app: FastAPI):
     stop_event = mp.Event()
 
     logger.info("Starting worker processes")
-    queues = initialize_queues(config["max_queue_size"])
+    queues = initialize_queues(config["max_queue_size"], config["max_ledger_size"])
     workers = start_workers(config["batch_size"], config["output_path"],
                             config["gpus"], config["base_model_dir"],
                             config["model_name"], config["patience"],
                             stop_event, queues)
 
     app.state.request_queue = queues["Request"]
+    app.state.status_queue = queues["Status"]
     app.state.stop_event = stop_event
     app.state.workers = workers
     app.state.queues = queues
     app.state.config = config
     app.state.restarting = False
     app.state.monitor_task = asyncio.create_task(monitor_memory(app))
+    app.state.status_dict = OrderedDict()
 
     yield
 
@@ -119,7 +123,8 @@ async def monitor_memory(app: FastAPI):
                     app.state.config["patience"],
                     app.state.stop_event,
                     app.state.workers,
-                    app.state.queues)
+                    app.state.queues,
+                    status_queue=app.state.status_queue,)
                 app.state.restarting = False
 
             await asyncio.sleep(MEMORY_CHECK_INTERVAL)

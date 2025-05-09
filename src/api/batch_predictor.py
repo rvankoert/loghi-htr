@@ -8,6 +8,8 @@ import os
 import sys
 import time
 import uuid
+import multiprocessing as mp
+
 from typing import List, Tuple
 
 # > Third-party dependencies
@@ -262,7 +264,7 @@ def data_generator(request_queue: multiprocessing.Queue, current_model_path_hold
                 if current_model_path_holder[0] is None:
                     current_model_path_holder[0] = new_model_path
 
-                if new_model_path != current_model_path_holder[0]:
+                if new_model_path != current_model_path_holder[0] and new_model_path is not None:
                     request_queue.put(data)
                     logging.info(
                         "Model changed to '%s'. Switching generator.", new_model_path)
@@ -553,15 +555,16 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
                 break
 
             images, batch_groups, batch_identifiers, batch_models, batch_whitelist = batch
-
             # Check for model updates
             model_path = batch_models[0].numpy().decode('utf-8')
-            if model_path != current_model_path_holder[0]:
+            if model_path != current_model_path_holder[0] and model_path is not None:
                 logging.info(
-                    "Model switch detected. Reloading model '%s'.", model_path)
+                    "Model switch detected. Replacing old model '%s' with model '%s'.",
+                    current_model_path_holder, model_path)
                 current_model_path_holder[0] = model_path
                 model, num_channels = create_model(
                     base_model_dir, model_path, strategy)
+                logging.debug("Model '%s' loaded successfully.", model_path)
 
             # Perform predictions
             batch_id = str(uuid.uuid4())
@@ -570,7 +573,7 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
                     zip(batch_groups, batch_identifiers)),
                 error_output_path, batch_id
             )
-
+            logging.debug("Predictions made for batch %s", batch_id)
             predicted_queue.put((encoded_predictions, batch_groups, batch_identifiers,
                                  model_path, batch_id, batch_whitelist))
 
