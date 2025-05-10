@@ -408,8 +408,8 @@ class BinarizeLayer(tf.keras.layers.Layer):
         self.method = method
 
         if method == 'sauvola':
-            logging.warning("Sauvola binarization is extremely inefficient, "
-                            "select Otsu for faster processing")
+            logging.warning("This implementation of Sauvola binarization is ineffecient and slow, "
+                            "select Otsu for faster processing, but usually less accurate results.")
         elif method != 'otsu':
             raise ValueError(
                 "Invalid binarization method. Supported methods are 'otsu' "
