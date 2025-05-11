@@ -134,6 +134,6 @@ def init_pre_trained_model():
 
     model_channels = model.input_shape[3]
     model_height = model.input_shape[2]
-    model.summary()
+    model.summary(line_length = 100)
 
     return model, model_channels, model_path, model_height

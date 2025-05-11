@@ -124,7 +124,7 @@ def main(args=None):
 
     # Print the model summary
     logging.info("Model Summary:")
-    model.summary()
+    model.summary(line_length=100)
 
     # Store the model info (i.e., git hash, args, model summary, etc.)
     config.update_config_key("model", summarize_model(model))
