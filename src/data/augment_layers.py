@@ -418,7 +418,7 @@ class BinarizeLayer(tf.keras.layers.Layer):
         self.window_size = window_size
         self.channels = channels
 
-    @tf.function
+    @tf.function(reduce_retracing=True)
     def call(self, inputs):
         """
         Binarize the input tensor using either Otsu's or Sauvola's
