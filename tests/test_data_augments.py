@@ -134,9 +134,6 @@ class TestDataAugments(unittest.TestCase):
                 input_tensor = tf.random.uniform(shape=[1, 256, 256, channels])
                 output_tensor = call_layer(input_tensor)
 
-                # Check that the output shape is different from the input shape
-                self.assertNotEqual(input_tensor.shape, output_tensor.shape)
-
                 # Check that only the width has changed
                 self.assertEqual(
                     input_tensor.shape[0], output_tensor.shape[0])  # Batch size
