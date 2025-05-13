@@ -43,7 +43,9 @@ def convert_model(directory: str,
             directory, custom_objects=custom_objects, compile=False)
     except Exception as e:
         logging.error(f"Failed to load model: {e}")
-        raise
+        logging.error(f"Please look in the directory loghi-htr/utils/convert-v2-to-v3 for instructions on how to convert legacy models to new models.")
+        logging.error(f"If using docker use the conversion script in loghi/scripts/convert-v2-to-v3.sh to convert the model.")
+        exit(1)
 
     if output_directory:
         logging.info("Converting model to .keras format...")
