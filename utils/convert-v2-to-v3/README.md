@@ -5,5 +5,5 @@ To convert a legacy v2 model to a v3 model, you can use the `convert_v2_to_v3.py
 conda create -n convert-v2-to-v3
 conda activate convert-v2-to-v3
 pip install -r requirements.txt
-python convert_v2_to_v3.py --input_model_path ./models/v2_model --output_model_path ./models/v3_model
+python convert.py --savedmodel_dir ./models/v2_model --output_file ./models/v3_model.keras
 ```
