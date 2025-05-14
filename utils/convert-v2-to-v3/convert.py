@@ -1,6 +1,8 @@
 import os
 
 import logging
+import shutil
+
 import tensorflow as tf
 
 
@@ -10,7 +12,7 @@ from metrics import CERMetric, WERMetric
 from optimization import LoghiLearningRateSchedule
 
 
-def convert_savedmodel_to_keras(savedmodel_dir: str, output_file: str, custom_objects: dict):
+def convert_savedmodel_to_keras(savedmodel_dir: str, output_directory: str, custom_objects: dict):
     """
     Converts a Keras SavedModel to the .keras format.
 
@@ -18,7 +20,7 @@ def convert_savedmodel_to_keras(savedmodel_dir: str, output_file: str, custom_ob
     ----------
     savedmodel_dir : str
         Path to the directory containing the SavedModel.
-    output_file : str
+    output_directory : str
         Path to save the converted .keras file.
     custom_objects : dict
 
@@ -42,10 +44,41 @@ def convert_savedmodel_to_keras(savedmodel_dir: str, output_file: str, custom_ob
         logging.info(f"Loading SavedModel from: {savedmodel_dir}")
         model = tf.keras.models.load_model(savedmodel_dir, custom_objects=custom_objects, compile=False)
 
-        # Save the model in .keras format
-        logging.info(f"Saving model to .keras format at: {output_file}")
-        model.save(output_file, save_format="keras")
-        logging.info("Model successfully converted to .keras format.")
+
+        # Check if there is already a model.keras file in the output folder
+        if os.path.exists(os.path.join(output_directory, 'model.keras')):
+            logging.warning("A model.keras file already exists in the output "
+                            "folder. Attempting to load the model from disk.")
+            try:
+                return tf.keras.models.load_model(
+                    os.path.join(output_directory, 'model.keras'),
+                    custom_objects=custom_objects)
+            except Exception:
+                raise ValueError(
+                    "Failed to load the model from disk. Please clean the "
+                    f"output folder '{output_directory}' and try again.")
+
+        try:
+            # Copy the model directory to the output folder
+            shutil.copytree(savedmodel_dir, output_directory)
+            shutil.rmtree(os.path.join(output_directory, 'assets'),
+                          ignore_errors=True)
+            shutil.rmtree(os.path.join(output_directory, 'variables'),
+                          ignore_errors=True)
+
+            for file in os.listdir(output_directory):
+                if file.endswith('.pb'):
+                    os.remove(os.path.join(output_directory, file))
+        except Exception as e:
+            logging.error(f"Error during file operations: {e}")
+            raise
+
+        model.save(os.path.join(output_directory, 'model.keras'))
+        logging.info(
+            f"Model converted and saved to {output_directory}/model.keras")
+
+        # model.save(output_directory, save_format="keras")
+        # logging.info("Model successfully converted to .keras format.")
     except Exception as e:
         logging.error(f"Failed to convert model: {e}")
 
