@@ -107,7 +107,8 @@ class DataManager:
                     text_file=partition_text_file,
                     characters=characters,
                     bidirectional=self.config["bidirectional"],
-                    test_images=self.config["test_images"]
+                    test_images=self.config["test_images"],
+                    no_verify_image_exists=self.config["no_verify_image_exists"]
                 )
                 if len(file_names) == 0:
                     raise ValueError("No data found for the specified "
@@ -181,7 +182,8 @@ class DataManager:
                      text_file: str,
                      characters: Set[str],
                      bidirectional: bool,
-                     test_images: bool) -> Tuple[List[str], List[str], List[str]]:
+                     test_images: bool,
+                     no_verify_image_exists: bool) -> Tuple[List[str], List[str], List[str]]:
         """
         Create data for a specific partition from a text file.
 
@@ -220,7 +222,8 @@ class DataManager:
                     data, flaw = self._process_line(line,
                                                     partition_name,
                                                     characters,
-                                                    test_images)
+                                                    test_images,
+                                                    no_verify_image_exists)
                     if data is not None:
                         file_name, ground_truth, sample_weight = data
                         partitions.append(file_name)
@@ -257,7 +260,8 @@ class DataManager:
                       line: str,
                       partition_name: str,
                       characters: Set[str],
-                      test_images:bool) \
+                      test_images: bool,
+                      no_verify_image_exists: bool) \
             -> Tuple[Optional[Tuple[str, str, float]], Optional[str]]:
         """
         Process a single line from the data file.
@@ -293,7 +297,7 @@ class DataManager:
         file_name = fields[0]
 
         # Skip missing files
-        if not os.path.exists(file_name):
+        if not no_verify_image_exists and not os.path.exists(file_name):
             logging.warning("Missing: %s in %s. Skipping...",
                             file_name, partition_name)
             return None, "Missing file"

@@ -179,7 +179,8 @@ class Config:
                 "batch_size": args.batch_size,
                 "seed": args.seed,
                 "tokenizer": args.tokenizer,
-                "test_images": args.test_images
+                "test_images": args.test_images,
+                "no_verify_image_exists": args.no_verify_image_exists,
             },
             "training": {
                 "epochs": args.epochs,
