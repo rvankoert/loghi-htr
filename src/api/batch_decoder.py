@@ -423,5 +423,6 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     except Exception as e:
         logging.error("Error in batch decoding process: %s", e)
         raise e
+    finally:
+        logging.info("Batch decoding worker stopped")
 
-    logging.info("Batch decoding process stopped")
