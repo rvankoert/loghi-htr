@@ -1,12 +1,11 @@
-# Imports
-
-# > Third-party dependencies
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.python.ops import math_ops, array_ops, ctc_ops
 from tensorflow.keras.losses import Loss
+from tensorflow.keras.utils import register_keras_serializable
 
 
+@register_keras_serializable(package="Custom")
 class CTCLoss(Loss):
     def __init__(self, name='ctc_loss'):
         super().__init__(name=name)
@@ -100,3 +99,14 @@ class CTCLoss(Loss):
                 sequence_length=input_length,
                 ignore_longer_outputs_than_inputs=True),
             1)
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "reduction": self.reduction
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config: dict) -> "CTCLoss":
+        return cls()
