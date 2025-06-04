@@ -249,14 +249,11 @@ def start_workers(
     base_model_dir: str,
     model_name: str,
     patience: int,
-    # callback_url is now specifically for predictor's critical errors
-    predictor_error_callback_url: str,
     stop_event: mp.Event,
     queues: Dict[str, any],
 ) -> Dict[str, mp.Process]:
     """
     Initializes and starts multiple multiprocessing workers.
-    predictor_error_callback_url is for batch_predictor OOM/critical errors.
     """
     logger = logging.getLogger(__name__)
 
@@ -275,7 +272,6 @@ def start_workers(
             model_name,
             output_path,  # For error logging from predictor primarily
             stop_event,
-            predictor_error_callback_url,  # For OOM errors etc. in predictor
             gpus,
             batch_size,
             patience,
@@ -296,7 +292,6 @@ def start_workers(
             model_name,
             output_path,  # For any output files if decoder writes them
             stop_event,
-            # callback_url is removed from decoder; results go to SSE via queue
         ),
         name="DecodingProcess",
         daemon=True,
@@ -335,7 +330,6 @@ async def restart_workers(
     base_model_dir: str,
     model_name: str,
     patience: int,
-    predictor_error_callback_url: str,  # Renamed for clarity
     stop_event: mp.Event,
     workers: Dict[str, mp.Process],
     queues: Dict[str, any],
@@ -394,7 +388,6 @@ async def restart_workers(
         base_model_dir,
         model_name,
         patience,
-        predictor_error_callback_url,
         stop_event,
         queues,
     )
