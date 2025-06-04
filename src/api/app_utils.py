@@ -3,9 +3,11 @@ from typing import List, Optional, Dict
 import logging
 import multiprocessing as mp
 import os
+import time
 import asyncio
 
 # > Third-party dependencies
+import httpx
 from fastapi import UploadFile, Form, File, HTTPException
 from prometheus_client import Gauge
 
@@ -51,7 +53,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
         "DEBUG": logging.DEBUG,
         "INFO": logging.INFO,
         "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR
+        "ERROR": logging.ERROR,
     }
 
     # Set up the basic logging configuration
@@ -62,7 +64,7 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     )
 
     # Configure TensorFlow logger to use the custom filter
-    tf_logger = logging.getLogger('tensorflow')
+    tf_logger = logging.getLogger("tensorflow")
     tf_logger.addFilter(TensorFlowLogFilter())
     while tf_logger.handlers:
         tf_logger.handlers.pop()
@@ -75,7 +77,7 @@ async def extract_request_data(
     group_id: str = Form(...),
     identifier: str = Form(...),
     model: Optional[str] = Form(None),
-    whitelist: List[str] = Form([])
+    whitelist: List[str] = Form([]),
 ) -> tuple[bytes, str, str, str, list]:
     """
     Extract image and other form data from the current request.
@@ -113,13 +115,14 @@ async def extract_request_data(
         If required data is missing or if the image format is invalid.
     """
     # Validate image format
-    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
-    file_extension = image.filename.split('.')[-1].lower()
+    allowed_extensions = {"png", "jpg", "jpeg", "gif"}
+    file_extension = image.filename.split(".")[-1].lower()
     if file_extension not in allowed_extensions:
         raise HTTPException(
             status_code=400,
             detail="Invalid image format. Allowed formats: "
-            f"{', '.join(allowed_extensions)}")
+            f"{', '.join(allowed_extensions)}",
+        )
 
     # Read image content
     image_content = await image.read()
@@ -128,8 +131,8 @@ async def extract_request_data(
     if not image_content:
         raise HTTPException(
             status_code=400,
-            detail="The uploaded image is empty. Please upload a valid image "
-            "file.")
+            detail="The uploaded image is empty. Please upload a valid image file.",
+        )
 
     return image_content, group_id, identifier, model, whitelist
 
@@ -165,17 +168,20 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
         if default_value is None:
             raise ValueError(
                 f"Environment variable {var_name} not set and no default "
-                "value provided.")
+                "value provided."
+            )
         logger.warning(
-            "Environment variable %s not set. Using default value: "
-            "%s", var_name, default_value)
+            "Environment variable %s not set. Using default value: %s",
+            var_name,
+            default_value,
+        )
         return default_value
 
     logger.debug("Environment variable %s set to %s", var_name, value)
     return value
 
 
-def initialize_queues(max_queue_size: int, max_ledger_size: int) -> Dict[str, mp.Queue]:
+def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
     """
     Initializes the communication queues for the multiprocessing workers.
 
@@ -183,8 +189,6 @@ def initialize_queues(max_queue_size: int, max_ledger_size: int) -> Dict[str, mp
     ----------
     max_queue_size : int
         The maximum size of the request queue.
-    max_ledger_size: int
-        The maximum size of the status queue.
 
     Returns
     -------
@@ -203,30 +207,30 @@ def initialize_queues(max_queue_size: int, max_ledger_size: int) -> Dict[str, mp
     predicted_queue = mp.Queue()
 
     # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge(
-        "request_queue_size", "Request queue size")
+    request_queue_size_gauge = Gauge("request_queue_size", "Request queue size")
     request_queue_size_gauge.set_function(request_queue.qsize)
-    predicted_queue_size_gauge = Gauge(
-        "predicted_queue_size", "Predicted queue size")
+    predicted_queue_size_gauge = Gauge("predicted_queue_size", "Predicted queue size")
     predicted_queue_size_gauge.set_function(predicted_queue.qsize)
-
-    status_queue = mp.Queue(maxsize=max_ledger_size)
-    status_queue_size_gauge = Gauge(
-        "status_queue_size", "Status queue size")
-    status_queue_size_gauge.set_function(status_queue.qsize)
 
     queues = {
         "Request": request_queue,
         "Predicted": predicted_queue,
-        "Status": status_queue
     }
 
     return queues
 
 
-def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
-                  model_name: str, patience: int, stop_event: mp.Event,
-                  queues: Dict[str, mp.Queue]) -> Dict[str, mp.Process]:
+def start_workers(
+    batch_size: int,
+    output_path: str,
+    gpus: str,
+    base_model_dir: str,
+    model_name: str,
+    patience: int,
+    callback_url: str,
+    stop_event: mp.Event,
+    queues: Dict[str, mp.Queue],
+) -> Dict[str, mp.Process]:
     """
     Initializes and starts multiple multiprocessing workers for image
     processing and prediction using existing queues.
@@ -267,27 +271,41 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
-        args=(request_queue, predicted_queue, base_model_dir,
-              model_name, output_path, stop_event, gpus,
-              batch_size, patience),
+        args=(
+            request_queue,
+            predicted_queue,
+            base_model_dir,
+            model_name,
+            output_path,
+            stop_event,
+            callback_url,
+            gpus,
+            batch_size,
+            patience,
+        ),
         name="PredictionProcess",
-        daemon=True)
+        daemon=True,
+    )
     prediction_process.start()
 
     # Start the batch decoding process
     logger.info("Starting batch decoding process")
     decoding_process = mp.Process(
         target=batch_decoding_worker,
-        args=(predicted_queue, base_model_dir,
-              model_name, output_path, stop_event, queues["Status"]),
+        args=(
+            predicted_queue,
+            base_model_dir,
+            model_name,
+            output_path,
+            stop_event,
+            callback_url,
+        ),
         name="DecodingProcess",
-        daemon=True)
+        daemon=True,
+    )
     decoding_process.start()
 
-    workers = {
-        "Prediction": prediction_process,
-        "Decoding": decoding_process
-    }
+    workers = {"Prediction": prediction_process, "Decoding": decoding_process}
 
     return workers
 
@@ -313,10 +331,18 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
         worker.join()
 
 
-async def restart_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
-                          model_name: str, patience: int, stop_event: mp.Event,
-                          workers: Dict[str, mp.Process], queues: Dict[str, mp.Queue],
-                          status_queue: mp.Queue = None):
+async def restart_workers(
+    batch_size: int,
+    output_path: str,
+    gpus: str,
+    base_model_dir: str,
+    model_name: str,
+    patience: int,
+    callback_url: int,
+    stop_event: mp.Event,
+    workers: Dict[str, mp.Process],
+    queues: Dict[str, mp.Queue],
+):
     """
     Restarts worker processes when the corresponding queues are empty.
 
@@ -365,10 +391,17 @@ async def restart_workers(batch_size: int, output_path: str, gpus: str, base_mod
                 stop_event.clear()
 
                 # Restart workers with existing queues
-                workers = start_workers(batch_size, output_path, gpus,
-                                        base_model_dir, model_name,
-                                        patience, stop_event,
-                                        queues, status_queue=status_queue)
+                workers = start_workers(
+                    batch_size,
+                    output_path,
+                    gpus,
+                    base_model_dir,
+                    model_name,
+                    patience,
+                    callback_url,
+                    stop_event,
+                    queues,
+                )
                 return workers
         else:
             empty_count = 0

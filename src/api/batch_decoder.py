@@ -6,17 +6,18 @@ import logging
 import multiprocessing
 import os
 import sys
-import tempfile
 import traceback
-from typing import List, Tuple, Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 # > Third-party dependencies
+import httpx
 import numpy as np
 import tensorflow as tf
-
-import multiprocessing as mp
+from bidi.algorithm import get_display
 
 # > Local imports
+from callbacks import attempt_callback
+
 # Add parent directory to path for local imports
 current_path = os.path.dirname(os.path.realpath(__file__))
 parent_path = os.path.dirname(current_path)
@@ -24,11 +25,9 @@ sys.path.append(parent_path)
 
 from utils.decoding import decode_batch_predictions  # noqa: E402
 from utils.text import Tokenizer  # noqa: E402
-from bidi.algorithm import get_display
 
 
-def batch_decode(encoded_predictions: np.ndarray,
-                 tokenizer: Tokenizer) -> List[str]:
+def batch_decode(encoded_predictions: np.ndarray, tokenizer: Tokenizer) -> List[str]:
     """
     Decode a batch of encoded predictions into readable text.
 
@@ -45,8 +44,7 @@ def batch_decode(encoded_predictions: np.ndarray,
         List of decoded prediction strings.
     """
     logging.debug("Starting batch decoding")
-    decoded_predictions = decode_batch_predictions(encoded_predictions,
-                                                   tokenizer)
+    decoded_predictions = decode_batch_predictions(encoded_predictions, tokenizer)
     logging.debug("Batch decoding completed")
     return decoded_predictions
 
@@ -98,9 +96,9 @@ def create_tokenizer(model_dir: str) -> Tokenizer:
     return tokenizer
 
 
-def fetch_metadata(whitelists: List[List[bytes]],
-                   base_model_dir: str,
-                   model_path: str) -> List[str]:
+def fetch_metadata(
+    whitelists: List[List[bytes]], base_model_dir: str, model_path: str
+) -> List[str]:
     """
     Retrieve metadata based on whitelist keys from the model's configuration.
 
@@ -133,7 +131,7 @@ def fetch_metadata(whitelists: List[List[bytes]],
         raise FileNotFoundError(error_msg)
 
     try:
-        with open(config_path, 'r', encoding="utf-8") as file:
+        with open(config_path, "r", encoding="utf-8") as file:
             config = json.load(file)
     except json.JSONDecodeError as e:
         logging.error("Invalid JSON in config file: %s", e)
@@ -171,7 +169,7 @@ def fetch_metadata(whitelists: List[List[bytes]],
         values = {}
         for key_bytes in whitelist:
             try:
-                key = key_bytes.numpy().decode('utf-8')
+                key = key_bytes.numpy().decode("utf-8")
             except UnicodeDecodeError as e:
                 logging.warning("Error decoding whitelist key: %s", e)
                 key = "INVALID_KEY"
@@ -181,7 +179,8 @@ def fetch_metadata(whitelists: List[List[bytes]],
                 values[key] = "NOT_FOUND"
                 if key not in warned_keys:
                     logging.warning(
-                        "Key '%s' not found in config. Recording as 'NOT_FOUND'", key)
+                        "Key '%s' not found in config. Recording as 'NOT_FOUND'", key
+                    )
                     warned_keys.add(key)
             else:
                 values[key] = value
@@ -192,56 +191,15 @@ def fetch_metadata(whitelists: List[List[bytes]],
     return metadata_list
 
 
-def write_file_atomically(content: str, target_path: str, temp_dir: str) -> None:
-    """
-    Write content to a file atomically using a temporary file.
-
-    Parameters
-    ----------
-    content : str
-        The content to write to the file.
-    target_path : str
-        The final path where the file should be written.
-    temp_dir : str
-        Directory to use for creating the temporary file.
-
-    Raises
-    ------
-    IOError
-        If writing to the file fails.
-    """
-    temp_file_path = None
-    try:
-        with tempfile.NamedTemporaryFile(mode='w', dir=temp_dir,
-                                         delete=False, encoding="utf-8") as temp_file:
-            temp_file.write(content + "\n")
-            temp_file_path = temp_file.name
-
-        # Atomic replacement of the target file
-        os.replace(temp_file_path, target_path)
-    except IOError as e:
-        logging.error("IOError while writing to %s: %s", target_path, e)
-        if temp_file_path and os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-        raise IOError(
-            f"Failed to atomically write file: {target_path}. Error: {e}") from e
-    except Exception as e:
-        logging.error("Unexpected error while writing to %s: %s",
-                      target_path, e)
-        if temp_file_path and os.path.exists(temp_file_path):
-            os.unlink(temp_file_path)
-        raise e
-
-
 def save_prediction_outputs(
     prediction_data: List[Tuple[float, str]],
     group_ids: List[bytes],
     image_ids: List[bytes],
     base_output_path: str,
     image_metadata: List[str],
+    callback_url: str = None,
     temp_dir: Optional[str] = None,
     bidirectional: bool = False,
-    status_queue: mp.Queue = None
 ) -> List[str]:
     """
     Save decoded predictions to output files atomically.
@@ -258,13 +216,13 @@ def save_prediction_outputs(
         Directory where prediction outputs should be saved.
     image_metadata : List[str]
         List of metadata JSON strings for each image.
+    callback_urls: str
+        Callback URL
     temp_dir : Optional[str], default=None
         Directory to use for temporary files. If None, a subdirectory of
         `base_output_path` is used.
     bidirectional : bool, default=False
         Whether to apply bidirectional text processing.
-    status_queue : mp.Queue
-        Queue for sending status updates back to the main process.
 
     Returns
     -------
@@ -280,7 +238,7 @@ def save_prediction_outputs(
 
     # Use provided temp_dir or create a default one
     if temp_dir is None:
-        temp_dir = os.path.join(base_output_path, '.temp_prediction_outputs')
+        temp_dir = os.path.join(base_output_path, ".temp_prediction_outputs")
 
     os.makedirs(temp_dir, exist_ok=True)
     logging.debug("Using temporary directory: %s", temp_dir)
@@ -289,8 +247,8 @@ def save_prediction_outputs(
         prediction_data, group_ids, image_ids, image_metadata
     ):
         try:
-            group_id = group_id.numpy().decode('utf-8')
-            image_id = image_id.numpy().decode('utf-8')
+            group_id = group_id.numpy().decode("utf-8")
+            image_id = image_id.numpy().decode("utf-8")
         except UnicodeDecodeError as e:
             logging.error(traceback.format_exc())
             logging.error("Error decoding group_id or image_id: %s", e)
@@ -302,45 +260,31 @@ def save_prediction_outputs(
         output_text = f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}"
         output_texts.append(output_text)
 
-        group_output_dir = os.path.join(base_output_path, group_id)
-        os.makedirs(group_output_dir, exist_ok=True)
-        logging.debug("Ensured output directory exists: %s", group_output_dir)
-
-        output_file_path = os.path.join(
-            group_output_dir, f"{image_id}.txt")
-
         try:
-            write_file_atomically(output_text, output_file_path, temp_dir)
-            logging.debug("Atomically wrote file: %s", output_file_path)
-            status_queue.put({
+            payload = {
+                "group_id": group_id,
                 "identifier": image_id,
-                "confidence": float(confidence),
-                "predicted_text": predicted_text,
-                "metadata": metadata,
-                "status": "finished"
-            })
+                "status": "predict OK",
+                "result": output_text,
+            }
+            attempt_callback(callback_url, payload)
+            logging.debug("Made callback to %s", callback_url)
 
-        except IOError as e:
-            logging.error("Failed to write file %s. Error: %s",
-                          output_file_path, e)
-            status_queue.put({
-                "identifier": image_id,
-                "confidence": confidence,
-                "predicted_text": predicted_text,
-                "metadata": metadata,
-                "status": "error"
-            })
+        except Exception as e:
+            logging.error("Failed to make callback. Error: %s", e)
             raise e
 
     return output_texts
 
 
-def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
-                          base_model_dir: str,
-                          model_path: str,
-                          output_path: str,
-                          stop_event: multiprocessing.Event,
-                          status_queue: mp.Queue) -> None:
+def batch_decoding_worker(
+    predicted_queue: multiprocessing.Queue,
+    base_model_dir: str,
+    model_path: str,
+    output_path: str,
+    stop_event: multiprocessing.Event,
+    callback_url: str,
+) -> None:
     """
     Worker function for processing and decoding batches of predictions.
 
@@ -367,7 +311,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
     logging.info("Batch decoding process started")
 
     # Disable GPU for decoding
-    tf.config.set_visible_devices([], 'GPU')
+    tf.config.set_visible_devices([], "GPU")
 
     # Initialize tokenizer
     current_model_name = model_path
@@ -380,15 +324,20 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             try:
                 # Attempt to retrieve data from the queue with a timeout
                 data = predicted_queue.get(timeout=0.1)
-                encoded_predictions, batch_groups, batch_identifiers, model, \
-                    batch_id, batch_whitelists = data
+                (
+                    encoded_predictions,
+                    batch_groups,
+                    batch_identifiers,
+                    model,
+                    batch_id,
+                    batch_whitelists,
+                ) = data
             except multiprocessing.queues.Empty:
                 continue  # No data available, continue checking
 
             # Re-initialize tokenizer if model has changed
             if model != current_model_name and model is not None:
-                tokenizer = create_tokenizer(
-                    os.path.join(base_model_dir, model))
+                tokenizer = create_tokenizer(os.path.join(base_model_dir, model))
                 logging.info("Tokenizer re-initialized for model: %s", model)
                 current_model_name = model
 
@@ -396,8 +345,7 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             decoded_predictions = batch_decode(encoded_predictions, tokenizer)
 
             # Fetch metadata based on whitelist keys
-            batch_metadata = fetch_metadata(
-                batch_whitelists, base_model_dir, model)
+            batch_metadata = fetch_metadata(batch_whitelists, base_model_dir, model)
 
             # Save decoded predictions to output files
             outputted_predictions = save_prediction_outputs(
@@ -407,8 +355,8 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
                 output_path,
                 batch_metadata,
                 temp_dir=None,
+                callback_url=callback_url,
                 bidirectional=False,
-                status_queue=status_queue
             )
             total_outputs += len(outputted_predictions)
 
@@ -416,8 +364,11 @@ def batch_decoding_worker(predicted_queue: multiprocessing.Queue,
             for output in outputted_predictions:
                 logging.debug("Outputted prediction: %s", output)
 
-            logging.info("Decoded and outputted batch %s (%d items)",
-                         batch_id, len(decoded_predictions))
+            logging.info(
+                "Decoded and outputted batch %s (%d items)",
+                batch_id,
+                len(decoded_predictions),
+            )
             logging.info("Total predictions completed: %d", total_outputs)
 
     except Exception as e:

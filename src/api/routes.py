@@ -3,17 +3,16 @@
 # > Standard library
 import datetime
 import logging
-from typing import List, Optional
 from multiprocessing.queues import Full
-
-# > Third-party dependencies
-from fastapi import (APIRouter, HTTPException, File,
-                     UploadFile, Form, FastAPI, Request)
-from fastapi.responses import JSONResponse, Response
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from typing import List, Optional
 
 # > Local dependencies
 from app_utils import extract_request_data
+
+# > Third-party dependencies
+from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 
 def create_router(app: FastAPI) -> APIRouter:
@@ -66,35 +65,36 @@ def create_router(app: FastAPI) -> APIRouter:
             A JSON response indicating the status of the request.
         """
         if app.state.restarting:
-            return _create_response(503, "Service Unavailable",
-                                    "The server is currently restarting. "
-                                    "Please try again later.")
+            return _create_response(
+                503,
+                "Service Unavailable",
+                "The server is currently restarting. Please try again later.",
+            )
 
         try:
-            data = await extract_request_data(image, group_id, identifier,
-                                              model, whitelist)
+            data = await extract_request_data(
+                image, group_id, identifier, model, whitelist
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
         try:
             app.state.queues["Request"].put(data, block=False)
-            app.state.status_queue.put({
-                "identifier": identifier,
-                "status": "queued",
-                "timestamp": datetime.datetime.now().isoformat(),
-                "group_id": group_id,
-            })
         except Full:
-            raise HTTPException(status_code=429,
-                                detail="The server is currently processing a "
-                                "high volume of requests. Please try again "
-                                "later.")
+            raise HTTPException(
+                status_code=429,
+                detail="The server is currently processing a "
+                "high volume of requests. Please try again "
+                "later.",
+            )
 
         logging.info(f"Request received: {group_id} - {identifier}")
-        return _create_response(202, "Request received", "Your request is "
-                                "being processed",
-                                extra={"group_id": group_id,
-                                       "identifier": identifier})
+        return _create_response(
+            202,
+            "Request received",
+            "Your request is being processed",
+            extra={"group_id": group_id, "identifier": identifier},
+        )
 
     @router.get("/status")
     async def status(request: Request):
@@ -117,8 +117,8 @@ def create_router(app: FastAPI) -> APIRouter:
             content={
                 "status": "restarting" if is_restarting else "running",
                 "timestamp": datetime.datetime.now().isoformat(),
-                "code": 200 if not is_restarting else 503
-            }
+                "code": 200 if not is_restarting else 503,
+            },
         )
 
     @router.get("/health")
@@ -132,13 +132,11 @@ def create_router(app: FastAPI) -> APIRouter:
             A JSON response indicating the health status of the application.
         """
         if app.state.restarting:
-            return _create_response(200, "healthy",
-                                    "Application is restarting")
+            return _create_response(200, "healthy", "Application is restarting")
 
         for name, worker in app.state.workers.items():
             if not worker.is_alive():
-                return _create_response(500, "unhealthy", f"{name} worker is "
-                                        "not alive")
+                return _create_response(500, "unhealthy", f"{name} worker is not alive")
 
         return _create_response(200, "healthy", "All workers are alive")
 
@@ -163,35 +161,12 @@ def create_router(app: FastAPI) -> APIRouter:
         metrics = generate_latest()
         return Response(content=metrics, media_type=CONTENT_TYPE_LATEST)
 
-    @router.get("/status/{identifier}/")
-    async def status(identifier: str):
-        # look up identifier in the request queue
-        while True:
-            try:
-                obj = app.state.status_queue.get(timeout=0.1)
-            except Exception:
-                break
-            else:
-                app.state.status_dict[obj["identifier"]] = obj
-
-        try:
-            status = app.state.status_dict[identifier]
-        except KeyError:
-            status = None
-
-        if status:
-            return JSONResponse(status_code=200, content=status)
-        else:
-            return JSONResponse(status_code=404, content={
-                "identifier": identifier,
-                "status": "not found"
-            })
-
     return router
 
 
-def _create_response(status_code: int, status: str, message: str,
-                     extra: dict = None) -> JSONResponse:
+def _create_response(
+    status_code: int, status: str, message: str, extra: dict = None
+) -> JSONResponse:
     """
     Create a standardized JSON response.
 
@@ -215,7 +190,7 @@ def _create_response(status_code: int, status: str, message: str,
         "status": status,
         "code": status_code,
         "message": message,
-        "timestamp": datetime.datetime.now().isoformat()
+        "timestamp": datetime.datetime.now().isoformat(),
     }
     if extra:
         content.update(extra)

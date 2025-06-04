@@ -2,23 +2,29 @@
 
 # > Standard library
 import asyncio
-from collections import OrderedDict
-from contextlib import asynccontextmanager
+import multiprocessing as mp
 import os
 import socket
-import multiprocessing as mp
+from contextlib import asynccontextmanager
+
+import psutil
+
+# > Local dependencies
+from app_utils import (
+    get_env_variable,
+    initialize_queues,
+    restart_workers,
+    setup_logging,
+    start_workers,
+    stop_workers,
+)
 
 # > Third-party dependencies
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import psutil
+from routes import create_router
 from uvicorn.config import Config
 from uvicorn.server import Server
-
-# > Local dependencies
-from app_utils import (setup_logging, get_env_variable, initialize_queues,
-                       start_workers, stop_workers, restart_workers)
-from routes import create_router
 
 # Constants
 MEGABYTE = 1024 * 1024
@@ -41,9 +47,9 @@ config = {
     "model_name": get_env_variable("LOGHI_MODEL_NAME"),
     "output_path": get_env_variable("LOGHI_OUTPUT_PATH"),
     "max_queue_size": int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000")),
-    "max_ledger_size": int(get_env_variable("LOGHI_MAX_LEDGER_SIZE", "1000000")),
     "patience": float(get_env_variable("LOGHI_PATIENCE", "0.5")),
     "gpus": get_env_variable("LOGHI_GPUS", "0"),
+    "callback_url": get_env_variable("LOGHI_CALLBACK_URL"),
 }
 
 # Determine memory limit
@@ -59,8 +65,9 @@ logger.info(f"Memory limit set to {MEMORY_LIMIT / MEGABYTE:.2f} MB")
 def check_memory_usage() -> int:
     """Check the memory usage of the current process and its children."""
     process = psutil.Process(os.getpid())
-    return process.memory_info().rss + sum(child.memory_info().rss for child
-                                           in process.children(recursive=True))
+    return process.memory_info().rss + sum(
+        child.memory_info().rss for child in process.children(recursive=True)
+    )
 
 
 @asynccontextmanager
@@ -69,21 +76,26 @@ async def lifespan(app: FastAPI):
     stop_event = mp.Event()
 
     logger.info("Starting worker processes")
-    queues = initialize_queues(config["max_queue_size"], config["max_ledger_size"])
-    workers = start_workers(config["batch_size"], config["output_path"],
-                            config["gpus"], config["base_model_dir"],
-                            config["model_name"], config["patience"],
-                            stop_event, queues)
+    queues = initialize_queues(config["max_queue_size"])
+    workers = start_workers(
+        config["batch_size"],
+        config["output_path"],
+        config["gpus"],
+        config["base_model_dir"],
+        config["model_name"],
+        config["patience"],
+        config["callback_url"],
+        stop_event,
+        queues,
+    )
 
     app.state.request_queue = queues["Request"]
-    app.state.status_queue = queues["Status"]
     app.state.stop_event = stop_event
     app.state.workers = workers
     app.state.queues = queues
     app.state.config = config
     app.state.restarting = False
     app.state.monitor_task = asyncio.create_task(monitor_memory(app))
-    app.state.status_dict = OrderedDict()
 
     yield
 
@@ -106,13 +118,15 @@ async def monitor_memory(app: FastAPI):
             memory_usage = check_memory_usage()
             logger.debug(
                 f"Current memory usage: {memory_usage / MEGABYTE:.2f}/"
-                f"{MEMORY_LIMIT / MEGABYTE:.2f} MB")
+                f"{MEMORY_LIMIT / MEGABYTE:.2f} MB"
+            )
 
             if memory_usage > MEMORY_LIMIT:
                 logger.error(
                     f"Memory usage ({memory_usage / MEGABYTE:.2f} MB) "
                     f"exceeded limit of {MEMORY_LIMIT / MEGABYTE:.2f} MB. "
-                    "Restarting workers...")
+                    "Restarting workers..."
+                )
                 app.state.restarting = True
                 app.state.workers = await restart_workers(
                     app.state.config["batch_size"],
@@ -121,10 +135,11 @@ async def monitor_memory(app: FastAPI):
                     app.state.config["base_model_dir"],
                     app.state.config["model_name"],
                     app.state.config["patience"],
+                    app.state.config["callback_url"],
                     app.state.stop_event,
                     app.state.workers,
                     app.state.queues,
-                    status_queue=app.state.status_queue,)
+                )
                 app.state.restarting = False
 
             await asyncio.sleep(MEMORY_CHECK_INTERVAL)
@@ -136,9 +151,7 @@ async def monitor_memory(app: FastAPI):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
-        title="Loghi-HTR API",
-        description="API for Loghi-HTR",
-        lifespan=lifespan
+        title="Loghi-HTR API", description="API for Loghi-HTR", lifespan=lifespan
     )
 
     app.add_middleware(
@@ -163,8 +176,7 @@ async def run_server():
     try:
         socket.gethostbyname(host)
     except socket.gaierror:
-        logger.error(
-            f"Unable to resolve hostname: {host}. Falling back to localhost.")
+        logger.error(f"Unable to resolve hostname: {host}. Falling back to localhost.")
         host = "127.0.0.1"
 
     config = Config("app:app", host=host, port=port, workers=1)
@@ -175,14 +187,15 @@ async def run_server():
     except OSError as e:
         logger.error(f"Error starting server: {e}")
         if e.errno == ERR_PORT_IN_USE:
-            logger.error(
-                f"Port {port} is already in use. Try a different port.")
+            logger.error(f"Port {port} is already in use. Try a different port.")
         elif e.errno == ERR_PERMISSION_DENIED:
             logger.error(
                 f"Permission denied when trying to bind to port {port}. Try a "
-                "port number > 1024 or run with sudo.")
+                "port number > 1024 or run with sudo."
+            )
     except Exception as e:
         logger.error(f"Unexpected error occurred: {e}")
+
 
 app = create_app()
 
