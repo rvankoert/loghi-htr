@@ -89,18 +89,12 @@ def decode_batch_predictions(
     list of tuple
         List of tuples containing confidence and decoded text.
     """
-
-    # Get the input length for each sample
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
-
-    # Convert the predictions to float32
     pred = tf.cast(pred, tf.float32)
 
-    # Decode the predictions
     ctc_decoded, log_probs = ctc_decode(
         pred, input_length=input_len, greedy=greedy, beam_width=beam_width
     )
-
 
     # Convert the decoded sequence to text
     output_texts = []
@@ -113,25 +107,28 @@ def decode_batch_predictions(
         # Calculate the effective steps for each sample in the batch
         # That is before the first blank character
         time_steps = np.sum(decoded_array != 0)
-        if time_steps == 0:
-            time_steps = 1
-        logging.debug("Time steps: %s", time_steps)
-        if len(log_probs) < i:
-            logging.warning(
-                "Log probability not found for sample %d, skipping", i
-            )
-        if (log_probs[i] is None):
-            logging.warning(
-                "Log probability not found for sample %d, skipping", i
-            )
-        confidence = np.exp(log_probs[i][0] / time_steps)
+        time_steps = max(time_steps, 1)  # Ensure time_steps is at least 1
 
-        if confidence < 0 or confidence > 1:
-            logging.warning(
-                "Confidence score out of range: %s, clipping to " "[0, 1]",
-                confidence,
-            )
-            confidence = np.clip(confidence, 0, 1)
+        if i >= len(log_probs):
+            logging.warning("Log probability not found for sample %d, skipping", i)
+            continue
+
+        if log_probs[i] is None or len(log_probs[i]) == 0:
+            logging.warning("Invalid log_probs for sample %d, skipping", i)
+            continue
+
+        try:
+            if len(log_probs[i]) > 1:
+                logging.warning("Multiple log probabilities found for sample %d, using the first one", i)
+            elif len(log_probs[i]) == 0:
+                logging.warning("Empty log probabilities for sample %d, skipping", i)
+                continue
+            else:
+                confidence = np.exp(log_probs[i][0] / time_steps)
+                confidence = np.clip(confidence, 0, 1)  # Clip confidence to [0, 1]
+        except Exception as e:
+            logging.error("Error calculating confidence for sample %d: %s", i, e)
+            continue
 
         output_texts.append((confidence, text))
 
