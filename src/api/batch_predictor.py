@@ -544,37 +544,41 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
     model, num_channels = create_model(
         base_model_dir, current_model_path_holder[0], strategy)
 
-    while not stop_event.is_set():
-        dataset = create_dataset(
-            request_queue, batch_size, current_model_path_holder,
-            num_channels, stop_event, patience
-        )
-
-        for batch in dataset:
-            if stop_event.is_set():
-                break
-
-            images, batch_groups, batch_identifiers, batch_models, batch_whitelist = batch
-            # Check for model updates
-            model_path = batch_models[0].numpy().decode('utf-8')
-            if model_path != current_model_path_holder[0] and model_path is not None:
-                logging.info(
-                    "Model switch detected. Replacing old model '%s' with model '%s'.",
-                    current_model_path_holder, model_path)
-                current_model_path_holder[0] = model_path
-                model, num_channels = create_model(
-                    base_model_dir, model_path, strategy)
-                logging.debug("Model '%s' loaded successfully.", model_path)
-
-            # Perform predictions
-            batch_id = str(uuid.uuid4())
-            encoded_predictions = safe_predict(
-                model, predicted_queue, images, list(
-                    zip(batch_groups, batch_identifiers)),
-                error_output_path, batch_id
+    try:
+        while not stop_event.is_set():
+            dataset = create_dataset(
+                request_queue, batch_size, current_model_path_holder,
+                num_channels, stop_event, patience
             )
-            logging.debug("Predictions made for batch %s", batch_id)
-            predicted_queue.put((encoded_predictions, batch_groups, batch_identifiers,
-                                 model_path, batch_id, batch_whitelist))
 
-    logging.info("Batch prediction worker stopped")
+            for batch in dataset:
+                if stop_event.is_set():
+                    break
+
+                images, batch_groups, batch_identifiers, batch_models, batch_whitelist = batch
+                # Check for model updates
+                model_path = batch_models[0].numpy().decode('utf-8')
+                if model_path != current_model_path_holder[0] and model_path is not None:
+                    logging.info(
+                        "Model switch detected. Replacing old model '%s' with model '%s'.",
+                        current_model_path_holder, model_path)
+                    current_model_path_holder[0] = model_path
+                    model, num_channels = create_model(
+                        base_model_dir, model_path, strategy)
+                    logging.debug("Model '%s' loaded successfully.", model_path)
+
+                # Perform predictions
+                batch_id = str(uuid.uuid4())
+                encoded_predictions = safe_predict(
+                    model, predicted_queue, images, list(
+                        zip(batch_groups, batch_identifiers)),
+                    error_output_path, batch_id
+                )
+                logging.debug("Predictions made for batch %s", batch_id)
+                predicted_queue.put((encoded_predictions, batch_groups, batch_identifiers,
+                                     model_path, batch_id, batch_whitelist))
+    except Exception as e:
+        logging.error("Error in batch prediction worker: %s", e)
+        raise e
+    finally:
+        logging.info("Batch prediction worker stopped")
