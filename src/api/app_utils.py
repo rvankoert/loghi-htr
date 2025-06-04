@@ -3,11 +3,9 @@ from typing import List, Optional, Dict
 import logging
 import multiprocessing as mp
 import os
-import time
 import asyncio
 
 # > Third-party dependencies
-import httpx
 from fastapi import UploadFile, Form, File, HTTPException
 from prometheus_client import Gauge
 
@@ -181,9 +179,9 @@ def get_env_variable(var_name: str, default_value: str = None) -> str:
     return value
 
 
-def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
+def initialize_queues(max_queue_size: int) -> Dict[str, any]:
     """
-    Initializes the communication queues for the multiprocessing workers.
+    Initializes the communication queues for FastAPI (async) and multiprocessing workers (mp).
 
     Parameters
     ----------
@@ -193,28 +191,52 @@ def initialize_queues(max_queue_size: int) -> Dict[str, mp.Queue]:
     Returns
     -------
     dict
-        A dictionary containing references to the communication queues under
-        the keys "Request", "Prepared", and "Predicted".
+        A dictionary containing references to the communication queues.
+        Async queues: "AsyncRequest", "AsyncDecodedResults"
+        MP queues: "MPRequest", "MPPredictedBatches", "MPFinalDecodedResults"
     """
     logger = logging.getLogger(__name__)
 
-    # Create a thread-safe Queue
-    logger.info("Initializing request queue")
-    request_queue = mp.Queue(maxsize=max_queue_size)
-    logger.info("Request queue size: %s", max_queue_size)
+    # Async Queues (for FastAPI)
+    logger.info("Initializing async request queue")
+    async_request_queue = asyncio.Queue(maxsize=max_queue_size)
+    logger.info("Async request queue size: %s", max_queue_size)
+    async_decoded_results_queue = asyncio.Queue()  # For SSE
 
-    # Create a thread-safe Queue for predictions
-    predicted_queue = mp.Queue()
+    # Multiprocessing Queues (for workers)
+    mp_request_queue = mp.Queue(maxsize=max_queue_size)  # Bridge from AsyncRequest
+    mp_predicted_batches_queue = (
+        mp.Queue()
+    )  # Output of prediction worker, input to decoding worker
+    mp_final_decoded_results_queue = (
+        mp.Queue()
+    )  # Output of decoding worker, input to bridge to AsyncDecodedResults
 
-    # Add request queue size to prometheus statistics
-    request_queue_size_gauge = Gauge("request_queue_size", "Request queue size")
-    request_queue_size_gauge.set_function(request_queue.qsize)
-    predicted_queue_size_gauge = Gauge("predicted_queue_size", "Predicted queue size")
-    predicted_queue_size_gauge.set_function(predicted_queue.qsize)
+    # Prometheus statistics for MP queues (asyncio.Queue doesn't have simple qsize for Gauge)
+    # You might need a custom way to expose async queue size if needed, e.g., via a counter
+    request_queue_size_gauge = Gauge(
+        "mp_request_queue_size", "MP Request queue size (fed by async bridge)"
+    )
+    request_queue_size_gauge.set_function(mp_request_queue.qsize)
+
+    predicted_batches_queue_size_gauge = Gauge(
+        "mp_predicted_batches_queue_size", "MP Predicted Batches queue size"
+    )
+    predicted_batches_queue_size_gauge.set_function(mp_predicted_batches_queue.qsize)
+
+    final_decoded_results_queue_size_gauge = Gauge(
+        "mp_final_decoded_results_queue_size", "MP Final Decoded Results queue size"
+    )
+    final_decoded_results_queue_size_gauge.set_function(
+        mp_final_decoded_results_queue.qsize
+    )
 
     queues = {
-        "Request": request_queue,
-        "Predicted": predicted_queue,
+        "AsyncRequest": async_request_queue,
+        "AsyncDecodedResults": async_decoded_results_queue,
+        "MPRequest": mp_request_queue,
+        "MPPredictedBatches": mp_predicted_batches_queue,
+        "MPFinalDecodedResults": mp_final_decoded_results_queue,
     }
 
     return queues
@@ -227,58 +249,33 @@ def start_workers(
     base_model_dir: str,
     model_name: str,
     patience: int,
-    callback_url: str,
+    # callback_url is now specifically for predictor's critical errors
+    predictor_error_callback_url: str,
     stop_event: mp.Event,
-    queues: Dict[str, mp.Queue],
+    queues: Dict[str, any],
 ) -> Dict[str, mp.Process]:
     """
-    Initializes and starts multiple multiprocessing workers for image
-    processing and prediction using existing queues.
-
-    Parameters
-    ----------
-    batch_size : int
-        The size of the batch for processing images.
-    output_path : str
-        The path where the output results will be stored.
-    gpus : str
-        The GPU devices to use for computation.
-    base_model_dir : str
-        The path to the base machine learning model for predictions.
-    model_name : str
-        The path to the machine learning model for predictions relative to the
-        base model path.
-    patience : int
-        The number of seconds to wait for an image to be ready before timing
-        out.
-    stop_event : mp.Event
-        An event to signal workers to stop.
-    queues : dict
-        A dictionary containing references to the communication queues.
-
-    Returns
-    -------
-    dict
-        A dictionary containing references to the worker processes under the
-        keys "Preparation", "Prediction", and "Decoding".
+    Initializes and starts multiple multiprocessing workers.
+    predictor_error_callback_url is for batch_predictor OOM/critical errors.
     """
     logger = logging.getLogger(__name__)
 
-    request_queue = queues["Request"]
-    predicted_queue = queues["Predicted"]
+    mp_request_queue = queues["MPRequest"]
+    mp_predicted_batches_queue = queues["MPPredictedBatches"]
+    mp_final_decoded_results_queue = queues["MPFinalDecodedResults"]
 
     # Start the batch prediction process
     logger.info("Starting batch prediction process")
     prediction_process = mp.Process(
         target=batch_prediction_worker,
         args=(
-            request_queue,
-            predicted_queue,
+            mp_request_queue,
+            mp_predicted_batches_queue,
             base_model_dir,
             model_name,
-            output_path,
+            output_path,  # For error logging from predictor primarily
             stop_event,
-            callback_url,
+            predictor_error_callback_url,  # For OOM errors etc. in predictor
             gpus,
             batch_size,
             patience,
@@ -293,12 +290,13 @@ def start_workers(
     decoding_process = mp.Process(
         target=batch_decoding_worker,
         args=(
-            predicted_queue,
+            mp_predicted_batches_queue,
+            mp_final_decoded_results_queue,
             base_model_dir,
             model_name,
-            output_path,
+            output_path,  # For any output files if decoder writes them
             stop_event,
-            callback_url,
+            # callback_url is removed from decoder; results go to SSE via queue
         ),
         name="DecodingProcess",
         daemon=True,
@@ -306,29 +304,28 @@ def start_workers(
     decoding_process.start()
 
     workers = {"Prediction": prediction_process, "Decoding": decoding_process}
-
     return workers
 
 
 def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
     """
     Stop all worker processes gracefully.
-
-    Parameters
-    ----------
-    workers : Dict[str, mp.Process]
-        A dictionary of worker processes with worker names as keys.
-    stop_event : mp.Event
-        An event to signal workers to stop.
     """
-    # Signal all workers to stop
+    logger = logging.getLogger(__name__)
+    logger.info("Signalling worker processes to stop")
     stop_event.set()
 
-    # Wait for all workers to finish
-    for worker in workers.values():
-        logger = logging.getLogger(__name__)
-        logger.info("Waiting for worker process %s to finish", worker.name)
-        worker.join()
+    for name, worker in workers.items():
+        logger.info("Waiting for worker process %s (%s) to finish", name, worker.pid)
+        worker.join(timeout=30)  # Add a timeout
+        if worker.is_alive():
+            logger.warning(
+                f"Worker {name} ({worker.pid}) did not terminate gracefully. Terminating."
+            )
+            worker.terminate()
+            worker.join()
+        else:
+            logger.info(f"Worker {name} ({worker.pid}) finished.")
 
 
 async def restart_workers(
@@ -338,73 +335,137 @@ async def restart_workers(
     base_model_dir: str,
     model_name: str,
     patience: int,
-    callback_url: int,
+    predictor_error_callback_url: str,  # Renamed for clarity
     stop_event: mp.Event,
     workers: Dict[str, mp.Process],
-    queues: Dict[str, mp.Queue],
+    queues: Dict[str, any],
 ):
     """
-    Restarts worker processes when the corresponding queues are empty.
-
-    Parameters
-    ----------
-    batch_size : int
-        The size of the batch for processing images.
-    output_path : str
-        The path where the output results will be stored.
-    gpus : str
-        The GPU devices to use for computation.
-    model_path : str
-        The path to the machine learning model for predictions.
-    patience : int
-        The number of seconds to wait for an image to be ready before timing
-        out.
-    stop_event : mp.Event
-        An event to signal workers to stop.
-    workers : Dict[str, mp.Process]
-        A dictionary of worker processes with worker names as keys.
-    queues : Dict[str, mp.Queue]
-        A dictionary of queues for communication between processes.
-    status_queue : mp.Queue
-        A queue for status updates. Default is None.
+    Restarts worker processes.
+    Note: This simplified restart might lose items in async queues if not yet bridged.
+    A more robust restart would involve draining async queues or persisting them.
     """
     logger = logging.getLogger(__name__)
-    logger.info("Restarting workers. Waiting for all queues to be empty...")
+    logger.info("Restarting workers. Waiting for MP queues to be empty...")
 
-    # Check if all queues are empty multiple times before restarting workers
-    # since the workers might still be processing data while the queues are
-    # empty
+    # Check if MP queues are empty
     empty_count = 0
+    mp_queues_to_check = [
+        queues["MPRequest"],
+        queues["MPPredictedBatches"],
+        queues["MPFinalDecodedResults"],
+    ]
 
     while True:
-        # Check if all queues are empty
-        if all(queue.empty() for queue in queues.values()):
+        # Check if all relevant MP queues are empty
+        if all(queue.empty() for queue in mp_queues_to_check):
             empty_count += 1
-
             if empty_count >= 3:
-                logger.info("All queues are empty, restarting workers.")
-
-                # Stop all workers
-                stop_workers(workers, stop_event)
-
-                # Clear stop event to allow workers to restart
-                stop_event.clear()
-
-                # Restart workers with existing queues
-                workers = start_workers(
-                    batch_size,
-                    output_path,
-                    gpus,
-                    base_model_dir,
-                    model_name,
-                    patience,
-                    callback_url,
-                    stop_event,
-                    queues,
-                )
-                return workers
+                logger.info("All MP queues are empty, proceeding with worker restart.")
+                break
         else:
             empty_count = 0
+            logger.info("MP Queues not yet empty. Waiting...")
 
-        # Sleep for a short duration to avoid busy waiting
-        await asyncio.sleep(5)
+        await asyncio.sleep(5)  # Check every 5 seconds
+
+    # Stop all workers
+    stop_workers(
+        workers, stop_event
+    )  # stop_event is already set by monitor_memory usually
+
+    # Clear stop event to allow workers to restart
+    stop_event.clear()
+
+    # Re-create MP queues for a clean state (async queues are re-used by FastAPI app state)
+    # Or, one could try to clear them. For simplicity, we re-initialize the MP part.
+    # The async queues are managed by the main app's lifespan.
+    # This means they are *not* re-created here, but reused.
+    # If items are in async queues during restart, they will be processed by new workers.
+
+    # Restart workers with existing async queues and new MP queues for workers
+    # The `initialize_queues` in `app.py` lifespan manages the single set of queues.
+    # We just need to re-start the worker processes.
+    # The queues dictionary passed here should be the main app.state.queues
+    new_workers = start_workers(
+        batch_size,
+        output_path,
+        gpus,
+        base_model_dir,
+        model_name,
+        patience,
+        predictor_error_callback_url,
+        stop_event,
+        queues,
+    )
+    logger.info("Workers restarted.")
+    return new_workers
+
+
+# --- Bridge Tasks ---
+async def bridge_async_to_mp(
+    async_q: asyncio.Queue,
+    mp_q: mp.Queue,
+    stop_event: mp.Event,
+    loop: asyncio.AbstractEventLoop,
+):
+    """Bridge from an asyncio.Queue to a multiprocessing.Queue."""
+    logger = logging.getLogger(__name__)
+    logger.info("Starting bridge: asyncio.Queue -> mp.Queue")
+    while not stop_event.is_set():
+        try:
+            item = await asyncio.wait_for(async_q.get(), timeout=1.0)
+            if item is None:  # Sentinel for graceful shutdown
+                logger.info("Bridge (async->mp) received sentinel. Exiting.")
+                break
+            try:
+                # Run blocking mp_q.put in a thread to avoid blocking event loop
+                await loop.run_in_executor(
+                    None, mp_q.put, item, True, 10.0
+                )  # Block with timeout
+                async_q.task_done()
+            except mp.Full:
+                logger.warning(
+                    "MP queue is full. Item not bridged. Client should retry or handle."
+                )
+                # Potentially re-queue to async_q or handle error
+                # For now, item is dropped from bridge if MP queue is full with timeout
+            except Exception as e:
+                logger.error(f"Error putting item to MP queue: {e}")
+        except asyncio.TimeoutError:
+            continue
+        except asyncio.CancelledError:
+            logger.info("Bridge (async->mp) cancelled.")
+            break
+    logger.info("Bridge (async->mp) stopped.")
+
+
+async def bridge_mp_to_async(
+    mp_q: mp.Queue,
+    async_q: asyncio.Queue,
+    stop_event: mp.Event,
+    loop: asyncio.AbstractEventLoop,
+):
+    """Bridge from a multiprocessing.Queue to an asyncio.Queue."""
+    logger = logging.getLogger(__name__)
+    logger.info("Starting bridge: mp.Queue -> asyncio.Queue")
+    while not stop_event.is_set():
+        try:
+            # Run blocking mp_q.get in a thread
+            item = await loop.run_in_executor(
+                None, mp_q.get, True, 1.0
+            )  # Block with timeout
+            if item is None:  # Sentinel for graceful shutdown
+                logger.info("Bridge (mp->async) received sentinel. Exiting.")
+                break
+            await async_q.put(item)
+        except mp.queues.Empty:  # Correct exception for mp.Queue.get(timeout)
+            continue
+        except asyncio.CancelledError:
+            logger.info("Bridge (mp->async) cancelled.")
+            break
+        except Exception as e:
+            logger.error(
+                f"Error getting item from MP queue or putting to async queue: {e}"
+            )
+    logger.info("Bridge (mp->async) stopped.")

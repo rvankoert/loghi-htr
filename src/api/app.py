@@ -12,11 +12,13 @@ import psutil
 # > Local dependencies
 from app_utils import (
     get_env_variable,
-    initialize_queues,
+    initialize_queues,  # Updated
     restart_workers,
     setup_logging,
     start_workers,
     stop_workers,
+    bridge_async_to_mp,  # New
+    bridge_mp_to_async,  # New
 )
 
 # > Third-party dependencies
@@ -45,11 +47,13 @@ config = {
     "batch_size": int(get_env_variable("LOGHI_BATCH_SIZE", "256")),
     "base_model_dir": get_env_variable("LOGHI_BASE_MODEL_DIR"),
     "model_name": get_env_variable("LOGHI_MODEL_NAME"),
-    "output_path": get_env_variable("LOGHI_OUTPUT_PATH"),
+    "output_path": get_env_variable(
+        "LOGHI_OUTPUT_PATH"
+    ),  # Used for error logs by workers and main output dir
     "max_queue_size": int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000")),
     "patience": float(get_env_variable("LOGHI_PATIENCE", "0.5")),
     "gpus": get_env_variable("LOGHI_GPUS", "0"),
-    "callback_url": get_env_variable("LOGHI_CALLBACK_URL"),
+    "predictor_error_callback_url": get_env_variable("LOGHI_CALLBACK_URL", "None"),
 }
 
 # Determine memory limit
@@ -73,10 +77,37 @@ def check_memory_usage() -> int:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage the lifespan of the FastAPI application."""
-    stop_event = mp.Event()
+    mp_ctx = mp.get_context("spawn")  # Recommended for consistency across platforms
+    stop_event = mp_ctx.Event()
+
+    logger.info("Initializing queues")
+    # Initializes AsyncRequest, AsyncDecodedResults, MPRequest, MPPredictedBatches, MPFinalDecodedResults
+    queues = initialize_queues(config["max_queue_size"])
+
+    app.state.queues = queues
+    app.state.async_request_queue = queues["AsyncRequest"]
+    app.state.async_decoded_results_queue = queues["AsyncDecodedResults"]
+    app.state.stop_event = stop_event
+    app.state.config = config
+    app.state.restarting = False
+
+    # Start bridge tasks
+    loop = asyncio.get_running_loop()
+    app.state.bridge_to_workers_task = asyncio.create_task(
+        bridge_async_to_mp(
+            queues["AsyncRequest"], queues["MPRequest"], stop_event, loop
+        )
+    )
+    app.state.bridge_from_workers_task = asyncio.create_task(
+        bridge_mp_to_async(
+            queues["MPFinalDecodedResults"],
+            queues["AsyncDecodedResults"],
+            stop_event,
+            loop,
+        )
+    )
 
     logger.info("Starting worker processes")
-    queues = initialize_queues(config["max_queue_size"])
     workers = start_workers(
         config["batch_size"],
         config["output_path"],
@@ -84,37 +115,60 @@ async def lifespan(app: FastAPI):
         config["base_model_dir"],
         config["model_name"],
         config["patience"],
-        config["callback_url"],
+        config["predictor_error_callback_url"],
         stop_event,
-        queues,
+        queues,  # Pass all queues; start_workers will pick the MP ones it needs
     )
-
-    app.state.request_queue = queues["Request"]
-    app.state.stop_event = stop_event
     app.state.workers = workers
-    app.state.queues = queues
-    app.state.config = config
-    app.state.restarting = False
+
     app.state.monitor_task = asyncio.create_task(monitor_memory(app))
 
     yield
 
+    logger.info("Shutting down application...")
+    stop_event.set()  # Signal all components to stop
+
+    # Stop bridges
+    logger.info("Stopping bridge tasks...")
+    if app.state.bridge_to_workers_task:
+        app.state.bridge_to_workers_task.cancel()
+    if app.state.bridge_from_workers_task:
+        app.state.bridge_from_workers_task.cancel()
+
+    try:
+        await asyncio.gather(
+            app.state.bridge_to_workers_task,
+            app.state.bridge_from_workers_task,
+            return_exceptions=True,
+        )
+        logger.info("Bridge tasks stopped.")
+    except asyncio.CancelledError:
+        logger.info("Bridge tasks cancelled successfully during shutdown.")
+    except Exception as e:
+        logger.error(f"Error stopping bridge tasks: {e}")
+
+    # Stop workers
     logger.info("Shutting down worker processes")
+    # stop_event is already set, stop_workers will join
     stop_workers(app.state.workers, app.state.stop_event)
     logger.info("All workers have been stopped and joined")
 
+    # Stop memory monitor
     logger.info("Stopping memory monitoring task")
-    app.state.monitor_task.cancel()
-    try:
-        await app.state.monitor_task
-    except asyncio.CancelledError:
-        logger.info("Memory monitoring task cancelled successfully")
+    if app.state.monitor_task:
+        app.state.monitor_task.cancel()
+        try:
+            await app.state.monitor_task
+        except asyncio.CancelledError:
+            logger.info("Memory monitoring task cancelled successfully")
+    logger.info("Application shutdown complete.")
 
 
 async def monitor_memory(app: FastAPI):
     """Monitor the memory usage and restart workers if limit is exceeded."""
     while True:
         try:
+            await asyncio.sleep(MEMORY_CHECK_INTERVAL)  # Sleep first
             memory_usage = check_memory_usage()
             logger.debug(
                 f"Current memory usage: {memory_usage / MEGABYTE:.2f}/"
@@ -122,12 +176,34 @@ async def monitor_memory(app: FastAPI):
             )
 
             if memory_usage > MEMORY_LIMIT:
+                if app.state.restarting:
+                    logger.warning("Restart already in progress, skipping new trigger.")
+                    continue
+
                 logger.error(
                     f"Memory usage ({memory_usage / MEGABYTE:.2f} MB) "
                     f"exceeded limit of {MEMORY_LIMIT / MEGABYTE:.2f} MB. "
                     "Restarting workers..."
                 )
                 app.state.restarting = True
+                app.state.stop_event.set()  # Signal current workers and bridges to stop
+
+                # Wait for bridges to stop (important before restarting workers that use their queues)
+                logger.info("Waiting for bridge tasks to stop before worker restart...")
+                if app.state.bridge_to_workers_task:
+                    app.state.bridge_to_workers_task.cancel()
+                if app.state.bridge_from_workers_task:
+                    app.state.bridge_from_workers_task.cancel()
+                try:
+                    await asyncio.gather(
+                        app.state.bridge_to_workers_task,
+                        app.state.bridge_from_workers_task,
+                        return_exceptions=True,
+                    )
+                except asyncio.CancelledError:
+                    logger.info("Bridges cancelled for restart.")
+
+                # Restart workers (restart_workers handles stopping old ones)
                 app.state.workers = await restart_workers(
                     app.state.config["batch_size"],
                     app.state.config["output_path"],
@@ -135,17 +211,43 @@ async def monitor_memory(app: FastAPI):
                     app.state.config["base_model_dir"],
                     app.state.config["model_name"],
                     app.state.config["patience"],
-                    app.state.config["callback_url"],
-                    app.state.stop_event,
+                    app.state.config["predictor_error_callback_url"],
+                    app.state.stop_event,  # Will be cleared and reused by restart_workers
                     app.state.workers,
                     app.state.queues,
                 )
+
+                # Restart bridge tasks
+                logger.info("Restarting bridge tasks...")
+                loop = asyncio.get_running_loop()
+                app.state.bridge_to_workers_task = asyncio.create_task(
+                    bridge_async_to_mp(
+                        app.state.queues["AsyncRequest"],
+                        app.state.queues["MPRequest"],
+                        app.state.stop_event,
+                        loop,
+                    )
+                )
+                app.state.bridge_from_workers_task = asyncio.create_task(
+                    bridge_mp_to_async(
+                        app.state.queues["MPFinalDecodedResults"],
+                        app.state.queues["AsyncDecodedResults"],
+                        app.state.stop_event,
+                        loop,
+                    )
+                )
+                logger.info("Workers and bridges restarted after memory limit.")
                 app.state.restarting = False
 
-            await asyncio.sleep(MEMORY_CHECK_INTERVAL)
         except asyncio.CancelledError:
             logger.info("Memory monitoring task is being cancelled")
             break
+        except Exception as e:
+            logger.error(f"Error in memory_monitor: {e}", exc_info=True)
+            # Potentially set restarting to false if an unexpected error occurs here
+            # to allow next cycle to try again, or add more robust error handling.
+            app.state.restarting = False  # Reset flag on error to allow retries
+            await asyncio.sleep(MEMORY_CHECK_INTERVAL)  # Wait before retrying loop
 
 
 def create_app() -> FastAPI:
@@ -162,7 +264,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    router = create_router(app)
+    router = create_router(app)  # Pass app instance
     app.include_router(router)
 
     return app
@@ -179,8 +281,15 @@ async def run_server():
         logger.error(f"Unable to resolve hostname: {host}. Falling back to localhost.")
         host = "127.0.0.1"
 
-    config = Config("app:app", host=host, port=port, workers=1)
-    server = Server(config=config)
+    # Use app instance directly for uvicorn.Server
+    # config = Config("app:app", host=host, port=port, workers=1, factory=False)
+    # server = Server(config=config)
+    # The above is for when app is a string. If it's an instance:
+
+    server_config = Config(
+        app=create_app(), host=host, port=port, workers=1, lifespan="on"
+    )
+    server = Server(config=server_config)
 
     try:
         await server.serve()
@@ -197,7 +306,14 @@ async def run_server():
         logger.error(f"Unexpected error occurred: {e}")
 
 
-app = create_app()
+app = create_app()  # This is now done in run_server for uvicorn.Server
 
 if __name__ == "__main__":
+    # Set multiprocessing start method if not already set
+    # 'spawn' is generally safer, especially on macOS and Windows
+    try:
+        mp.set_start_method("spawn", force=True)
+        logger.info("Multiprocessing start method set to 'spawn'.")
+    except RuntimeError:
+        logger.info("Multiprocessing start method already set.")
     asyncio.run(run_server())

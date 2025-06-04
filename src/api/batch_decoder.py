@@ -8,9 +8,10 @@ import os
 import sys
 import traceback
 from typing import Dict, List, Optional, Tuple
+from multiprocessing.queues import Full  # For type hinting
 
 # > Third-party dependencies
-import httpx
+import httpx  # Keep for attempt_callback
 import numpy as np
 import tensorflow as tf
 from bidi.algorithm import get_display
@@ -128,30 +129,19 @@ def fetch_metadata(
     if not os.path.exists(config_path):
         error_msg = f"Config file not found: {config_path}"
         logging.error(error_msg)
-        raise FileNotFoundError(error_msg)
+        # Return empty metadata if config not found, or handle as error
+        return ["{}" for _ in whitelists]  # Or raise FileNotFoundError(error_msg)
 
     try:
         with open(config_path, "r", encoding="utf-8") as file:
-            config = json.load(file)
+            config_data = json.load(file)
     except json.JSONDecodeError as e:
-        logging.error("Invalid JSON in config file: %s", e)
-        raise
+        logging.error("Invalid JSON in config file: %s. Using empty metadata.", e)
+        return ["{}" for _ in whitelists]  # Or raise
 
     def search_key(data: Dict, key: str) -> Optional:
         """
         Recursively search for a key in a nested dictionary.
-
-        Parameters
-        ----------
-        data : Dict
-            Dictionary to search within.
-        key : str
-            Key to search for.
-
-        Returns
-        -------
-        Optional
-            Value associated with the key if found, else None.
         """
         if key in data:
             return data[key]
@@ -167,14 +157,20 @@ def fetch_metadata(
 
     for whitelist in whitelists:
         values = {}
-        for key_bytes in whitelist:
+        for key_bytes_tensor in whitelist:  # whitelist is now a list of tf.Tensor
             try:
-                key = key_bytes.numpy().decode("utf-8")
+                key = key_bytes_tensor.numpy().decode("utf-8")
+                if not key:  # Skip empty strings that might come from padding
+                    continue
             except UnicodeDecodeError as e:
                 logging.warning("Error decoding whitelist key: %s", e)
-                key = "INVALID_KEY"
+                key = "INVALID_KEY"  # Or skip
+            except (
+                AttributeError
+            ):  # If it's not a tensor (e.g. already a string if testing)
+                key = key_bytes_tensor
 
-            value = search_key(config, key)
+            value = search_key(config_data, key)
             if value is None:
                 values[key] = "NOT_FOUND"
                 if key not in warned_keys:
@@ -185,6 +181,16 @@ def fetch_metadata(
             else:
                 values[key] = value
 
+        if not values and any(
+            key.numpy().decode("utf-8", errors="ignore")
+            for key in whitelist
+            if hasattr(key, "numpy")
+        ):
+            # If whitelist had actual keys but none were found, log it.
+            logging.debug(
+                f"No whitelist keys found in config for one item. Whitelist: {[k.numpy().decode('utf-8', errors='ignore') for k in whitelist if hasattr(k, 'numpy')]}"
+            )
+
         metadata_json = json.dumps(values)
         metadata_list.append(metadata_json)
 
@@ -193,186 +199,207 @@ def fetch_metadata(
 
 def save_prediction_outputs(
     prediction_data: List[Tuple[float, str]],
-    group_ids: List[bytes],
-    image_ids: List[bytes],
+    group_ids: List[bytes],  # These are tf.Tensor EagerTensor bytes
+    image_ids: List[bytes],  # These are tf.Tensor EagerTensor bytes
     base_output_path: str,
     image_metadata: List[str],
-    callback_url: str = None,
-    temp_dir: Optional[str] = None,
+    mp_final_results_queue: Optional[multiprocessing.Queue] = None,  # New parameter
+    temp_dir: Optional[str] = None,  # Not currently used by this function
     bidirectional: bool = False,
 ) -> List[str]:
     """
-    Save decoded predictions to output files atomically.
-
-    Parameters
-    ----------
-    prediction_data : List[Tuple[float, str]]
-        List of tuples containing confidence scores and predicted texts.
-    group_ids : List[bytes]
-        List of group IDs for each image.
-    image_ids : List[bytes]
-        List of unique identifiers for each image.
-    base_output_path : str
-        Directory where prediction outputs should be saved.
-    image_metadata : List[str]
-        List of metadata JSON strings for each image.
-    callback_urls: str
-        Callback URL
-    temp_dir : Optional[str], default=None
-        Directory to use for temporary files. If None, a subdirectory of
-        `base_output_path` is used.
-    bidirectional : bool, default=False
-        Whether to apply bidirectional text processing.
-
-    Returns
-    -------
-    List[str]
-        List of output texts for each image.
-
-    Raises
-    ------
-    IOError
-        If writing to any output file fails.
+    Save decoded predictions to output files atomically (original intent, now primarily formats and sends).
+    Also sends results to mp_final_results_queue for SSE streaming.
     """
-    output_texts = []
+    output_texts_for_logging = []  # Renamed to avoid confusion
+    logger = logging.getLogger(__name__)
 
-    # Use provided temp_dir or create a default one
-    if temp_dir is None:
-        temp_dir = os.path.join(base_output_path, ".temp_prediction_outputs")
-
-    os.makedirs(temp_dir, exist_ok=True)
-    logging.debug("Using temporary directory: %s", temp_dir)
-
-    for prediction, group_id, image_id, metadata in zip(
+    for prediction, group_id_tensor, image_id_tensor, metadata_str in zip(
         prediction_data, group_ids, image_ids, image_metadata
     ):
         try:
-            group_id = group_id.numpy().decode("utf-8")
-            image_id = image_id.numpy().decode("utf-8")
+            group_id = (
+                group_id_tensor.numpy().decode("utf-8")
+                if hasattr(group_id_tensor, "numpy")
+                else group_id_tensor
+            )
+            image_id = (
+                image_id_tensor.numpy().decode("utf-8")
+                if hasattr(image_id_tensor, "numpy")
+                else image_id_tensor
+            )
+
+            if not image_id and not group_id:
+                logger.debug("Skipping padded/empty entry in save_prediction_outputs.")
+                continue
         except UnicodeDecodeError as e:
-            logging.error(traceback.format_exc())
-            logging.error("Error decoding group_id or image_id: %s", e)
-            continue  # Skip this entry
+            logger.error(
+                "Error decoding group_id or image_id in save_prediction_outputs: %s",
+                e,
+                exc_info=True,
+            )
+            continue
 
         confidence, predicted_text = prediction
         if bidirectional:
             predicted_text = get_display(predicted_text)
-        output_text = f"{image_id}\t{metadata}\t{confidence}\t{predicted_text}"
-        output_texts.append(output_text)
 
-        try:
-            payload = {
-                "group_id": group_id,
-                "identifier": image_id,
-                "status": "predict OK",
-                "result": output_text,
-            }
-            attempt_callback(callback_url, payload)
-            logging.debug("Made callback to %s", callback_url)
+        formatted_confidence = (
+            float(confidence)
+            if isinstance(confidence, (np.float32, np.float64))
+            else confidence
+        )
 
-        except Exception as e:
-            logging.error("Failed to make callback. Error: %s", e)
-            raise e
+        # Log the output locally (optional)
+        log_output = (
+            f"{image_id}\t{metadata_str}\t{formatted_confidence}\t{predicted_text}"
+        )
+        output_texts_for_logging.append(log_output)
+        # logger.debug(f"Formatted prediction for logging/debug: {log_output}")
 
-    return output_texts
+        # Push to mp_final_results_queue for SSE
+        if mp_final_results_queue:
+            try:
+                # Ensure metadata_str is valid JSON before trying to load it
+                try:
+                    parsed_metadata = json.loads(metadata_str)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        f"Invalid JSON in metadata_str for {image_id}: '{metadata_str}'. Sending as raw string."
+                    )
+                    parsed_metadata = {"raw_metadata": metadata_str}
+
+                result_for_sse = {
+                    "group_id": group_id,
+                    "identifier": image_id,
+                    "text": predicted_text,
+                    "confidence": formatted_confidence,
+                    "metadata": parsed_metadata,
+                }
+                mp_final_results_queue.put(result_for_sse, timeout=5.0)
+                logger.debug(
+                    f"Pushed result for {image_id} to final results queue for SSE."
+                )
+            except Full:
+                logger.error(
+                    f"MP Final Results Queue is full. Dropping SSE result for {image_id}."
+                )
+            except Exception as e:
+                logger.error(
+                    f"Error pushing result for {image_id} to MP Final Results Queue: {e}",
+                    exc_info=True,
+                )
+        else:
+            logger.warning(
+                "mp_final_results_queue not provided to save_prediction_outputs. SSE will not receive results."
+            )
+
+    return output_texts_for_logging
 
 
 def batch_decoding_worker(
-    predicted_queue: multiprocessing.Queue,
+    predicted_batches_queue: multiprocessing.Queue,  # Input: batches of (encoded_preds, groups, ids, model, batch_id, whitelists)
+    mp_final_results_queue: multiprocessing.Queue,  # Output: individual {group_id, id, text, confidence, metadata} dicts
     base_model_dir: str,
-    model_path: str,
-    output_path: str,
+    model_path: str,  # Initial model path
+    output_path: str,  # Base output for any files, not primarily used now for results
     stop_event: multiprocessing.Event,
-    callback_url: str,
 ) -> None:
     """
     Worker function for processing and decoding batches of predictions.
-
-    Parameters
-    ----------
-    predicted_queue : multiprocessing.Queue
-        Queue containing predicted texts and associated metadata.
-    base_model_dir : str
-        Base directory where models are stored.
-    model_path : str
-        Relative path to the specific model directory within `base_model_dir`.
-    output_path : str
-        Directory where decoded prediction outputs should be saved.
-    stop_event : multiprocessing.Event
-        Event to signal the process to stop.
-    status_queue : mp.Queue
-        Queue for sending status updates back to the main process.
-
-    Raises
-    ------
-    Exception
-        Propagates any exception that occurs during the decoding process.
     """
-    logging.info("Batch decoding process started")
+    logger = logging.getLogger(__name__)
+    logger.info("Batch decoding process started")
 
-    # Disable GPU for decoding
-    tf.config.set_visible_devices([], "GPU")
+    tf.config.set_visible_devices([], "GPU")  # Keep CPU for decoding
 
-    # Initialize tokenizer
     current_model_name = model_path
-    tokenizer = create_tokenizer(os.path.join(base_model_dir, model_path))
+    try:
+        tokenizer = create_tokenizer(os.path.join(base_model_dir, model_path))
+    except Exception as e:
+        logger.critical(
+            f"Decoder: Failed to initialize tokenizer for {model_path} on startup: {e}. Worker exiting.",
+            exc_info=True,
+        )
+        return
 
-    total_outputs = 0
-
+    total_outputs_processed = 0
     try:
         while not stop_event.is_set():
             try:
-                # Attempt to retrieve data from the queue with a timeout
-                data = predicted_queue.get(timeout=0.1)
+                data = predicted_batches_queue.get(timeout=0.1)
+                if data is None:
+                    logger.info("Decoding worker received sentinel. Exiting.")
+                    break
                 (
                     encoded_predictions,
                     batch_groups,
                     batch_identifiers,
-                    model,
+                    batch_model_path,
                     batch_id,
                     batch_whitelists,
                 ) = data
             except multiprocessing.queues.Empty:
-                continue  # No data available, continue checking
+                continue
+            except Exception as e:
+                logger.error(
+                    f"Decoder: Error getting data from predicted_batches_queue: {e}",
+                    exc_info=True,
+                )
+                continue
 
-            # Re-initialize tokenizer if model has changed
-            if model != current_model_name and model is not None:
-                tokenizer = create_tokenizer(os.path.join(base_model_dir, model))
-                logging.info("Tokenizer re-initialized for model: %s", model)
-                current_model_name = model
+            if batch_model_path != current_model_name and batch_model_path is not None:
+                try:
+                    tokenizer = create_tokenizer(
+                        os.path.join(base_model_dir, batch_model_path)
+                    )
+                    logger.info(
+                        "Decoder: Tokenizer re-initialized for model: %s",
+                        batch_model_path,
+                    )
+                    current_model_name = batch_model_path
+                except Exception as e:
+                    logger.error(
+                        f"Decoder: Failed to re-initialize tokenizer for {batch_model_path}: {e}. Skipping batch {batch_id}.",
+                        exc_info=True,
+                    )
+                    continue
 
-            # Decode predictions
-            decoded_predictions = batch_decode(encoded_predictions, tokenizer)
+            decoded_predictions_with_conf = batch_decode(encoded_predictions, tokenizer)
+            batch_metadata_json_strings = fetch_metadata(
+                batch_whitelists, base_model_dir, current_model_name
+            )
 
-            # Fetch metadata based on whitelist keys
-            batch_metadata = fetch_metadata(batch_whitelists, base_model_dir, model)
-
-            # Save decoded predictions to output files
-            outputted_predictions = save_prediction_outputs(
-                decoded_predictions,
+            outputted_for_log = save_prediction_outputs(
+                decoded_predictions_with_conf,
                 batch_groups,
                 batch_identifiers,
                 output_path,
-                batch_metadata,
-                temp_dir=None,
-                callback_url=callback_url,
+                batch_metadata_json_strings,
+                mp_final_results_queue=mp_final_results_queue,  # Pass the queue for SSE
                 bidirectional=False,
             )
-            total_outputs += len(outputted_predictions)
 
-            # Log each outputted prediction
-            for output in outputted_predictions:
-                logging.debug("Outputted prediction: %s", output)
+            actual_outputted_count = len(
+                outputted_for_log
+            )  # Number of non-padding items
+            total_outputs_processed += actual_outputted_count
 
-            logging.info(
-                "Decoded and outputted batch %s (%d items)",
-                batch_id,
-                len(decoded_predictions),
+            if actual_outputted_count > 0:
+                logger.info(
+                    "Decoded and processed batch %s for SSE (%d actual items)",
+                    batch_id,
+                    actual_outputted_count,
+                )
+            logger.debug(
+                "Total individual predictions processed by decoder: %d",
+                total_outputs_processed,
             )
-            logging.info("Total predictions completed: %d", total_outputs)
 
     except Exception as e:
-        logging.error("Error in batch decoding process: %s", e)
-        raise e
-
-    logging.info("Batch decoding process stopped")
+        logger.critical(f"Critical error in batch decoding process: {e}", exc_info=True)
+    finally:
+        logger.info(
+            "Batch decoding process stopped. Total items processed: %d",
+            total_outputs_processed,
+        )
