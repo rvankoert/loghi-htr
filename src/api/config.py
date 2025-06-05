@@ -1,9 +1,12 @@
-import os
-import psutil
-import json
-import logging
+# Imports
 
-# Local import from the new utils.py
+# > Standard Library
+import logging
+import os
+
+import psutil
+
+# > Local imports
 from .utils import get_env_variable
 
 logger = logging.getLogger(__name__)
@@ -13,7 +16,7 @@ MEGABYTE = 1024 * 1024
 MEMORY_CHECK_INTERVAL = 10  # seconds
 MEMORY_USAGE_PERCENTAGE = 0.8  # 80%
 
-# Error codes
+# Error codes for startup issues
 ERR_PORT_IN_USE = 98
 ERR_PERMISSION_DENIED = 13
 
@@ -22,13 +25,13 @@ try:
     SAFE_LIMIT = int(psutil.virtual_memory().total * 0.8)
 except Exception as e:
     logger.warning(f"Could not get total virtual memory, defaulting SAFE_LIMIT: {e}")
-    SAFE_LIMIT = 80 * 1024 * MEGABYTE  # Fallback to 80GB if psutil fails
+    SAFE_LIMIT = 80 * 1024 * MEGABYTE  # Fallback to 80GB
 
 DEFAULT_MEMORY_LIMIT = min(
     80 * 1024 * MEGABYTE, SAFE_LIMIT
 )  # 80GB or 80% of total, whichever is smaller
 
-# Determine memory limit
+# Determine memory limit from environment
 memory_limit_env = os.getenv("MEMORY_LIMIT")
 if memory_limit_env:
     try:
@@ -45,7 +48,20 @@ logger.info(f"Memory limit set to {MEMORY_LIMIT / MEGABYTE:.2f} MB")
 
 
 def load_app_config() -> dict:
-    """Loads application configuration from environment variables."""
+    """
+    Load application configuration from environment variables.
+
+    Returns
+    -------
+    dict
+        A dictionary with application configuration values. Values are typecasted
+        to appropriate types (e.g., int, float).
+
+    Raises
+    ------
+    ValueError
+        If environment variables have incorrect types that cannot be converted.
+    """
     app_conf = {
         "batch_size": int(get_env_variable("LOGHI_BATCH_SIZE", "256")),
         "base_model_dir": get_env_variable("LOGHI_BASE_MODEL_DIR"),

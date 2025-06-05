@@ -1,10 +1,35 @@
+# Imports
+
+# > Standard Library
 import logging
 
 
 class TensorFlowLogFilter(logging.Filter):
-    """Filter to exclude specific TensorFlow logging messages."""
+    """
+    Filter to exclude specific verbose TensorFlow messages from logs.
 
-    def filter(self, record):
+    This helps keep logs clean by ignoring known, non-critical spammy messages
+    that frequently appear during model training or inference.
+
+    Inherits from
+    --------------
+    logging.Filter
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """
+        Determine whether a log record should be logged.
+
+        Parameters
+        ----------
+        record : logging.LogRecord
+            The log record to evaluate.
+
+        Returns
+        -------
+        bool
+            True if the message should be logged, False otherwise.
+        """
         exclude_phrases = [
             "Reduce to /job:localhost/replica:0/task:0/device:CPU:",
             "Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence",
@@ -14,7 +39,19 @@ class TensorFlowLogFilter(logging.Filter):
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
     """
-    Set up logging with the specified level and return a logger instance.
+    Configure logging with a consistent format and level.
+
+    Also sets up a filter to suppress known noisy TensorFlow log messages.
+
+    Parameters
+    ----------
+    level : str, optional
+        Logging level as a string (e.g., "DEBUG", "INFO"). Defaults to "INFO".
+
+    Returns
+    -------
+    logging.Logger
+        A logger instance configured for general application use.
     """
     logging_levels = {
         "DEBUG": logging.DEBUG,
@@ -32,10 +69,10 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
         level=log_level,
     )
 
-    # Configure TensorFlow logger to use the custom filter
+    # Remove noisy TensorFlow messages
     tf_logger = logging.getLogger("tensorflow")
     tf_logger.addFilter(TensorFlowLogFilter())
     while tf_logger.handlers:
         tf_logger.handlers.pop()
 
-    return logging.getLogger("app")  # Return a general app logger
+    return logging.getLogger("app")

@@ -1,3 +1,6 @@
+# Imports
+
+# > Standard Library
 import asyncio
 import json
 import logging
@@ -10,28 +13,41 @@ async def sse_event_generator(
     group_id: str,
     identifier: str,
     specific_results_queue: asyncio.Queue,
-    unique_request_key: str,  # Key for this specific request
+    unique_request_key: str,
     sse_listeners_dict: Dict[str, asyncio.Queue],
 ) -> AsyncGenerator[Dict[str, str], None]:
     """
-    Generates Server-Sent Events for a specific prediction request.
-    Listens on a shared queue for results matching group_id and identifier.
+    Generator for Server-Sent Events (SSE) from a specific queue.
+
+    Listens on a queue dedicated to the request identified by `unique_request_key`,
+    and emits prediction status and results as streaming events.
+
+    Parameters
+    ----------
+    group_id : str
+        Group identifier associated with the prediction.
+    identifier : str
+        Image/document identifier.
+    specific_results_queue : asyncio.Queue
+        Queue holding results for this specific request.
+    unique_request_key : str
+        Unique key associated with this SSE stream.
+    sse_listeners_dict : dict
+        Dictionary of all active SSE response queues.
+
+    Yields
+    ------
+    dict
+        A dictionary representing an SSE event to be streamed to the client.
     """
     logger.debug(f"SSE event_generator started for {unique_request_key}")
 
-    # Initial status message
     yield {
         "event": "status",
         "data": json.dumps(
             {"group_id": group_id, "identifier": identifier, "status": "queued"}
         ),
     }
-
-    # Store items not for this generator to put back later
-    # This is a temporary holding to avoid immediate re-queueing into the same spot
-    # which can cause issues if this generator is the only active one.
-    # A more robust system would use per-request queues or a pub/sub mechanism.
-    items_to_requeue_at_end = []
 
     try:
         while True:
@@ -59,7 +75,7 @@ async def sse_event_generator(
                         }
                     ),
                 }
-                return  # End this generator
+                return
 
             logger.debug(f"SSE {unique_request_key}: Sending result.")
             yield {"event": "result", "data": json.dumps(result_item)}
@@ -89,7 +105,7 @@ async def sse_event_generator(
         except Exception:
             pass
     finally:
-        logger.info(
+        logger.debug(
             f"SSE {unique_request_key}: Cleaning up response queue from sse_listeners_dict."
         )
         if unique_request_key in sse_listeners_dict:
@@ -99,4 +115,4 @@ async def sse_event_generator(
             logger.warning(
                 f"SSE {unique_request_key}: Key not found in sse_listeners_dict during cleanup."
             )
-        logger.info(f"SSE event_generator for {unique_request_key} finished.")
+        logger.debug(f"SSE event_generator for {unique_request_key} finished.")

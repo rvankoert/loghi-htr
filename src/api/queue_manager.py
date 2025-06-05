@@ -1,8 +1,12 @@
-import asyncio
+# Imports
+
+# > Standard Library
 import multiprocessing as mp
 import logging
 from typing import Dict, Any
 
+# > Third-party Dependencies
+import asyncio
 from prometheus_client import Gauge
 
 logger = logging.getLogger(__name__)
@@ -10,7 +14,17 @@ logger = logging.getLogger(__name__)
 
 def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
     """
-    Initializes communication queues for FastAPI (async) and multiprocessing workers (mp).
+    Initialize communication queues for asynchronous FastAPI and multiprocessing workers.
+
+    Parameters
+    ----------
+    max_queue_size : int
+        Maximum size for the async and multiprocessing request queues.
+
+    Returns
+    -------
+    dict
+        Dictionary containing initialized queues for async and multiprocessing workflows.
     """
     logger.info("Initializing async request queue")
     async_request_queue = asyncio.Queue(maxsize=max_queue_size)
@@ -52,7 +66,20 @@ async def bridge_async_to_mp(
     stop_event: mp.Event,
     loop: asyncio.AbstractEventLoop,
 ):
-    """Bridge from an asyncio.Queue to a multiprocessing.Queue."""
+    """
+    Transfer items from an asyncio queue to a multiprocessing queue.
+
+    Parameters
+    ----------
+    async_q : asyncio.Queue
+        Source asyncio queue.
+    mp_q : mp.Queue
+        Target multiprocessing queue.
+    stop_event : mp.Event
+        Event to signal shutdown.
+    loop : asyncio.AbstractEventLoop
+        The running asyncio event loop.
+    """
     logger.info("Starting bridge: asyncio.Queue -> mp.Queue")
     while not stop_event.is_set():
         try:
@@ -63,7 +90,7 @@ async def bridge_async_to_mp(
             try:
                 await loop.run_in_executor(None, mp_q.put, item, True, 10.0)
                 async_q.task_done()
-            except mp.queues.Full:  # Corrected from mp.Full for mp.Queue
+            except mp.queues.Full:
                 logger.warning("MP queue is full. Item not bridged.")
             except Exception as e:
                 logger.error(f"Error putting item to MP queue: {e}")
@@ -81,13 +108,25 @@ async def bridge_mp_to_async(
     stop_event: mp.Event,
     loop: asyncio.AbstractEventLoop,
 ):
-    """Bridge from a multiprocessing.Queue to an asyncio.Queue."""
+    """
+    Transfer results from a multiprocessing queue to asyncio queues based on request ID.
+
+    Parameters
+    ----------
+    mp_q : mp.Queue
+        Multiprocessing queue receiving results from worker processes.
+    sse_response_queues : dict
+        Dictionary mapping request IDs to asyncio queues.
+    stop_event : mp.Event
+        Event to signal shutdown.
+    loop : asyncio.AbstractEventLoop
+        The running asyncio event loop.
+    """
     logger.info("Starting bridge: mp.Queue -> asyncio.Queue")
     while not stop_event.is_set():
         try:
-            # Expected item from mp_q: (result_dict, unique_request_key_str)
             item_tuple = await loop.run_in_executor(None, mp_q.get, True, 1.0)
-            if item_tuple is None:  # Sentinel for the bridge itself
+            if item_tuple is None:
                 logger.info("Bridge (mp->specific_async_q) received sentinel. Exiting.")
                 break
             result_dict, unique_request_key_str = item_tuple
@@ -126,7 +165,25 @@ def start_bridge_tasks(
     stop_event: mp.Event,
     loop: asyncio.AbstractEventLoop,
 ) -> Dict[str, asyncio.Task]:
-    """Starts and returns the bridge asyncio tasks."""
+    """
+    Create and start bridge tasks for inter-process and async communication.
+
+    Parameters
+    ----------
+    queues : dict
+        Dictionary of queues used for communication.
+    sse_response_queues : dict
+        Mapping of unique request keys to asyncio queues.
+    stop_event : mp.Event
+        Event to trigger graceful shutdown.
+    loop : asyncio.AbstractEventLoop
+        Running asyncio loop to use for task creation.
+
+    Returns
+    -------
+    dict
+        Dictionary with references to created asyncio tasks.
+    """
     logger.info("Starting bridge tasks")
     to_workers_task = asyncio.create_task(
         bridge_async_to_mp(
@@ -145,7 +202,14 @@ def start_bridge_tasks(
 
 
 async def stop_bridge_tasks(bridge_tasks: Dict[str, asyncio.Task]):
-    """Stops the bridge asyncio tasks."""
+    """
+    Cancel and await completion of bridge tasks.
+
+    Parameters
+    ----------
+    bridge_tasks : dict
+        Dictionary of active asyncio bridge tasks to stop.
+    """
     logger.info("Stopping bridge tasks...")
     if bridge_tasks.get("to_workers"):
         bridge_tasks["to_workers"].cancel()

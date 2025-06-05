@@ -3,10 +3,9 @@
 import asyncio
 import multiprocessing as mp
 import os
+import psutil
 import socket
 from contextlib import asynccontextmanager
-
-import psutil
 
 # > Third-party dependencies
 from fastapi import FastAPI
@@ -29,12 +28,19 @@ from .worker_manager import (
     stop_all_workers,
 )
 
-# Initialize logger using the new setup
+# Initialize logger
 logger = setup_logging(APP_CONFIG["logging_level"])
 
 
 def check_memory_usage() -> int:
-    """Check the memory usage of the current process and its children."""
+    """
+    Check the current process and its child processes' memory usage.
+
+    Returns
+    -------
+    int
+        Total memory usage in bytes.
+    """
     process = psutil.Process(os.getpid())
     return process.memory_info().rss + sum(
         child.memory_info().rss for child in process.children(recursive=True)
@@ -43,17 +49,26 @@ def check_memory_usage() -> int:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage the lifespan of the FastAPI application."""
+    """
+    Context manager that defines FastAPI application lifespan behavior.
+
+    Starts all required workers, bridges, and memory monitoring when the app runs,
+    and ensures graceful shutdown on termination.
+
+    Parameters
+    ----------
+    app : FastAPI
+        The FastAPI application instance.
+    """
     mp_ctx = mp.get_context("spawn")
     app.state.mp_ctx = mp_ctx
-    app.state.stop_event = mp_ctx.Event()  # For workers and bridges
+    app.state.stop_event = mp_ctx.Event()
 
     logger.info("Initializing queues")
     app.state.sse_response_queues = {}
     app.state.queues = initialize_queues(APP_CONFIG["max_queue_size"])
     app.state.async_request_queue = app.state.queues["AsyncRequest"]
-
-    app.state.app_config = APP_CONFIG  # Store loaded config
+    app.state.app_config = APP_CONFIG
     app.state.restarting = False
 
     current_loop = asyncio.get_running_loop()
@@ -70,15 +85,13 @@ async def lifespan(app: FastAPI):
 
     app.state.monitor_task = asyncio.create_task(monitor_memory(app))
 
-    yield  # Application is running
+    yield
 
     logger.info("Shutting down application...")
     if not app.state.stop_event.is_set():
         app.state.stop_event.set()
 
     await stop_bridge_tasks(app.state.bridge_tasks)
-
-    # stop_event is already set, stop_all_workers will join
     stop_all_workers(app.state.workers, app.state.stop_event)
     logger.info("All workers have been stopped and joined.")
 
@@ -88,11 +101,19 @@ async def lifespan(app: FastAPI):
             await app.state.monitor_task
         except asyncio.CancelledError:
             logger.info("Memory monitoring task cancelled successfully.")
+
     logger.info("Application shutdown complete.")
 
 
 async def monitor_memory(app: FastAPI):
-    """Monitor memory usage and restart workers if limit is exceeded."""
+    """
+    Continuously monitors memory usage and restarts workers/bridges if usage exceeds limit.
+
+    Parameters
+    ----------
+    app : FastAPI
+        The FastAPI application instance.
+    """
     memory_limit_bytes = app.state.app_config["memory_limit_bytes"]
     check_interval = app.state.app_config["memory_check_interval_seconds"]
 
@@ -117,24 +138,19 @@ async def monitor_memory(app: FastAPI):
                 )
                 app.state.restarting = True
 
-                # 1. Signal current workers and bridges to stop via the existing stop_event
                 if not app.state.stop_event.is_set():
                     app.state.stop_event.set()
 
-                # 2. Stop bridge tasks first
                 await stop_bridge_tasks(app.state.bridge_tasks)
 
-                # 3. Restart workers (this handles stopping old ones and starting new ones)
-                # restart_all_workers clears and reuses the stop_event
                 app.state.workers = await restart_all_workers(
                     app.state.app_config,
-                    app.state.stop_event,  # Will be cleared and reused
+                    app.state.stop_event,
                     app.state.workers,
                     app.state.queues,
                     app.state.mp_ctx,
                 )
 
-                # 4. Restart bridge tasks with the (now cleared) stop_event
                 current_loop = asyncio.get_running_loop()
                 app.state.bridge_tasks = start_bridge_tasks(
                     app.state.queues,
@@ -153,12 +169,19 @@ async def monitor_memory(app: FastAPI):
             break
         except Exception as e:
             logger.error(f"Error in memory_monitor: {e}", exc_info=True)
-            app.state.restarting = False  # Reset flag on error
-            await asyncio.sleep(check_interval)  # Wait before retrying
+            app.state.restarting = False
+            await asyncio.sleep(check_interval)
 
 
 def create_fastapi_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
+    """
+    Create and configure the FastAPI app instance.
+
+    Returns
+    -------
+    FastAPI
+        The configured FastAPI application.
+    """
     app = FastAPI(
         title="Loghi-HTR API", description="API for Loghi-HTR", lifespan=lifespan
     )
@@ -175,7 +198,11 @@ def create_fastapi_app() -> FastAPI:
 
 
 async def run_server():
-    """Run the FastAPI server using Uvicorn."""
+    """
+    Run the FastAPI app with Uvicorn server.
+
+    Handles DNS resolution and gracefully handles startup errors.
+    """
     host = APP_CONFIG["uvicorn_host"]
     port = APP_CONFIG["uvicorn_port"]
 

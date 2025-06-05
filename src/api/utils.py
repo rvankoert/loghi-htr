@@ -1,16 +1,38 @@
+# Imports
+
+# > Standard Library
 import os
 import logging
 from typing import List, Optional
 
+# > Third-party Dependencies
 from fastapi import UploadFile, Form, File, HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 def get_env_variable(var_name: str, default_value: Optional[str] = None) -> str:
     """
-    Retrieve an environment variable's value or use a default value.
-    If default_value is not provided and variable is not set, raises ValueError.
+    Retrieve an environment variable's value or return a default.
+
+    Parameters
+    ----------
+    var_name : str
+        Name of the environment variable to retrieve.
+    default_value : Optional[str], optional
+        Fallback value if the variable is not set. If None and the variable is
+        unset, raises a ValueError.
+
+    Returns
+    -------
+    str
+        Value of the environment variable or the provided default.
+
+    Raises
+    ------
+    ValueError
+        If the variable is not set and no default is provided.
     """
-    logger = logging.getLogger(__name__)  # Use specific logger for this utility
     value = os.environ.get(var_name)
     if value is None:
         if default_value is None:
@@ -38,9 +60,31 @@ async def extract_request_data(
     whitelist: List[str] = Form([]),
 ) -> tuple[bytes, str, str, Optional[str], list]:
     """
-    Extract image and other form data from the current request.
+    Extract and validate image and metadata from a multipart/form-data request.
+
+    Parameters
+    ----------
+    image : UploadFile
+        Uploaded image file from the request.
+    group_id : str
+        Group ID associated with the prediction request.
+    identifier : str
+        Unique identifier for the document/image.
+    model : Optional[str], optional
+        Optional model name to override default model.
+    whitelist : List[str], optional
+        Optional list of annotations to include in the prediction.
+
+    Returns
+    -------
+    tuple
+        Tuple containing the image content, group ID, identifier, model, and whitelist.
+
+    Raises
+    ------
+    HTTPException
+        If the image format is unsupported or the image is empty.
     """
-    # Validate image format
     allowed_extensions = {"png", "jpg", "jpeg", "gif"}
     file_extension = image.filename.split(".")[-1].lower() if image.filename else ""
     if file_extension not in allowed_extensions:
@@ -50,10 +94,8 @@ async def extract_request_data(
             f"{', '.join(allowed_extensions)}",
         )
 
-    # Read image content
     image_content = await image.read()
 
-    # Check if the image content is empty
     if not image_content:
         raise HTTPException(
             status_code=400,

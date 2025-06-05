@@ -8,12 +8,14 @@ import os
 import sys
 import time
 import uuid
-from multiprocessing.queues import Full as MPQueueFullException
 from typing import Any, Dict, List, Optional, Tuple
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
+
+# > Local Dependencies
+from ..dataset_utils import PredictionDatasetBuilder
 
 # Correct sys.path modification for worker context
 current_worker_file_dir = os.path.dirname(os.path.realpath(__file__))
@@ -22,60 +24,27 @@ src_dir = os.path.dirname(api_dir)
 if src_dir not in sys.path:
     sys.path.append(src_dir)
 
-# > Local imports (now from correct src/ path)
+# > Local imports
 from model.management import load_model_from_directory
-from setup.environment import initialize_strategy
+from setup.environment import initialize_strategy, setup_gpus
 
 logger = logging.getLogger(__name__)
 
 
-def setup_gpu_environment(gpus_config: str) -> List[tf.config.PhysicalDevice]:
-    """Configure the GPU environment for TensorFlow."""
-    try:
-        gpu_devices = tf.config.list_physical_devices("GPU")
-        logger.info("Available GPUs: %s", gpu_devices)
-
-        if not gpu_devices:
-            logger.info("No GPUs found. Using CPU.")
-            tf.config.set_visible_devices([], "GPU")
-            return []
-
-        if gpus_config == "-1":  # CPU only
-            active_gpus = []
-            tf.config.set_visible_devices([], "GPU")
-            logger.info("Using CPU only as per configuration.")
-        elif gpus_config.lower() == "all":
-            active_gpus = gpu_devices
-            tf.config.set_visible_devices(active_gpus, "GPU")
-            logger.info("Using all available GPUs: %s", active_gpus)
-        else:
-            gpu_indices_str = gpus_config.split(",")
-            chosen_gpus = []
-            for idx_str in gpu_indices_str:
-                try:
-                    idx = int(idx_str)
-                    if 0 <= idx < len(gpu_devices):
-                        chosen_gpus.append(gpu_devices[idx])
-                    else:
-                        logger.warning(f"GPU index {idx} is out of range.")
-                except ValueError:
-                    logger.warning(f"Invalid GPU index: {idx_str}.")
-            active_gpus = chosen_gpus
-            tf.config.set_visible_devices(active_gpus, "GPU")
-            logger.info("Using specific GPU(s): %s", active_gpus)
-
-        for gpu in active_gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-            logger.info(f"Memory growth enabled for {gpu.name}")
-        return active_gpus
-    except Exception as e:
-        logger.error(f"Error setting up GPU environment: {e}. Falling back to CPU.")
-        tf.config.set_visible_devices([], "GPU")
-        return []
-
-
 def get_model_channels(config_path: str) -> int:
-    """Retrieve the number of input channels for a model."""
+    """
+    Determine the number of input channels from the model config.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the model directory containing 'config.json'.
+
+    Returns
+    -------
+    int
+        Number of input channels for the model.
+    """
     actual_config_path = os.path.join(config_path, "config.json")
     if not os.path.exists(actual_config_path):
         raise FileNotFoundError(f"Config file not found: {actual_config_path}")
@@ -96,7 +65,23 @@ def get_model_channels(config_path: str) -> int:
 def create_model_with_strategy(
     base_model_dir: str, model_name: str, strategy: tf.distribute.Strategy
 ) -> Tuple[tf.keras.Model, int]:
-    """Load a pre-trained TensorFlow model and its channel count."""
+    """
+    Load a Keras model using a distribution strategy.
+
+    Parameters
+    ----------
+    base_model_dir : str
+        Path to base directory containing model folders.
+    model_name : str
+        Name of the model to load.
+    strategy : tf.distribute.Strategy
+        Distribution strategy to use when loading the model.
+
+    Returns
+    -------
+    Tuple[tf.keras.Model, int]
+        The loaded model and number of channels it expects.
+    """
     with strategy.scope():
         model_location = os.path.join(base_model_dir, model_name)
         if not os.path.isdir(model_location):
@@ -109,154 +94,23 @@ def create_model_with_strategy(
         return model, num_channels
 
 
-def _process_sample_tf(
-    image_bytes: tf.Tensor,
-    group_id: tf.Tensor,
-    identifier: tf.Tensor,
-    model_path_tensor: tf.Tensor,  # Changed name for clarity
-    whitelist: tf.Tensor,
-    unique_request_key: tf.Tensor,
-    num_channels: int,
-) -> tuple:
-    """Preprocess a single sample for the dataset (TensorFlow operations)."""
-    try:
-        image = tf.io.decode_image(
-            image_bytes, channels=num_channels, expand_animations=False
-        )
-    except tf.errors.InvalidArgumentError:  # Handle problematic images
-        logger.error(
-            f"Invalid image for identifier: {identifier.numpy().decode('utf-8', 'ignore')}. Using zero tensor."
-        )
-        image = tf.zeros(
-            [64, 64, num_channels], dtype=tf.uint8
-        )  # Use uint8 before float conversion
-
-    image = tf.image.resize(
-        image, [64, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True
-    )
-    image = tf.cast(image, tf.float32) / 255.0
-    image = tf.image.resize_with_pad(
-        image, 64, tf.shape(image)[1] + 50, method=tf.image.ResizeMethod.BILINEAR
-    )
-    image = 0.5 - image  # Normalize
-    image = tf.transpose(image, perm=[1, 0, 2])  # HWC to WHC
-    return image, group_id, identifier, model_path_tensor, whitelist, unique_request_key
-
-
-class PredictionDatasetBuilder:
-    def __init__(
-        self,
-        mp_request_queue: mp.Queue,
-        batch_size: int,
-        current_model_path_holder: List[str],
-        num_channels: int,
-        stop_event: mp.Event,
-        patience: float,
-    ):
-        self.mp_request_queue = mp_request_queue
-        self.batch_size = batch_size
-        self.current_model_path_holder = current_model_path_holder
-        self.num_channels = num_channels
-        self.stop_event = stop_event
-        self.patience = patience
-
-    def _data_generator(self):
-        """Yields data from mp_request_queue, handles model switching signals."""
-        logger.debug(
-            f"Dataset generator started for model: {self.current_model_path_holder[0]}. Patience: {self.patience}s. Batch size: {self.batch_size}"
-        )
-        time_since_last_request = time.time()
-        has_data = False
-
-        while not self.stop_event.is_set():
-            if not self.mp_request_queue.empty():
-                try:
-                    time_since_last_request = time.time()
-                    data = self.mp_request_queue.get(timeout=0.01)
-                    new_model_path = data[3]
-
-                    if self.current_model_path_holder[0] is None:
-                        self.current_model_path_holder[0] = new_model_path
-
-                    if (
-                        new_model_path != self.current_model_path_holder[0]
-                        and new_model_path is not None
-                    ):
-                        self.mp_request_queue.put(data)
-                        logging.info(
-                            "Model changed to '%s'. Switching generator.",
-                            new_model_path,
-                        )
-                        self.current_model_path_holder[0] = new_model_path
-                        break  # Exit to allow dataset recreation with the new model
-
-                    has_data = True
-                    yield data
-                except mp.queues.Empty:  # Expected if queue is empty with timeout
-                    pass
-                except Exception as e:
-                    logging.error("Error retrieving data from queue: %s", e)
-            else:
-                time.sleep(0.01)  # Prevent busy waiting
-
-                if time.time() - time_since_last_request > self.patience and has_data:
-                    logging.debug(
-                        "No new requests for %d seconds. Yielding remaining data.",
-                        self.patience,
-                    )
-                    break
-
-        logging.debug("Data generator stopped")
-
-    def build_tf_dataset(self) -> tf.data.Dataset:
-        """Creates a TensorFlow dataset."""
-        logger.debug(
-            f"Building TensorFlow dataset for model {self.current_model_path_holder[0]} with {self.num_channels} channels."
-        )
-        dataset = tf.data.Dataset.from_generator(
-            self._data_generator,
-            output_signature=(
-                tf.TensorSpec(shape=(), dtype=tf.string),  # image_bytes
-                tf.TensorSpec(shape=(), dtype=tf.string),  # group_id
-                tf.TensorSpec(shape=(), dtype=tf.string),  # identifier
-                tf.TensorSpec(shape=(), dtype=tf.string),  # model_path_str
-                tf.TensorSpec(shape=(None,), dtype=tf.string),  # whitelist
-                tf.TensorSpec(shape=(), dtype=tf.string),  # unique_request_key
-            ),
-        )
-
-        dataset = dataset.map(
-            lambda img, grp, idf, mdl, wl, urk: _process_sample_tf(
-                img, grp, idf, mdl, wl, urk, self.num_channels
-            ),
-            num_parallel_calls=tf.data.AUTOTUNE,
-            deterministic=False,
-        )
-
-        dataset = dataset.padded_batch(
-            batch_size=self.batch_size,
-            padded_shapes=([None, None, self.num_channels], [], [], [], [None], []),
-            padding_values=(
-                tf.constant(-10.0, dtype=tf.float32),  # Image padding for '0.5 - image'
-                tf.constant("", dtype=tf.string),  # group_id
-                tf.constant("", dtype=tf.string),  # identifier
-                tf.constant("", dtype=tf.string),  # model_path
-                tf.constant("", dtype=tf.string),  # whitelist
-                tf.constant("", dtype=tf.string),  # unique_request_key
-            ),
-            drop_remainder=False,
-        )
-        dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
-        logger.debug("TensorFlow dataset built.")
-        return dataset
-
-
 def _output_prediction_error(
     group_id_tensor: tf.Tensor,
     identifier_tensor: tf.Tensor,
     error_text: str,
 ):
-    """Sends an error callback for a specific prediction item."""
+    """
+    Logs a prediction error associated with a specific image.
+
+    Parameters
+    ----------
+    group_id_tensor : tf.Tensor
+        Tensor containing the group ID.
+    identifier_tensor : tf.Tensor
+        Tensor containing the identifier.
+    error_text : str
+        Description of the error.
+    """
     try:
         group_id = group_id_tensor.numpy().decode("utf-8", errors="ignore")
         identifier = identifier_tensor.numpy().decode("utf-8", errors="ignore")
@@ -270,61 +124,201 @@ def _output_prediction_error(
 
 def _safe_predict(
     model: tf.keras.Model,
-    batch_images: tf.Tensor,
-    batch_groups: tf.Tensor,
-    batch_identifiers: tf.Tensor,
-    batch_id_str: str,
+    images: tf.Tensor,
+    groups: tf.Tensor,
+    identifiers: tf.Tensor,
+    batch_id: str,
+    min_chunk: int = 1,
 ) -> Optional[np.ndarray]:
-    """Attempts prediction, handles OOM by splitting."""
+    """
+    Attempts model prediction, retries on OOM by recursively splitting.
+
+    Parameters
+    ----------
+    model : tf.keras.Model
+        The loaded Keras model.
+    images : tf.Tensor
+        Tensor of images to predict on.
+    groups : tf.Tensor
+        Tensor of group IDs.
+    identifiers : tf.Tensor
+        Tensor of image IDs.
+    batch_id : str
+        Batch identifier for logging.
+    min_chunk : int, optional
+        Minimum chunk size to pass
+
+    Returns
+    -------
+    Optional[np.ndarray]
+        Numpy array of predictions or None if prediction fails.
+    """
+    stack = [(images, groups, identifiers, batch_id)]
+    results: List[np.ndarray] = []
+
+    while stack:
+        imgs, grps, ids, bid = stack.pop()
+        try:
+            results.append(model.predict_on_batch(imgs))
+        except tf.errors.ResourceExhaustedError as oom:
+            n = int(imgs.shape[0])  # static or eager-known
+            if n <= min_chunk:
+                _output_prediction_error(grps[0], ids[0], f"OOM: {oom}")
+                continue
+            mid = n // 2
+            stack.append((imgs[mid:], grps[mid:], ids[mid:], f"{bid}-B"))
+            stack.append((imgs[:mid], grps[:mid], ids[:mid], f"{bid}-A"))
+        except Exception as exc:
+            logger.error("Batch %s failed: %s", bid, exc, exc_info=True)
+            for g, i in zip(grps, ids):
+                _output_prediction_error(g, i, f"Predict error: {exc}")
+
+    if not results:
+        return None
+    return np.concatenate(results)
+
+
+def _send_predictions(
+    out_queue: Any,
+    preds: np.ndarray,
+    groups: tf.Tensor,
+    identifiers: tf.Tensor,
+    model_name: str,
+    batch_uuid: str,
+    whitelists: tf.Tensor,
+    unique_keys: tf.Tensor,
+):
     try:
-        # Using model call directly, often better with tf.function context
-        # predictions = model(batch_images, training=False)
-        # return predictions.numpy()
-        return model.predict_on_batch(batch_images)  # Keras standard, usually efficient
-    except tf.errors.ResourceExhaustedError as e:
-        logger.warning(
-            f"OOM error (batch ID: {batch_id_str}, size {len(batch_images)}). Splitting. Error: {e}"
+        out_queue.put(
+            (
+                preds,
+                groups,
+                identifiers,
+                model_name,
+                batch_uuid,
+                whitelists,
+                unique_keys,
+            ),
+            timeout=10.0,
         )
-        if len(batch_images) == 1:
-            _output_prediction_error(
-                batch_groups[0], batch_identifiers[0], f"OOM error: {e}"
-            )
-            return None
-
-        mid = len(batch_images) // 2
-        preds1 = _safe_predict(
-            model,
-            batch_images[:mid],
-            batch_groups[:mid],
-            batch_identifiers[:mid],
-            f"{batch_id_str}-A",
-        )
-        preds2 = _safe_predict(
-            model,
-            batch_images[mid:],
-            batch_groups[mid:],
-            batch_identifiers[mid:],
-            f"{batch_id_str}-B",
-        )
-
-        if preds1 is not None and preds2 is not None:
-            return np.concatenate((preds1, preds2))
-        if preds1 is not None:
-            return preds1
-        if preds2 is not None:
-            return preds2
-        return None
     except Exception as e:
-        logger.error(
-            f"Unexpected error predicting batch {batch_id_str}: {e}", exc_info=True
-        )
-        for i in range(len(batch_images)):
-            _output_prediction_error(
-                batch_groups[i],
-                batch_identifiers[i],
-                f"Prediction error: {e}",
+        logger.error("Predicted‑batch queue error for %s: %s", batch_uuid, e)
+
+
+def _run_prediction_loop(
+    model: tf.keras.Model,
+    num_channels: int,
+    current_model_holder: List[str],
+    dataset_builder: PredictionDatasetBuilder,
+    out_queue: Any,
+    stop_event: Any,
+    strategy: tf.distribute.Strategy,
+):
+    total_preds = 0
+    batches_count = 0
+
+    while not stop_event.is_set():
+        active_model_name_for_loop = current_model_holder[0]
+        dataset = dataset_builder.build_tf_dataset()
+
+        for batch_data in dataset:
+            if stop_event.is_set():
+                break
+
+            (
+                images_tensor,
+                groups_tensor,
+                ids_tensor,
+                model_paths_tensor,
+                whitelists_tensor,
+                unique_keys_tensor,
+            ) = batch_data
+
+            # Filter out padding (where identifier is empty string)
+            item_mask = tf.not_equal(ids_tensor, "")
+            if not tf.reduce_any(item_mask):
+                logger.debug("Batch was all padding. Skipping.")
+                continue
+
+            images = tf.boolean_mask(images_tensor, item_mask)
+            groups = tf.boolean_mask(groups_tensor, item_mask)
+            identifiers = tf.boolean_mask(ids_tensor, item_mask)
+            whitelists = tf.boolean_mask(whitelists_tensor, item_mask)
+            unique_keys = tf.boolean_mask(unique_keys_tensor, item_mask)
+
+            if tf.shape(images)[0] == 0:
+                continue
+
+            batch_uuid = str(uuid.uuid4())
+            logger.debug(
+                "Predicting batch %s (n=%d) with model %s",
+                batch_uuid,
+                tf.shape(images)[0],
+                active_model_name_for_loop,
             )
-        return None
+
+            start_time = time.time()
+            preds_np = _safe_predict(
+                model,
+                images,
+                groups,
+                identifiers,
+                batch_uuid,
+            )
+            duration = time.time() - start_time
+
+            if preds_np is None:
+                logger.warning("No predictions for batch %s", batch_uuid)
+                continue
+
+            total_preds += len(preds_np)
+            batches_count += 1
+
+            logger.info(
+                "Predicted %d items in %.2fs (total=%d, batches=%d)",
+                len(preds_np),
+                duration,
+                total_preds,
+                batches_count,
+            )
+
+            _send_predictions(
+                out_queue,
+                preds_np,
+                groups,
+                identifiers,
+                active_model_name_for_loop,
+                batch_uuid,
+                whitelists,
+                unique_keys,
+            )
+
+        # Check if model name changed during dataset iteration
+        if (
+            current_model_holder[0] != active_model_name_for_loop
+            and not stop_event.is_set()
+        ):
+            logger.info(
+                "Switching model: %s → %s",
+                active_model_name_for_loop,
+                current_model_holder[0],
+            )
+            try:
+                model, num_channels = create_model_with_strategy(
+                    dataset_builder.base_dir,
+                    current_model_holder[0],
+                    strategy,
+                )
+                dataset_builder.num_channels = num_channels
+            except Exception as e:
+                logger.critical(
+                    f"Failed to load new model {current_model_holder[0]}: {e}. Worker stopping.",
+                    exc_info=True,
+                )
+                stop_event.set()
+                break
+
+        logger.info("Prediction loop stopped (total predictions=%d)", total_preds)
 
 
 def predictor_process_entrypoint(
@@ -333,7 +327,20 @@ def predictor_process_entrypoint(
     config: Dict[str, Any],
     stop_event: mp.Event,
 ):
-    """Main function for the batch prediction worker process."""
+    """
+    Main entry point for the predictor worker process.
+
+    Parameters
+    ----------
+    mp_request_queue : mp.Queue
+        Queue from which image requests are read.
+    mp_predicted_batches_queue : mp.Queue
+        Queue to send prediction results to.
+    config : Dict[str, Any]
+        Dictionary containing model config, GPU usage, batch size, etc.
+    stop_event : mp.Event
+        Multiprocessing event to indicate shutdown.
+    """
     worker_config = {
         "base_model_dir": config["base_model_dir"],
         "initial_model_name": config["model_name"],
@@ -343,7 +350,7 @@ def predictor_process_entrypoint(
     }
     logger.info(f"Predictor worker starting with config: {worker_config}")
 
-    active_gpus = setup_gpu_environment(worker_config["gpus"])
+    active_gpus = setup_gpus(worker_config["gpus"])
     strategy = initialize_strategy(use_float32=False, active_gpus=active_gpus)
 
     # Mutable list to allow data_generator to signal model changes
@@ -360,129 +367,21 @@ def predictor_process_entrypoint(
         )
         return
 
-    total_preds, batches_count = 0, 0
     dataset_builder = PredictionDatasetBuilder(
         mp_request_queue,
         worker_config["batch_size"],
-        current_model_name_holder,  # Will be updated by dataset_builder if model changes
-        num_channels,  # Initial num_channels
+        current_model_name_holder,
+        num_channels,
         stop_event,
         worker_config["patience"],
     )
 
-    while not stop_event.is_set():
-        active_model_name_for_loop = current_model_name_holder[0]
-        dataset = (
-            dataset_builder.build_tf_dataset()
-        )  # Uses current_model_name_holder[0] and num_channels
-
-        for (
-            batch_data
-        ) in dataset:  # Iterates until data_generator stops or patience exceeded
-            if stop_event.is_set():
-                break
-
-            (
-                images_tensor,
-                groups_tensor,
-                ids_tensor,
-                model_paths_tensor,
-                whitelists_tensor,
-                unique_keys_tensor,
-            ) = batch_data
-
-            # Filter out padding (where identifier is empty string)
-            actual_item_mask = tf.not_equal(ids_tensor, "")
-            if not tf.reduce_any(actual_item_mask):
-                logger.debug("Batch was all padding. Skipping.")
-                continue
-
-            actual_images = tf.boolean_mask(images_tensor, actual_item_mask)
-            actual_groups = tf.boolean_mask(groups_tensor, actual_item_mask)
-            actual_ids = tf.boolean_mask(ids_tensor, actual_item_mask)
-            # actual_model_paths = tf.boolean_mask(model_paths_tensor, actual_item_mask) # Not strictly needed post-filtering
-            actual_whitelists = tf.boolean_mask(whitelists_tensor, actual_item_mask)
-
-            actual_unique_keys = tf.boolean_mask(unique_keys_tensor, actual_item_mask)
-
-            if tf.shape(actual_images)[0] == 0:
-                continue  # Should not happen if reduce_any was true
-
-            batch_uuid = str(uuid.uuid4())
-            logger.info(
-                f"Predicting batch {batch_uuid} (size {tf.shape(actual_images)[0]}) with model {active_model_name_for_loop}"
-            )
-
-            start_time = time.time()
-            encoded_preds_np = _safe_predict(
-                model,
-                actual_images,
-                actual_groups,
-                actual_ids,
-                batch_uuid,
-            )
-            duration = time.time() - start_time
-
-            if encoded_preds_np is not None and len(encoded_preds_np) > 0:
-                num_batch_preds = len(encoded_preds_np)
-                total_preds += num_batch_preds
-                batches_count += 1
-                logger.info(
-                    f"Predicted {num_batch_preds} items for batch {batch_uuid} in {duration:.2f}s. Total: {total_preds}, Batches: {batches_count}."
-                )
-                try:
-                    mp_predicted_batches_queue.put(
-                        (
-                            encoded_preds_np,
-                            actual_groups,
-                            actual_ids,
-                            active_model_name_for_loop,
-                            batch_uuid,
-                            actual_whitelists,
-                            actual_unique_keys,
-                        ),
-                        timeout=10.0,
-                    )
-                except MPQueueFullException:
-                    logger.error(
-                        f"Predicted batches queue full. Batch {batch_uuid} lost."
-                    )
-                except Exception as e:
-                    logger.error(f"Error queueing batch {batch_uuid}: {e}")
-            else:
-                logger.warning(
-                    f"No predictions from _safe_predict for batch {batch_uuid}."
-                )
-
-        if stop_event.is_set():
-            break
-
-        # Check if model name changed during dataset iteration
-        if current_model_name_holder[0] != active_model_name_for_loop:
-            logger.info(
-                f"Model switch detected: from '{active_model_name_for_loop}' to '{current_model_name_holder[0]}'. Reloading."
-            )
-            try:
-                model, num_channels = create_model_with_strategy(
-                    worker_config["base_model_dir"],
-                    current_model_name_holder[0],
-                    strategy,
-                )
-                dataset_builder.num_channels = (
-                    num_channels  # Update num_channels in dataset builder
-                )
-                logger.info(
-                    f"Switched to model: {current_model_name_holder[0]} with {num_channels} channels."
-                )
-            except Exception as e:
-                logger.critical(
-                    f"Failed to load new model {current_model_name_holder[0]}: {e}. Worker stopping.",
-                    exc_info=True,
-                )
-                stop_event.set()  # Signal critical failure
-                break
-        # Else, dataset exhausted (patience) or generator stopped normally. Loop to create new dataset.
-
-    logger.info(
-        f"Predictor worker stopped. Total predictions: {total_preds}. Batches processed: {batches_count}."
+    _run_prediction_loop(
+        model,
+        num_channels,
+        current_model_name_holder,
+        dataset_builder,
+        mp_predicted_batches_queue,
+        stop_event,
+        strategy,
     )
