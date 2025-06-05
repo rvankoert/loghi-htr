@@ -6,11 +6,13 @@ import logging
 import multiprocessing as mp
 import os
 import sys
-from typing import Dict, List, Optional, Tuple, Any
 from multiprocessing.queues import (
-    Full as MPQueueFullException,
     Empty as MPQueueEmptyException,
 )
+from multiprocessing.queues import (
+    Full as MPQueueFullException,
+)
+from typing import Any, Dict, List, Optional, Tuple
 
 # > Third-party dependencies
 import numpy as np
@@ -134,6 +136,7 @@ def _format_and_send_decoded_results(
     group_ids_tensor: tf.Tensor,
     image_ids_tensor: tf.Tensor,
     batch_metadata_json: List[str],
+    unique_keys_tensor: tf.Tensor,
     mp_final_results_queue: mp.Queue,
     bidirectional_text: bool = False,
 ) -> int:  # Returns count of successfully sent items
@@ -145,6 +148,7 @@ def _format_and_send_decoded_results(
             group_id = group_ids_tensor[i].numpy().decode("utf-8", "ignore")
             image_id = image_ids_tensor[i].numpy().decode("utf-8", "ignore")
             metadata_json_str = batch_metadata_json[i]
+            unique_key = unique_keys_tensor[i].numpy().decode("utf-8", "ignore")
 
             if not image_id and not group_id:  # Likely padding
                 logger.debug(
@@ -166,16 +170,18 @@ def _format_and_send_decoded_results(
             )
             metadata_dict = {"raw_metadata": metadata_json_str}
 
+        result_str = "\t".join(
+            [image_id, json.dumps(metadata_dict), str(confidence), text]
+        )
+
         result_for_sse = {
             "group_id": group_id,
             "identifier": image_id,
-            "text": text,
-            "confidence": float(confidence),
-            "metadata": metadata_dict,
+            "result": result_str,
         }
 
         try:
-            mp_final_results_queue.put(result_for_sse, timeout=5.0)
+            mp_final_results_queue.put((result_for_sse, unique_key), timeout=5.0)
             sent_count += 1
             logger.debug(f"Pushed result for {image_id} to final results queue.")
         except MPQueueFullException:
@@ -223,7 +229,7 @@ def decoder_process_entrypoint(
         while not stop_event.is_set():
             try:
                 # Data: (encoded_preds_np, groups_tensor, ids_tensor, model_name_used, batch_uuid, whitelists_tensor)
-                data_from_predictor = mp_predicted_batches_queue.get(timeout=0.2)
+                data_from_predictor = mp_predicted_batches_queue.get(timeout=0.1)
                 if data_from_predictor is None:  # Sentinel
                     logger.info("Decoder worker received sentinel. Exiting.")
                     break
@@ -235,9 +241,16 @@ def decoder_process_entrypoint(
                     batch_model_name,  # Model name used by predictor for this batch
                     batch_uuid,
                     whitelists_tensor,  # This is a tf.Tensor or tf.RaggedTensor
+                    unique_keys_tensor,
                 ) = data_from_predictor
 
             except MPQueueEmptyException:
+                continue
+            except ValueError:  # If tuple unpacking fails due to wrong number of items (e.g. old data in queue)
+                logger.error(
+                    "Decoder: Error unpacking data from queue, likely due to data format mismatch. Discarding item.",
+                    exc_info=True,
+                )
                 continue
             except Exception as e:
                 logger.error(
@@ -278,6 +291,7 @@ def decoder_process_entrypoint(
                 groups_tensor,
                 ids_tensor,
                 batch_metadata_list_json,
+                unique_keys_tensor,
                 mp_final_results_queue,
             )
 

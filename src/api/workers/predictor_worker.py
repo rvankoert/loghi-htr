@@ -1,20 +1,19 @@
 # Imports
 
 # > Standard library
+import json
 import logging
 import multiprocessing as mp
-import json
 import os
 import sys
 import time
 import uuid
-from typing import List, Tuple, Optional, Dict, Any
+from multiprocessing.queues import Full as MPQueueFullException
+from typing import Any, Dict, List, Optional, Tuple
 
 # > Third-party dependencies
 import numpy as np
 import tensorflow as tf
-from multiprocessing.queues import Full as MPQueueFullException
-
 
 # Correct sys.path modification for worker context
 current_worker_file_dir = os.path.dirname(os.path.realpath(__file__))
@@ -116,6 +115,7 @@ def _process_sample_tf(
     identifier: tf.Tensor,
     model_path_tensor: tf.Tensor,  # Changed name for clarity
     whitelist: tf.Tensor,
+    unique_request_key: tf.Tensor,
     num_channels: int,
 ) -> tuple:
     """Preprocess a single sample for the dataset (TensorFlow operations)."""
@@ -140,7 +140,7 @@ def _process_sample_tf(
     )
     image = 0.5 - image  # Normalize
     image = tf.transpose(image, perm=[1, 0, 2])  # HWC to WHC
-    return image, group_id, identifier, model_path_tensor, whitelist
+    return image, group_id, identifier, model_path_tensor, whitelist, unique_request_key
 
 
 class PredictionDatasetBuilder:
@@ -172,7 +172,7 @@ class PredictionDatasetBuilder:
             if not self.mp_request_queue.empty():
                 try:
                     time_since_last_request = time.time()
-                    data = self.mp_request_queue.get()
+                    data = self.mp_request_queue.get(timeout=0.01)
                     new_model_path = data[3]
 
                     if self.current_model_path_holder[0] is None:
@@ -192,6 +192,8 @@ class PredictionDatasetBuilder:
 
                     has_data = True
                     yield data
+                except mp.queues.Empty:  # Expected if queue is empty with timeout
+                    pass
                 except Exception as e:
                     logging.error("Error retrieving data from queue: %s", e)
             else:
@@ -219,12 +221,13 @@ class PredictionDatasetBuilder:
                 tf.TensorSpec(shape=(), dtype=tf.string),  # identifier
                 tf.TensorSpec(shape=(), dtype=tf.string),  # model_path_str
                 tf.TensorSpec(shape=(None,), dtype=tf.string),  # whitelist
+                tf.TensorSpec(shape=(), dtype=tf.string),  # unique_request_key
             ),
         )
 
         dataset = dataset.map(
-            lambda img, grp, idf, mdl, wl: _process_sample_tf(
-                img, grp, idf, mdl, wl, self.num_channels
+            lambda img, grp, idf, mdl, wl, urk: _process_sample_tf(
+                img, grp, idf, mdl, wl, urk, self.num_channels
             ),
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=False,
@@ -232,13 +235,14 @@ class PredictionDatasetBuilder:
 
         dataset = dataset.padded_batch(
             batch_size=self.batch_size,
-            padded_shapes=([None, None, self.num_channels], [], [], [], [None]),
+            padded_shapes=([None, None, self.num_channels], [], [], [], [None], []),
             padding_values=(
                 tf.constant(-10.0, dtype=tf.float32),  # Image padding for '0.5 - image'
                 tf.constant("", dtype=tf.string),  # group_id
                 tf.constant("", dtype=tf.string),  # identifier
                 tf.constant("", dtype=tf.string),  # model_path
                 tf.constant("", dtype=tf.string),  # whitelist
+                tf.constant("", dtype=tf.string),  # unique_request_key
             ),
             drop_remainder=False,
         )
@@ -384,6 +388,7 @@ def predictor_process_entrypoint(
                 ids_tensor,
                 model_paths_tensor,
                 whitelists_tensor,
+                unique_keys_tensor,
             ) = batch_data
 
             # Filter out padding (where identifier is empty string)
@@ -396,9 +401,9 @@ def predictor_process_entrypoint(
             actual_groups = tf.boolean_mask(groups_tensor, actual_item_mask)
             actual_ids = tf.boolean_mask(ids_tensor, actual_item_mask)
             # actual_model_paths = tf.boolean_mask(model_paths_tensor, actual_item_mask) # Not strictly needed post-filtering
-            actual_whitelists = tf.boolean_mask(
-                whitelists_tensor, actual_item_mask
-            )  # RaggedTensor if not all same length
+            actual_whitelists = tf.boolean_mask(whitelists_tensor, actual_item_mask)
+
+            actual_unique_keys = tf.boolean_mask(unique_keys_tensor, actual_item_mask)
 
             if tf.shape(actual_images)[0] == 0:
                 continue  # Should not happen if reduce_any was true
@@ -434,6 +439,7 @@ def predictor_process_entrypoint(
                             active_model_name_for_loop,
                             batch_uuid,
                             actual_whitelists,
+                            actual_unique_keys,
                         ),
                         timeout=10.0,
                     )

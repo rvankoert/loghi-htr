@@ -1,20 +1,21 @@
 # Imports
 # > Standard library
-import datetime
-import logging
 import asyncio
+import datetime
 import json
+import logging
+import uuid
 from typing import List, Optional
-
-# > Local dependencies
-from .utils import extract_request_data  # Assuming utils.py is in the same directory
-from .sse_utils import sse_event_generator  # For the SSE logic
 
 # > Third-party dependencies
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
-from sse_starlette.sse import EventSourceResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sse_starlette.sse import EventSourceResponse
+
+# > Local dependencies
+from .sse_utils import sse_event_generator  # For the SSE logic
+from .utils import extract_request_data  # Assuming utils.py is in the same directory
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def create_router(app_instance: FastAPI) -> APIRouter:
         """
         Handles image prediction requests and streams results back via SSE.
         """
+        request_id = str(uuid.uuid4())
         app_state = request.app.state  # Shortcut to app.state
 
         if app_state.restarting:
@@ -77,8 +79,8 @@ def create_router(app_instance: FastAPI) -> APIRouter:
             )
 
         try:
-            # Returns: (image_content_bytes, group_id_str, identifier_str, model_str_or_None, whitelist_list_of_str)
-            request_item_tuple = await extract_request_data(
+            # request_data_tuple: (image_content_bytes, group_id_str, identifier_str, model_str_or_None, whitelist_list_of_str)
+            request_data_tuple = await extract_request_data(
                 image, group_id, identifier, model, whitelist
             )
         except HTTPException as e:
@@ -93,9 +95,17 @@ def create_router(app_instance: FastAPI) -> APIRouter:
                 _generate_error_sse_stream(400, "Invalid Input", str(e))
             )
 
+        unique_request_key = f"sse_{group_id}_{identifier}_{request_id.split('-')[0]}"
+        response_queue = asyncio.Queue()
+        app_state.sse_response_queues[unique_request_key] = response_queue
+
+        # Add unique_request_key to the item tuple for processing pipeline
+        request_item_tuple_for_worker = (*request_data_tuple, unique_request_key)
+
         try:
             await asyncio.wait_for(
-                app_state.async_request_queue.put(request_item_tuple), timeout=10.0
+                app_state.async_request_queue.put(request_item_tuple_for_worker),
+                timeout=10.0,
             )
         except asyncio.TimeoutError:
             return EventSourceResponse(
@@ -104,11 +114,17 @@ def create_router(app_instance: FastAPI) -> APIRouter:
                 )
             )
 
-        logger.info(f"SSE Prediction request accepted for {group_id} - {identifier}")
+        logger.info(
+            f"SSE Prediction request accepted for {group_id} - {identifier} (Request Key: {unique_request_key}, API Req ID: {request_id})"
+        )
         # Pass the specific queues from app_state to the sse_event_generator
         return EventSourceResponse(
             sse_event_generator(
-                group_id, identifier, app_state.async_decoded_results_queue
+                group_id,
+                identifier,
+                response_queue,
+                unique_request_key,
+                app_state.sse_response_queues,
             )
         )
 
@@ -120,9 +136,12 @@ def create_router(app_instance: FastAPI) -> APIRouter:
         status_code = 503 if is_restarting else 200
 
         extra_info = {
-            "async_request_queue_size": app_state.async_request_queue.qsize(),
-            "async_decoded_results_queue_size": app_state.async_decoded_results_queue.qsize(),
-            # MP queue sizes are via Prometheus
+            "async_request_queue_size": app_state.async_request_queue.qsize()
+            if hasattr(app_state, "async_request_queue")
+            else "N/A",
+            "active_sse_connections": len(app_state.sse_response_queues)
+            if hasattr(app_state, "sse_response_queues")
+            else "N/A",
         }
         return _create_status_response(
             status_code, status_str, f"Application is {status_str}.", extra_info

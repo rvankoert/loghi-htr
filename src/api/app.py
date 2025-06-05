@@ -8,26 +8,26 @@ from contextlib import asynccontextmanager
 
 import psutil
 
+# > Third-party dependencies
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.config import Config
+from uvicorn.server import Server
+
 # > Local dependencies
-from .config import APP_CONFIG, ERR_PORT_IN_USE, ERR_PERMISSION_DENIED, MEGABYTE
+from .config import APP_CONFIG, ERR_PERMISSION_DENIED, ERR_PORT_IN_USE, MEGABYTE
 from .logging_config import setup_logging
 from .queue_manager import (
     initialize_queues,
     start_bridge_tasks,
     stop_bridge_tasks,
 )
+from .routes import create_router
 from .worker_manager import (
+    restart_all_workers,
     start_all_workers,
     stop_all_workers,
-    restart_all_workers,
 )
-from .routes import create_router
-
-# > Third-party dependencies
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from uvicorn.config import Config
-from uvicorn.server import Server
 
 # Initialize logger using the new setup
 logger = setup_logging(APP_CONFIG["logging_level"])
@@ -49,16 +49,19 @@ async def lifespan(app: FastAPI):
     app.state.stop_event = mp_ctx.Event()  # For workers and bridges
 
     logger.info("Initializing queues")
+    app.state.sse_response_queues = {}
     app.state.queues = initialize_queues(APP_CONFIG["max_queue_size"])
     app.state.async_request_queue = app.state.queues["AsyncRequest"]
-    app.state.async_decoded_results_queue = app.state.queues["AsyncDecodedResults"]
 
     app.state.app_config = APP_CONFIG  # Store loaded config
     app.state.restarting = False
 
     current_loop = asyncio.get_running_loop()
     app.state.bridge_tasks = start_bridge_tasks(
-        app.state.queues, app.state.stop_event, current_loop
+        app.state.queues,
+        app.state.sse_response_queues,
+        app.state.stop_event,
+        current_loop,
     )
 
     app.state.workers = start_all_workers(
@@ -134,7 +137,10 @@ async def monitor_memory(app: FastAPI):
                 # 4. Restart bridge tasks with the (now cleared) stop_event
                 current_loop = asyncio.get_running_loop()
                 app.state.bridge_tasks = start_bridge_tasks(
-                    app.state.queues, app.state.stop_event, current_loop
+                    app.state.queues,
+                    app.state.sse_response_queues,
+                    app.state.stop_event,
+                    current_loop,
                 )
 
                 logger.info(

@@ -15,7 +15,6 @@ def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
     logger.info("Initializing async request queue")
     async_request_queue = asyncio.Queue(maxsize=max_queue_size)
     logger.info("Async request queue size: %s", max_queue_size)
-    async_decoded_results_queue = asyncio.Queue()
 
     mp_request_queue = mp.Queue(maxsize=max_queue_size)
     mp_predicted_batches_queue = mp.Queue()
@@ -33,13 +32,6 @@ def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
         predicted_batches_queue_size_gauge.set_function(
             mp_predicted_batches_queue.qsize
         )
-
-        final_decoded_results_queue_size_gauge = Gauge(
-            "mp_final_decoded_results_queue_size", "MP Final Decoded Results queue size"
-        )
-        final_decoded_results_queue_size_gauge.set_function(
-            mp_final_decoded_results_queue.qsize
-        )
     except ValueError as e:
         logger.warning(
             f"Prometheus metrics already registered or other Gauge issue: {e}"
@@ -47,7 +39,6 @@ def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
 
     queues = {
         "AsyncRequest": async_request_queue,
-        "AsyncDecodedResults": async_decoded_results_queue,
         "MPRequest": mp_request_queue,
         "MPPredictedBatches": mp_predicted_batches_queue,
         "MPFinalDecodedResults": mp_final_decoded_results_queue,
@@ -86,7 +77,7 @@ async def bridge_async_to_mp(
 
 async def bridge_mp_to_async(
     mp_q: mp.Queue,
-    async_q: asyncio.Queue,
+    sse_response_queues: Dict[str, asyncio.Queue],
     stop_event: mp.Event,
     loop: asyncio.AbstractEventLoop,
 ):
@@ -94,23 +85,46 @@ async def bridge_mp_to_async(
     logger.info("Starting bridge: mp.Queue -> asyncio.Queue")
     while not stop_event.is_set():
         try:
-            item = await loop.run_in_executor(None, mp_q.get, True, 1.0)
-            if item is None:
-                logger.info("Bridge (mp->async) received sentinel. Exiting.")
+            # Expected item from mp_q: (result_dict, unique_request_key_str)
+            item_tuple = await loop.run_in_executor(None, mp_q.get, True, 1.0)
+            if item_tuple is None:  # Sentinel for the bridge itself
+                logger.info("Bridge (mp->specific_async_q) received sentinel. Exiting.")
                 break
-            await async_q.put(item)
+            result_dict, unique_request_key_str = item_tuple
+            target_queue = sse_response_queues.get(unique_request_key_str)
+
+            if target_queue:
+                try:
+                    await target_queue.put(result_dict)
+                    logger.debug(
+                        f"Bridged result for {unique_request_key_str} to its dedicated SSE queue."
+                    )
+                except Exception as e_put:
+                    logger.error(
+                        f"Error putting item to specific SSE queue for {unique_request_key_str}: {e_put}"
+                    )
+            else:
+                logger.warning(
+                    f"SSE response queue for key {unique_request_key_str} not found. Client might have disconnected or request timed out. Result discarded."
+                )
+
         except mp.queues.Empty:
             continue
         except asyncio.CancelledError:
             logger.info("Bridge (mp->async) cancelled.")
+            logger.info("Bridge (mp->specific_async_q) cancelled.")
             break
         except Exception as e:
             logger.error(f"Error in bridge (mp->async): {e}")
-    logger.info("Bridge (mp->async) stopped.")
+            logger.error(f"Error in bridge (mp->specific_async_q): {e}", exc_info=True)
+    logger.info("Bridge (mp->specific_async_q) stopped.")
 
 
 def start_bridge_tasks(
-    queues: Dict[str, Any], stop_event: mp.Event, loop: asyncio.AbstractEventLoop
+    queues: Dict[str, Any],
+    sse_response_queues: Dict[str, asyncio.Queue],
+    stop_event: mp.Event,
+    loop: asyncio.AbstractEventLoop,
 ) -> Dict[str, asyncio.Task]:
     """Starts and returns the bridge asyncio tasks."""
     logger.info("Starting bridge tasks")
@@ -122,7 +136,7 @@ def start_bridge_tasks(
     from_workers_task = asyncio.create_task(
         bridge_mp_to_async(
             queues["MPFinalDecodedResults"],
-            queues["AsyncDecodedResults"],
+            sse_response_queues,
             stop_event,
             loop,
         )
