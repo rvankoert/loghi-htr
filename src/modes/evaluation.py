@@ -67,10 +67,22 @@ def perform_evaluation(
             dataset, model, config, data_manager, decode_workers, mode, stop_event
         )
     finally:
-        # Clean up workers
+        # Ensure all workers are stopped gracefully
         for worker in decode_workers:
             worker.stop()
+        # wait for all decode_workers to finish
+        for worker in decode_workers:
+            worker.join()
         writer.stop()
+
+    if mode == "inference":
+        # Assert that the number of output lines matches the number of input lines
+        input_line_count = len(data_manager.raw_data[mode][0])  # Access the first element of the tuple
+        output_line_count = writer.get_written_line_count()
+        assert input_line_count == output_line_count, (
+            f"Mismatch in line counts: {input_line_count} input lines, "
+            f"{output_line_count} output lines"
+        )
 
     if mode in ("test", "validation"):
         output_statistics(writer, config, mode, wbs)

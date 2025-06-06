@@ -53,10 +53,14 @@ class DataManager:
         logging.info("Processing raw data...")
         file_names, labels, sample_weights, self.tokenizer = self._process_raw_data()
 
-        self.raw_data = {split: (file_names[split], labels[split],
-                                 sample_weights[split])
-                         for split in ['train', 'evaluation', 'validation',
-                                       'test', 'inference']}
+        # Initialize raw_data dictionary for each dataset split
+        self.raw_data = {}
+        for split in ['train', 'evaluation', 'validation', 'test', 'inference']:
+            self.raw_data[split] = (
+                file_names[split],  # File names for the split
+                labels[split],  # Labels for the split
+                sample_weights[split]  # Sample weights for the split
+            )
 
         # Fill the datasets dictionary with datasets for different partitions
         logging.info("Creating datasets...")
@@ -515,8 +519,8 @@ class DataManager:
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         # Assert the cardinality of the dataset if training
-        if steps_per_epoch is None:
-            dataset = dataset.apply(tf.data.experimental.assert_cardinality(np.ceil(
-                len(files) / self.config["batch_size"])))
+        if steps_per_epoch is None and is_training:
+            batches = int(np.ceil(len(self.raw_data[partition_name][0]) / self.config['batch_size']))
+            dataset = dataset.apply(tf.data.experimental.assert_cardinality(batches))
 
         return dataset
