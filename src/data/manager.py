@@ -519,7 +519,7 @@ class DataManager:
         dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         # Assert the cardinality of the dataset if training
-        if steps_per_epoch is None and is_training:
+        if steps_per_epoch is None:
             batches = int(np.ceil(len(self.raw_data[partition_name][0]) / self.config['batch_size']))
             dataset = dataset.apply(tf.data.experimental.assert_cardinality(batches))
 

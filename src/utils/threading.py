@@ -224,7 +224,8 @@ class MetricsCalculator(Thread):
     def stop(self) -> None:
         """Stops the thread and waits for it to terminate."""
         self.running = False
-        self.join()
+        if self is not threading.current_thread():
+            self.join()
 
 
 class DecodingWorker(Thread):

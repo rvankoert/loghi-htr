@@ -11,7 +11,7 @@ import tensorflow as tf
 from utils.text import Tokenizer
 
 
-@tf.function
+@tf.function(reduce_retracing=True)
 def ctc_decode(
     y_pred: np.ndarray,
     input_length: np.ndarray,
