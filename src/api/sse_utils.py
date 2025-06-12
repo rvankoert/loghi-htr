@@ -4,7 +4,7 @@
 import asyncio
 import json
 import logging
-from typing import Dict, Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ async def sse_event_generator(
                 }
                 return
 
-            logger.debug(f"SSE {unique_request_key}: Sending result.")
+            logger.info(f"SSE {unique_request_key}: Sending result.")
             yield {"event": "result", "data": json.dumps(result_item)}
             yield {
                 "event": "done",

@@ -1,12 +1,12 @@
 # Imports
 
 # > Standard Library
-import os
 import logging
+import os
 from typing import List, Optional
 
 # > Third-party Dependencies
-from fastapi import UploadFile, Form, File, HTTPException
+from fastapi import File, Form, HTTPException, UploadFile
 
 logger = logging.getLogger(__name__)
 

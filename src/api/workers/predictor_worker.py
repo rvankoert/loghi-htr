@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # > Third-party dependencies
@@ -25,101 +26,124 @@ if src_dir not in sys.path:
     sys.path.append(src_dir)
 
 # > Local imports
-from model.management import load_model_from_directory
-from setup.environment import initialize_strategy, setup_gpus
+from model.management import load_model_from_directory  # noqa: E402
+from setup.environment import initialize_strategy, setup_gpus  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 
-def get_model_channels(config_path: str) -> int:
-    """
-    Determine the number of input channels from the model config.
+def get_model_channels(model_dir: str | os.PathLike[str]) -> int:
+    """Return the number of input channels expected by the model.
+
+    The channel count is looked‑up in ``config.json`` inside *model_dir*.
+    Multiple fallbacks are attempted to maximise robustness.
 
     Parameters
     ----------
-    config_path : str
-        Path to the model directory containing 'config.json'.
+    model_dir : str or pathlib.Path
+        Directory that contains the model checkpoint and its ``config.json``.
 
     Returns
     -------
     int
-        Number of input channels for the model.
+        The number of channels (e.g. ``1`` for grayscale, ``3`` for RGB).
+
+    Raises
+    ------
+    FileNotFoundError
+        If no ``config.json`` is present in *model_dir*.
     """
-    actual_config_path = os.path.join(config_path, "config.json")
-    if not os.path.exists(actual_config_path):
-        raise FileNotFoundError(f"Config file not found: {actual_config_path}")
-    with open(actual_config_path, "r", encoding="UTF-8") as file:
-        config = json.load(file)
-    num_channels = config.get("model_channels", config.get("args", {}).get("channels"))
-    if num_channels is None:  # Fallback
-        num_channels = config.get("input_shape", [None, None, None, 1])[-1]
-        num_channels = (
-            1 if num_channels is None else num_channels
-        )  # Default to 1 if still not found
+    model_dir = Path(model_dir)
+    cfg_path = model_dir / "config.json"
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Config file not found: {cfg_path}")
+
+    with cfg_path.open("r", encoding="utf‑8") as fh:
+        cfg: Dict[str, Any] = json.load(fh)
+
+    channels = cfg.get("model_channels") or cfg.get("args", {}).get("channels")
+    if channels is None:
+        # Ultimate fallback – infer from input shape if present.
+        channels = (cfg.get("input_shape", [None, None, None, 1])[-1]) or 1
         logger.warning(
-            f"Channels not explicitly found, inferred/defaulted to: {num_channels}"
+            "Channels not explicitly declared. Falling back to %d (model: %s)",
+            channels,
+            model_dir.name,
         )
-    return int(num_channels)
+    return int(channels)
 
 
 def create_model_with_strategy(
-    base_model_dir: str, model_name: str, strategy: tf.distribute.Strategy
+    base_model_dir: str | os.PathLike[str],
+    model_name: str,
+    strategy: tf.distribute.Strategy,
 ) -> Tuple[tf.keras.Model, int]:
-    """
-    Load a Keras model using a distribution strategy.
+    """Load a model inside *strategy* scope.
 
     Parameters
     ----------
-    base_model_dir : str
-        Path to base directory containing model folders.
+    base_model_dir : str or pathlib.Path
+        Root directory that contains sub‑folders for each model.
     model_name : str
-        Name of the model to load.
+        Folder name of the model to load.
     strategy : tf.distribute.Strategy
-        Distribution strategy to use when loading the model.
+        Distribution strategy (e.g. ``MirroredStrategy``) used to place the
+        variables and computations on the desired devices.
 
     Returns
     -------
-    Tuple[tf.keras.Model, int]
-        The loaded model and number of channels it expects.
+    (tf.keras.Model, int)
+        Tuple of the loaded model instance and its expected channel count.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the provided *model_name* directory does not exist.
     """
+    model_dir = Path(base_model_dir) / model_name
+    if not model_dir.is_dir():
+        raise FileNotFoundError(f"Model directory not found: {model_dir}")
+
     with strategy.scope():
-        model_location = os.path.join(base_model_dir, model_name)
-        if not os.path.isdir(model_location):
-            raise FileNotFoundError(f"Model directory not found: {model_location}")
-        model = load_model_from_directory(model_location, compile=False)
-        num_channels = get_model_channels(model_location)
-        logger.info(
-            f"Model '{model.name}' loaded from '{model_location}' with {num_channels} channels."
-        )
-        return model, num_channels
+        model = load_model_from_directory(model_dir, compile=False)
+    channels = get_model_channels(model_dir)
+
+    logger.info(
+        "Model '%s' loaded from '%s' (channels=%d)", model.name, model_dir, channels
+    )
+    return model, channels
 
 
 def _output_prediction_error(
     group_id_tensor: tf.Tensor,
     identifier_tensor: tf.Tensor,
     error_text: str,
-):
-    """
-    Logs a prediction error associated with a specific image.
+) -> None:
+    """Log a prediction‑time error for a single sample.
+
+    Some batches may partially fail (e.g. OOM on a slice). For each image that
+    could not be processed we emit an explicit log entry to aid debugging and
+    potential re‑processing.
 
     Parameters
     ----------
     group_id_tensor : tf.Tensor
-        Tensor containing the group ID.
+        Tensor containing the *group ID*.
     identifier_tensor : tf.Tensor
-        Tensor containing the identifier.
+        Tensor containing the *image identifier*.
     error_text : str
-        Description of the error.
+        Human‑readable error description.
     """
     try:
-        group_id = group_id_tensor.numpy().decode("utf-8", errors="ignore")
-        identifier = identifier_tensor.numpy().decode("utf-8", errors="ignore")
-        if not identifier and not group_id:
-            return  # Padding
-
-        logger.error(f"Prediction error for {group_id}/{identifier}: {error_text}")
-    except Exception as e:
-        logger.error(f"Failed to send error callback or decode IDs: {e}")
+        group_id = group_id_tensor.numpy().decode("utf‑8", "ignore")
+        identifier = identifier_tensor.numpy().decode("utf‑8", "ignore")
+        if not identifier and not group_id:  # padding row
+            return
+        logger.error(
+            "Prediction error for %s/%s – %s", group_id, identifier, error_text
+        )
+    except Exception as exc:
+        logger.error("Failed to log prediction error: %s", exc)
 
 
 def _safe_predict(
@@ -128,54 +152,60 @@ def _safe_predict(
     groups: tf.Tensor,
     identifiers: tf.Tensor,
     batch_id: str,
+    *,
     min_chunk: int = 1,
 ) -> Optional[np.ndarray]:
-    """
-    Attempts model prediction, retries on OOM by recursively splitting.
+    """Run ``model.predict_on_batch`` with OOM resilience.
+
+    The batch is recursively bisected upon encountering
+    :class:`tf.errors.ResourceExhaustedError` until the chunk size reaches
+    *min_chunk*.
 
     Parameters
     ----------
     model : tf.keras.Model
-        The loaded Keras model.
+        The Keras model used for inference.
     images : tf.Tensor
-        Tensor of images to predict on.
+        4‑D tensor containing the input images.
     groups : tf.Tensor
-        Tensor of group IDs.
+        Tensor matching *images* on axis‑0 with group IDs.
     identifiers : tf.Tensor
-        Tensor of image IDs.
+        Tensor matching *images* on axis‑0 with unique image IDs.
     batch_id : str
-        Batch identifier for logging.
-    min_chunk : int, optional
-        Minimum chunk size to pass
+        Batch UUID – used only for logging.
+    min_chunk : int, default=1
+        Hard lower‑bound on how far we are willing to split.
 
     Returns
     -------
-    Optional[np.ndarray]
-        Numpy array of predictions or None if prediction fails.
+    np.ndarray | None
+        Concatenated predictions or *None* if every chunk failed.
     """
-    stack = [(images, groups, identifiers, batch_id)]
-    results: List[np.ndarray] = []
+    stack: List[Tuple[tf.Tensor, tf.Tensor, tf.Tensor, str]] = [
+        (images, groups, identifiers, batch_id)
+    ]
+    predictions: List[np.ndarray] = []
 
     while stack:
-        imgs, grps, ids, bid = stack.pop()
+        imgs, grp_t, id_t, bid = stack.pop()
         try:
-            results.append(model.predict_on_batch(imgs))
+            predictions.append(model.predict_on_batch(imgs))
         except tf.errors.ResourceExhaustedError as oom:
-            n = int(imgs.shape[0])  # static or eager-known
-            if n <= min_chunk:
-                _output_prediction_error(grps[0], ids[0], f"OOM: {oom}")
+            n_samples = int(imgs.shape[0])
+            if n_samples <= min_chunk:
+                _output_prediction_error(grp_t[0], id_t[0], f"OOM: {oom}")
                 continue
-            mid = n // 2
-            stack.append((imgs[mid:], grps[mid:], ids[mid:], f"{bid}-B"))
-            stack.append((imgs[:mid], grps[:mid], ids[:mid], f"{bid}-A"))
+            mid = n_samples // 2
+            stack.append((imgs[mid:], grp_t[mid:], id_t[mid:], f"{bid}-B"))
+            stack.append((imgs[:mid], grp_t[:mid], id_t[:mid], f"{bid}-A"))
         except Exception as exc:
             logger.error("Batch %s failed: %s", bid, exc, exc_info=True)
-            for g, i in zip(grps, ids):
+            for g, i in zip(grp_t, id_t):
                 _output_prediction_error(g, i, f"Predict error: {exc}")
 
-    if not results:
+    if not predictions:
         return None
-    return np.concatenate(results)
+    return np.concatenate(predictions, axis=0)
 
 
 def _send_predictions(
@@ -188,6 +218,7 @@ def _send_predictions(
     whitelists: tf.Tensor,
     unique_keys: tf.Tensor,
 ):
+    """Forward predictions and auxiliary tensors to the *decoder* queue."""
     try:
         out_queue.put(
             (
@@ -214,6 +245,7 @@ def _run_prediction_loop(
     stop_event: Any,
     strategy: tf.distribute.Strategy,
 ):
+    """Continuous prediction loop that exits when *stop_event* is set."""
     total_preds = 0
     batches_count = 0
 
@@ -293,7 +325,7 @@ def _run_prediction_loop(
                 unique_keys,
             )
 
-        # Check if model name changed during dataset iteration
+        # Were we asked to swap models while iterating?
         if (
             current_model_holder[0] != active_model_name_for_loop
             and not stop_event.is_set()

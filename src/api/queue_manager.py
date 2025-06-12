@@ -1,12 +1,12 @@
 # Imports
 
 # > Standard Library
-import multiprocessing as mp
+import asyncio
 import logging
-from typing import Dict, Any
+import multiprocessing as mp
+from typing import Any, Dict
 
 # > Third-party Dependencies
-import asyncio
 from prometheus_client import Gauge
 
 logger = logging.getLogger(__name__)

@@ -3,11 +3,11 @@
 import asyncio
 import multiprocessing as mp
 import os
-import psutil
 import socket
 from contextlib import asynccontextmanager
 
 # > Third-party dependencies
+import psutil
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.config import Config
@@ -230,6 +230,8 @@ async def run_server():
     except Exception as e:
         logger.critical(f"Unexpected error starting server: {e}", exc_info=True)
 
+
+app = create_fastapi_app()
 
 if __name__ == "__main__":
     asyncio.run(run_server())
