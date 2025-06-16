@@ -117,6 +117,8 @@ def create_model_with_strategy(
 def _output_prediction_error(
     group_id_tensor: tf.Tensor,
     identifier_tensor: tf.Tensor,
+    unique_key_tensor: tf.Tensor,
+    error_queue: mp.Queue,
     error_text: str,
 ) -> None:
     """Log a prediction‑time error for a single sample.
@@ -131,19 +133,31 @@ def _output_prediction_error(
         Tensor containing the *group ID*.
     identifier_tensor : tf.Tensor
         Tensor containing the *image identifier*.
+    unique_key_tensor : tf.Tensor
+        Tensor containing the unique request key for SSE routing.
+    error_queue : mp.Queue
+        The queue to which error messages are sent.
     error_text : str
         Human‑readable error description.
     """
     try:
         group_id = group_id_tensor.numpy().decode("utf‑8", "ignore")
         identifier = identifier_tensor.numpy().decode("utf‑8", "ignore")
+        unique_key = unique_key_tensor.numpy().decode("utf‑8", "ignore")
         if not identifier and not group_id:  # padding row
             return
         logger.error(
             "Prediction error for %s/%s – %s", group_id, identifier, error_text
         )
+        error_payload = {
+            "group_id": group_id,
+            "identifier": identifier,
+            "error": "PredictionFailed",
+            "detail": error_text,
+        }
+        error_queue.put((error_payload, unique_key), timeout=5.0)
     except Exception as exc:
-        logger.error("Failed to log prediction error: %s", exc)
+        logger.critical("Failed to send prediction error to client: %s", exc)
 
 
 def _safe_predict(
@@ -152,6 +166,8 @@ def _safe_predict(
     groups: tf.Tensor,
     identifiers: tf.Tensor,
     batch_id: str,
+    unique_keys: tf.Tensor,
+    error_queue: mp.Queue,
     *,
     min_chunk: int = 1,
 ) -> Optional[np.ndarray]:
@@ -173,6 +189,10 @@ def _safe_predict(
         Tensor matching *images* on axis‑0 with unique image IDs.
     batch_id : str
         Batch UUID – used only for logging.
+    unique_keys : tf.Tensor
+        Tensor with unique request keys for SSE routing.
+    error_queue : mp.Queue
+        Queue to send error messages to.
     min_chunk : int, default=1
         Hard lower‑bound on how far we are willing to split.
 
@@ -181,27 +201,33 @@ def _safe_predict(
     np.ndarray | None
         Concatenated predictions or *None* if every chunk failed.
     """
-    stack: List[Tuple[tf.Tensor, tf.Tensor, tf.Tensor, str]] = [
-        (images, groups, identifiers, batch_id)
+    stack: List[Tuple[tf.Tensor, tf.Tensor, tf.Tensor, tf.Tensor, str]] = [
+        (images, groups, identifiers, unique_keys, batch_id)
     ]
     predictions: List[np.ndarray] = []
 
     while stack:
-        imgs, grp_t, id_t, bid = stack.pop()
+        imgs, grp_t, id_t, ukeys_t, bid = stack.pop()
         try:
             predictions.append(model.predict_on_batch(imgs))
         except tf.errors.ResourceExhaustedError as oom:
             n_samples = int(imgs.shape[0])
             if n_samples <= min_chunk:
-                _output_prediction_error(grp_t[0], id_t[0], f"OOM: {oom}")
+                _output_prediction_error(
+                    grp_t[0], id_t[0], ukeys_t[0], error_queue, f"OOM: {oom}"
+                )
                 continue
             mid = n_samples // 2
-            stack.append((imgs[mid:], grp_t[mid:], id_t[mid:], f"{bid}-B"))
-            stack.append((imgs[:mid], grp_t[:mid], id_t[:mid], f"{bid}-A"))
+            stack.append(
+                (imgs[mid:], grp_t[mid:], id_t[mid:], ukeys_t[mid:], f"{bid}-B")
+            )
+            stack.append(
+                (imgs[:mid], grp_t[:mid], id_t[:mid], ukeys_t[:mid], f"{bid}-A")
+            )
         except Exception as exc:
             logger.error("Batch %s failed: %s", bid, exc, exc_info=True)
-            for g, i in zip(grp_t, id_t):
-                _output_prediction_error(g, i, f"Predict error: {exc}")
+            for g, i, uk in zip(grp_t, id_t, ukeys_t):
+                _output_prediction_error(g, i, uk, error_queue, f"Predict error: {exc}")
 
     if not predictions:
         return None
@@ -242,6 +268,7 @@ def _run_prediction_loop(
     current_model_holder: List[str],
     dataset_builder: PredictionDatasetBuilder,
     out_queue: Any,
+    error_queue: Any,
     stop_event: Any,
     strategy: tf.distribute.Strategy,
 ):
@@ -296,6 +323,8 @@ def _run_prediction_loop(
                 groups,
                 identifiers,
                 batch_uuid,
+                unique_keys,
+                error_queue,
             )
             duration = time.time() - start_time
 
@@ -356,6 +385,7 @@ def _run_prediction_loop(
 def predictor_process_entrypoint(
     mp_request_queue: mp.Queue,
     mp_predicted_batches_queue: mp.Queue,
+    mp_final_results_queue: mp.Queue,
     config: Dict[str, Any],
     stop_event: mp.Event,
 ):
@@ -368,6 +398,8 @@ def predictor_process_entrypoint(
         Queue from which image requests are read.
     mp_predicted_batches_queue : mp.Queue
         Queue to send prediction results to.
+    mp_final_results_queue : mp.Queue
+        Queue to send error messages directly to the final consumer.
     config : Dict[str, Any]
         Dictionary containing model config, GPU usage, batch size, etc.
     stop_event : mp.Event
@@ -414,6 +446,7 @@ def predictor_process_entrypoint(
         current_model_name_holder,
         dataset_builder,
         mp_predicted_batches_queue,
+        mp_final_results_queue,
         stop_event,
         strategy,
     )

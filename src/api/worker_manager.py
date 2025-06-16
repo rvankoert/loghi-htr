@@ -39,6 +39,7 @@ def start_all_workers(
     predictor_args = (
         queues["MPRequest"],
         queues["MPPredictedBatches"],
+        queues["MPFinalDecodedResults"],
         app_config,
         stop_event,
     )

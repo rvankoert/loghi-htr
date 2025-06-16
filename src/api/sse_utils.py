@@ -61,6 +61,14 @@ async def sse_event_generator(
                 )
                 specific_results_queue.task_done()
 
+                # Check if the dequeued item is an error notification
+                if result_item.get("error"):
+                    logger.error(
+                        f"SSE {unique_request_key}: Sending error to client: {result_item}"
+                    )
+                    yield {"event": "error", "data": json.dumps(result_item)}
+                    return  # Terminate the stream on error
+
             except asyncio.TimeoutError:
                 logger.warning(
                     f"SSE event_generator for {unique_request_key} timed out waiting for result from its specific queue."

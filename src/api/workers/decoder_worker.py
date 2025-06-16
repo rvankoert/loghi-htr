@@ -186,7 +186,23 @@ def _format_and_enqueue(
             meta = json.loads(meta_json[i])
             ukey = uniq_keys[i].numpy().decode("utf‑8", "ignore")
         except Exception as exc:
-            logger.error("Identifier decode error: %s", exc)
+            logger.error("Error decoding batch item metadata: %s", exc)
+            try:
+                # Attempt to send an error back to the client
+                ukey = uniq_keys[i].numpy().decode("utf-8", "ignore")
+                gid = groups[i].numpy().decode("utf-8", "ignore")
+                iid = image_ids[i].numpy().decode("utf-8", "ignore")
+                error_payload = {
+                    "group_id": gid,
+                    "identifier": iid,
+                    "error": "ResultDecodingFailed",
+                    "detail": f"An unexpected error occurred while processing result: {exc}",
+                }
+                out_q.put((error_payload, ukey), timeout=5.0)
+            except Exception as send_exc:
+                logger.critical(
+                    "Failed to send decoding error back to client: %s", send_exc
+                )
             continue
 
         if not iid and not gid:
@@ -196,7 +212,6 @@ def _format_and_enqueue(
             txt = get_display(txt)
 
         result_str = "\t".join([iid, json.dumps(meta), f"{conf}", txt])
-        # result_str = f"{iid}\t{json.dumps(meta)}\t{conf}\t{txt}"
         try:
             out_q.put(
                 ({"group_id": gid, "identifier": iid, "result": result_str}, ukey),
@@ -309,12 +324,46 @@ def _run_decoder_loop(
                 logger.error("Tokenizer reload failed (%s); skipping batch", exc)
                 continue
 
-        sent = _process_batch(
-            batch, tokenizer, cfg["base_model_dir"], current_model, out_q
-        )
-        if sent:
-            total += sent
-            logger.debug("Batch %s: %d items sent; total=%d", batch[4], sent, total)
+        try:
+            sent = _process_batch(
+                batch, tokenizer, cfg["base_model_dir"], current_model, out_q
+            )
+            if sent:
+                total += sent
+                logger.debug("Batch %s: %d items sent; total=%d", batch[4], sent, total)
+        except Exception as exc:
+            logger.critical(
+                "Decoder failed to process batch %s: %s", batch[4], exc, exc_info=True
+            )
+            # Unpack the batch to send error messages to all affected clients
+            (
+                _,
+                groups_t,
+                ids_t,
+                _,
+                _,
+                _,
+                uniq_keys_t,
+            ) = batch
+            for i in range(tf.shape(ids_t)[0]):
+                try:
+                    gid = groups_t[i].numpy().decode("utf-8", "ignore")
+                    iid = ids_t[i].numpy().decode("utf-8", "ignore")
+                    ukey = uniq_keys_t[i].numpy().decode("utf-8", "ignore")
+                    if not iid and not gid:
+                        continue  # Skip padding
+                    error_payload = {
+                        "group_id": gid,
+                        "identifier": iid,
+                        "error": "BatchDecodingFailed",
+                        "detail": f"The processing batch failed with an unexpected error: {exc}",
+                    }
+                    out_q.put((error_payload, ukey), timeout=5.0)
+                except Exception as send_exc:
+                    logger.critical(
+                        "Failed to send batch-level decoding error to client: %s",
+                        send_exc,
+                    )
 
     logger.info("Decoder worker exiting. Total processed=%d", total)
 
