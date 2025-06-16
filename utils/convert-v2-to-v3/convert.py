@@ -89,7 +89,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert Keras SavedModel to .keras format.")
     parser.add_argument("--savedmodel_dir", type=str, required=True, help="Path to the SavedModel directory.")
     parser.add_argument("--output_directory", type=str, required=False, help="Path to the output directory for the converted model. Default: converted_model/", default="converted_model")
-    parser.add_argument("--output_file", type=str, required=False, help="for backwards compatibility, not used anymore", default="None")
+    parser.add_argument("--output_file", type=str, required=False, help="for backwards compatibility, not used anymore", default=None)
 
     args = parser.parse_args()
 
