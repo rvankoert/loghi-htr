@@ -1,20 +1,22 @@
 # Imports
 # > Standard library
 import asyncio
+import logging
 import multiprocessing as mp
 import os
 import socket
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from typing import Optional
 
-# > Third-party dependencies
+# > Third-party
 import psutil
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from uvicorn.config import Config
-from uvicorn.server import Server
+from hypercorn.asyncio import serve as hypercorn_serve
+from hypercorn.config import Config as HyperConfig
 
-# > Local dependencies
-from .config import APP_CONFIG, ERR_PERMISSION_DENIED, ERR_PORT_IN_USE, MEGABYTE
+# > Local
+from .config import APP_CONFIG, MEGABYTE
 from .logging_config import setup_logging
 from .queue_manager import (
     initialize_queues,
@@ -28,8 +30,12 @@ from .worker_manager import (
     stop_all_workers,
 )
 
-# Initialize logger
+# Initialize logger before anything else tries to log
 logger = setup_logging(APP_CONFIG["logging_level"])
+
+# ---------------------------------------------------------------------------
+# Helper utilities
+# ---------------------------------------------------------------------------
 
 
 def check_memory_usage() -> int:
@@ -85,9 +91,12 @@ async def lifespan(app: FastAPI):
 
     app.state.monitor_task = asyncio.create_task(monitor_memory(app))
 
-    yield
+    yield  # --- application runs here ---
 
-    logger.info("Shutting down application...")
+    # ---------------------------------------------------------------------
+    # Graceful shutdown
+    # ---------------------------------------------------------------------
+    logger.info("Shutting down application…")
     if not app.state.stop_event.is_set():
         app.state.stop_event.set()
 
@@ -97,10 +106,9 @@ async def lifespan(app: FastAPI):
 
     if app.state.monitor_task:
         app.state.monitor_task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await app.state.monitor_task
-        except asyncio.CancelledError:
-            logger.info("Memory monitoring task cancelled successfully.")
+        logger.info("Memory monitoring task cancelled successfully.")
 
     logger.info("Application shutdown complete.")
 
@@ -122,8 +130,9 @@ async def monitor_memory(app: FastAPI):
             await asyncio.sleep(check_interval)
             memory_usage = check_memory_usage()
             logger.debug(
-                f"Memory usage: {memory_usage / MEGABYTE:.2f} MB / "
-                f"{memory_limit_bytes / MEGABYTE:.2f} MB"
+                "Memory usage: %.2f MB / %.2f MB",
+                memory_usage / MEGABYTE,
+                memory_limit_bytes / MEGABYTE,
             )
 
             if memory_usage > memory_limit_bytes:
@@ -132,9 +141,9 @@ async def monitor_memory(app: FastAPI):
                     continue
 
                 logger.error(
-                    f"Memory usage ({memory_usage / MEGABYTE:.2f} MB) "
-                    f"exceeded limit of {memory_limit_bytes / MEGABYTE:.2f} MB. "
-                    "Restarting workers and bridges..."
+                    "Memory usage (%.2f MB) exceeded limit (%.2f MB). Restarting…",
+                    memory_usage / MEGABYTE,
+                    memory_limit_bytes / MEGABYTE,
                 )
                 app.state.restarting = True
 
@@ -159,18 +168,21 @@ async def monitor_memory(app: FastAPI):
                     current_loop,
                 )
 
-                logger.info(
-                    "Workers and bridges restarted successfully after memory limit."
-                )
+                logger.info("Workers and bridges restarted successfully after OOM.")
                 app.state.restarting = False
 
         except asyncio.CancelledError:
             logger.info("Memory monitoring task cancelled.")
             break
-        except Exception as e:
-            logger.error(f"Error in memory_monitor: {e}", exc_info=True)
+        except Exception as exc:  # pragma: no cover – robustness
+            logger.error("Error in memory_monitor: %s", exc, exc_info=True)
             app.state.restarting = False
             await asyncio.sleep(check_interval)
+
+
+# ---------------------------------------------------------------------------
+# FastAPI factory
+# ---------------------------------------------------------------------------
 
 
 def create_fastapi_app() -> FastAPI:
@@ -197,41 +209,72 @@ def create_fastapi_app() -> FastAPI:
     return app
 
 
-async def run_server():
-    """
-    Run the FastAPI app with Uvicorn server.
+# ---------------------------------------------------------------------------
+# Hypercorn runner (single-process)
+# ---------------------------------------------------------------------------
 
-    Handles DNS resolution and gracefully handles startup errors.
+
+async def run_server(
+    *,
+    certfile: Optional[str] = None,
+    keyfile: Optional[str] = None,
+    h2c: bool = False,
+):
+    """Serve *app* with Hypercorn inside the current process.
+
+    Parameters
+    ----------
+    certfile / keyfile : str, optional
+        Enable HTTPS + ALPN HTTP/2 when both are provided.
+    h2c : bool, default=False
+        Serve clear-text HTTP/2 (development). Ignored when TLS is enabled.
     """
-    host = APP_CONFIG["uvicorn_host"]
+    host = APP_CONFIG["uvicorn_host"]  # keep names to avoid renaming env vars
     port = APP_CONFIG["uvicorn_port"]
 
+    # DNS sanity-check (mirrors the original Uvicorn logic)
     try:
         socket.gethostbyname(host)
     except socket.gaierror:
         logger.warning(
-            f"Unable to resolve hostname: {host}. Falling back to 127.0.0.1."
+            "Unable to resolve hostname %s. Falling back to 127.0.0.1.", host
         )
         host = "127.0.0.1"
 
-    server_config = Config(
-        app=create_fastapi_app(), host=host, port=port, workers=1, lifespan="on"
+    cfg = HyperConfig()
+    cfg.bind = [f"{host}:{port}"]
+    cfg.alpn_protocols = ["h2", "http/1.1"]
+    cfg.worker_class = "asyncio"  # DON’T fork
+    cfg.workers = 1
+
+    if certfile and keyfile:
+        cfg.certfile = certfile
+        cfg.keyfile = keyfile
+    elif h2c:
+        cfg.h2c = True
+
+    logger.info(
+        "Starting Hypercorn on %s (h2c=%s, tls=%s)",
+        cfg.bind[0],
+        cfg.h2c,
+        bool(certfile),
     )
-    server = Server(config=server_config)
 
-    try:
-        await server.serve()
-    except OSError as e:
-        logger.error(f"Error starting server: {e}")
-        if e.errno == ERR_PORT_IN_USE:
-            logger.error(f"Port {port} is already in use.")
-        elif e.errno == ERR_PERMISSION_DENIED:
-            logger.error(f"Permission denied for port {port}. Try >1024 or sudo.")
-    except Exception as e:
-        logger.critical(f"Unexpected error starting server: {e}", exc_info=True)
+    await hypercorn_serve(create_fastapi_app(), cfg)
 
 
+# ---------------------------------------------------------------------------
+# Module entry-point
+# ---------------------------------------------------------------------------
 app = create_fastapi_app()
 
 if __name__ == "__main__":
-    asyncio.run(run_server())
+    import sys
+
+    # Simple CLI:  python -m src.api.app [--h2c] [certfile keyfile]
+    if "--h2c" in sys.argv:
+        asyncio.run(run_server(h2c=True))
+    elif len(sys.argv) == 3:
+        asyncio.run(run_server(certfile=sys.argv[1], keyfile=sys.argv[2]))
+    else:
+        asyncio.run(run_server())

@@ -41,7 +41,12 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
     """
     Configure logging with a consistent format and level.
 
-    Also sets up a filter to suppress known noisy TensorFlow log messages.
+    This function is idempotent. It can be called multiple times to reset and
+    re-apply the logging configuration, which is useful for overriding
+    server-specific logging setups (like Hypercorn's).
+
+    It also sets up a filter to suppress known noisy TensorFlow log messages
+    and silences verbose third-party loggers.
 
     Parameters
     ----------
@@ -63,11 +68,24 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     log_level = logging_levels.get(level.upper(), logging.INFO)
 
+    # Make the function idempotent by removing existing root handlers.
+    # This allows us to call it again after a server like Hypercorn has
+    # set up its own handlers.
+    root = logging.getLogger()
+    if root.handlers:
+        for handler in root.handlers[:]:
+            root.removeHandler(handler)
+
     logging.basicConfig(
         format="[%(processName)s] %(asctime)s - %(levelname)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
         level=log_level,
     )
+
+    # Suppress verbose messages from third-party libraries.
+    # Set them to a level higher than DEBUG to avoid spam.
+    logging.getLogger("python_multipart").setLevel(logging.ERROR)
+    logging.getLogger("hpack").setLevel(logging.ERROR)
 
     # Remove noisy TensorFlow messages
     tf_logger = logging.getLogger("tensorflow")
