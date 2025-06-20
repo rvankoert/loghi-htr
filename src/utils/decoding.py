@@ -101,7 +101,6 @@ def decode_batch_predictions(
         pred, input_length=input_len, greedy=greedy, beam_width=beam_width
     )
 
-
     # Convert the decoded sequence to text
     output_texts = []
     for i, decoded_array in enumerate(ctc_decoded[0]):
@@ -115,20 +114,15 @@ def decode_batch_predictions(
         time_steps = np.sum(decoded_array != 0)
         if time_steps == 0:
             time_steps = 1
-        logging.debug("Time steps: %s", time_steps)
         if len(log_probs) < i:
-            logging.warning(
-                "Log probability not found for sample %d, skipping", i
-            )
-        if (log_probs[i] is None):
-            logging.warning(
-                "Log probability not found for sample %d, skipping", i
-            )
+            logging.warning("Log probability not found for sample %d, skipping", i)
+        if log_probs[i] is None:
+            logging.warning("Log probability not found for sample %d, skipping", i)
         confidence = np.exp(log_probs[i][0] / time_steps)
 
         if confidence < 0 or confidence > 1:
             logging.warning(
-                "Confidence score out of range: %s, clipping to " "[0, 1]",
+                "Confidence score out of range: %s, clipping to [0, 1]",
                 confidence,
             )
             confidence = np.clip(confidence, 0, 1)

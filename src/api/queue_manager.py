@@ -34,23 +34,6 @@ def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
     mp_predicted_batches_queue = mp.Queue()
     mp_final_decoded_results_queue = mp.Queue()
 
-    try:
-        request_queue_size_gauge = Gauge(
-            "mp_request_queue_size", "MP Request queue size"
-        )
-        request_queue_size_gauge.set_function(mp_request_queue.qsize)
-
-        predicted_batches_queue_size_gauge = Gauge(
-            "mp_predicted_batches_queue_size", "MP Predicted Batches queue size"
-        )
-        predicted_batches_queue_size_gauge.set_function(
-            mp_predicted_batches_queue.qsize
-        )
-    except ValueError as e:
-        logger.warning(
-            f"Prometheus metrics already registered or other Gauge issue: {e}"
-        )
-
     queues = {
         "AsyncRequest": async_request_queue,
         "MPRequest": mp_request_queue,
@@ -58,6 +41,68 @@ def initialize_queues(max_queue_size: int) -> Dict[str, Any]:
         "MPFinalDecodedResults": mp_final_decoded_results_queue,
     }
     return queues
+
+
+def setup_prometheus_metrics(
+    queues: Dict[str, Any], sse_response_queues: Dict[str, asyncio.Queue]
+):
+    """
+    Set up Prometheus gauges for various application metrics.
+
+    This function is designed to be idempotent, so it can be called multiple
+    times without causing errors (e.g., during application reloads).
+
+    Parameters
+    ----------
+    queues : dict
+        A dictionary containing the application's communication queues.
+    sse_response_queues : dict
+        A dictionary of active SSE listener queues, keyed by request ID.
+    """
+    logger.info("Setting up Prometheus metrics.")
+
+    # Using a list of tuples to define metrics for easy iteration
+    metric_definitions = [
+        (
+            "async_request_queue_size",
+            "Asyncio request queue size",
+            lambda: queues["AsyncRequest"].qsize(),
+        ),
+        (
+            "mp_request_queue_size",
+            "MP Request queue size",
+            lambda: queues["MPRequest"].qsize(),
+        ),
+        (
+            "mp_predicted_batches_queue_size",
+            "MP Predicted Batches queue size",
+            lambda: queues["MPPredictedBatches"].qsize(),
+        ),
+        (
+            "mp_final_decoded_results_queue_size",
+            "MP Final Decoded Results queue size",
+            lambda: queues["MPFinalDecodedResults"].qsize(),
+        ),
+        (
+            "active_sse_connections",
+            "Number of active SSE connections",
+            lambda: len(sse_response_queues),
+        ),
+    ]
+
+    for name, description, func in metric_definitions:
+        try:
+            # The Gauge is created here. The set_function makes it a "lazy" gauge
+            # that calls the function to get the value when scraped.
+            gauge = Gauge(name, description)
+            gauge.set_function(func)
+        except ValueError as e:
+            # This can happen on hot-reloads in development frameworks.
+            # We log a warning but don't crash, as the metric likely exists.
+            logger.warning(
+                f"Could not create Prometheus gauge '{name}': {e}. "
+                "It might already be registered."
+            )
 
 
 async def bridge_async_to_mp(

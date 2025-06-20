@@ -1,7 +1,6 @@
 # Imports
 # > Standard library
 import asyncio
-import logging
 import multiprocessing as mp
 import os
 import socket
@@ -20,6 +19,7 @@ from .config import APP_CONFIG, MEGABYTE
 from .logging_config import setup_logging
 from .queue_manager import (
     initialize_queues,
+    setup_prometheus_metrics,
     start_bridge_tasks,
     stop_bridge_tasks,
 )
@@ -76,6 +76,8 @@ async def lifespan(app: FastAPI):
     app.state.async_request_queue = app.state.queues["AsyncRequest"]
     app.state.app_config = APP_CONFIG
     app.state.restarting = False
+
+    setup_prometheus_metrics(app.state.queues, app.state.sse_response_queues)
 
     current_loop = asyncio.get_running_loop()
     app.state.bridge_tasks = start_bridge_tasks(
