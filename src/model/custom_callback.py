@@ -111,31 +111,23 @@ class LoghiCustomCallback(tf.keras.callbacks.Callback):
             os.makedirs(outputdir, exist_ok=True)
             model_path = os.path.join(outputdir, "model.keras")
 
-            # Create a copy of the functional model
-            unfrozen_model = tf.keras.models.clone_model(functional_model)
-            unfrozen_model.set_weights(functional_model.get_weights())
+            # Save model on CPU to avoid extra GPU memory usage
+            with tf.device("/CPU:0"):
+                unfrozen_model = tf.keras.models.clone_model(functional_model)
+                unfrozen_model.set_weights(functional_model.get_weights())
+                for layer in unfrozen_model.layers:
+                    layer.trainable = True
+                unfrozen_model.save(model_path)
 
-            # Unfreeze all layers in the copied model
-            for layer in unfrozen_model.layers:
-                layer.trainable = True
-
-            # Save the unfrozen functional model
-            unfrozen_model.save(model_path)
-
-            # Save additional files
             if self.tokenizer:
-                self.tokenizer.save_to_json(os.path.join(outputdir,
-                                                         "tokenizer.json"))
+                self.tokenizer.save_to_json(os.path.join(outputdir, "tokenizer.json"))
             if self.config:
                 self.config.save(os.path.join(outputdir, "config.json"))
             if self.normalization_file:
-                with open(self.normalization_file, "r", encoding="utf-8") \
-                        as norm_file:
+                with open(self.normalization_file, "r", encoding="utf-8") as norm_file:
                     normalization = json.load(norm_file)
-                with open(os.path.join(outputdir, "normalization.json"),
-                          "w", encoding="utf-8") as norm_file:
-                    json.dump(normalization, norm_file, indent=4,
-                              ensure_ascii=False)
+                with open(os.path.join(outputdir, "normalization.json"), "w", encoding="utf-8") as norm_file:
+                    json.dump(normalization, norm_file, indent=4, ensure_ascii=False)
 
         except Exception as e:
             self.logger.error("Error saving model: %s", e)
