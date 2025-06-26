@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard Library
+import asyncio
 import logging
 import multiprocessing as mp
 from typing import Any, Dict
@@ -135,36 +136,29 @@ async def restart_all_workers(
     """
     logger.info("Attempting to restart all workers.")
 
-    if not stop_event.is_set():
-        logger.info("Setting stop event to halt current workers and bridges.")
-        stop_event.set()
+    # Check if all queues are empty multiple times before restarting workers
+    # since the workers might still be processing data while the queues are
+    # empty
+    empty_count = 0
 
-    stop_all_workers(current_workers, stop_event)
+    while True:
+        if all(queue.empty() for queue in queues.values()):
+            empty_count += 1
 
-    logger.info("Clearing stop event for new workers and bridges.")
-    stop_event.clear()
+            if empty_count >= 3:
+                logger.info("All queues are empty, restarting workers.")
 
-    for q_name, q_instance in {
-        "MPRequest": queues["MPRequest"],
-        "MPPredictedBatches": queues["MPPredictedBatches"],
-    }.items():
-        cleared_count = 0
-        try:
-            while not q_instance.empty():
-                q_instance.get_nowait()
-                cleared_count += 1
-        except Exception:
-            pass
-        if cleared_count > 0:
-            logger.info(f"Cleared {cleared_count} items from {q_name} during restart.")
-        if not q_instance.empty():
-            logger.warning(
-                f"Queue {q_name} is not empty after clearing. Proceeding with restart."
-            )
+                # Stop all workers
+                stop_all_workers(current_workers, stop_event)
+
+                # Clear stop event to allow workers to restart
+                stop_event.clear()
+
+                # Restart workers with existing queues
+                new_workers = start_all_workers(app_config, stop_event, queues)
+                return new_workers
         else:
-            logger.info(f"Queue {q_name} is empty.")
+            empty_count = 0
 
-    logger.info("Starting new set of worker processes.")
-    new_workers = start_all_workers(app_config, stop_event, queues)
-    logger.info("Workers restarted successfully.")
-    return new_workers
+        # Sleep for a short duration to avoid busy waiting
+        await asyncio.sleep(5)

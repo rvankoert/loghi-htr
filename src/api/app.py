@@ -126,6 +126,10 @@ async def monitor_memory(app: FastAPI):
     """
     memory_limit_bytes = app.state.app_config["memory_limit_bytes"]
     check_interval = app.state.app_config["memory_check_interval_seconds"]
+    logger.info(
+        "Starting memory monitor with a limit set on %s MB",
+        memory_limit_bytes // (1024 * 1024),
+    )
 
     while True:
         try:
@@ -149,25 +153,12 @@ async def monitor_memory(app: FastAPI):
                 )
                 app.state.restarting = True
 
-                if not app.state.stop_event.is_set():
-                    app.state.stop_event.set()
-
-                await stop_bridge_tasks(app.state.bridge_tasks)
-
                 app.state.workers = await restart_all_workers(
                     app.state.app_config,
                     app.state.stop_event,
                     app.state.workers,
                     app.state.queues,
                     app.state.mp_ctx,
-                )
-
-                current_loop = asyncio.get_running_loop()
-                app.state.bridge_tasks = start_bridge_tasks(
-                    app.state.queues,
-                    app.state.sse_response_queues,
-                    app.state.stop_event,
-                    current_loop,
                 )
 
                 logger.info("Workers and bridges restarted successfully after OOM.")

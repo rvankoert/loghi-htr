@@ -104,6 +104,7 @@ class PredictionDatasetBuilder:
         num_channels: int,
         stop_event: mp.Event,
         patience: float,
+        base_dir: str,
     ):
         self._q = mp_request_queue
         self.batch_size = batch_size
@@ -111,6 +112,7 @@ class PredictionDatasetBuilder:
         self.num_channels = num_channels
         self._stop = stop_event
         self.patience = patience
+        self.base_dir = base_dir
 
     def _poll_queue(self, timeout: float = 0.01) -> Any | None:
         """Return next item or *None* if queue is empty within *timeout*."""

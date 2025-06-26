@@ -438,6 +438,7 @@ def predictor_process_entrypoint(
         num_channels,
         stop_event,
         worker_config["patience"],
+        worker_config["base_model_dir"],
     )
 
     _run_prediction_loop(
