@@ -1,18 +1,11 @@
-# Imports
-
-# > Standard Library
 import argparse
 import logging
-
-# > Local dependencies
-
-# > Third party libraries
 
 
 def get_arg_parser():
     parser = argparse.ArgumentParser(
-        description='Loghi HTR Core. Provides deep learning '
-                    'for Handwritten Text Recognition.')
+        description='Loghi HTR. Provides deep learning '
+                    'for Automatic Text Recognition.')
 
     # General configuration
     general_args = parser.add_argument_group('General arguments')
