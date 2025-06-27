@@ -38,6 +38,8 @@ def get_arg_parser():
                               "test_file2.txt'.")
     general_args.add_argument('--test_images', action='store_true',
                               help="Enable testing of input images")
+    general_args.add_argument('--no_verify_image_exists', action='store_true',
+                              help="Disable existance testing of input images")
 
     # Training configuration
     training_args = parser.add_argument_group('Training arguments')

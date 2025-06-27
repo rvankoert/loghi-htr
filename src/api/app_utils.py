@@ -292,7 +292,7 @@ def start_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: 
     return workers
 
 
-def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
+def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event, timeout: int = 10):
     """
     Stop all worker processes gracefully.
 
@@ -302,16 +302,23 @@ def stop_workers(workers: Dict[str, mp.Process], stop_event: mp.Event):
         A dictionary of worker processes with worker names as keys.
     stop_event : mp.Event
         An event to signal workers to stop.
+    timeout : int, optional
+        Maximum time (in seconds) to wait for each worker to terminate.
     """
+    logger = logging.getLogger(__name__)
+
     # Signal all workers to stop
     stop_event.set()
 
     # Wait for all workers to finish
-    for worker in workers.values():
-        logger = logging.getLogger(__name__)
-        logger.info("Waiting for worker process %s to finish", worker.name)
-        worker.join()
-
+    for worker_name, worker in workers.items():
+        logger.info("Waiting for worker process %s to finish", worker_name)
+        worker.join(timeout=timeout)
+        if worker.is_alive():
+            logger.warning("Worker process %s did not terminate. Forcing termination.", worker_name)
+            worker.terminate()
+            worker.join(timeout=timeout)
+    logger.info("workers stopped successfully.")
 
 async def restart_workers(batch_size: int, output_path: str, gpus: str, base_model_dir: str,
                           model_name: str, patience: int, stop_event: mp.Event,
