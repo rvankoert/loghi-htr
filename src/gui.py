@@ -7,7 +7,6 @@ from setup.arg_parser import get_arg_parser
 
 
 class MainApp:
-
     def is_file_chooser_parameter(self, param):
         if param in ["validation_list", "train_list", "inference_list", "config_file", "results_file", "corpus_file",
                      "normalization_file", "tokenizer"]:
@@ -23,7 +22,6 @@ class MainApp:
         folder_selected = filedialog.askopenfilename(parent=root)
         entry.delete(0, tk.END)  # Clear the current value
         entry.insert(0, folder_selected)  # Insert the selected path
-
 
     def __init__(self, root):
         self.root = root
@@ -45,17 +43,19 @@ class MainApp:
         for i, arg in enumerate(args):
             label = tk.Label(root, text=arg)
             label.grid(row=(i // num_columns) + 1, column=(i % num_columns) * 2, padx=5, pady=5, sticky='w')
+            # file selection box
             if self.is_file_chooser_parameter(arg):
                 entry = tk.Entry(root)
                 entry.insert(0, str(args[arg]) if args[arg] is not None else "")
                 self.args[arg] = entry
                 # if entry is clicked open file dialog that fills the entry
                 entry.bind("<Button-1>", lambda e, entry=entry: self.setFolderPath(entry,root))
-
+            # boolean/checkbox
             elif type(args[arg]) == bool:
                 var = tk.BooleanVar(value=args[arg])
                 entry = tk.Checkbutton(root, variable=var)
                 self.args[arg] = var
+            #     textbox
             else:
                 entry = tk.Entry(root)
                 if args[arg] is not None:
