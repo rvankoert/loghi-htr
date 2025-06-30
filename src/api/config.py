@@ -1,6 +1,7 @@
 # Imports
 
 # > Standard Library
+import json
 import logging
 import os
 
@@ -35,7 +36,7 @@ DEFAULT_MEMORY_LIMIT = min(
 memory_limit_env = os.getenv("MEMORY_LIMIT")
 if memory_limit_env:
     try:
-        MEMORY_LIMIT = int(int(memory_limit_env) * MEGABYTE * MEMORY_USAGE_PERCENTAGE)
+        MEMORY_LIMIT = int(int(memory_limit_env) * MEMORY_USAGE_PERCENTAGE)
     except ValueError:
         logger.error(
             f"Invalid MEMORY_LIMIT env variable: {memory_limit_env}. Using default."
@@ -43,8 +44,6 @@ if memory_limit_env:
         MEMORY_LIMIT = DEFAULT_MEMORY_LIMIT
 else:
     MEMORY_LIMIT = DEFAULT_MEMORY_LIMIT
-
-logger.info(f"Memory limit set to {MEMORY_LIMIT / MEGABYTE:.2f} MB")
 
 
 def load_app_config() -> dict:

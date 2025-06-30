@@ -1,6 +1,7 @@
 # Imports
 # > Standard library
 import asyncio
+import json
 import multiprocessing as mp
 import os
 import socket
@@ -128,7 +129,7 @@ async def monitor_memory(app: FastAPI):
     check_interval = app.state.app_config["memory_check_interval_seconds"]
     logger.info(
         "Starting memory monitor with a limit set on %s MB",
-        memory_limit_bytes // (1024 * 1024),
+        memory_limit_bytes / MEGABYTE,
     )
 
     while True:
@@ -224,6 +225,8 @@ async def run_server(
     """
     host = APP_CONFIG["uvicorn_host"]  # keep names to avoid renaming env vars
     port = APP_CONFIG["uvicorn_port"]
+
+    logger.info("Starting app with config:\n%s", json.dumps(APP_CONFIG, indent=2))
 
     # DNS sanity-check (mirrors the original Uvicorn logic)
     try:
