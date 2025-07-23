@@ -65,7 +65,6 @@ def load_app_config() -> dict:
         "batch_size": int(get_env_variable("LOGHI_BATCH_SIZE", "256")),
         "base_model_dir": get_env_variable("LOGHI_BASE_MODEL_DIR"),
         "model_name": get_env_variable("LOGHI_MODEL_NAME"),
-        "output_path": get_env_variable("LOGHI_OUTPUT_PATH"),
         "max_queue_size": int(get_env_variable("LOGHI_MAX_QUEUE_SIZE", "10000")),
         "patience": float(get_env_variable("LOGHI_PATIENCE", "0.5")),
         "gpus": get_env_variable("LOGHI_GPUS", "0"),
