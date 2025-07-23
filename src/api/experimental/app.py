@@ -5,6 +5,7 @@ import json
 import multiprocessing as mp
 import os
 import socket
+import sys
 from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
@@ -12,8 +13,6 @@ from typing import Optional
 import psutil
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from hypercorn.asyncio import serve as hypercorn_serve
-from hypercorn.config import Config as HyperConfig
 
 # > Local
 from .config import APP_CONFIG, MEGABYTE
@@ -33,6 +32,15 @@ from .worker_manager import (
 
 # Initialize logger before anything else tries to log
 logger = setup_logging(APP_CONFIG["logging_level"])
+
+try:
+    from hypercorn.asyncio import serve as hypercorn_serve
+    from hypercorn.config import Config as HyperConfig
+except ImportError:
+    logger.error(
+        "The experimental API requires installing dependency 'hypercorn'. Please install via: pip install hypercorn"
+    )
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -99,7 +107,7 @@ async def lifespan(app: FastAPI):
     # ---------------------------------------------------------------------
     # Graceful shutdown
     # ---------------------------------------------------------------------
-    logger.info("Shutting down application…")
+    logger.info("Shutting down application...")
     if not app.state.stop_event.is_set():
         app.state.stop_event.set()
 

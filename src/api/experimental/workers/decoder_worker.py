@@ -15,7 +15,8 @@ from bidi.algorithm import get_display
 
 # Adjust path for worker execution
 current_worker_file_dir = os.path.dirname(os.path.realpath(__file__))
-api_dir = os.path.dirname(current_worker_file_dir)
+experimental_dir = os.path.dirname(current_worker_file_dir)
+api_dir = os.path.dirname(experimental_dir)
 src_dir = os.path.dirname(api_dir)
 if src_dir not in sys.path:
     sys.path.append(src_dir)
