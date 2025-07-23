@@ -181,7 +181,7 @@ You can run the API using `uvicorn`. To start the server from the project's root
 
 ```bash
 # From the project root directory
-uvicorn src.api.stable.app:app --host 127.0.0.1 --port 5000
+uvicorn src.api.app:app --host 127.0.0.1 --port 5000
 ```
 
 #### Environment Variables Configuration
@@ -223,7 +223,7 @@ Replace `$input_path`, `$group_id`, and `$filename` with your respective file pa
 -   The `model` field (`-F "model=$model_path"`) allows for specifying which model the API should use for the current request.
 -   To avoid the slowdown associated with loading different models for each request, it is preferable to set a specific model before starting your API by using the `LOGHI_MODEL_NAME` environment variable.
 
-> [!WARNING]
+> **Warning**
 > Continuous model switching with the `model` field can lead to severe processing delays. For most users, it's best to set the model via environment variables and restart the API only when necessary.
 
 Optionally, you can add `"whitelist="` fields to add extra metadata to your output. The field values will be used as keys to lookup values in the model config.
@@ -259,11 +259,9 @@ This will respond with a 500 status code if a worker process has crashed, and a 
 <details>
 <summary><b>Experimental API (Advanced Users Only)</b></summary>
 
-> [!CAUTION]
+> **Caution**
 > **NOT RECOMMENDED FOR CASUAL USE**
->
 > This API is intended for advanced users and high-throughput production environments. It deviates significantly from the stable API by using **Server-Sent Events (SSE)** to stream results directly to the client, avoiding filesystem I/O for predictions.
->
 > This requires a client-side implementation that can handle SSE streams and a good understanding of protocols like **HTTP/2** for optimal performance.
 
 ### 1. Setting up the API
@@ -331,7 +329,7 @@ curl -N -X POST \
   http://localhost:5000/predict
 ```
 
-> [!NOTE]
+> **Note**
 > The `-N` flag in `curl` is crucial to disable buffering and see the events as they arrive.
 
 #### Understanding the SSE Stream
