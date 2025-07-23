@@ -1,10 +1,9 @@
-# Imports
-
-# > Third-party dependencies
 import tensorflow as tf
+from keras.src.saving import register_keras_serializable
 from tensorflow.keras import backend as K
 
 
+@register_keras_serializable(package='Custom', name='CERMetric')
 class CERMetric(tf.keras.metrics.Metric):
     """
     A custom Keras metric to compute the Character Error Rate
@@ -53,7 +52,22 @@ class CERMetric(tf.keras.metrics.Metric):
         self.cer_accumulator.assign(0.0)
         self.counter.assign(0.0)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'greedy': self.greedy,
+            'beam_width': self.beam_width
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        greedy = config.pop('greedy', True)
+        beam_width = config.pop('beam_width', 1)
+        return cls(greedy=greedy, beam_width=beam_width, **config)
+
+
+@register_keras_serializable(package='Custom', name='WERMetric')
 class WERMetric(tf.keras.metrics.Metric):
     """
     A custom Keras metric to compute the Word Error Rate
@@ -101,3 +115,11 @@ class WERMetric(tf.keras.metrics.Metric):
     def reset_state(self):
         self.wer_accumulator.assign(0.0)
         self.counter.assign(0.0)
+
+    def get_config(self):
+        config = super().get_config()
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

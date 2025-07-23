@@ -5,8 +5,10 @@ from typing import Union
 
 # Third-party dependencies
 import tensorflow as tf
+from tensorflow.keras.utils import register_keras_serializable
 
 
+@register_keras_serializable(package="Custom")
 class LoghiLearningRateSchedule(tf.keras.optimizers.
                                 schedules.LearningRateSchedule):
     def __init__(self, initial_learning_rate: float, decay_rate: float,

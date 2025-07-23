@@ -53,10 +53,14 @@ class DataManager:
         logging.info("Processing raw data...")
         file_names, labels, sample_weights, self.tokenizer = self._process_raw_data()
 
-        self.raw_data = {split: (file_names[split], labels[split],
-                                 sample_weights[split])
-                         for split in ['train', 'evaluation', 'validation',
-                                       'test', 'inference']}
+        # Initialize raw_data dictionary for each dataset split
+        self.raw_data = {}
+        for split in ['train', 'evaluation', 'validation', 'test', 'inference']:
+            self.raw_data[split] = (
+                file_names[split],  # File names for the split
+                labels[split],  # Labels for the split
+                sample_weights[split]  # Sample weights for the split
+            )
 
         # Fill the datasets dictionary with datasets for different partitions
         logging.info("Creating datasets...")
@@ -107,7 +111,8 @@ class DataManager:
                     text_file=partition_text_file,
                     characters=characters,
                     bidirectional=self.config["bidirectional"],
-                    test_images=self.config["test_images"]
+                    test_images=self.config["test_images"],
+                    no_verify_image_exists=self.config["no_verify_image_exists"]
                 )
                 if len(file_names) == 0:
                     raise ValueError("No data found for the specified "
@@ -181,7 +186,8 @@ class DataManager:
                      text_file: str,
                      characters: Set[str],
                      bidirectional: bool,
-                     test_images: bool) -> Tuple[List[str], List[str], List[str]]:
+                     test_images: bool,
+                     no_verify_image_exists: bool) -> Tuple[List[str], List[str], List[str]]:
         """
         Create data for a specific partition from a text file.
 
@@ -210,7 +216,7 @@ class DataManager:
         flaw_counts = {}
 
         # Process each file in the data files list
-        for file_path in text_file.split():
+        for file_path in text_file.split('\t'):
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"{file_path} does not exist")
 
@@ -220,7 +226,8 @@ class DataManager:
                     data, flaw = self._process_line(line,
                                                     partition_name,
                                                     characters,
-                                                    test_images)
+                                                    test_images,
+                                                    no_verify_image_exists)
                     if data is not None:
                         file_name, ground_truth, sample_weight = data
                         partitions.append(file_name)
@@ -257,7 +264,8 @@ class DataManager:
                       line: str,
                       partition_name: str,
                       characters: Set[str],
-                      test_images:bool) \
+                      test_images: bool,
+                      no_verify_image_exists: bool) \
             -> Tuple[Optional[Tuple[str, str, float]], Optional[str]]:
         """
         Process a single line from the data file.
@@ -293,7 +301,7 @@ class DataManager:
         file_name = fields[0]
 
         # Skip missing files
-        if not os.path.exists(file_name):
+        if not no_verify_image_exists and not os.path.exists(file_name):
             logging.warning("Missing: %s in %s. Skipping...",
                             file_name, partition_name)
             return None, "Missing file"
@@ -512,7 +520,7 @@ class DataManager:
 
         # Assert the cardinality of the dataset if training
         if steps_per_epoch is None:
-            dataset = dataset.apply(tf.data.experimental.assert_cardinality(np.ceil(
-                len(files) / self.config["batch_size"])))
+            batches = int(np.ceil(len(self.raw_data[partition_name][0]) / self.config['batch_size']))
+            dataset = dataset.apply(tf.data.experimental.assert_cardinality(batches))
 
         return dataset

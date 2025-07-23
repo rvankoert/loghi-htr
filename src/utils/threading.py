@@ -3,6 +3,7 @@
 from collections import defaultdict
 import logging
 from queue import Queue, Empty
+import threading
 from threading import Thread, Event
 from typing import List, Tuple
 
@@ -26,37 +27,15 @@ from bidi.algorithm import get_display
 
 
 class ResultWriter(Thread):
-    """
-    Thread dedicated to writing results to a file.
-
-    Parameters
-    ----------
-    output_file : str
-        Path to the file where results will be written.
-    maxsize : int, optional
-        Maximum size of the queue to limit memory usage, by default 100.
-
-    Attributes
-    ----------
-    queue : Queue[str]
-        Queue for storing result strings.
-    output_file : str
-        Path to the output file where results will be written.
-    running : bool
-        Indicates whether the thread is actively processing.
-    stop_event: Event
-        The event that signals a worker crash.
-    """
-
     def __init__(self, output_file: str, stop_event: Event, maxsize: int = 100):
         super().__init__()
         self.queue: Queue[str] = Queue(maxsize=maxsize)
         self.output_file: str = output_file
         self.running: bool = True
         self.stop_event = stop_event
+        self.written_line_count = 0  # Initialize line count
 
     def run(self) -> None:
-        """Main loop of the thread that writes results from the queue to the file."""
         try:
             with open(self.output_file, "w", encoding="utf-8") as f:
                 while self.running and not self.stop_event.is_set():
@@ -66,6 +45,7 @@ class ResultWriter(Thread):
                             result_str = f"{result['filename']}\t{result['confidence']}\t{result['prediction']}"
                             logging.info(result_str)
                             f.write(result_str + "\n")
+                            self.written_line_count += 1  # Increment line count
                         f.flush()
                         self.queue.task_done()
                     except Empty:
@@ -75,12 +55,33 @@ class ResultWriter(Thread):
             logging.error("ResultWriter encountered an error: %s", str(e))
             self.stop_event.set()
         finally:
-            self.running = False
+            self.stop()
+
+    def get_written_line_count(self) -> int:
+        """Returns the number of lines written to the output file."""
+        return self.written_line_count
 
     def stop(self) -> None:
-        """Stops the thread and waits for it to terminate."""
+        if self.queue.qsize() > 0:
+            logging.warning(
+                "Stopping ResultWriter with %d items still in the queue.",
+                self.queue.qsize(),
+            )
+        while not self.queue.empty():
+            try:
+                batch_result = self.queue.get(timeout=1.0)
+                for result in batch_result:
+                    result_str = f"{result['filename']}\t{result['confidence']}\t{result['prediction']}"
+                    logging.info(result_str)
+                    with open(self.output_file, "a", encoding="utf-8") as f:
+                        f.write(result_str + "\n")
+                    self.written_line_count += 1  # Increment line count
+                self.queue.task_done()
+            except Empty:
+                break
         self.running = False
-        self.join()
+        if self is not threading.current_thread():
+            self.join()
 
 
 class MetricsCalculator(Thread):
@@ -223,7 +224,8 @@ class MetricsCalculator(Thread):
     def stop(self) -> None:
         """Stops the thread and waits for it to terminate."""
         self.running = False
-        self.join()
+        if self is not threading.current_thread():
+            self.join()
 
 
 class DecodingWorker(Thread):
@@ -329,9 +331,61 @@ class DecodingWorker(Thread):
             logging.error("DecodingWorker encountered an error: %s", str(e))
             self.stop_event.set()
         finally:
-            self.running = False
+            self.stop()
 
     def stop(self) -> None:
         """Stops the thread and waits for it to terminate."""
+        if self.input_queue.qsize() > 0:
+            logging.warning(
+                "Stopping DecodingWorker with %d items still in the queue.",
+                self.input_queue.qsize(),
+            )
+        while not self.input_queue.empty():
+            try:
+                batch_data = self.input_queue.get(timeout=1.0)
+                if batch_data is not None:
+                    predictions, _, filenames, y_true = batch_data
+                    decoded = decode_batch_predictions(
+                        predictions,
+                        self.tokenizer,
+                        self.config["greedy"],
+                        self.config["beam_width"],
+                    )
+
+                    # Transpose the predictions for WordBeamSearch
+                    if self.wbs:
+                        predsbeam = tf.transpose(predictions, perm=[1, 0, 2])
+                        char_str = handle_wbs_results(
+                            predsbeam, self.wbs, self.tokenizer.token_list
+                        )
+
+                    # Process each prediction and write directly to result writer
+                    batch_results = []
+                    for idx, (confidence, prediction) in enumerate(decoded):
+                        filename = filenames[idx]
+                        result = {
+                            "filename": filename,
+                            "confidence": confidence,
+                            "prediction": prediction,
+                        }
+                        if y_true is not None:
+                            result["y_true"] = y_true[idx]
+                        if self.wbs:
+                            result["char_str"] = char_str[idx]
+
+                        batch_results.append(result)
+
+                    self.result_queue.put(batch_results)
+
+                self.input_queue.task_done()
+            except Empty:
+                break
+        if self.input_queue.qsize() > 0:
+            logging.warning(
+                "DecodingWorker stopped with %d items still in the queue.",
+                self.input_queue.qsize(),
+            )
+        # Clean up the worker
         self.running = False
-        self.join()
+        if self is not threading.current_thread():
+            self.join()

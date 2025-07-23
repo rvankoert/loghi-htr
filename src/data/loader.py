@@ -10,6 +10,27 @@ import tensorflow as tf
 from utils.text import Tokenizer
 
 
+def safe_decode_image_py(image_bytes, channels=3, expand_animations=False):
+    import tensorflow as tf
+    # Convert Tensor arguments to Python types
+    if isinstance(channels, tf.Tensor):
+        channels = int(channels.numpy())
+    if isinstance(expand_animations, tf.Tensor):
+        expand_animations = bool(expand_animations.numpy())
+    try:
+        image = tf.io.decode_image(
+            image_bytes, channels=channels, expand_animations=expand_animations)
+    except tf.errors.InvalidArgumentError:
+        image = tf.zeros([64, 64, channels], dtype=tf.uint8)
+    return image
+
+def safe_decode_image(image_bytes, channels=3, expand_animations=False):
+    return tf.py_function(
+        func=safe_decode_image_py,
+        inp=[image_bytes, channels, expand_animations],
+        Tout=tf.uint8
+    )
+
 class DataLoader:
     def __init__(self,
                  tokenizer: Tokenizer,
@@ -58,8 +79,8 @@ class DataLoader:
         image_content = tf.io.read_file(image_path)
 
         # Decode the image (assuming images are in PNG format)
-        image = tf.io.decode_image(
-            image_content, channels=self.channels, expand_animations=False)
+        image = safe_decode_image(image_content, channels=self.channels, expand_animations=False)
+        image.set_shape([None, None, self.channels])  # Explicitly set shape
 
         # Resize and normalize the image
         image = tf.image.resize(
