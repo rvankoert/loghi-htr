@@ -10,8 +10,8 @@ from fastapi import UploadFile, Form, File, HTTPException
 from prometheus_client import Gauge
 
 # > Local dependencies
-from batch_predictor import batch_prediction_worker
-from batch_decoder import batch_decoding_worker
+from .batch_predictor import batch_prediction_worker
+from .batch_decoder import batch_decoding_worker
 
 
 class TensorFlowLogFilter(logging.Filter):

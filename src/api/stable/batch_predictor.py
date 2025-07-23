@@ -18,7 +18,8 @@ import tensorflow as tf
 
 # Add parent directory to path for imports
 current_path = os.path.dirname(os.path.realpath(__file__))
-parent_path = os.path.dirname(current_path)
+stable_path = os.path.dirname(current_path)
+parent_path = os.path.dirname(stable_path)
 sys.path.append(parent_path)
 
 # > Local imports
@@ -41,7 +42,7 @@ def setup_gpu_environment(gpus: str) -> List[tf.config.PhysicalDevice]:
     List[tf.config.PhysicalDevice]
         List of active GPUs configured for TensorFlow.
     """
-    gpu_devices = tf.config.list_physical_devices('GPU')
+    gpu_devices = tf.config.list_physical_devices("GPU")
     logging.info("Available GPUs: %s", gpu_devices)
 
     if gpus == "-1":
@@ -50,15 +51,16 @@ def setup_gpu_environment(gpus: str) -> List[tf.config.PhysicalDevice]:
         active_gpus = gpu_devices
     else:
         gpu_indices = gpus.split(",")
-        active_gpus = [gpu for i, gpu in enumerate(gpu_devices)
-                       if str(i) in gpu_indices]
+        active_gpus = [
+            gpu for i, gpu in enumerate(gpu_devices) if str(i) in gpu_indices
+        ]
 
     if active_gpus:
         logging.info("Using GPU(s): %s", active_gpus)
     else:
         logging.info("Using CPU")
 
-    tf.config.set_visible_devices(active_gpus, 'GPU')
+    tf.config.set_visible_devices(active_gpus, "GPU")
     for gpu in active_gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 
@@ -90,19 +92,20 @@ def get_model_channels(config_path: str) -> int:
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(
-            f"Config file not found in the directory: {config_path}")
+            f"Config file not found in the directory: {config_path}"
+        )
 
     # Load the configuration file
-    with open(config_path, 'r', encoding='UTF-8') as file:
+    with open(config_path, "r", encoding="UTF-8") as file:
         config = json.load(file)
 
     # Extract the number of channels
     # First, check the "model_channels" key, then the "args" key
-    num_channels = config.get("model_channels",
-                              config.get("args", {}).get("channels", None))
+    num_channels = config.get(
+        "model_channels", config.get("args", {}).get("channels", None)
+    )
     if num_channels is None:
-        raise ValueError(
-            "Number of channels not found in the config file.")
+        raise ValueError("Number of channels not found in the config file.")
 
     logging.debug("Number of channels retrieved: %d", num_channels)
     return num_channels
@@ -139,8 +142,9 @@ def update_channels(model_path: str) -> int:
         raise e
 
 
-def create_model(base_model_dir: str, model_path: str, strategy: tf.distribute.Strategy)\
-        -> (tf.keras.Model, int):
+def create_model(
+    base_model_dir: str, model_path: str, strategy: tf.distribute.Strategy
+) -> (tf.keras.Model, int):
     """
     Load a pre-trained TensorFlow model within the given distribution strategy scope.
 
@@ -166,19 +170,27 @@ def create_model(base_model_dir: str, model_path: str, strategy: tf.distribute.S
     with strategy.scope():
         try:
             model_location = os.path.join(base_model_dir, model_path)
-            model = load_model_from_directory(model_location,
-                                              compile=False)
+            model = load_model_from_directory(model_location, compile=False)
             num_channels = update_channels(model_location)
             logging.info(
-                "Model '%s' loaded successfully with %d channels.", model.name, num_channels)
+                "Model '%s' loaded successfully with %d channels.",
+                model.name,
+                num_channels,
+            )
         except Exception as e:
             logging.error("Error loading model from '%s': %s", model_path, e)
             raise
     return model, num_channels
 
 
-def process_sample(image_bytes: tf.Tensor, group_id: tf.Tensor, identifier: tf.Tensor,
-                   model: tf.Tensor, whitelist: tf.Tensor, num_channels: int) -> tuple:
+def process_sample(
+    image_bytes: tf.Tensor,
+    group_id: tf.Tensor,
+    identifier: tf.Tensor,
+    model: tf.Tensor,
+    whitelist: tf.Tensor,
+    num_channels: int,
+) -> tuple:
     """
     Preprocess a single sample for the dataset.
 
@@ -204,20 +216,24 @@ def process_sample(image_bytes: tf.Tensor, group_id: tf.Tensor, identifier: tf.T
     """
     try:
         image = tf.io.decode_image(
-            image_bytes, channels=num_channels, expand_animations=False)
+            image_bytes, channels=num_channels, expand_animations=False
+        )
     except tf.errors.InvalidArgumentError:
         image = tf.zeros([64, 64, num_channels], dtype=tf.float32)
-        logging.error("Invalid image for identifier: %s",
-                      identifier.numpy().decode('utf-8'))
+        logging.error(
+            "Invalid image for identifier: %s", identifier.numpy().decode("utf-8")
+        )
 
     # Resize and normalize the image
     image = tf.image.resize(
-        image, [64, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True)
+        image, [64, tf.constant(99999, dtype=tf.int32)], preserve_aspect_ratio=True
+    )
     image = tf.cast(image, tf.float32) / 255.0
 
     # Resize and pad the image
     image = tf.image.resize_with_pad(
-        image, 64, tf.shape(image)[1] + 50, method=tf.image.ResizeMethod.BILINEAR)
+        image, 64, tf.shape(image)[1] + 50, method=tf.image.ResizeMethod.BILINEAR
+    )
 
     # Normalize the image
     image = 0.5 - image
@@ -228,8 +244,12 @@ def process_sample(image_bytes: tf.Tensor, group_id: tf.Tensor, identifier: tf.T
     return image, group_id, identifier, model, whitelist
 
 
-def data_generator(request_queue: multiprocessing.Queue, current_model_path_holder: list,
-                   stop_event: multiprocessing.Event, patience: int):
+def data_generator(
+    request_queue: multiprocessing.Queue,
+    current_model_path_holder: list,
+    stop_event: multiprocessing.Event,
+    patience: int,
+):
     """
     Generator that yields data from the request queue, ensuring batch consistency
     with the current model.
@@ -264,10 +284,14 @@ def data_generator(request_queue: multiprocessing.Queue, current_model_path_hold
                 if current_model_path_holder[0] is None:
                     current_model_path_holder[0] = new_model_path
 
-                if new_model_path != current_model_path_holder[0] and new_model_path is not None:
+                if (
+                    new_model_path != current_model_path_holder[0]
+                    and new_model_path is not None
+                ):
                     request_queue.put(data)
                     logging.info(
-                        "Model changed to '%s'. Switching generator.", new_model_path)
+                        "Model changed to '%s'. Switching generator.", new_model_path
+                    )
                     current_model_path_holder[0] = new_model_path
                     break  # Exit to allow dataset recreation with the new model
 
@@ -280,15 +304,21 @@ def data_generator(request_queue: multiprocessing.Queue, current_model_path_hold
 
             if time.time() - time_since_last_request > patience and has_data:
                 logging.debug(
-                    "No new requests for %d seconds. Yielding remaining data.", patience)
+                    "No new requests for %d seconds. Yielding remaining data.", patience
+                )
                 break
 
     logging.debug("Data generator stopped")
 
 
-def create_dataset(request_queue: multiprocessing.Queue, batch_size: int,
-                   current_model_path_holder: list, num_channels: int,
-                   stop_event: multiprocessing.Event, patience: int) -> tf.data.Dataset:
+def create_dataset(
+    request_queue: multiprocessing.Queue,
+    batch_size: int,
+    current_model_path_holder: list,
+    num_channels: int,
+    stop_event: multiprocessing.Event,
+    patience: int,
+) -> tf.data.Dataset:
     """
     Create a TensorFlow dataset from the request queue.
 
@@ -316,35 +346,37 @@ def create_dataset(request_queue: multiprocessing.Queue, batch_size: int,
 
     dataset = tf.data.Dataset.from_generator(
         lambda: data_generator(
-            request_queue, current_model_path_holder, stop_event, patience),
+            request_queue, current_model_path_holder, stop_event, patience
+        ),
         output_types=(tf.string, tf.string, tf.string, tf.string, tf.string),
-        output_shapes=((), (), (), (), (None,))
+        output_shapes=((), (), (), (), (None,)),
     )
 
     dataset = dataset.map(
         lambda image, group_id, identifier, model, metadata: process_sample(
-            image, group_id, identifier, model, metadata, num_channels),
+            image, group_id, identifier, model, metadata, num_channels
+        ),
         num_parallel_calls=tf.data.AUTOTUNE,
-        deterministic=False
+        deterministic=False,
     )
 
     dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
             [None, None, num_channels],  # Image shape
-            [],                           # group_id
-            [],                           # identifier
-            [],                           # model
-            [None]                        # metadata
+            [],  # group_id
+            [],  # identifier
+            [],  # model
+            [None],  # metadata
         ),
         padding_values=(
             tf.constant(-10, dtype=tf.float32),  # Image padding value
-            tf.constant('', dtype=tf.string),    # group_id padding
-            tf.constant('', dtype=tf.string),    # identifier padding
-            tf.constant('', dtype=tf.string),    # model padding
-            tf.constant('', dtype=tf.string)     # metadata padding
+            tf.constant("", dtype=tf.string),  # group_id padding
+            tf.constant("", dtype=tf.string),  # identifier padding
+            tf.constant("", dtype=tf.string),  # model padding
+            tf.constant("", dtype=tf.string),  # metadata padding
         ),
-        drop_remainder=False
+        drop_remainder=False,
     )
 
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
@@ -353,10 +385,9 @@ def create_dataset(request_queue: multiprocessing.Queue, batch_size: int,
     return dataset
 
 
-def output_prediction_error(output_path: str,
-                            group_id: str,
-                            identifier: str,
-                            text: str):
+def output_prediction_error(
+    output_path: str, group_id: str, identifier: str, text: str
+):
     """
     Output an error message to a file.
 
@@ -375,14 +406,15 @@ def output_prediction_error(output_path: str,
     output_dir = os.path.join(output_path, group_id)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
-    with open(os.path.join(output_dir, identifier + ".error"), "w",
-              encoding="utf-8") as f:
+    with open(
+        os.path.join(output_dir, identifier + ".error"), "w", encoding="utf-8"
+    ) as f:
         f.write(str(text) + "\n")
 
 
-def predict(model: tf.keras.Model,
-            batch_images: tf.Tensor,
-            batch_id: str) -> np.ndarray:
+def predict(
+    model: tf.keras.Model, batch_images: tf.Tensor, batch_id: str
+) -> np.ndarray:
     """
     Make predictions on a batch of images using the provided model.
 
@@ -401,23 +433,28 @@ def predict(model: tf.keras.Model,
         An array of predictions made by the model.
     """
 
-    logging.info("Predicting batch of size %d (%s)",
-                 len(batch_images), batch_id)
+    logging.info("Predicting batch of size %d (%s)", len(batch_images), batch_id)
     t1 = time.time()
     encoded_predictions = model.predict_on_batch(batch_images)
 
-    logging.info("Made %d predictions in %.2f seconds (%s)",
-                 len(encoded_predictions), time.time() - t1, batch_id)
+    logging.info(
+        "Made %d predictions in %.2f seconds (%s)",
+        len(encoded_predictions),
+        time.time() - t1,
+        batch_id,
+    )
     logging.debug("Predictions: %s", encoded_predictions)
     return encoded_predictions
 
 
-def safe_predict(model: tf.keras.Model,
-                 predicted_queue: multiprocessing.Queue,
-                 batch_images: tf.Tensor,
-                 batch_info: List[Tuple[str, str]],
-                 output_path: str,
-                 batch_id: str) -> List[str]:
+def safe_predict(
+    model: tf.keras.Model,
+    predicted_queue: multiprocessing.Queue,
+    batch_images: tf.Tensor,
+    batch_info: List[Tuple[str, str]],
+    output_path: str,
+    batch_id: str,
+) -> List[str]:
     """
     Attempt to predict on a batch of images using the provided model. If a
     TensorFlow Out of Memory (OOM) error occurs, the batch is split in half and
@@ -455,16 +492,17 @@ def safe_predict(model: tf.keras.Model,
         # return an empty list
         if len(batch_images) == 1:
             logging.error(
-                "OOM error with single image. Skipping image %s.",
-                batch_info[0][1])
+                "OOM error with single image. Skipping image %s.", batch_info[0][1]
+            )
 
-            output_prediction_error(
-                output_path, batch_info[0][0], batch_info[0][1], e)
+            output_prediction_error(output_path, batch_info[0][0], batch_info[0][1], e)
             return []
 
         logging.warning(
-            "OOM error with batch size %s. Splitting batch %s in half and "
-            "retrying.", len(batch_images), batch_id)
+            "OOM error with batch size %s. Splitting batch %s in half and retrying.",
+            len(batch_images),
+            batch_id,
+        )
 
         # Splitting batch in half
         mid_index = len(batch_images) // 2
@@ -475,16 +513,23 @@ def safe_predict(model: tf.keras.Model,
 
         # Recursive calls for each half
         first_half_predictions = safe_predict(
-            model, predicted_queue, first_half_images,
-            first_half_info, output_path, batch_id
+            model,
+            predicted_queue,
+            first_half_images,
+            first_half_info,
+            output_path,
+            batch_id,
         )
         second_half_predictions = safe_predict(
-            model, predicted_queue, second_half_images,
-            second_half_info, output_path, batch_id
+            model,
+            predicted_queue,
+            second_half_images,
+            second_half_info,
+            output_path,
+            batch_id,
         )
 
-        return np.concatenate((first_half_predictions,
-                               second_half_predictions))
+        return np.concatenate((first_half_predictions, second_half_predictions))
     except Exception as e:
         logging.error("Error predicting batch %s: %s", batch_id, e)
         for group, identifier in batch_info:
@@ -493,15 +538,17 @@ def safe_predict(model: tf.keras.Model,
         return []
 
 
-def batch_prediction_worker(request_queue: multiprocessing.Queue,
-                            predicted_queue: multiprocessing.Queue,
-                            base_model_dir: str,
-                            initial_model_path: str,
-                            error_output_path: str,
-                            stop_event: multiprocessing.Event,
-                            gpus: str = '0',
-                            batch_size: int = 32,
-                            patience: int = 1):
+def batch_prediction_worker(
+    request_queue: multiprocessing.Queue,
+    predicted_queue: multiprocessing.Queue,
+    base_model_dir: str,
+    initial_model_path: str,
+    error_output_path: str,
+    stop_event: multiprocessing.Event,
+    gpus: str = "0",
+    batch_size: int = 32,
+    patience: int = 1,
+):
     """
     Worker process for performing batch predictions on images.
 
@@ -542,41 +589,69 @@ def batch_prediction_worker(request_queue: multiprocessing.Queue,
     # Load the initial model
     current_model_path_holder = [initial_model_path]
     model, num_channels = create_model(
-        base_model_dir, current_model_path_holder[0], strategy)
+        base_model_dir, current_model_path_holder[0], strategy
+    )
 
     try:
         while not stop_event.is_set():
             dataset = create_dataset(
-                request_queue, batch_size, current_model_path_holder,
-                num_channels, stop_event, patience
+                request_queue,
+                batch_size,
+                current_model_path_holder,
+                num_channels,
+                stop_event,
+                patience,
             )
 
             for batch in dataset:
                 if stop_event.is_set():
                     break
 
-                images, batch_groups, batch_identifiers, batch_models, batch_whitelist = batch
+                (
+                    images,
+                    batch_groups,
+                    batch_identifiers,
+                    batch_models,
+                    batch_whitelist,
+                ) = batch
                 # Check for model updates
-                model_path = batch_models[0].numpy().decode('utf-8')
-                if model_path != current_model_path_holder[0] and model_path is not None:
+                model_path = batch_models[0].numpy().decode("utf-8")
+                if (
+                    model_path != current_model_path_holder[0]
+                    and model_path is not None
+                ):
                     logging.info(
                         "Model switch detected. Replacing old model '%s' with model '%s'.",
-                        current_model_path_holder, model_path)
+                        current_model_path_holder,
+                        model_path,
+                    )
                     current_model_path_holder[0] = model_path
                     model, num_channels = create_model(
-                        base_model_dir, model_path, strategy)
+                        base_model_dir, model_path, strategy
+                    )
                     logging.debug("Model '%s' loaded successfully.", model_path)
 
                 # Perform predictions
                 batch_id = str(uuid.uuid4())
                 encoded_predictions = safe_predict(
-                    model, predicted_queue, images, list(
-                        zip(batch_groups, batch_identifiers)),
-                    error_output_path, batch_id
+                    model,
+                    predicted_queue,
+                    images,
+                    list(zip(batch_groups, batch_identifiers)),
+                    error_output_path,
+                    batch_id,
                 )
                 logging.debug("Predictions made for batch %s", batch_id)
-                predicted_queue.put((encoded_predictions, batch_groups, batch_identifiers,
-                                     model_path, batch_id, batch_whitelist))
+                predicted_queue.put(
+                    (
+                        encoded_predictions,
+                        batch_groups,
+                        batch_identifiers,
+                        model_path,
+                        batch_id,
+                        batch_whitelist,
+                    )
+                )
     except Exception as e:
         logging.error("Error in batch prediction worker: %s", e)
         raise e

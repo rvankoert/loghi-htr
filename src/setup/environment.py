@@ -4,6 +4,7 @@
 import logging
 import os
 import random
+from typing import List
 
 # > Third-party dependencies
 import numpy as np
@@ -49,10 +50,69 @@ def set_deterministic(seed: int) -> None:
     is useful for ensuring reproducibility in experiments.
     """
 
-    os.environ['TF_DETERMINISTIC_OPS'] = '1'
+    os.environ["TF_DETERMINISTIC_OPS"] = "1"
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+
+
+def setup_gpus(gpus_config: str) -> List[tf.config.PhysicalDevice]:
+    """
+    Configure the TensorFlow GPU environment.
+
+    Parameters
+    ----------
+    gpus_config : str
+        GPU selection string ('-1' for CPU, 'all' for all GPUs, or comma-separated indices).
+
+    Returns
+    -------
+    List[tf.config.PhysicalDevice]
+        List of active GPU devices.
+    """
+    """Configure the GPU environment for TensorFlow."""
+    try:
+        gpu_devices = tf.config.list_physical_devices("GPU")
+        logging.info("Selected GPU indices from config: %s", gpus_config)
+        logging.info("Available GPUs: %s", gpu_devices)
+
+        if not gpu_devices:
+            logging.info("No GPUs found. Using CPU.")
+            tf.config.set_visible_devices([], "GPU")
+            return []
+
+        if gpus_config == "-1":  # CPU only
+            active_gpus = []
+            logging.info("Using CPU only as per configuration.")
+        elif gpus_config.lower() == "all":
+            active_gpus = gpu_devices
+            logging.info("Using all available GPUs: %s", active_gpus)
+        else:
+            gpu_indices_str = gpus_config.split(",")
+            chosen_gpus = []
+            for idx_str in gpu_indices_str:
+                try:
+                    idx = int(idx_str)
+                    if 0 <= idx < len(gpu_devices):
+                        chosen_gpus.append(gpu_devices[idx])
+                    else:
+                        logging.warning(f"GPU index {idx} is out of range.")
+                except ValueError:
+                    logging.warning(f"Invalid GPU index: {idx_str}.")
+            active_gpus = chosen_gpus
+            logging.info("Using specific GPU(s): %s", active_gpus)
+
+        tf.config.set_visible_devices(active_gpus, "GPU")
+
+        for gpu in active_gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+            logging.info(f"Memory growth enabled for {gpu.name}")
+
+        return active_gpus
+    except Exception as e:
+        logging.error(f"Error setting up GPU environment: {e}. Falling back to CPU.")
+        tf.config.set_visible_devices([], "GPU")
+        return []
 
 
 def setup_environment(config: Config) -> tf.distribute.Strategy:
@@ -86,29 +146,7 @@ def setup_environment(config: Config) -> tf.distribute.Strategy:
         set_deterministic(config["seed"])
 
     # Set the GPU
-    gpu_devices = tf.config.list_physical_devices('GPU')
-    logging.info("Selected GPU indices from config: %s", config["gpu"])
-    logging.info("Available GPU(s): %s", gpu_devices)
-
-    # Set the active GPUs depending on the 'gpu' argument
-    if config["gpu"] == "-1":
-        active_gpus = []
-    elif config["gpu"].lower() == "all":
-        active_gpus = gpu_devices
-    else:
-        gpus = config["gpu"].split(',')
-        active_gpus = []
-        for i, gpu in enumerate(gpu_devices):
-            if str(i) in gpus:
-                tf.config.experimental.set_memory_growth(gpu, True)
-                active_gpus.append(gpu)
-
-    if active_gpus:
-        logging.info("Using GPU(s): %s", active_gpus)
-    else:
-        logging.info("Using CPU")
-
-    tf.config.set_visible_devices(active_gpus, 'GPU')
+    active_gpus = setup_gpus(config["gpu"])
 
     # Initialize the strategy
     strategy = initialize_strategy(config["use_float32"], active_gpus)
@@ -142,8 +180,9 @@ def setup_logging() -> None:
         tf_logger.handlers.pop()
 
 
-def initialize_strategy(use_float32: bool,
-                        active_gpus: list[str]) -> tf.distribute.Strategy:
+def initialize_strategy(
+    use_float32: bool, active_gpus: list[str]
+) -> tf.distribute.Strategy:
     """
     Initializes the TensorFlow distribution strategy and sets the mixed
     precision policy.
@@ -181,19 +220,24 @@ def initialize_strategy(use_float32: bool,
         # Check if all GPUs support mixed precision
         gpus_support_mixed_precision = bool(active_gpus)
         for device in active_gpus:
-            if tf.config.experimental.\
-                    get_device_details(device)['compute_capability'][0] < 7:
+            if (
+                tf.config.experimental.get_device_details(device)["compute_capability"][
+                    0
+                ]
+                < 7
+            ):
                 gpus_support_mixed_precision = False
 
         # If all GPUs support mixed precision, enable it
         if gpus_support_mixed_precision:
-            policy = tf.keras.mixed_precision.Policy('mixed_float16')
+            policy = tf.keras.mixed_precision.Policy("mixed_float16")
             tf.keras.mixed_precision.set_global_policy(policy)
             logging.info("Mixed precision set to 'mixed_float16'")
         else:
             logging.warning(
                 "Not all GPUs support efficient mixed precision. Running in "
-                "standard mode.")
+                "standard mode."
+            )
     else:
         logging.info("Using float32 precision")
 
