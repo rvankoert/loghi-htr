@@ -90,11 +90,13 @@ def decode_batch_predictions(
         List of tuples containing confidence and decoded text.
     """
     input_len = np.ones(pred.shape[0]) * pred.shape[1]
-    pred = tf.cast(pred, tf.float32)
 
-    ctc_decoded, log_probs = ctc_decode(
-        pred, input_length=input_len, greedy=greedy, beam_width=beam_width
-    )
+    with tf.device('/CPU:0'):
+        pred = tf.cast(pred, tf.float32)
+
+        ctc_decoded, log_probs = ctc_decode(
+            pred, input_length=input_len, greedy=greedy, beam_width=beam_width
+        )
 
     # Convert the decoded sequence to text
     output_texts = []
