@@ -19,10 +19,15 @@ from data.augment_layers import (ShearXLayer,
                                  ElasticTransformLayer,  # noqa: E402
                                  DistortImageLayer, RandomVerticalCropLayer,
                                  RandomWidthLayer, BinarizeLayer,
-                                 BlurImageLayer, InvertImageLayer)
+                                 BlurImageLayer, InvertImageLayer,
+                                 InkCorrosionLayer, WaterDamageLayer,
+                                 BurnDamageLayer, RestaurationDamageLayer)
 
 
 class TestDataAugments(unittest.TestCase):
+    damage_layers = [InkCorrosionLayer(), WaterDamageLayer(),
+                         BurnDamageLayer(), RestaurationDamageLayer()]
+
     """
     Tests for verifying functionality of image augmentation layers.
 
@@ -281,5 +286,48 @@ class TestDataAugments(unittest.TestCase):
         logging.debug("Final input dims: " + str(input_tensor.shape))
 
 
+    def test_damage_layers_shape(self):
+        for layer in self.damage_layers:
+            for channels in [1, 3, 4]:
+                with self.subTest(layer=layer.__class__.__name__, channels=channels):
+                    input_tensor = tf.random.uniform(shape=[1, 128, 128, channels])
+                    output_tensor = layer(input_tensor, training=True)
+                    self.assertEqual(input_tensor.shape, output_tensor.shape,"Problem with layer: " + layer.__class__.__name__)
+
+    def test_damage_layers_no_training(self):
+        for layer in self.damage_layers:
+            for channels in [1, 3, 4]:
+                with self.subTest(layer=layer.__class__.__name__, channels=channels):
+                    input_tensor = tf.random.uniform(shape=[128, 128, channels])
+                    output_tensor = layer(input_tensor, training=False)
+                    self.assertTrue(tf.reduce_all(tf.equal(input_tensor, output_tensor)))
+
+
 if __name__ == "__main__":
+    # load test-image1
+    test_image_path = Path(__file__).resolve().parents[1] / 'tests' / 'data' / 'test-image1.png'
+    # apply all damage layers to the test image and save the results to /tmp/test-image1-damaged-<layer>.png
+    test_image = Image.open(test_image_path).convert('RGB')
+    # add batch dimension
+    test_image = tf.expand_dims(tf.convert_to_tensor(np.array(test_image)), axis=0)
+
+    for layer in TestDataAugments.damage_layers:
+        layer_name = layer.__class__.__name__.lower()
+        if layer_name == "inkcorrosionlayer":
+            layer = InkCorrosionLayer(probability=0.5)
+            output_image = layer(tf.convert_to_tensor(np.array(test_image)), training=True)
+        else:
+            output_image = layer(tf.convert_to_tensor(np.array(test_image)), training=True)
+        output_image = tf.clip_by_value(output_image, 0, 255)
+        output_image = tf.cast(output_image, tf.uint8)
+        output_image = tf.squeeze(output_image, axis=0)  # Remove batch dimension
+        output_image = Image.fromarray(output_image.numpy())
+        output_path = Path('/tmp') / f'test-image1-damaged-{layer_name}.png'
+        output_image.save(output_path)
+        logging.info(f"Saved damaged image with {layer_name} to {output_path}")
+    # write original image to /tmp/test-image1-original.png
+    original_image = Image.fromarray(tf.squeeze(test_image, axis=0).numpy())
+    original_output_path = Path('/tmp/test-image1-original.png')
+    original_image.save(original_output_path)
+
     unittest.main()

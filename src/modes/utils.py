@@ -16,11 +16,11 @@ from utils.threading import DecodingWorker, MetricsCalculator
 
 
 def setup_workers(
-    config: Config,
-    data_manager: DataManager,
-    stop_event: threading.Event,
-    result_queue: Optional[Queue] = None,
-    wbs=None,
+        config: Config,
+        data_manager: DataManager,
+        stop_event: threading.Event,
+        result_queue: Optional[Queue] = None,
+        wbs=None,
 ) -> List[DecodingWorker]:
     """
     Sets up decode workers with optional result writer integration.
@@ -61,71 +61,89 @@ def setup_workers(
     return decode_workers
 
 
-def process_batches(
-    dataset: tf.data.Dataset,
-    model: tf.keras.Model,
-    config: Config,
-    data_manager: DataManager,
-    decode_workers: List[DecodingWorker],
-    mode: str,
-    stop_event: threading.Event,
-):
+def process_batches(dataset, model, config, data_manager, decode_workers, mode, stop_event):
     """
-    Processes batches from the dataset and distributes work to decode workers.
+    Process batches from the dataset, perform predictions, and send results to workers.
 
     Parameters
     ----------
     dataset : tf.data.Dataset
-        The dataset to be processed, typically yielding batches of input data.
+        Dataset to process.
     model : tf.keras.Model
-        The model used for generating predictions on the input batches.
-    config : Config
-        Configuration object containing settings like batch size.
+        Keras model to perform predictions.
+    config : dict
+        Configuration dictionary.
     data_manager : DataManager
-        The data manager providing utility functions for accessing filenames and ground truth data.
+        Data manager containing datasets and tokenizer.
     decode_workers : List[DecodingWorker]
-        List of decode workers to which the processing work will be distributed.
+        List of workers for decoding predictions.
     mode : str
-        The mode of processing (e.g., 'inference', 'training').
-    stop_event: threading.Event
-        The event that signals a worker crash.
-
-    Returns
-    -------
-    None
+        Evaluation mode, either 'inference' or 'test'/'validation'.
+    stop_event : threading.Event
+        Event to signal processing should stop.
     """
-    for batch_no, batch in enumerate(dataset):
-        if stop_event.is_set():
-            logging.error("Stopping inference due to worker thread crash.")
-            raise RuntimeError("Worker thread crashed.")
+    logging.info("Processing batches for %s...", mode)
 
-        X = batch[0]
-        if mode != "inference":
-            y = [
-                data_manager.get_ground_truth(mode, i)
-                for i in range(
-                    batch_no * config["batch_size"],
-                    batch_no * config["batch_size"] + len(X),
-                )
-            ]
-        else:
-            y = None
+    try:
+        # Determine if we need ground truth (not in inference mode)
+        need_ground_truth = mode != "inference"
+        worker_idx = 0
+        num_workers = len(decode_workers)
 
-        predictions: tf.Tensor = model.predict_on_batch(X)
+        # Process each batch
+        for i, batch in enumerate(dataset):
+            if stop_event.is_set():
+                logging.warning("Processing stopped due to worker error")
+                break
 
-        batch_filenames: List[str] = [
-            data_manager.get_filename(mode, (batch_no * config["batch_size"]) + idx)
-            for idx in range(len(predictions))
-        ]
-        logging.info("Processing batch %s", batch_no)
-        worker_idx: int = batch_no % len(decode_workers)
-        decode_workers[worker_idx].input_queue.put(
-            (predictions, batch_no, batch_filenames, y)
-        )
+            # Unpack the batch
+            images, labels, sample_weights = batch
+            current_batch_size = tf.shape(images)[0]
+
+            # Get filenames and ground truth if needed
+            filenames = [data_manager.get_filename(mode, i * config["batch_size"] + j)
+                         for j in range(current_batch_size)]
+
+            y_true = None
+            if need_ground_truth:
+                y_true = [data_manager.get_ground_truth(mode, i * config["batch_size"] + j)
+                          for j in range(current_batch_size)]
+
+            # Perform prediction with error handling
+            try:
+                predictions = model.predict_on_batch(images)
+
+                # Ensure predictions and filenames have matching length
+                if len(predictions) > len(filenames):
+                    logging.warning(f"Truncating predictions to match filenames: {len(predictions)} → {len(filenames)}")
+                    predictions = predictions[:len(filenames)]
+
+                # Distribute work to decode workers in a round-robin fashion
+                decode_workers[worker_idx].input_queue.put((predictions, current_batch_size, filenames, y_true))
+                worker_idx = (worker_idx + 1) % num_workers
+
+                # Log progress periodically
+                if (i + 1) % 10 == 0:
+                    logging.info(f"Processed {i + 1} batches...")
+
+            except tf.errors.OutOfRangeError as e:
+                logging.error(f"Out of range error on batch {i}: {str(e)}")
+                continue
+            except Exception as e:
+                logging.error(f"Error processing batch {i}: {str(e)}")
+                if not config.get("continue_on_error", False):
+                    stop_event.set()
+                    break
+                continue
+    except Exception as e:
+        logging.error(f"Error during batch processing: {str(e)}")
+        stop_event.set()
+
+    logging.info("Finished processing batches.")
 
 
 def output_statistics(
-    metrics_calculator: MetricsCalculator, config: Config, mode: str, wbs=None
+        metrics_calculator: MetricsCalculator, config: Config, mode: str, wbs=None
 ):
     """
     Logs final statistics and writes them to a CSV file.
@@ -156,7 +174,7 @@ def output_statistics(
     ]
 
     for metric, total_value, interval in zip(
-        metrics_calculator.metrics[:-1], metrics_calculator.total_stats[:-1], intervals
+            metrics_calculator.metrics[:-1], metrics_calculator.total_stats[:-1], intervals
     ):
         logging.info("%s = %.4f +/- %.4f", metric, total_value, interval)
 

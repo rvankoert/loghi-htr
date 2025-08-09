@@ -403,7 +403,7 @@ class ResizeWithPadLayer(tf.keras.layers.Layer):
 
 
 class BinarizeLayer(tf.keras.layers.Layer):
-    def __init__(self, method='otsu', window_size=51, channels=None, **kwargs):
+    def __init__(self, method='otsu', window_size=7, channels=None, **kwargs):
         super(BinarizeLayer, self).__init__(**kwargs)
         self.method = method
 
@@ -636,3 +636,200 @@ class RandomWidthLayer(tf.keras.layers.Layer):
                                    fn_output_signature=tf.float32)
 
         return resized_images
+
+class InkCorrosionLayer(tf.keras.layers.Layer):
+    def __init__(self, corrosion_strength=0.5, max_dilation=5, probability=0.10, **kwargs):
+        super().__init__(**kwargs)
+        self.corrosion_strength = corrosion_strength
+        self.max_dilation = max_dilation
+        self.probability = probability
+
+    @tf.function
+    def call(self, inputs, training=None):
+        if not training:
+            return inputs
+        if tf.random.uniform([]) > self.probability:
+            return inputs
+
+        input_channels = inputs.shape[-1]
+
+        # Convert to grayscale if needed
+        if input_channels > 1:
+            gray = tf.image.rgb_to_grayscale(inputs[..., :3])
+        else:
+            gray = inputs
+        gray = tf.cast(gray, tf.float32) / 255.0
+
+        # Binarize (Otsu threshold approximation)
+        thresh = tf.reduce_mean(gray, axis=[0,1,2], keepdims=True)
+        ink_mask = tf.cast(gray < thresh, tf.float32)
+
+        # Random dilation
+        ksize = tf.random.uniform([], minval=1, maxval=self.max_dilation+1, dtype=tf.int32)
+        kernel = tf.ones((ksize, ksize, 1), dtype=tf.float32)
+        dilated = tf.nn.dilation2d(
+            ink_mask,
+            filters=kernel,
+            strides=[1,1,1,1],
+            padding='SAME',
+            data_format='NHWC',
+            dilations=[1, 1, 1, 1]
+        )
+
+        # Random dark brown/black color per image
+        batch = tf.shape(inputs)[0]
+        rand_green = tf.random.uniform([batch, 1, 1, 1], 0.0, 0.7)
+        color = tf.random.uniform([batch, 1, 1, 1], 0.1, 0.25)
+        color_rgb = tf.concat([color, color * rand_green, tf.zeros_like(color)], axis=-1)
+
+        corrosion_mask = dilated * self.corrosion_strength
+
+        # Only apply corrosion where ink is present
+        if input_channels == 1:
+            base = tf.cast(inputs, tf.float32) / 255.0
+            corroded = base * (1.0 - corrosion_mask * ink_mask) + color * corrosion_mask * ink_mask
+            corroded = tf.clip_by_value(corroded, 0.0, 1.0)
+            corroded = tf.cast(corroded * 255.0, inputs.dtype)
+        else:
+            base = tf.cast(inputs[..., :3], tf.float32) / 255.0
+            corroded_rgb = base * (1.0 - corrosion_mask * ink_mask) + color_rgb * corrosion_mask * ink_mask
+            corroded_rgb = tf.clip_by_value(corroded_rgb, 0.0, 1.0)
+            corroded_rgb = tf.cast(corroded_rgb * 255.0, inputs.dtype)
+            if input_channels == 4:
+                corroded = tf.concat([corroded_rgb, inputs[..., 3:4]], axis=-1)
+            else:
+                corroded = corroded_rgb
+
+        return corroded
+
+class WaterDamageLayer(tf.keras.layers.Layer):
+    def __init__(self, min_fade=0.3, max_fade=0.8, dirt_prob=0.15, **kwargs):
+        super().__init__(**kwargs)
+        self.min_fade = min_fade
+        self.max_fade = max_fade
+        self.dirt_prob = dirt_prob
+
+    def get_ellipsoid_mask(self, batch_size, height, width):
+        cy = tf.random.uniform([batch_size, 1, 1, 1], 0.3, 0.7) * tf.cast(height, tf.float32)
+        cx = tf.random.uniform([batch_size, 1, 1, 1], 0.3, 0.7) * tf.cast(width, tf.float32)
+        ay = tf.random.uniform([batch_size, 1, 1, 1], 0.2, 0.5) * tf.cast(height, tf.float32)
+        ax = tf.random.uniform([batch_size, 1, 1, 1], 0.2, 0.5) * tf.cast(width, tf.float32)
+        angle = tf.random.uniform([batch_size, 1, 1, 1], 0, 2 * np.pi)
+
+        y = tf.range(height, dtype=tf.float32)
+        x = tf.range(width, dtype=tf.float32)
+        yy, xx = tf.meshgrid(y, x, indexing='ij')
+        yy = tf.reshape(yy, [1, height, width, 1])
+        xx = tf.reshape(xx, [1, height, width, 1])
+
+        cos_a = tf.cos(angle)
+        sin_a = tf.sin(angle)
+        x_rot = (xx - cx) * cos_a + (yy - cy) * sin_a
+        y_rot = -(xx - cx) * sin_a + (yy - cy) * cos_a
+
+        mask = ((x_rot / ax) ** 2 + (y_rot / ay) ** 2) <= 1.0
+        mask = tf.cast(mask, tf.float32)
+
+        noise = tf.random.normal(tf.shape(mask), mean=0.0, stddev=0.15)
+        mask = tf.clip_by_value(mask + noise, 0.0, 1.0)
+        mask = tf.nn.avg_pool2d(mask, ksize=7, strides=1, padding='SAME')
+        mask = tf.clip_by_value(mask, 0.0, 1.0)
+        return mask
+
+    @tf.function
+    def call(self, inputs, training=None):
+        if not training:
+            return inputs
+
+        orig_dtype = inputs.dtype
+        inputs = tf.cast(inputs, tf.float32)
+
+        batch_size = tf.shape(inputs)[0]
+        height = tf.shape(inputs)[1]
+        width = tf.shape(inputs)[2]
+        channels = tf.shape(inputs)[3]
+
+        mask = self.get_ellipsoid_mask(batch_size, height, width)
+
+        fade = tf.random.uniform([batch_size, 1, 1, 1], self.min_fade, self.max_fade)
+        faded = inputs * (1 - mask * fade) + 255.0 * (mask * fade)
+        faded = tf.clip_by_value(faded, 0.0, 255.0)
+
+        dirt_mask = tf.cast(
+            tf.random.uniform(tf.shape(mask)) < self.dirt_prob, tf.float32
+        ) * mask
+        dirt = tf.random.uniform(tf.shape(faded), 0, 60) * dirt_mask
+        faded = faded - dirt
+        faded = tf.clip_by_value(faded, 0.0, 255.0)
+
+        return tf.cast(faded, orig_dtype)
+
+class BurnDamageLayer(tf.keras.layers.Layer):
+    def __init__(self, burn_strength=0.5, burn_scale=0.2, **kwargs):
+        super(BurnDamageLayer, self).__init__(**kwargs)
+        self.burn_strength = burn_strength
+        self.burn_scale = burn_scale
+
+    @tf.function
+    def call(self, inputs, training=None):
+        if not training:
+            return inputs
+
+        # Convert to float32 and grayscale if needed
+        x = tf.image.rgb_to_grayscale(inputs[..., :3]) if inputs.shape[-1] > 1 else inputs
+        x = tf.cast(x, tf.float32)
+
+        # Generate random burn damage mask (random blobs)
+        batch, height, width, channels = tf.unstack(tf.shape(x))
+        mask = tf.random.uniform([batch, height, width, 1], minval=0.0, maxval=1.0)
+        mask = tf.nn.avg_pool2d(mask, ksize=5, strides=1, padding='SAME')
+        mask = tf.cast(mask > self.burn_scale, tf.float32)
+
+        # Apply burn damage: reduce intensity where mask is 1
+        burn_damage = 1.0 - self.burn_strength * mask
+        damaged = x * burn_damage + (1.0 - burn_damage)  # fade image
+
+        # If input was RGB, tile back to 3 channels
+        if inputs.shape[-1] == 3:
+            damaged = tf.tile(damaged, [1, 1, 1, 3])
+        elif inputs.shape[-1] == 4:
+            # Keep alpha channel unchanged
+            damaged = tf.tile(damaged, [1, 1, 1, 3])
+            damaged = tf.concat([damaged, inputs[..., 3:4]], axis=-1)
+
+        return tf.cast(damaged, inputs.dtype)
+
+class RestaurationDamageLayer(tf.keras.layers.Layer):
+    def __init__(self, restoration_strength=0.5, restoration_scale=0.2, **kwargs):
+        super(RestaurationDamageLayer, self).__init__(**kwargs)
+        self.restoration_strength = restoration_strength
+        self.restoration_scale = restoration_scale
+
+    @tf.function
+    def call(self, inputs, training=None):
+        if not training:
+            return inputs
+
+        # Convert to float32 and grayscale if needed
+        x = tf.image.rgb_to_grayscale(inputs[..., :3]) if inputs.shape[-1] > 1 else inputs
+        x = tf.cast(x, tf.float32)
+
+        # Generate random restoration damage mask (random blobs)
+        batch, height, width, channels = tf.unstack(tf.shape(x))
+        mask = tf.random.uniform([batch, height, width, 1], minval=0.0, maxval=1.0)
+        mask = tf.nn.avg_pool2d(mask, ksize=5, strides=1, padding='SAME')
+        mask = tf.cast(mask > self.restoration_scale, tf.float32)
+
+        # Apply restoration damage: increase intensity where mask is 1
+        restoration_damage = 1.0 + self.restoration_strength * mask
+        damaged = x * restoration_damage  # enhance image
+
+        # If input was RGB, tile back to 3 channels
+        if inputs.shape[-1] == 3:
+            damaged = tf.tile(damaged, [1, 1, 1, 3])
+        elif inputs.shape[-1] == 4:
+            # Keep alpha channel unchanged
+            damaged = tf.tile(damaged, [1, 1, 1, 3])
+            damaged = tf.concat([damaged, inputs[..., 3:4]], axis=-1)
+
+        return tf.cast(damaged, inputs.dtype)
