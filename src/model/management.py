@@ -19,6 +19,7 @@ from model.conversion import convert_model
 from model.replacing import replace_final_layer, replace_recurrent_layer
 from setup.config import Config
 from utils.text import Tokenizer
+from datetime import datetime
 
 
 def adjust_model_for_float32(model: tf.keras.Model) -> tf.keras.Model:
@@ -355,6 +356,11 @@ def build_predefined_model(config: Config, model_key: str) -> tf.keras.Model:
 
     model_library = get_model_library()
     model_spec = model_library.get(model_key, model_key)
+
+    if model_spec == model_key:
+        if not config["model_name"]:
+            # append date and time to model name if not specified
+            config["model_name"] = ('vgsl_model_' + datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     model_generator = VGSLModelGenerator()
     model = model_generator.generate_model(model_spec=model_spec,
