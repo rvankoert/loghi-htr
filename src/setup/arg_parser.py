@@ -235,8 +235,10 @@ def get_arg_parser():
     # Experimental configuration
     experimental_args = parser.add_argument_group('Experimental arguments')
     experimental_args.add_argument('--bidirectional', action='store_true',
-                           help="Enable bidirectional reading direction for usage with"
-                           "Arabic, Hebrew and other RTL languages.")
+                                    help="Enable bidirectional reading direction for usage with"
+                                        "Arabic, Hebrew and other RTL languages.")
+    experimental_args.add_argument('--aug_mask', action='store_true',
+                                   help="Apply mask augmentation to images, randomly masking parts of the image to improve robustness.")
 
     return parser
 

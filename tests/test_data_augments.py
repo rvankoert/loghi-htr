@@ -21,7 +21,8 @@ from data.augment_layers import (ShearXLayer,
                                  RandomWidthLayer, BinarizeLayer,
                                  BlurImageLayer, InvertImageLayer,
                                  InkCorrosionLayer, WaterDamageLayer,
-                                 BurnDamageLayer, RestaurationDamageLayer)
+                                 BurnDamageLayer, RestaurationDamageLayer,
+                                 MaskingLayer)
 
 
 class TestDataAugments(unittest.TestCase):
@@ -301,6 +302,38 @@ class TestDataAugments(unittest.TestCase):
                     input_tensor = tf.random.uniform(shape=[128, 128, channels])
                     output_tensor = layer(input_tensor, training=False)
                     self.assertTrue(tf.reduce_all(tf.equal(input_tensor, output_tensor)))
+
+    def test_masking_layer(self):
+        # Test MaskingLayer for applying masks and shape consistency.
+        layer = MaskingLayer()
+
+        # Load a real image for better visual inspection
+        test_image_path = Path(__file__).resolve().parents[1] / 'tests' / 'data' / 'test-image1.png'
+        image = Image.open(test_image_path).convert('RGB')
+        image_np = np.array(image)
+        input_tensor = tf.expand_dims(tf.convert_to_tensor(image_np), axis=0)
+        input_tensor = tf.cast(input_tensor, tf.float32)
+
+        # Apply the layer
+        output_tensor = layer(input_tensor, training=True)
+
+        # Check shape consistency
+        self.assertEqual(input_tensor.shape, output_tensor.shape)
+
+        # Save output for visual inspection
+        output_image = tf.clip_by_value(output_tensor, 0, 255)
+        output_image = tf.cast(output_image, tf.uint8)
+        output_image = tf.squeeze(output_image, axis=0)  # Remove batch dimension
+        pil_image = Image.fromarray(output_image.numpy())
+
+        output_path = Path('/tmp') / 'test-image1-masked.png'
+        pil_image.save(output_path)
+        logging.info(f"Saved masked image to {output_path}")
+
+        # Save original for comparison
+        original_output_path = Path('/tmp') / 'test-image1-original-for-mask-test.png'
+        image.save(original_output_path)
+        logging.info(f"Saved original image for mask test to {original_output_path}")
 
 
 if __name__ == "__main__":

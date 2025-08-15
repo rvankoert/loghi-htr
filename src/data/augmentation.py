@@ -5,7 +5,7 @@ from pathlib import Path
 # > Local dependencies
 from data.augment_layers import BinarizeLayer, BlurImageLayer, \
     DistortImageLayer, ElasticTransformLayer, InvertImageLayer, \
-    RandomVerticalCropLayer, RandomWidthLayer, ResizeWithPadLayer, ShearXLayer
+    RandomVerticalCropLayer, RandomWidthLayer, ResizeWithPadLayer, ShearXLayer, MaskingLayer
 from setup.config import Config
 
 # > Third-party dependencies
@@ -237,6 +237,10 @@ def get_augment_selection(config: Config, channels: int) -> list:
     if config["aug_invert"]:
         logging.info("Selected data augment: invert image")
         augment_selection.append(InvertImageLayer(channels=channels))
+
+    if config["aug_mask"]:
+        logging.info("Selected data augment: mask image")
+        augment_selection.append(MaskingLayer())
 
     return augment_selection
 

@@ -833,3 +833,96 @@ class RestaurationDamageLayer(tf.keras.layers.Layer):
             damaged = tf.concat([damaged, inputs[..., 3:4]], axis=-1)
 
         return tf.cast(damaged, inputs.dtype)
+
+class MaskingLayer(tf.keras.layers.Layer):
+    def __init__(self, num_masks=5, min_mask_size=(0.1, 0.01), max_mask_size=(0.25, 0.05), fill_value=-10.0, **kwargs):
+        """
+        Initializes the MaskingLayer.
+
+        Parameters
+        ----------
+        num_masks : int, optional
+            The number of masks to apply to each image, by default 1.
+        min_mask_size : tuple, optional
+            The minimum size of the mask as a fraction of image dimensions (height, width), by default (0.1, 0.1).
+        max_mask_size : tuple, optional
+            The maximum size of the mask as a fraction of image dimensions (height, width), by default (0.25, 0.25).
+        fill_value : float, optional
+            The value to fill the masked area with, by default 0.0 (black).
+        """
+        super().__init__(**kwargs)
+        self.num_masks = num_masks
+        self.min_mask_size = min_mask_size
+        self.max_mask_size = max_mask_size
+        self.fill_value = fill_value
+
+    @tf.function
+    def call(self, inputs, training=None):
+        """
+        Applies random rectangular masks to the input images.
+
+        Parameters
+        ----------
+        inputs : tf.Tensor
+            Input batch of images as a TensorFlow tensor.
+        training : bool, optional
+            Whether the layer should behave in training mode, by default None.
+
+        Returns
+        -------
+        tf.Tensor
+            Batch of images with random masks applied.
+        """
+        if not training:
+            return inputs
+
+        def apply_mask(image):
+            image_shape = tf.shape(image)
+            image_height = image_shape[0]
+            image_width = image_shape[1]
+
+            masked_image = image
+
+            for _ in tf.range(self.num_masks):
+                # Determine mask size
+                mask_height = tf.random.uniform(
+                    [],
+                    minval=tf.cast(image_height, tf.float32) * self.min_mask_size[0],
+                    maxval=tf.cast(image_height, tf.float32) * self.max_mask_size[0],
+                    dtype=tf.float32
+                )
+                mask_height = tf.cast(mask_height, tf.int32)
+
+                mask_width = tf.random.uniform(
+                    [],
+                    minval=tf.cast(image_width, tf.float32) * self.min_mask_size[1],
+                    maxval=tf.cast(image_width, tf.float32) * self.max_mask_size[1],
+                    dtype=tf.float32
+                )
+                mask_width = tf.cast(mask_width, tf.int32)
+
+                # Determine mask position (top-left corner)
+                max_y = tf.maximum(1, image_height - mask_height)
+                max_x = tf.maximum(1, image_width - mask_width)
+                offset_y = tf.random.uniform([], 0, max_y, dtype=tf.int32)
+                offset_x = tf.random.uniform([], 0, max_x, dtype=tf.int32)
+
+                # Create a boolean mask for the area to be filled
+                indices = tf.meshgrid(tf.range(offset_y, offset_y + mask_height),
+                                      tf.range(offset_x, offset_x + mask_width),
+                                      indexing='ij')
+                indices = tf.stack(indices, axis=-1)
+                indices = tf.reshape(indices, [-1, 2])
+
+                bool_mask = tf.scatter_nd(indices, tf.ones(tf.shape(indices)[0], dtype=tf.bool), [image_height, image_width])
+                bool_mask = tf.expand_dims(bool_mask, axis=-1)
+                bool_mask = tf.tile(bool_mask, [1, 1, tf.shape(image)[-1]])
+
+                # Cast fill_value to the image's dtype to prevent type mismatch
+                fill_value = tf.cast(self.fill_value, image.dtype)
+                masked_image = tf.where(bool_mask, fill_value, masked_image)
+
+            return masked_image
+
+        # Apply the masking function to each image in the batch
+        return tf.map_fn(apply_mask, inputs, fn_output_signature=inputs.dtype)
