@@ -216,7 +216,10 @@ class DataManager:
         flaw_counts = {}
 
         # Process each file in the data files list
-        for file_path in text_file.split('\t'):
+        for file_path in text_file.split(' '):
+            file_path = file_path.strip()
+            if not file_path:
+                continue
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"{file_path} does not exist")
 
