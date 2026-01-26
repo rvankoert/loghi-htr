@@ -8,7 +8,6 @@ import os
 import sys
 import time
 import uuid
-import multiprocessing as mp
 
 from typing import List, Tuple
 
@@ -279,15 +278,17 @@ def data_generator(
             try:
                 time_since_last_request = time.time()
                 data = request_queue.get()
-                new_model_path = data[3]
+                # Unpack to normalize values before yielding
+                image_bytes, group_id, identifier, new_model_path, whitelist = data
 
-                if current_model_path_holder[0] is None:
-                    current_model_path_holder[0] = new_model_path
+                # Ensure model path is always a string for tf.data (no None)
+                if new_model_path is None:
+                    new_model_path = current_model_path_holder[0]
 
-                if (
-                    new_model_path != current_model_path_holder[0]
-                    and new_model_path is not None
-                ):
+                # Re-pack the possibly updated tuple
+                data = (image_bytes, group_id, identifier, new_model_path, whitelist)
+
+                if new_model_path != current_model_path_holder[0]:
                     request_queue.put(data)
                     logging.info(
                         "Model changed to '%s'. Switching generator.", new_model_path

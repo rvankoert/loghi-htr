@@ -61,28 +61,30 @@ class ResultWriter(Thread):
         """Returns the number of lines written to the output file."""
         return self.written_line_count
 
-    def stop(self) -> None:
-        if self.queue.qsize() > 0:
-            logging.warning(
-                "Stopping ResultWriter with %d items still in the queue.",
-                self.queue.qsize(),
-            )
-        while not self.queue.empty():
-            try:
-                batch_result = self.queue.get(timeout=1.0)
-                for result in batch_result:
-                    result_str = f"{result['filename']}\t{result['confidence']}\t{result['prediction']}"
-                    logging.info(result_str)
-                    with open(self.output_file, "a", encoding="utf-8") as f:
+    def stop(self):
+        """Stop the writer thread gracefully."""
+        # First process all remaining items in the queue
+        logging.info(f"Stopping ResultWriter with {self.queue.qsize()} items in queue")
+        try:
+            while not self.queue.empty():
+                batch_result = self.queue.get(block=False)
+                with open(self.output_file, "a", encoding="utf-8") as f:
+                    for result in batch_result:
+                        result_str = f"{result['filename']}\t{result['confidence']}\t{result['prediction']}"
                         f.write(result_str + "\n")
-                    self.written_line_count += 1  # Increment line count
+                        self.written_line_count += 1
+                    f.flush()
                 self.queue.task_done()
-            except Empty:
-                break
-        self.running = False
-        if self is not threading.current_thread():
-            self.join()
+        except Exception as e:
+            logging.error(f"Error processing remaining items: {e}")
 
+        # Now signal the thread to stop
+        self.running = False
+        self.stop_event.set()
+
+        # Only join if this isn't the current thread
+        if self.is_alive() and self is not threading.current_thread():
+            self.join(timeout=10.0)
 
 class MetricsCalculator(Thread):
     """
