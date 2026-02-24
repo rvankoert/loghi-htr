@@ -10,6 +10,20 @@ from typing import Any, Generator, List, Tuple
 import tensorflow as tf
 
 logger = logging.getLogger(__name__)
+WIDTH_BUCKET_BOUNDARIES = [128, 192, 256, 384, 512, 768, 1024, 1536]
+WIDTH_BUCKET_BATCH_SIZE_FACTORS = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.65, 0.5]
+
+
+def _build_bucket_batch_sizes(base_batch_size: int) -> List[int]:
+    """Scale batch sizes by bucket to keep very wide lines memory-efficient."""
+    if len(WIDTH_BUCKET_BATCH_SIZE_FACTORS) != len(WIDTH_BUCKET_BOUNDARIES) + 1:
+        raise ValueError(
+            "WIDTH_BUCKET_BATCH_SIZE_FACTORS must have len(WIDTH_BUCKET_BOUNDARIES) + 1 entries."
+        )
+    return [
+        max(1, min(base_batch_size, int(base_batch_size * factor)))
+        for factor in WIDTH_BUCKET_BATCH_SIZE_FACTORS
+    ]
 
 
 def _process_sample_tf(
@@ -108,6 +122,8 @@ class PredictionDatasetBuilder:
     ):
         self._q = mp_request_queue
         self.batch_size = batch_size
+        self.bucket_boundaries = WIDTH_BUCKET_BOUNDARIES
+        self.bucket_batch_sizes = _build_bucket_batch_sizes(batch_size)
         self.model_path_holder = current_model_path_holder
         self.num_channels = num_channels
         self._stop = stop_event
@@ -182,13 +198,24 @@ class PredictionDatasetBuilder:
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=False,
         )
-        ds = ds.padded_batch(
-            self.batch_size,
-            padded_shapes=([None, None, self.num_channels], [], [], [], [None], []),
+        # Bucket by sequence width to reduce padding overhead inside each batch.
+        ds = ds.bucket_by_sequence_length(
+            element_length_func=lambda image, *_: tf.shape(image)[0],
+            bucket_boundaries=self.bucket_boundaries,
+            bucket_batch_sizes=self.bucket_batch_sizes,
+            padded_shapes=(
+                [None, None, self.num_channels],
+                [],
+                [],
+                [],
+                [None],
+                [],
+            ),
             padding_values=(
                 tf.constant(-10.0, tf.float32),
                 *(tf.constant("", tf.string) for _ in range(5)),
             ),
+            pad_to_bucket_boundary=False,
             drop_remainder=False,
         ).prefetch(tf.data.AUTOTUNE)
         return ds

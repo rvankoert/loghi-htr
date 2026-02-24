@@ -85,7 +85,7 @@ async def sse_event_generator(
                 }
                 return
 
-            logger.info(f"SSE {unique_request_key}: Sending result.")
+            logger.debug(f"SSE {unique_request_key}: Sending result.")
             yield {"event": "result", "data": json.dumps(result_item)}
             yield {
                 "event": "done",
@@ -100,7 +100,7 @@ async def sse_event_generator(
             return
 
     except asyncio.CancelledError:
-        logger.info(f"SSE stream for {unique_request_key} cancelled by client.")
+        logger.debug(f"SSE stream for {unique_request_key} cancelled by client.")
     except Exception as e:
         logger.error(
             f"Error in SSE event_generator for {unique_request_key}: {e}", exc_info=True

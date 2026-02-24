@@ -168,7 +168,7 @@ def create_router(app_instance: FastAPI) -> APIRouter:
                 )
             )
 
-        logger.info(
+        logger.debug(
             f"SSE Prediction request accepted for {group_id} - {identifier} (Request Key: {unique_request_key}, API Req ID: {request_id})"
         )
 
