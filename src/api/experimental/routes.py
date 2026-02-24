@@ -179,6 +179,118 @@ def create_router(app_instance: FastAPI) -> APIRouter:
                 response_queue,
                 unique_request_key,
                 app_state.sse_response_queues,
+                expected_results=1,
+            )
+        )
+
+    @router.post("/predict_batch")
+    async def predict_batch_endpoint(
+        request: Request,
+        images: List[UploadFile] = File(...),
+        group_id: List[str] = Form(...),
+        identifier: List[str] = Form(...),
+        model: Optional[str] = Form(None),
+        whitelist: List[str] = Form([]),
+    ):
+        """
+        Accept multiple images and return per-image predictions via one SSE stream.
+        """
+        request_id = str(uuid.uuid4())
+        app_state = request.app.state
+
+        if app_state.restarting:
+            return EventSourceResponse(
+                _generate_error_sse_stream(
+                    503, "Service Unavailable", "Server restarting."
+                )
+            )
+
+        num_images = len(images)
+        if num_images == 0:
+            return EventSourceResponse(
+                _generate_error_sse_stream(
+                    400, "Invalid Input", "No images were provided."
+                )
+            )
+        if len(group_id) != num_images or len(identifier) != num_images:
+            return EventSourceResponse(
+                _generate_error_sse_stream(
+                    400,
+                    "Invalid Input",
+                    "Field counts must match: images, group_id, and identifier.",
+                )
+            )
+
+        queued_items = []
+        for i in range(num_images):
+            try:
+                request_data_tuple = await extract_request_data(
+                    images[i],
+                    group_id[i],
+                    identifier[i],
+                    model,
+                    whitelist,
+                )
+            except HTTPException as e:
+                return EventSourceResponse(
+                    _generate_error_sse_stream(
+                        e.status_code,
+                        "Validation Error",
+                        f"Item {i}: {e.detail}",
+                    )
+                )
+            except ValueError as e:
+                return EventSourceResponse(
+                    _generate_error_sse_stream(400, "Invalid Input", str(e))
+                )
+            queued_items.append(request_data_tuple)
+
+        # Best-effort queue capacity check to avoid partially accepted batches.
+        pending_items = app_state.async_request_queue.qsize()
+        queue_limit = app_state.async_request_queue.maxsize
+        if queue_limit > 0 and (pending_items + len(queued_items) > queue_limit):
+            return EventSourceResponse(
+                _generate_error_sse_stream(
+                    429,
+                    "Queue Full",
+                    "Server busy, request queue does not have enough room for this batch.",
+                )
+            )
+
+        unique_request_key = f"sse_batch_{request_id.split('-')[0]}"
+        response_queue = asyncio.Queue()
+        app_state.sse_response_queues[unique_request_key] = response_queue
+
+        try:
+            for item in queued_items:
+                app_state.async_request_queue.put_nowait(
+                    (*item, unique_request_key),
+                )
+        except asyncio.QueueFull:
+            app_state.sse_response_queues.pop(unique_request_key, None)
+            return EventSourceResponse(
+                _generate_error_sse_stream(
+                    429,
+                    "Queue Timeout",
+                    "Server busy, request queue became full during batch submission.",
+                )
+            )
+
+        logger.debug(
+            "SSE batch request accepted (%d items, key=%s, api_req=%s)",
+            len(queued_items),
+            unique_request_key,
+            request_id,
+        )
+
+        return EventSourceResponse(
+            sse_event_generator(
+                group_id[0],
+                identifier[0],
+                response_queue,
+                unique_request_key,
+                app_state.sse_response_queues,
+                expected_results=len(queued_items),
             )
         )
 

@@ -294,17 +294,25 @@ def _run_prediction_loop(
                 unique_keys_tensor,
             ) = batch_data
 
-            # Filter out padding (where identifier is empty string)
+            # Fast path: bucketed batches normally contain only real rows.
+            # Avoid costly boolean_mask copies unless we actually detect padding.
             item_mask = tf.not_equal(ids_tensor, "")
-            if not tf.reduce_any(item_mask):
-                logger.debug("Batch was all padding. Skipping.")
-                continue
+            if bool(tf.reduce_all(item_mask).numpy()):
+                images = images_tensor
+                groups = groups_tensor
+                identifiers = ids_tensor
+                whitelists = whitelists_tensor
+                unique_keys = unique_keys_tensor
+            else:
+                if not bool(tf.reduce_any(item_mask).numpy()):
+                    logger.debug("Batch was all padding. Skipping.")
+                    continue
 
-            images = tf.boolean_mask(images_tensor, item_mask)
-            groups = tf.boolean_mask(groups_tensor, item_mask)
-            identifiers = tf.boolean_mask(ids_tensor, item_mask)
-            whitelists = tf.boolean_mask(whitelists_tensor, item_mask)
-            unique_keys = tf.boolean_mask(unique_keys_tensor, item_mask)
+                images = tf.boolean_mask(images_tensor, item_mask)
+                groups = tf.boolean_mask(groups_tensor, item_mask)
+                identifiers = tf.boolean_mask(ids_tensor, item_mask)
+                whitelists = tf.boolean_mask(whitelists_tensor, item_mask)
+                unique_keys = tf.boolean_mask(unique_keys_tensor, item_mask)
 
             if tf.shape(images)[0] == 0:
                 continue

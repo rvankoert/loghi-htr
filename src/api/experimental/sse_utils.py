@@ -15,6 +15,7 @@ async def sse_event_generator(
     specific_results_queue: asyncio.Queue,
     unique_request_key: str,
     sse_listeners_dict: Dict[str, asyncio.Queue],
+    expected_results: int = 1,
 ) -> AsyncGenerator[Dict[str, str], None]:
     """
     Generator for Server-Sent Events (SSE) from a specific queue.
@@ -42,15 +43,23 @@ async def sse_event_generator(
     """
     logger.debug(f"SSE event_generator started for {unique_request_key}")
 
+    total_expected = max(1, int(expected_results))
+    completed_items = 0
+
     yield {
         "event": "status",
         "data": json.dumps(
-            {"group_id": group_id, "identifier": identifier, "status": "queued"}
+            {
+                "group_id": group_id,
+                "identifier": identifier,
+                "status": "queued",
+                "expected_results": total_expected,
+            }
         ),
     }
 
     try:
-        while True:
+        while completed_items < total_expected:
             try:
                 result_item: Dict[str, Any] = await asyncio.wait_for(
                     specific_results_queue.get(),
@@ -61,13 +70,13 @@ async def sse_event_generator(
                 )
                 specific_results_queue.task_done()
 
-                # Check if the dequeued item is an error notification
                 if result_item.get("error"):
                     logger.error(
                         f"SSE {unique_request_key}: Sending error to client: {result_item}"
                     )
                     yield {"event": "error", "data": json.dumps(result_item)}
-                    return  # Terminate the stream on error
+                    completed_items += 1
+                    continue
 
             except asyncio.TimeoutError:
                 logger.warning(
@@ -80,6 +89,8 @@ async def sse_event_generator(
                             "group_id": group_id,
                             "identifier": identifier,
                             "status": "timed_out",
+                            "completed_results": completed_items,
+                            "expected_results": total_expected,
                         }
                     ),
                 }
@@ -87,17 +98,21 @@ async def sse_event_generator(
 
             logger.debug(f"SSE {unique_request_key}: Sending result.")
             yield {"event": "result", "data": json.dumps(result_item)}
-            yield {
-                "event": "done",
-                "data": json.dumps(
-                    {
-                        "group_id": group_id,
-                        "identifier": identifier,
-                        "status": "completed",
-                    }
-                ),
-            }
-            return
+            completed_items += 1
+
+        yield {
+            "event": "done",
+            "data": json.dumps(
+                {
+                    "group_id": group_id,
+                    "identifier": identifier,
+                    "status": "completed",
+                    "completed_results": completed_items,
+                    "expected_results": total_expected,
+                }
+            ),
+        }
+        return
 
     except asyncio.CancelledError:
         logger.debug(f"SSE stream for {unique_request_key} cancelled by client.")

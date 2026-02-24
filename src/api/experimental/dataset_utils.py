@@ -12,6 +12,7 @@ import tensorflow as tf
 logger = logging.getLogger(__name__)
 WIDTH_BUCKET_BOUNDARIES = [128, 192, 256, 384, 512, 768, 1024, 1536]
 WIDTH_BUCKET_BATCH_SIZE_FACTORS = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.65, 0.5]
+PAD_TO_BUCKET_BOUNDARY = False
 
 
 def _build_bucket_batch_sizes(base_batch_size: int) -> List[int]:
@@ -215,7 +216,7 @@ class PredictionDatasetBuilder:
                 tf.constant(-10.0, tf.float32),
                 *(tf.constant("", tf.string) for _ in range(5)),
             ),
-            pad_to_bucket_boundary=False,
+            pad_to_bucket_boundary=PAD_TO_BUCKET_BOUNDARY,
             drop_remainder=False,
         ).prefetch(tf.data.AUTOTUNE)
         return ds
