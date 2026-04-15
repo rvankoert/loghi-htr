@@ -58,43 +58,60 @@ async def sse_event_generator(
         ),
     }
 
+    max_wait = 3000.0
+    poll_interval = 30.0
     try:
         while completed_items < total_expected:
-            try:
-                result_item: Dict[str, Any] = await asyncio.wait_for(
-                    specific_results_queue.get(),
-                    timeout=3000.0,
-                )
-                logger.debug(
-                    f"SSE {unique_request_key}: Dequeued item {result_item.get('group_id')}_{result_item.get('identifier')}"
-                )
-                specific_results_queue.task_done()
-
-                if result_item.get("error"):
-                    logger.error(
-                        f"SSE {unique_request_key}: Sending error to client: {result_item}"
+            elapsed = 0.0
+            result_item: Dict[str, Any] | None = None
+            while result_item is None:
+                try:
+                    result_item = await asyncio.wait_for(
+                        specific_results_queue.get(),
+                        timeout=poll_interval,
                     )
-                    yield {"event": "error", "data": json.dumps(result_item)}
-                    completed_items += 1
-                    continue
-
-            except asyncio.TimeoutError:
-                logger.warning(
-                    f"SSE event_generator for {unique_request_key} timed out waiting for result from its specific queue."
-                )
-                yield {
-                    "event": "timeout",
-                    "data": json.dumps(
-                        {
-                            "group_id": group_id,
-                            "identifier": identifier,
-                            "status": "timed_out",
-                            "completed_results": completed_items,
-                            "expected_results": total_expected,
+                except asyncio.TimeoutError:
+                    elapsed += poll_interval
+                    if elapsed >= max_wait:
+                        logger.warning(
+                            f"SSE event_generator for {unique_request_key} timed out waiting for result from its specific queue."
+                        )
+                        yield {
+                            "event": "timeout",
+                            "data": json.dumps(
+                                {
+                                    "group_id": group_id,
+                                    "identifier": identifier,
+                                    "status": "timed_out",
+                                    "completed_results": completed_items,
+                                    "expected_results": total_expected,
+                                }
+                            ),
                         }
-                    ),
-                }
-                return
+                        return
+                    yield {
+                        "event": "heartbeat",
+                        "data": json.dumps(
+                            {
+                                "status": "processing",
+                                "completed_results": completed_items,
+                                "expected_results": total_expected,
+                            }
+                        ),
+                    }
+
+            logger.debug(
+                f"SSE {unique_request_key}: Dequeued item {result_item.get('group_id')}_{result_item.get('identifier')}"
+            )
+            specific_results_queue.task_done()
+
+            if result_item.get("error"):
+                logger.error(
+                    f"SSE {unique_request_key}: Sending error to client: {result_item}"
+                )
+                yield {"event": "error", "data": json.dumps(result_item)}
+                completed_items += 1
+                continue
 
             logger.debug(f"SSE {unique_request_key}: Sending result.")
             yield {"event": "result", "data": json.dumps(result_item)}

@@ -260,7 +260,7 @@ async def run_server(
     logger.info(
         "Starting Hypercorn on %s (h2c=%s, tls=%s)",
         cfg.bind[0],
-        cfg.h2c,
+        h2c,
         bool(certfile),
     )
 
